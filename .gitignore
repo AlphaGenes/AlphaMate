@@ -1,4 +1,5 @@
-AlphaMate
+bin
+objs
 *.o
 *.mod
 *.txt
