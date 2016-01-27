@@ -1,3 +1,29 @@
+#ifdef BINARY
+#define BINFILE ,form="unformatted"
+#else
+#DEFINE BINFILE
+#endif
+
+#define STRINGIFY(x) #x
+#define TOSTRING(x) STRINGIFY(x)
+
+#ifdef OS_UNIX
+
+#DEFINE DASH "/"
+#DEFINE COPY "cp"
+#DEFINE MD "mkdir"
+#DEFINE RMDIR "rm -r"
+#DEFINE RM "rm"
+#DEFINE RENAME "mv"
+
+#else
+#DEFINE DASH "\"
+#DEFINE COPY "copy"
+#DEFINE MD "md"
+#DEFINE RMDIR "RMDIR /S"
+#DEFINE RM "del"
+#DEFINE RENAME "MOVE /Y"
+#endif
 
 !################################################################################################################################################################
 
@@ -39,11 +65,21 @@ end module GlobalGA
 program AlphaMate
 
     use Global
+
     implicit none
+    real :: start, finish
+
+    call cpu_time(start)
+    call Titles
 
     call ReadParametersData
     call InitiateSeed(idum)
     call SearchLambda
+
+    call cpu_time(finish)
+    print *," "
+    print '("  Time duration of AlphaMate = ",f20.4," seconds.")',finish-start
+    print *," "
 
 end program AlphaMate
 
@@ -1143,3 +1179,22 @@ subroutine CountLines(FileName,nLines)
     close(101)
 
 end subroutine CountLines
+
+!#############################################################################################################################################################################################################################
+
+   subroutine Titles
+       print*, ""
+       write(*,'(a30,a,a30)') " ","**********************"," "
+       write(*,'(a30,a,a30)') " ","*                    *"," "
+       write(*,'(a30,a,a30)') " ","*     AlphaMate      *"," "
+       write(*,'(a30,a,a30)') " ","*                    *"," "
+       write(*,'(a30,a,a30)') " ","**********************"
+       write(*,'(a30,a,a30)') " ","VERSION:"//TOSTRING(VERS)," "
+       print*, "              Software for optimizing contributions to the next generation       "
+       print*, ""
+       print*, "                                    No Liability              "
+       print*, "                          Bugs to John.Hickey@roslin.ed.ac.uk"
+       print*, ""
+   end subroutine Titles
+
+!#############################################################################################################################################################################################################################
