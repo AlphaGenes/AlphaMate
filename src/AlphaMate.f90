@@ -36,7 +36,7 @@ module AlphaMateModule
     integer,allocatable,dimension(:,:) :: matings
     double precision :: xa,xAx,dFSpec,dF,currentLambda,xAxMin,xAxCurrent
     double precision :: lambdaDown=10,lambdaUp=10,dFTol=0.001,initialLambda=10 !May add to SpecFile
-    double precision :: genAlgTol=0.00001 !Minimum require change in objective
+    double precision :: genAlgTol=0.0001 !Minimum require change in objective
     double precision,allocatable,dimension(:) :: ebv,xVec,ebvS
     double precision,allocatable,dimension(:,:) :: Amat
     character(len=300) :: dumC,criterionType
@@ -471,11 +471,11 @@ CONTAINS
             if(kold/=k)solutionchanged=.true.
             kold=k
 
-            !Test if solution is improving every 1000 generations
+            !Test if solution is improving every 100 generations
             !If it isn't stop optimization
             if(generation==1) then
                 oldBest = value_hold
-            else if(mod(generation,1000)==0) then
+            else if(mod(generation,100)==0) then
                 if((value_hold-oldBest)>genAlgTol) then
                     oldBest = value_hold
                 else
