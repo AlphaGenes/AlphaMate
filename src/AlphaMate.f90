@@ -355,7 +355,7 @@ CONTAINS
 
         !initialise foundation population of solutions ...
         do j=1,nInd
-            parent_allele(1,j)=1/nInd
+            parent_allele(1,j)=1.0
         enddo
         allele(:)=parent_allele(1,:)
         value(1)=CalcCriterion(nInd,allele)
