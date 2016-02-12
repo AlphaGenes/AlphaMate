@@ -376,9 +376,10 @@ module AlphaMateModule
                 call PerformMating
             endif
 
-            ! TODO header; make pedigree?
+            !                           1234567890   1234567890
+            write(UnitMating,"(2i10)") "   Parent1","   Parent2"
             do i=1,nMatings
-                write(UnitMating,*) Matings(i,:) ! TODO inefficient
+                write(UnitMating,*) Matings(i,:)
             enddo
 
             !                           1234567890   1234567890   1234567890   1234567890   1234567890
@@ -432,8 +433,10 @@ module AlphaMateModule
                call PerformMating
             endif
 
+            !                           1234567890   1234567890
+            write(UnitMating,"(2i10)") "   Parent1","   Parent2"
             do i=1,nMatings
-                write(UnitMating,*) Matings(i,:) ! TODO inefficient
+                write(UnitMating,*) Matings(i,:)
             enddo
             !                           1234567890   1234567890   1234567890   1234567890   1234567890
             write(UnitContri,"(5a10)") "        Id","    OrigId","    Gender","Contribute","  nMatings"
@@ -944,8 +947,8 @@ module AlphaMateModule
             l=0
             do i=1,nMatings
                 l=l+1
-                matings(i,1)=MatingMalIdVec(ShuffleMatingMalVec(l))
-                matings(i,2)=MatingFemIdVec(ShuffleMatingFemVec(l))
+                Matings(i,1)=MatingMalIdVec(ShuffleMatingMalVec(l))
+                Matings(i,2)=MatingFemIdVec(ShuffleMatingFemVec(l))
             enddo
 
             ! Fill nMatingPerInd
