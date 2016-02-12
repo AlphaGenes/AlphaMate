@@ -699,32 +699,33 @@ module AlphaMateModule
             character(len=*),intent(in) :: CriterionType  ! Type of criterion (MinInb,MaxGain)
             ! Other
             integer :: i,jMal,jFem
-            double precision :: MiVal,Criterion,TmpVec(nInd),TotMal,TotFem,GainScaled,SolutionScaled(nInd)
+            double precision :: MiVal,Criterion,TmpVec(nInd,1),TotMal,TotFem,GainScaled,SolutionScaled(nInd)
 
-            ! Negative-to-zero mapping, i.e., [-Inf,0,Inf] --> [0,0,Inf]
+            ! --- Negative-to-zero mapping, i.e., [-Inf,0,Inf] --> [0,0,Inf] ---
+
             ! (this one allows unconstrained parameters within evolutionary algorithm,
             !  and speeds up convergence of AlphaMate)
             SolutionScaled(:)=Solution(:)
-            do i=1,nInd
+            do i=1,nInd ! TODO: handle nInd here when PAGE comes in
                 if (SolutionScaled(i) < 0.0) then
                     SolutionScaled(i)=0.0
                 endif
             enddo
 
-            ! Probability mapping, i.e., [-Inf,0,Inf] --> [0,1/2,1]
+            ! --- Probability mapping, i.e., [-Inf,0,Inf] --> [0,1/2,1] ---
+
             ! For some reason, not limiting within the evolutionary algorithm and
             ! using the logit mapping gave much worse outcomes. Perhaps due to
             ! non-linearity of the link function.
-            ! SolutionScaled=Solution(1:nInd)
+            ! SolutionScaled=Solution(:)
             ! SolutionScaled(:)=exp(Solution(:))/(1.0d0 + exp(Solution(:)))
 
-            ! Genetic contributions (XVec)
+            ! --- Genetic contributions (XVec) ---
+
             if (.not.GenderMatters) then
-                XVec(:)=SolutionScaled(:)/sum(SolutionScaled(1:nInd))
+                XVec(1:nInd)=SolutionScaled(1:nInd)/sum(SolutionScaled(1:nInd))
             else
-                ! TODO: simplify this code - just assume that order of individuals
-                !       in SolutionScaled is the same as in the data and this should
-                !       simplify the code later
+                ! WARNING: the order of males and females differs in Solution and XVec
                 TotMal=sum(SolutionScaled(1:nMal))
                 TotFem=sum(SolutionScaled((nMal+1):nInd))
                 jMal=0
@@ -732,34 +733,45 @@ module AlphaMateModule
                 do i=1,nInd
                     if (Gender(i) == 1) then
                         jMal=jMal+1
-                        XVec(i)=SolutionScaled(jMal)
+                        XVec(i)=0.5d0*SolutionScaled(jMal)/TotMal
                     else
                         jFem=jFem+1
-                        XVec(i)=SolutionScaled(nMal+jFem)
-                    endif
-                enddo
-
-                do i=1,nInd
-                    if (Gender(i) == 1) then
-                        XVec(i)=0.5d0*XVec(i)/TotMal
-                    else
-                        XVec(i)=0.5d0*XVec(i)/TotFem
+                        XVec(i)=0.5d0*SolutionScaled(nMal+jFem)/TotFem
                     endif
                 enddo
             endif
 
-            ! Group coancestry (future inbreeding)
+            ! --- Group coancestry (future inbreeding) ---
+
+            ! xA
             do i=1,nInd
-                TmpVec(i)=dot_product(XVec,RelMat(:,i)) ! xA
+                TmpVec(i,1)=dot_product(XVec,RelMat(:,i))
             enddo
-            FCurrent=0.5d0*dot_product(TmpVec,XVec)     ! xAx
+            ! xAx
+            FCurrent=0.5d0*dot_product(TmpVec(:,1),XVec)
+            ! print*,XVec,TmpVec,FCurrent
+
+            ! Matrix multiplication with symmetric matrix using BLAS routine
+            ! (it was slower than the above with 1.000 individuals, might be
+            !  benefical with larger cases so kept in for now.)
+            ! http://www.netlib.org/lapack/explore-html/d1/d54/group__double__blas__level3.html#ga253c8edb8b21d1b5b1783725c2a6b692
+            ! Ax
+            ! call dsymm(side="l",uplo="l",m=nInd,n=1,alpha=1.0d0,A=RelMat,lda=nInd,b=XVec,ldb=nInd,beta=0,c=TmpVec,ldc=nInd)
+            ! call dsymm(     "l",     "l",  nInd,  1,      1.0d0,  RelMat,    nInd,  XVec,    nInd,     0,  TmpVec,    nInd)
+            ! xAx
+            ! FCurrent=0.5d0*dot_product(XVec,TmpVec(:,1))
+            ! print*,XVec,TmpVec,FCurrent
+            ! stop
+
             FCurrentRebase=(FCurrent-FOld)/(1.0d0-FOld)
 
-            ! Genetic gain
+            ! --- Genetic gain ---
+
             Gain=dot_product(XVec,Bv)
             GainScaled=dot_product(XVec,BvScaled)
 
-            ! Criterion
+            ! --- Criterion ---
+
             if (trim(CriterionType) == "MinInb") then
                 DeltaFCurrent=(FCurrent-FOld)/(1.0d0-FOld)
                 !Criterion=-1.0d0*(FCurrentRebase-FTargetRebase)
