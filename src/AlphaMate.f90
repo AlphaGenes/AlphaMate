@@ -126,6 +126,16 @@ module AlphaSuiteModule
         end subroutine CountLines
 
         !#######################################################################
+
+        function int2char(i) result(res)
+            character(:),allocatable :: res
+            integer,intent(in) :: i
+            character(range(i)+2) :: tmp
+            write(tmp,'(i0)') i
+            res=trim(tmp)
+        end function
+
+        !#######################################################################
 end module AlphaSuiteModule
 
 !###############################################################################
@@ -145,19 +155,20 @@ module AlphaMateModule
 
     implicit none
 
-    integer :: nInd,idum,nMatings,nMal,nFem
+    integer :: nInd,idum,nMatings,nMal,nFem,nFrontierSteps
     integer :: EvolAlgNSol,EvolAlgNGen,EvolAlgNGenBurnIn,EvolAlgNGenStop,EvolAlgNGenPrint
     integer,allocatable,dimension(:) :: Gender,IdMal,IdFem,nMatingPerInd
     integer,allocatable,dimension(:,:) :: Matings
 
-    double precision :: EvolAlgStopTol,Gain,DeltaFTarget,DeltaFCurrent
-    double precision :: FOld,FTarget,FTargetRebase,FCurrent,FCurrentRebase
+    double precision :: EvolAlgStopTol,Gain,GainScaled,GainMinInb,GainMinInbScaled,GainOpt,GainOptScaled
+    double precision :: DeltaFTarget,DeltaFCurrent,DeltaFMinInb,DeltaFOpt,DeltaFMaxFrontier
+    double precision :: FOld,FTarget,FTargetRebased,FCurrent,FCurrentRebased,FMinInb,FMinInbRebased,FOpt,FOptRebased
     double precision,allocatable,dimension(:) :: Bv,BvScaled,XVec
     double precision,allocatable,dimension(:,:) :: RelMat
 
     character(len=300),allocatable,dimension(:) :: IdC
 
-    logical :: GenderMatters,InferFOld,Verbose=.false.
+    logical :: GenderMatters,InferFOld,EvaluateFrontier
 
     contains
 
@@ -227,6 +238,15 @@ module AlphaMateModule
             endif
             read(UnitSpec,*) DumC,DeltaFTarget
 
+            read(UnitSpec,*) DumC,DumC
+            if (trim(DumC) == "No") then
+                EvaluateFrontier=.false.
+            else
+                EvaluateFrontier=.true.
+                backspace(UnitSpec)
+                read(UnitSpec,*) DumC,DumC,DeltaFMaxFrontier,nFrontierSteps
+            endif
+
             read(UnitSpec,*) DumC,EvolAlgNSol,EvolAlgNGen,EvolAlgNGenBurnIn,EvolAlgNGenStop,EvolAlgStopTol,EvolAlgNGenPrint
 
             read(UnitSpec,*) DumC,DumC
@@ -239,6 +259,7 @@ module AlphaMateModule
                 call SetSeed(Seed=DumI,SeedFile=SeedFile,Out=Seed)
             endif
             write(stdout,"(a,i)") "Used seed: ",Seed
+            write(stdout,"(a)") " "
 
             close(UnitSpec)
 
@@ -327,30 +348,33 @@ module AlphaMateModule
 
             ! New inbreeding
             FTarget=FOld*(1-DeltaFTarget)+DeltaFTarget
-            FTargetRebase=(FTarget-FOld)/(1.0d0-FOld)
+            FTargetRebased=(FTarget-FOld)/(1.0d0-FOld)
 
             ! Report
             write(stdout,"(a,f)") "Old inbreeding: ",FOld
             write(stdout,"(a,f)") "Targeted rate of inbreeding: ",DeltaFTarget
             write(stdout,"(a,f)") "Targeted inbreeding: ",FTarget
+            write(stdout,"(a)") " "
 
             open(newunit=UnitInbree,file="AlphaMateResults"//DASH//"ConstraintInbreeding.txt",status="unknown")
-            write(UnitInbree,"(a,f)") "Old_inbreeding, ",FOld
-            write(UnitInbree,"(a,f)") "Targeted_rate_of_inbreeding, ",DeltaFTarget
-            write(UnitInbree,"(a,f)") "Targeted_inbreeding, ",FTarget
+            write(UnitInbree,"(a,f)") "Old_inbreeding_defined, ",FOld
+            write(UnitInbree,"(a,f)") "Targeted_rate_of_inbreeding_defined, ",DeltaFTarget
+            write(UnitInbree,"(a,f)") "Targeted_inbreeding_defined, ",FTarget
             close(UnitInbree)
         end subroutine SetInbreedingParameters
 
         !#######################################################################
 
         subroutine AlphaMateSearch
+            use AlphaSuiteModule,only : int2char
             implicit none
 
-            integer :: i,UnitInbree,UnitMating,UnitContri
+            integer :: i,UnitInbree,UnitMating,UnitContri,UnitFrontier
 
-            double precision :: StdDev,Mean
+            double precision :: StdDev,Mean,DeltaFFrontierStep
+            double precision :: FTargetRebasedHold,FTargetHold,DeltaFTargetHold
 
-            character(len=300) :: EvolAlgSearchFile
+            character(len=300) :: EvolAlgLogFile
 
             ! --- Scale breeding values ---
 
@@ -360,15 +384,23 @@ module AlphaMateModule
             StdDev=sqrt(sum(BvScaled(:)*BvScaled(:))/dble(nInd))
             BvScaled(:)=(Bv(:)-Mean)/StdDev
 
-            ! --- Minimize inbreeding ---
+            ! --- Optimise for minimum inbreeding ---
 
-            EvolAlgSearchFile="AlphaMateResults"//DASH//"SearchMinimumInbreeding.txt"
+            write(stdout,"(a)") "Optimise for minimum inbreeding:"
+            write(stdout,"(a)") " "
+
+            EvolAlgLogFile="AlphaMateResults"//DASH//"OptimisationLog1MinimumInbreeding.txt"
             open(newunit=UnitMating,file="AlphaMateResults"//DASH//"MatingListMinimumInbreeding.txt",status="unknown")
             open(newunit=UnitContri,file="AlphaMateResults"//DASH//"ContribAndMatingNbPerIndivMinimumInbreeding.txt",status="unknown")
 
             call EvolAlgForAlphaMate(nParam=nInd,nSolution=EvolAlgNSol,nGeneration=EvolAlgNGen,nGenerationBurnIn=EvolAlgNGenBurnIn,&
                                      nGenerationStop=EvolAlgNGenStop,StopTolerance=EvolAlgStopTol,&
-                                     nGenerationPrint=EvolAlgNGenPrint,File=EvolAlgSearchFile,CriterionType="MinInb")
+                                     nGenerationPrint=EvolAlgNGenPrint,File=EvolAlgLogFile,CriterionType="MinInb")
+            GainMinInb=Gain
+            GainMinInbScaled=GainScaled
+            FMinInb=FCurrent
+            FMinInbRebased=FCurrentRebased
+            DeltaFMinInb=DeltaFCurrent
 
             if (GenderMatters) then
                 call PerformMatingGenderIncl
@@ -376,31 +408,34 @@ module AlphaMateModule
                 call PerformMating
             endif
 
-            !                           1234567890   1234567890
-            write(UnitMating,"(2i10)") "   Parent1","   Parent2"
+            !                           12345678901   12345678901
+            write(UnitMating,"(2a11)") "    Parent1","    Parent2"
             do i=1,nMatings
                 write(UnitMating,*) Matings(i,:)
             enddo
 
-            !                           1234567890   1234567890   1234567890   1234567890   1234567890
-            write(UnitContri,"(5a10)") "        Id","    OrigId","    Gender","Contribute","  nMatings"
+            !                           12345678901   12345678901   12345678901   12345678901   12345678901
+            write(UnitContri,"(5a11)") "         Id","     OrigId","     Gender"," Contribute","   nMatings"
             do i=1,nInd
-                write(UnitContri,"(i10,a10,i10,f10.7,i10)") i,trim(IdC(i)),Gender(i),XVec(i),nMatingPerInd(i)
+                write(UnitContri,"(i11,a11,i11,f11.4,i11)") i,trim(IdC(i)),Gender(i),XVec(i),nMatingPerInd(i)
             enddo
 
             close(UnitMating)
             close(UnitContri)
 
-            ! --- Maximize genetic gain with constraint on inbreeding ---
+            ! --- Optimise for maximum gain with constraint on inbreeding ---
 
-            if (FCurrent < FOld) then
-                write(stdout,"(a)") " "
+            write(stdout,"(a)") "Optimise for maximum gain with constraint on inbreeding:"
+            write(stdout,"(a)") " "
+
+            if (FOld > FCurrent) then
                 write(stdout,"(a)") "NOTE: Old inbreeding is higher than the minimum group coancestry (x'Ax/2) under no selection."
                 write(stdout,"(a)") "NOTE: Resetting the old inbreeding to the minimum group coancestry under no selection and"
                 write(stdout,"(a)") "NOTE:   recomputing the targeted inbreeding."
                 FOld=FCurrent
                 FTarget=FOld*(1-DeltaFTarget)+DeltaFTarget
-                FTargetRebase=(FTarget-FOld)/(1.0d0-FOld)
+                FTargetRebased=(FTarget-FOld)/(1.0d0-FOld)
+                ! TODO: what should we do with FMinInb etc?
                 write(stdout,"(a,f)") "Old inbreeding: ",FOld
                 write(stdout,"(a,f)") "Targeted rate of inbreeding: ",DeltaFTarget
                 write(stdout,"(a,f)") "Targeted inbreeding:",FTarget
@@ -414,18 +449,23 @@ module AlphaMateModule
             endif
 
             open(newunit=UnitInbree,file="AlphaMateResults"//DASH//"ConstraintInbreeding.txt",status="old")
-            write(UnitInbree,"(a,f)") "Old_inbreeding, ",FOld
-            write(UnitInbree,"(a,f)") "Targeted_rate_of_inbreeding, ",DeltaFTarget
-            write(UnitInbree,"(a,f)") "Targeted_inbreeding, ",FTarget
+            write(UnitInbree,"(a,f)") "Old_inbreeding_redefined, ",FOld
+            write(UnitInbree,"(a,f)") "Targeted_rate_of_inbreeding_redefined, ",DeltaFTarget
+            write(UnitInbree,"(a,f)") "Targeted_inbreeding_redefined, ",FTarget
             close(UnitInbree)
 
-            EvolAlgSearchFile="AlphaMateResults"//DASH//"SearchMaximumGain.txt"
+            EvolAlgLogFile="AlphaMateResults"//DASH//"OptimisationLog2MaximumGain.txt"
             open(newunit=UnitMating,file="AlphaMateResults"//DASH//"MatingListMaximumGain.txt",status="unknown")
             open(newunit=UnitContri,file="AlphaMateResults"//DASH//"ContribAndMatingNbPerIndivMaximumGain.txt",status="unknown")
 
             call EvolAlgForAlphaMate(nParam=nInd,nSolution=EvolAlgNSol,nGeneration=EvolAlgNGen,nGenerationBurnIn=EvolAlgNGenBurnIn,&
                                      nGenerationStop=EvolAlgNGenStop,StopTolerance=EvolAlgStopTol,&
-                                     nGenerationPrint=EvolAlgNGenPrint,File=EvolAlgSearchFile,CriterionType="MaxGain")
+                                     nGenerationPrint=EvolAlgNGenPrint,File=EvolAlgLogFile,CriterionType="MaxGain")
+            GainOpt=Gain
+            GainOptScaled=GainScaled
+            FOpt=FCurrent
+            FOptRebased=FCurrentRebased
+            DeltaFOpt=DeltaFCurrent
 
             if (GenderMatters) then
                call PerformMatingGenderIncl
@@ -433,19 +473,65 @@ module AlphaMateModule
                call PerformMating
             endif
 
-            !                           1234567890   1234567890
-            write(UnitMating,"(2i10)") "   Parent1","   Parent2"
+            !                           12345678901   12345678901
+            write(UnitMating,"(2a11)") "    Parent1","    Parent2"
             do i=1,nMatings
                 write(UnitMating,*) Matings(i,:)
             enddo
-            !                           1234567890   1234567890   1234567890   1234567890   1234567890
-            write(UnitContri,"(5a10)") "        Id","    OrigId","    Gender","Contribute","  nMatings"
+            !                           12345678901   12345678901   12345678901   12345678901   12345678901
+            write(UnitContri,"(5a11)") "         Id","     OrigId","     Gender"," Contribute","   nMatings"
             do i=1,nInd
-                write(UnitContri,"(i10,a10,i10,f10.7,i10)") i,trim(IdC(i)),Gender(i),XVec(i),nMatingPerInd(i)
+                write(UnitContri,"(i11,a11,i11,f11.4,i11)") i,trim(IdC(i)),Gender(i),XVec(i),nMatingPerInd(i)
             enddo
 
             close(UnitMating)
             close(UnitContri)
+
+            ! --- Evaluate the full frontier ---
+
+            if (EvaluateFrontier) then
+
+                write(stdout,"(a)") "Evaluate the full frontier (this might take quite some time!):"
+                write(stdout,"(a)") " "
+
+                open(newunit=UnitFrontier,file="AlphaMateResults"//DASH//"Frontier.txt",status="unknown")
+                !                             12345678901   12345678901   12345678901   12345678901   12345678901   12345678901   12345678901
+                write(UnitFrontier,"(7a11)") "       Step","       Gain"," GainScaled"," Inbreeding"," InbRebased","  RateOfInb","  Objective"
+                write(UnitFrontier,"(i11,7f11.4)") 1,GainMinInb,GainMinInbScaled,FMinInb,FMinInbRebased,DeltaFMinInb,GainMinInbScaled-(FMinInbRebased-FTargetRebased)
+                write(UnitFrontier,"(i11,7f11.4)") 2,GainOpt,   GainOptScaled,   FOpt,   FOptRebased,   DeltaFOpt,   GainOptScaled   -(FOptRebased   -FTargetRebased)
+
+                DeltaFFrontierStep=(DeltaFMaxFrontier-DeltaFMinInb)/dble(nFrontierSteps)
+                FTargetRebasedHold=FTargetRebased
+                FTargetHold=FTarget
+                DeltaFTargetHold=DeltaFTarget
+                DeltaFTarget=DeltaFMinInb
+                do i=3,(nFrontierSteps+2)
+                    DeltaFTarget=DeltaFTarget+DeltaFFrontierStep
+                    FTargetRebased=DeltaFTarget ! due to rebasing F=DeltaF
+                    FTarget=FOld*(1-DeltaFTarget)+DeltaFTarget
+                    write(stdout,"(a,i,a,i,a,f)") "Step ",i," out of ",(nFrontierSteps+2), " for DeltaF ",DeltaFTarget
+                    print*,"FTarget",FTarget
+                    print*,"FTargetRebased",FTargetRebased
+                    write(stdout,"(a)") ""
+                    EvolAlgLogFile="AlphaMateResults"//DASH//"OptimisationLog"//int2char(i)//".txt"
+                    call EvolAlgForAlphaMate(nParam=nInd,nSolution=EvolAlgNSol,nGeneration=EvolAlgNGen,nGenerationBurnIn=EvolAlgNGenBurnIn,&
+                                             nGenerationStop=EvolAlgNGenStop,StopTolerance=EvolAlgStopTol,&
+                                             nGenerationPrint=EvolAlgNGenPrint,File=EvolAlgLogFile,CriterionType="MaxGain")
+                    write(UnitFrontier,"(i11,7f11.4)") i,Gain,GainScaled,FCurrent,FCurrentRebased,DeltaFCurrent,GainScaled-(FCurrentRebased-FTargetRebasedHold)
+                    if ((DeltaFTarget-DeltaFCurrent) > 0.01) then
+                        write(stdout,"(a,f)") "NOTE: Could not achieve the rate of inbreeding of ",DeltaFTarget
+                        write(stdout,"(a,f)") "NOTE: Stopping the evaluation of frontier."
+                        write(stdout,"(a)") ""
+                        exit
+                    endif
+                enddo
+                FTargetRebased=FTargetRebasedHold
+                FTarget=FTargetHold
+                DeltaFTarget=DeltaFTargetHold
+
+                close(UnitFrontier)
+
+            endif
 
             deallocate(BvScaled)
         end subroutine AlphaMateSearch
@@ -492,14 +578,15 @@ module AlphaMateModule
 
             ! --- Printout ---
 
+            ! TODO: make a subroutine for this to make evol alg code generic?
             open(newunit=Unit,file=trim(File),status="unknown")
-            write(stdout,"(a)") " "
             !                       12345678901   12345678901   12345678901   12345678901   12345678901   12345678901   12345678901   12345678901   12345678901
             write(stdout,"(9a11)") " SearchMode","       Step","       Gain"," Inbreeding"," ...-Target","  RateOfInb"," ...-Target","  Criterion"," AcceptRate"
             write(Unit,  "(9a11)") " SearchMode","       Step","       Gain"," Inbreeding"," ...-Target","  RateOfInb"," ...-Target","  Criterion"," AcceptRate"
 
             ! --- Set parameters ---
 
+            ! TODO: make arguments for this to make evol alg code generic?
             ! Crossover rate
             CRHigh=0.4 ! For first few generations (burn-in)
             CRLow=0.2  ! For later climbs
@@ -510,6 +597,8 @@ module AlphaMateModule
             FHold=0.2  ! Conservative moves
             FHigh1=0.4 ! Adventurous moves
             FHigh2=1.0 ! Adventurous moves
+
+            ! TODO: check again the values above with unconstrained parameters
 
             ! Constrain parameters
             MiVal=0.0
@@ -614,7 +703,9 @@ module AlphaMateModule
                         if (Param > nParam) Param=Param-nParam
                     enddo
 
-                    ! Constrain parameters
+                    ! --- Constrain parameters ---
+
+                    ! TODO: make a subroutine/condition for this to make evol alg code generic?
                     ! - this is preferablly not done as it slows convergence
                     ! - it is preferable for criterion function to handle constraints
                     ! - for AlphaMate GG found that it is advised to keep parameters
@@ -668,6 +759,7 @@ module AlphaMateModule
                 if (BestSolutionChanged) then
                     if (((Generation - LastGenerationPrint) >= nGenerationPrint)) then
                         LastGenerationPrint=Generation
+                        ! TODO: make a subroutine for this to make evol alg code generic?
                         ValueHold=CalcCriterion(nParam,ProgenyChrom(:,BestSolution),CriterionType)
                         write(stdout,"(a11,i11,7f11.4)") CriterionType,Generation,Gain,FCurrent,(FCurrent-FTarget),DeltaFCurrent,(DeltaFCurrent-DeltaFTarget),ValueHold,AcceptRate
                         write(Unit,  "(a11,i11,7f11.4)") CriterionType,Generation,Gain,FCurrent,(FCurrent-FTarget),DeltaFCurrent,(DeltaFCurrent-DeltaFTarget),ValueHold,AcceptRate
@@ -676,11 +768,13 @@ module AlphaMateModule
 
             enddo ! Generation
 
-            ! --- Evaluate the winner once more ---
+            ! --- Evaluate the winner ---
 
+            ! TODO: make a subroutine for this to make evol alg code generic?
             ValueHold=CalcCriterion(nParam,ProgenyChrom(:,BestSolution),CriterionType)
             write(stdout,"(a11,i11,7f11.4)") CriterionType,Generation,Gain,FCurrent,(FCurrent-FTarget),DeltaFCurrent,(DeltaFCurrent-DeltaFTarget),ValueHold,AcceptRate
             write(Unit,  "(a11,i11,7f11.4)") CriterionType,Generation,Gain,FCurrent,(FCurrent-FTarget),DeltaFCurrent,(DeltaFCurrent-DeltaFTarget),ValueHold,AcceptRate
+            write(stdout,"(a)") " "
 
             close(Unit)
 
@@ -702,7 +796,7 @@ module AlphaMateModule
             character(len=*),intent(in) :: CriterionType  ! Type of criterion (MinInb,MaxGain)
             ! Other
             integer :: i,jMal,jFem
-            double precision :: MiVal,Criterion,TmpVec(nInd,1),TotMal,TotFem,GainScaled,SolutionScaled(nInd)
+            double precision :: Criterion,TmpVec(nInd,1),TotMal,TotFem,SolutionScaled(nInd)
 
             ! --- Negative-to-zero mapping, i.e., [-Inf,0,Inf] --> [0,0,Inf] ---
 
@@ -766,7 +860,7 @@ module AlphaMateModule
             ! print*,XVec,TmpVec,FCurrent
             ! stop
 
-            FCurrentRebase=(FCurrent-FOld)/(1.0d0-FOld)
+            FCurrentRebased=(FCurrent-FOld)/(1.0d0-FOld)
 
             ! --- Genetic gain ---
 
@@ -777,22 +871,23 @@ module AlphaMateModule
 
             if (trim(CriterionType) == "MinInb") then
                 DeltaFCurrent=(FCurrent-FOld)/(1.0d0-FOld)
-                !Criterion=-1.0d0*(FCurrentRebase-FTargetRebase)
-                Criterion=FTargetRebase-FCurrentRebase
+                !Criterion=-1.0d0*(FCurrentRebased-FTargetRebased)
+                Criterion=FTargetRebased-FCurrentRebased
             endif
 
             if (trim(CriterionType) == "MaxGain") then
                 DeltaFCurrent=(FCurrent-FOld)/(1.0d0-FOld)
                 if (DeltaFCurrent <= DeltaFTarget) then
-                    Criterion=GainScaled-(FCurrentRebase-FTargetRebase)
+                    Criterion=GainScaled-(FCurrentRebased-FTargetRebased)
                 else
                     ! This gives a penalty of 1 SD for 0.01 increase in inbreeding above the target.
                     ! Note that gain is scaled and inbreeding is rebased so this should be a "stable"
                     ! soft constraint.
-                    Criterion=GainScaled-100.0d0*(FCurrentRebase-FTargetRebase)
-                    !write(stderr,"(a,8f10.5)") "Illegal",Gain,FCurrent,FTarget,DeltaFCurrent,DeltaFTarget,FCurrentRebase,FTargetRebase,Criterion
+                    Criterion=GainScaled-100.0d0*(FCurrentRebased-FTargetRebased)
+                    !write(stderr,"(a,8f10.5)") "Illegal",Gain,FCurrent,FTarget,DeltaFCurrent,DeltaFTarget,FCurrentRebased,FTargetRebased,Criterion
                 endif
             endif
+            !print*,Criterion,Gain,GainScaled,DeltaFCurrent,FCurrentRebased,DeltaFTarget,FTargetRebased
 
             return
         end function CalcCriterion
@@ -993,7 +1088,6 @@ program AlphaMate
     call AlphaMateSearch
     call cpu_time(Finish)
 
-    write(stdout,"(a)") " "
     write(stdout,"(a,f20.4,a)") "Time duration of AlphaMate: ",Finish-Start," seconds"
     write(stdout,"(a)") " "
 end program AlphaMate
