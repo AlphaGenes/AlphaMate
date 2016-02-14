@@ -347,7 +347,7 @@ module AlphaMateModule
             endif
 
             ! New inbreeding
-            FTarget=FOld*(1-DeltaFTarget)+DeltaFTarget
+            FTarget=FOld*(1.0d0-DeltaFTarget)+DeltaFTarget
             FTargetRebased=(FTarget-FOld)/(1.0d0-FOld)
 
             ! Report
@@ -433,9 +433,10 @@ module AlphaMateModule
                 write(stdout,"(a)") "NOTE: Resetting the old inbreeding to the minimum group coancestry under no selection and"
                 write(stdout,"(a)") "NOTE:   recomputing the targeted inbreeding."
                 FOld=FCurrent
-                FTarget=FOld*(1-DeltaFTarget)+DeltaFTarget
+                FTarget=FOld*(1.0d0-DeltaFTarget)+DeltaFTarget
                 FTargetRebased=(FTarget-FOld)/(1.0d0-FOld)
-                ! TODO: what should we do with FMinInb etc?
+                FMinInbRebased=0.0
+                DeltaFMinInb=0.0
                 write(stdout,"(a,f)") "Old inbreeding: ",FOld
                 write(stdout,"(a,f)") "Targeted rate of inbreeding: ",DeltaFTarget
                 write(stdout,"(a,f)") "Targeted inbreeding:",FTarget
@@ -495,10 +496,10 @@ module AlphaMateModule
                 write(stdout,"(a)") " "
 
                 open(newunit=UnitFrontier,file="AlphaMateResults"//DASH//"Frontier.txt",status="unknown")
-                !                             12345678901   12345678901   12345678901   12345678901   12345678901   12345678901   12345678901
-                write(UnitFrontier,"(7a11)") "       Step","       Gain"," GainScaled"," Inbreeding"," InbRebased","  RateOfInb","  Objective"
-                write(UnitFrontier,"(i11,7f11.4)") 1,GainMinInb,GainMinInbScaled,FMinInb,FMinInbRebased,DeltaFMinInb,GainMinInbScaled-(FMinInbRebased-FTargetRebased)
-                write(UnitFrontier,"(i11,7f11.4)") 2,GainOpt,   GainOptScaled,   FOpt,   FOptRebased,   DeltaFOpt,   GainOptScaled   -(FOptRebased   -FTargetRebased)
+                !                             12345678901   12345678901   12345678901   12345678901   12345678901   12345678901
+                write(UnitFrontier,"(7a11)") "       Step","       Gain"," GainScaled"," Inbreeding","  RateOfInb","  Objective"
+                write(UnitFrontier,"(i11,6f11.4)") 1,GainMinInb,GainMinInbScaled,FMinInb,DeltaFMinInb,GainMinInbScaled-(FMinInbRebased-FTargetRebased)
+                write(UnitFrontier,"(i11,6f11.4)") 2,GainOpt,   GainOptScaled,   FOpt,   DeltaFOpt,   GainOptScaled   -(FOptRebased   -FTargetRebased)
 
                 DeltaFFrontierStep=(DeltaFMaxFrontier-DeltaFMinInb)/dble(nFrontierSteps)
                 FTargetRebasedHold=FTargetRebased
@@ -508,16 +509,14 @@ module AlphaMateModule
                 do i=3,(nFrontierSteps+2)
                     DeltaFTarget=DeltaFTarget+DeltaFFrontierStep
                     FTargetRebased=DeltaFTarget ! due to rebasing F=DeltaF
-                    FTarget=FOld*(1-DeltaFTarget)+DeltaFTarget
-                    write(stdout,"(a,i,a,i,a,f)") "Step ",i," out of ",(nFrontierSteps+2), " for DeltaF ",DeltaFTarget
-                    print*,"FTarget",FTarget
-                    print*,"FTargetRebased",FTargetRebased
+                    FTarget=FOld*(1.0d0-DeltaFTarget)+DeltaFTarget
+                    write(stdout,"(a,i3,a,i3,a,f7.4)") "Step ",i," out of ",(nFrontierSteps+2), " for the rate of inbreeding of",DeltaFTarget
                     write(stdout,"(a)") ""
                     EvolAlgLogFile="AlphaMateResults"//DASH//"OptimisationLog"//int2char(i)//".txt"
                     call EvolAlgForAlphaMate(nParam=nInd,nSolution=EvolAlgNSol,nGeneration=EvolAlgNGen,nGenerationBurnIn=EvolAlgNGenBurnIn,&
                                              nGenerationStop=EvolAlgNGenStop,StopTolerance=EvolAlgStopTol,&
                                              nGenerationPrint=EvolAlgNGenPrint,File=EvolAlgLogFile,CriterionType="MaxGain")
-                    write(UnitFrontier,"(i11,7f11.4)") i,Gain,GainScaled,FCurrent,FCurrentRebased,DeltaFCurrent,GainScaled-(FCurrentRebased-FTargetRebasedHold)
+                    write(UnitFrontier,"(i11,6f11.4)") i,Gain,GainScaled,FCurrent,DeltaFCurrent,GainScaled-(FCurrentRebased-FTargetRebasedHold)
                     if ((DeltaFTarget-DeltaFCurrent) > 0.01) then
                         write(stdout,"(a,f)") "NOTE: Could not achieve the rate of inbreeding of ",DeltaFTarget
                         write(stdout,"(a,f)") "NOTE: Stopping the evaluation of frontier."
