@@ -168,7 +168,7 @@ module AlphaMateModule
 
     character(len=300),allocatable,dimension(:) :: IdC
 
-    logical :: GenderMatters,InferFOld,EvaluateFrontier
+    logical :: GenderMatters,EqualizeMales,EqualizeFemales,InferFOld,EvaluateFrontier
 
     contains
 
@@ -214,19 +214,28 @@ module AlphaMateModule
                 stop 1
             endif
 
-            read(UnitSpec,*) DumC,DumC
-            if (trim(DumC) == "Yes") then
+            read(UnitSpec,*) DumC,GenderFile
+            if (trim(GenderFile) /= "None") then
                 GenderMatters=.true.
-                read(UnitSpec,*) DumC,GenderFile
-                read(UnitSpec,*) DumC,nMal
-                read(UnitSpec,*) DumC,nFem
-                nInd=nMal+nFem
             else
                 GenderMatters=.false.
-                read(UnitSpec,*) DumC,nInd
             endif
 
+            read(UnitSpec,*) DumC,nInd
             read(UnitSpec,*) DumC,nMatings
+
+            read(UnitSpec,*) dumC,dumC
+            if (trim(dumC) == "Yes") then
+                EqualizeMales=.true.
+            else
+                EqualizeMales=.false.
+            endif
+            read(UnitSpec,*) dumC,dumC
+            if (trim(dumC) == "Yes") then
+                EqualizeFemales=.true.
+            else
+                EqualizeFemales=.false.
+            endif
 
             read(UnitSpec,*) DumC,DumC
             if (trim(DumC) == "Unknown") then
@@ -291,16 +300,23 @@ module AlphaMateModule
             close(UnitBv)
 
             allocate(Gender(nInd))
-            if (.not.GenderMatters) then
-                Gender(:)=0
-            else
-                allocate(IdMal(nMal))
-                allocate(IdFem(nFem))
-
-                open(unit=UnitGender,file=trim(GenderFile),status="old")
+            Gender(:)=0
+            if (GenderMatters) then
+                nMal=0
+                nFem=0
+                open(newunit=UnitGender,file=trim(GenderFile),status="old")
 
                 do i=1,nInd
                     read(UnitGender,*) IdCTmp,GenderTmp
+                    if (GenderTmp == 1) then
+                        nMal=nMal+1
+                    elseif (GenderTmp == 2) then
+                        nFem=nFem+1
+                    else
+                        write(stderr,"(a)") "ERROR: Gender code must be either 1 or 2!"
+                        write(stderr,"(a,a,i3)") "ERROR: ",IdCTmp,GenderTmp
+                        stop 1
+                    endif
                     do j=1,nInd
                         if (trim(IdCTmp) == trim(idC(j))) then
                             Gender(j)=GenderTmp
@@ -310,6 +326,8 @@ module AlphaMateModule
                 enddo
                 close(UnitGender)
 
+                allocate(IdMal(nMal))
+                allocate(IdFem(nFem))
                 jMal=0
                 jFem=0
                 do i=1,nInd
@@ -411,7 +429,7 @@ module AlphaMateModule
             !                           12345678901   12345678901
             write(UnitMating,"(2a11)") "    Parent1","    Parent2"
             do i=1,nMatings
-                write(UnitMating,*) Matings(i,:)
+                write(UnitMating,"(2i11)") Matings(i,:)
             enddo
 
             !                           12345678901   12345678901   12345678901   12345678901   12345678901
@@ -477,7 +495,7 @@ module AlphaMateModule
             !                           12345678901   12345678901
             write(UnitMating,"(2a11)") "    Parent1","    Parent2"
             do i=1,nMatings
-                write(UnitMating,*) Matings(i,:)
+                write(UnitMating,"(2i11)") Matings(i,:)
             enddo
             !                           12345678901   12345678901   12345678901   12345678901   12345678901
             write(UnitContri,"(5a11)") "         Id","     OrigId","     Gender"," Contribute","   nMatings"
@@ -819,18 +837,28 @@ module AlphaMateModule
             if (.not.GenderMatters) then
                 XVec(1:nInd)=SolutionScaled(1:nInd)/sum(SolutionScaled(1:nInd))
             else
-                ! WARNING: the order of males and females differs in Solution and XVec
+                ! WARNING: the order of males and females differs in Solution and XVec;
+                !          Solution has males and then females, while XVec holds them
+                !          as they appear in the data (Gender)!!!
                 TotMal=sum(SolutionScaled(1:nMal))
                 TotFem=sum(SolutionScaled((nMal+1):nInd))
                 jMal=0
                 jFem=0
                 do i=1,nInd
                     if (Gender(i) == 1) then
-                        jMal=jMal+1
-                        XVec(i)=0.5d0*SolutionScaled(jMal)/TotMal
+                        if (EqualizeMales) then
+                            XVec(i)=0.5d0/dble(nMal)
+                        else
+                            jMal=jMal+1
+                            XVec(i)=0.5d0*SolutionScaled(jMal)/TotMal
+                        endif
                     else
-                        jFem=jFem+1
-                        XVec(i)=0.5d0*SolutionScaled(nMal+jFem)/TotFem
+                        if (EqualizeFemales) then
+                            XVec(i)=0.5d0/dble(nFem)
+                        else
+                            jFem=jFem+1
+                            XVec(i)=0.5d0*SolutionScaled(nMal+jFem)/TotFem
+                        endif
                     endif
                 enddo
             endif
