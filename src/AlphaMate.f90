@@ -560,7 +560,7 @@ module AlphaMateModule
 
             double precision :: RanNum,F,FHold,FHigh1,FHigh2,CR,CRLow,CRHigh
             double precision :: ValueHold,BestValue,BestValueOld,BestValueStop,AcceptRate
-            double precision,allocatable :: ParentChrom(:,:),ProgenyChrom(:,:),Chrom(:),MiVal(:),MaVal(:),Value(:)
+            double precision,allocatable :: ParentChrom(:,:),ProgenyChrom(:,:),Chrom(:),Value(:)!,MiVal(:),MaVal(:)
 
             logical :: BestSolutionChanged
 
@@ -573,8 +573,8 @@ module AlphaMateModule
             allocate(ProgenyChrom(nParam,nSolution))
             allocate(Chrom(nParam))
             allocate(Value(nSolution))
-            allocate(MiVal(nParam))
-            allocate(MaVal(nParam))
+            ! allocate(MiVal(nParam))
+            ! allocate(MaVal(nParam))
 
             ! --- Printout ---
 
@@ -595,14 +595,12 @@ module AlphaMateModule
             ! Typically between 0.2 and 2.0
             ! (if alleles should be integer, keep F as integer)
             FHold=0.2  ! Conservative moves
-            FHigh1=0.4 ! Adventurous moves
-            FHigh2=1.0 ! Adventurous moves
-
-            ! TODO: check again the values above with unconstrained parameters
+            FHigh1=1.0 ! Adventurous moves
+            FHigh2=2.0 ! Adventurous moves
 
             ! Constrain parameters
-            MiVal=0.0
-            MaVal=1.0
+            ! MiVal=0.0
+            ! MaVal=1.0
 
             ! --- Initialise foundation population of solutions ---
 
@@ -782,8 +780,8 @@ module AlphaMateModule
             deallocate(ProgenyChrom)
             deallocate(Chrom)
             deallocate(Value)
-            deallocate(MiVal)
-            deallocate(MaVal)
+            ! deallocate(MiVal)
+            ! deallocate(MaVal)
         end subroutine EvolAlgForAlphaMate
 
         !#######################################################################
