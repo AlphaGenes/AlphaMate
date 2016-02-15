@@ -141,7 +141,7 @@ end module AlphaSuiteModule
 !###############################################################################
 
 module AlphaMateModule
-    use ifport  ! required for systemQQ
+    use IFPort  ! required for SystemQQ,SortQQ
 
 #ifdef f2003
     use,intrinsic :: iso_fortran_env, only : stdin=>input_unit, &
@@ -155,18 +155,16 @@ module AlphaMateModule
 
     implicit none
 
-    integer :: nInd,idum,nMatings,nMal,nFem,nFrontierSteps
+    integer :: nInd,idum,nMatings,nMal,nFem,nParents,nMalParents,nFemParents,nFrontierSteps
     integer :: EvolAlgNSol,EvolAlgNGen,EvolAlgNGenBurnIn,EvolAlgNGenStop,EvolAlgNGenPrint
-    integer,allocatable,dimension(:) :: Gender,IdMal,IdFem,nMatingPerInd
-    integer,allocatable,dimension(:,:) :: Matings
+    integer,allocatable :: Gender(:),IdMal(:),IdFem(:),nMatingPerInd(:),Matings(:,:)
 
     double precision :: EvolAlgStopTol,Gain,GainScaled,GainMinInb,GainMinInbScaled,GainOpt,GainOptScaled
     double precision :: DeltaFTarget,DeltaFCurrent,DeltaFMinInb,DeltaFOpt,DeltaFMaxFrontier
     double precision :: FOld,FTarget,FTargetRebased,FCurrent,FCurrentRebased,FMinInb,FMinInbRebased,FOpt,FOptRebased
-    double precision,allocatable,dimension(:) :: Bv,BvScaled,XVec
-    double precision,allocatable,dimension(:,:) :: RelMat
+    double precision,allocatable :: Bv(:),BvScaled(:),XVec(:),RelMat(:,:)
 
-    character(len=300),allocatable,dimension(:) :: IdC
+    character(len=300),allocatable :: IdC(:)
 
     logical :: GenderMatters,EqualizeMales,EqualizeFemales,InferFOld,EvaluateFrontier
 
@@ -223,15 +221,31 @@ module AlphaMateModule
 
             read(UnitSpec,*) DumC,nInd
             read(UnitSpec,*) DumC,nMatings
+            read(UnitSpec,*) DumC,nParents
+            if (nParents > nInd) then
+                write(stderr,"(a)") "ERROR: Number of parents can not be larger than the number or all individuals!"
+                write(stderr,"(a,i)") "ERROR: Number of individuals: ",nInd
+                write(stderr,"(a,i)") "ERROR: Number of     parents: ",nParents
+                stop 1
+            endif
+            read(UnitSpec,*) DumC,nMalParents
+            read(UnitSpec,*) DumC,nFemParents
+            if (GenderMatters .and. ((nMalParents+nFemParents) /= nParents)) then
+                write(stderr,"(a)") "ERROR: Number of male and female parents does not match with the number of parents!"
+                write(stderr,"(a,i)") "ERROR: Number of        parents: ",nParents
+                write(stderr,"(a,i)") "ERROR: Number of   male parents: ",nMalParents
+                write(stderr,"(a,i)") "ERROR: Number of female parents: ",nFemParents
+                stop 1
+            endif
 
             read(UnitSpec,*) dumC,dumC
-            if (trim(dumC) == "Yes") then
+            if (GenderMatters .and. (trim(dumC) == "Yes")) then
                 EqualizeMales=.true.
             else
                 EqualizeMales=.false.
             endif
             read(UnitSpec,*) dumC,dumC
-            if (trim(dumC) == "Yes") then
+            if (GenderMatters .and. (trim(dumC) == "Yes")) then
                 EqualizeFemales=.true.
             else
                 EqualizeFemales=.false.
@@ -357,7 +371,7 @@ module AlphaMateModule
                     Tmp=RelMat(i,i)-1.0d0
                     if (Tmp < 0.0) then
                         write(stderr,"(a)") "ERROR: Relationship matrix must have diagonals equal or more than 1.0!"
-                        stop 2
+                        stop 1
                     endif
                     FOld=FOld+Tmp
                 enddo
@@ -421,9 +435,9 @@ module AlphaMateModule
             DeltaFMinInb=DeltaFCurrent
 
             if (GenderMatters) then
-                call PerformMatingGenderIncl
+                call PerformMatingGenderIncl(CriterionType="MinInb")
             else
-                call PerformMating
+                call PerformMating(CriterionType="MinInb")
             endif
 
             !                           12345678901   12345678901
@@ -464,7 +478,7 @@ module AlphaMateModule
             if (FCurrent > FTarget) then
                 write(stderr,"(a)") "ERROR: Targeted inbreeding is lower than the group coancestry (x'Ax/2) under no selection."
                 write(stderr,"(a)") "ERROR: Can not optimise!"
-                stop 3
+                stop 1
             endif
 
             open(newunit=UnitInbree,file="AlphaMateResults"//DASH//"ConstraintInbreeding.txt",status="old")
@@ -487,9 +501,9 @@ module AlphaMateModule
             DeltaFOpt=DeltaFCurrent
 
             if (GenderMatters) then
-               call PerformMatingGenderIncl
+               call PerformMatingGenderIncl(CriterionType="MinInb")
             else
-               call PerformMating
+               call PerformMating(CriterionType="MinInb")
             endif
 
             !                           12345678901   12345678901
@@ -621,8 +635,11 @@ module AlphaMateModule
 
             ! --- Initialise foundation population of solutions ---
 
-            ParentChrom(:,1)=1.0
+            ! A solution with equal contributions ! TODO: make arguments for this to make evol alg code generic?
+            ParentChrom(:,1)=0.5
             Value(1)=CalcCriterion(nParam,ParentChrom(:,1),CriterionType)
+
+            ! Solutions with caried contributions
             do Solution=2,nSolution
                 do Param=1,nParam                      ! Set a wide range for each parameter
                     call random_number(RanNum)         ! May need integer values for some problems
@@ -803,67 +820,122 @@ module AlphaMateModule
 
         !#######################################################################
 
-        function CalcCriterion(nInd,Solution,CriterionType) result(Criterion)
+        function CalcCriterion(nParam,Solution,CriterionType) result(Criterion)
             implicit none
             ! Arguments
-            integer,intent(in)          :: nInd           ! No. of individuals
-            double precision,intent(in) :: Solution(nInd) ! Solution
-            character(len=*),intent(in) :: CriterionType  ! Type of criterion (MinInb,MaxGain)
+            integer,intent(in)          :: nParam           ! No. of parameters
+            double precision,intent(in) :: Solution(nParam) ! Solution
+            character(len=*),intent(in) :: CriterionType    ! Type of criterion (MinInb,MaxGain)
             ! Other
-            integer :: i,jMal,jFem
-            double precision :: Criterion,TmpVec(nInd,1),TotMal,TotFem,SolutionScaled(nInd)
+            integer :: i,nTmp
+            double precision :: SolutionIn(nParam),SolutionInSorted(nInd),Threshold,ThresholdSum,TmpVec(nInd,1),Criterion
 
-            ! --- Negative-to-zero mapping, i.e., [-Inf,0,Inf] --> [0,0,Inf] ---
+            ! --- Negative-to-zero mapping ---
 
-            ! (this one allows unconstrained parameters within evolutionary algorithm,
-            !  and speeds up convergence of AlphaMate)
-            SolutionScaled(:)=Solution(:)
-            do i=1,nInd ! TODO: handle nInd here when PAGE comes in
-                if (SolutionScaled(i) < 0.0) then
-                    SolutionScaled(i)=0.0
+            ! Evolutionary algorithm and its use in AlphaMate is very sensitive to how the
+            ! parameters are constrained and used in calculating criterion. Ideally evolutionary
+            ! algorithm would work with unconstrained parameters as this gives more information
+            ! to "optimiser" and speeds convergence. Negative values are however not "allowed"
+            ! for contributions. An optimal solution seems to be to constrain negative values
+            ! to zero and rescale positive values to desired range. When only a number of ind.
+            ! is needed then just the top positive values are used in rescaling.
+            do i=1,nParam
+                if (Solution(i) < 0.0) then
+                    SolutionIn(i)=0.0
+                else
+                    SolutionIn(i)=Solution(i)
                 endif
             enddo
-
-            ! --- Probability mapping, i.e., [-Inf,0,Inf] --> [0,1/2,1] ---
-
-            ! For some reason, not limiting within the evolutionary algorithm and
-            ! using the logit mapping gave much worse outcomes. Perhaps due to
-            ! non-linearity of the link function.
-            ! SolutionScaled=Solution(:)
-            ! SolutionScaled(:)=exp(Solution(:))/(1.0d0 + exp(Solution(:)))
 
             ! --- Genetic contributions (XVec) ---
 
             if (.not.GenderMatters) then
-                XVec(1:nInd)=SolutionScaled(1:nInd)/sum(SolutionScaled(1:nInd))
-            else
-                ! WARNING: the order of males and females differs in Solution and XVec;
-                !          Solution has males and then females, while XVec holds them
-                !          as they appear in the data (Gender)!!!
-                TotMal=sum(SolutionScaled(1:nMal))
-                TotFem=sum(SolutionScaled((nMal+1):nInd))
-                jMal=0
-                jFem=0
-                do i=1,nInd
-                    if (Gender(i) == 1) then
-                        if (EqualizeMales) then
-                            XVec(i)=0.5d0/dble(nMal)
-                        else
-                            jMal=jMal+1
-                            XVec(i)=0.5d0*SolutionScaled(jMal)/TotMal
-                        endif
-                    else
-                        if (EqualizeFemales) then
-                            XVec(i)=0.5d0/dble(nFem)
-                        else
-                            jFem=jFem+1
-                            XVec(i)=0.5d0*SolutionScaled(nMal+jFem)/TotFem
-                        endif
+                if (nParents == nInd) then
+                    ! Take all individuals
+                    XVec(:)=SolutionIn(1:nInd)/sum(SolutionIn(1:nInd))
+                else ! nParents < nInd
+                    ! Take the top nParents individuals
+                    SolutionInSorted(:)=SolutionIn(1:nInd)
+                    nTmp=nInd
+                    call SortQQ(Loc(SolutionInSorted),nTmp,SRT$REAL8) ! https://software.intel.com/en-us/node/526803 (2016-02-15)
+                    if (nTmp < nInd) then
+                        write(stderr,"(a)") "Sorting failed"
+                        stop 1
                     endif
-                enddo
+                    Threshold=SolutionInSorted(nInd-nParents+1) ! SolutionInSorted is sorted small to large
+                    ThresholdSum=sum(SolutionInSorted((nInd-nParents+1):nInd))
+                    do i=1,nInd
+                        if (SolutionIn(i) < Threshold) then
+                            XVec(i)=0.0
+                        else
+                            XVec(i)=SolutionIn(i)/ThresholdSum
+                        endif
+                    enddo
+                endif
+            else
+                if (nMalParents == nMal) then
+                    ! Take all males
+                    if (EqualizeMales) then
+                        XVec(IdMal)=0.5d0/dble(nMal)
+                    else
+                        XVec(IdMal)=0.5d0*SolutionIn(IdMal)/sum(SolutionIn(IdMal))
+                    endif
+                else ! nMalParents < nMal
+                    ! Take the top nMalParents males
+                    SolutionInSorted(1:nMal)=SolutionIn(IdMal)
+                    nTmp=nMal
+                    call SortQQ(Loc(SolutionInSorted(1:nMal)),nTmp,SRT$REAL8) ! https://software.intel.com/en-us/node/526803 (2016-02-15)
+                    if (nTmp < nMal) then
+                        write(stderr,"(a)") "Sorting failed"
+                        stop 1
+                    endif
+                    Threshold=SolutionInSorted(nMal-nMalParents+1) ! SolutionInSorted is sorted small to large
+                    ThresholdSum=sum(SolutionInSorted((nMal-nMalParents+1):nMal))
+                    do i=1,nMal
+                        if (SolutionIn(IdMal(i)) < Threshold) then
+                            XVec(IdMal(i))=0.0
+                        else
+                            if (EqualizeMales) then
+                                XVec(IdMal(i))=0.5d0/dble(nMalParents)
+                            else
+                                XVec(IdMal(i))=0.5d0*SolutionIn(IdMal(i))/ThresholdSum
+                            endif
+                        endif
+                    enddo
+                endif
+                if (nFemParents == nFem) then
+                    ! Take all females
+                    if (EqualizeFemales) then
+                        XVec(IdFem)=0.5d0/dble(nFem)
+                    else
+                        XVec(IdFem)=0.5d0*SolutionIn(IdFem)/sum(SolutionIn(IdFem))
+                    endif
+                else ! nFemParents < nMal
+                    ! Take the top nFemParents females
+                    SolutionInSorted(1:nFem)=SolutionIn(IdFem)
+                    nTmp=nFem
+                    call SortQQ(Loc(SolutionInSorted(1:nFem)),nTmp,SRT$REAL8) ! https://software.intel.com/en-us/node/526803 (2016-02-15)
+                    if (nTmp < nFem) then
+                        write(stderr,"(a)") "Sorting failed"
+                        stop 1
+                    endif
+                    Threshold=SolutionInSorted(nFem-nFemParents+1) ! SolutionInSorted is sorted small to large
+                    ThresholdSum=sum(SolutionInSorted((nFem-nFemParents+1):nFem))
+                    do i=1,nFem
+                        if (SolutionIn(IdFem(i)) < Threshold) then
+                            XVec(IdFem(i))=0.0
+                        else
+                            if (EqualizeFemales) then
+                                XVec(IdFem(i))=0.5d0/dble(nFemParents)
+                            else
+                                XVec(IdFem(i))=0.5d0*SolutionIn(IdFem(i))/ThresholdSum
+                            endif
+                        endif
+                    enddo
+                endif
             endif
 
-            ! --- Group coancestry (future inbreeding) ---
+            ! --- Group coancestry (=future inbreeding) ---
 
             ! xA
             do i=1,nInd
@@ -883,7 +955,7 @@ module AlphaMateModule
             ! xAx
             ! FCurrent=0.5d0*dot_product(XVec,TmpVec(:,1))
             ! print*,XVec,TmpVec,FCurrent
-            ! stop
+            ! stop 1
 
             FCurrentRebased=(FCurrent-FOld)/(1.0d0-FOld)
 
@@ -909,47 +981,54 @@ module AlphaMateModule
                     ! Note that gain is scaled and inbreeding is rebased so this should be a "stable"
                     ! soft constraint.
                     Criterion=GainScaled-100.0d0*(FCurrentRebased-FTargetRebased)
-                    !write(stderr,"(a,8f10.5)") "Illegal",Gain,FCurrent,FTarget,DeltaFCurrent,DeltaFTarget,FCurrentRebased,FTargetRebased,Criterion
                 endif
             endif
-            !print*,Criterion,Gain,GainScaled,DeltaFCurrent,FCurrentRebased,DeltaFTarget,FTargetRebased
 
             return
         end function CalcCriterion
 
         !#######################################################################
 
-        subroutine PerformMating
+        subroutine PerformMating(CriterionType)
             use AlphaSuiteModule,only : RandomOrder
             implicit none
-
+            ! Arguments
+            character(len=*),intent(in) :: CriterionType    ! Type of criterion (MinInb,MaxGain)
+            ! Other
             integer :: i,j,k,l,MatingIdVec(nMatings*2),ShuffleMatingIdVec(nMatings*2),nTmp
-            double precision :: SortedXvec(nInd),RanNum
+            double precision :: SortedXVec(nInd),RanNum,ValueHold
 
-            SortedXvec(:)=XVec(:)
+            ! NOTE: XVec and SortedXVec are of length nInd, but there are only
+            !       nParents non-zero elements.
+
+            ! Allocate matings according to contributions
+            SortedXVec(:)=XVec(:)
             nMatingPerInd=0
             MatingIdVec=0
             l=0
-            do i=1,nInd
-                k=maxloc(SortedXvec(:),dim=1)
-                SortedXvec(k)=(minval(SortedXvec(:)))-1
-
+            do i=1,nParents
+                ! Find the most contributing parent
+                k=maxloc(SortedXVec(:),dim=1)
+                ! ... and push him "away" for the next round
+                SortedXVec(k)=(minval(SortedXVec(:)))-1
+                ! Allocate no. of matings
                 nTmp=int(XVec(k)*(nMatings*2))
                 nMatingPerInd(k)=nTmp
                 do j=1,nTmp
-                    l=l+1 ! l evolves from 1 to nMatings independently of i.
+                    l=l+1 ! l evolves from 1 to nMatings independently of i
                     MatingIdVec(l)=k
                     if (l == (nMatings*2)) exit
                 enddo
                 if (l == (nMatings*2)) exit
             enddo
 
-            if (sum(nMatingPerInd(:)) < (nMatings*2)) then ! if all of the remaining matings have not received individuals
+            ! Make sure that we fill all matings (could have skipped some above due to rounding, i.e., int())
+            if (sum(nMatingPerInd(:)) < (nMatings*2)) then
                 do
                     call random_number(RanNum)
                     k=int(RanNum*nInd)+1
                     call random_number(RanNum)
-                    if (RanNum < XVec(k)) then ! ids are selected for these matings according to their contribution.
+                    if (RanNum < XVec(k)) then ! ids are selected for these matings according to their contribution
                         l=l+1
                         MatingIdVec(l)=k
                         nMatingPerInd(k)=nMatingPerInd(k)+1
@@ -958,8 +1037,8 @@ module AlphaMateModule
                 enddo
             endif
 
+            ! Randomize allocations and pair parents
             call RandomOrder(ShuffleMatingIdVec,(nMatings*2))
-
             l=0
             do i=1,nMatings
                 l=l+1
@@ -967,50 +1046,65 @@ module AlphaMateModule
                 l=l+1
                 Matings(i,2)=MatingIdVec(ShuffleMatingIdVec(l))
             enddo
+
+            ! Evaluate this particular mating
+            ! TODO: PAGE
+            XVec(:)=dble(nMatingPerInd(:))/dble(nMatings*2)
+            ValueHold=CalcCriterion(nInd,XVec,CriterionType)
+            write(stdout,"(a)") "The produced mating gives:"
+            !                       12345678901   12345678901   12345678901   12345678901   12345678901   12345678901   12345678901   12345678901   12345678901
+            write(stdout,"(9a11)") " SearchMode","       Step","       Gain"," Inbreeding"," ...-Target","  RateOfInb"," ...-Target","  Criterion"," AcceptRate"
+            write(stdout,"(a11,i11,7f11.4)") CriterionType,EvolAlgNGen+1,Gain,FCurrent,(FCurrent-FTarget),DeltaFCurrent,(DeltaFCurrent-DeltaFTarget),ValueHold,0.0
+            ! write(Unit,  "(a11,i11,7f11.4)") CriterionType,EvolAlgNGen+1,Gain,FCurrent,(FCurrent-FTarget),DeltaFCurrent,(DeltaFCurrent-DeltaFTarget),ValueHold,0.0
+            write(stdout,"(a)") " "
         end subroutine PerformMating
 
         !#######################################################################
 
-        subroutine PerformMatingGenderIncl
+        subroutine PerformMatingGenderIncl(CriterionType)
             use AlphaSuiteModule,only : RandomOrder
             implicit none
-
+            ! Arguments
+            character(len=*),intent(in) :: CriterionType    ! Type of criterion (MinInb,MaxGain)
+            ! Other
             integer :: i,j,k,l,nTmp,MatingMalIdVec(nMatings),MatingFemIdVec(nMatings),nMatingPerMal(nMal),nMatingPerFem(nFem)
             integer :: ShuffleMatingMalVec(nMatings),ShuffleMatingFemVec(nMatings)
-            double precision :: MalXvec(nMal),FemXvec(nFem),MalSortedXvec(nMal),FemSortedXvec(nFem),RanNum
+            double precision :: MalXVec(nMal),FemXVec(nFem),MalSortedXVec(nMal),FemSortedXVec(nFem),RanNum,ValueHold
 
-            ! Select male parents
+            ! NOTE: XVec and SortedXVec are of length nInd, but there are only
+            !       nParents non-zero elements.
 
+            ! --- Males ---
+
+            ! Allocate matings according to contributions
+            MalXVec(:)=XVec(IdMal)
+            MalSortedXVec(:)=MalXVec(:)
             MatingMalIdVec=0
             nMatingPerMal=0
-
             l=0
-            do i=1,nMal
-                MalXvec(i)=XVec(IdMal(i))
-            enddo
-
-            MalSortedXvec(:)=MalXvec(:)
-
-            do i=1,nMal
-                k=maxloc(MalSortedXvec,dim=1) ! k is the position (id) in vector x having the highest contribution.
-                MalSortedXvec(k)=(minval(MalSortedXvec))-1
-
-                nTmp=int(MalXvec(k)*(nMatings)) ! changed! XVec(SortedIdVec(i))=XVec(k)
+            do i=1,nMalParents
+                ! Find the most contributing parent
+                k=maxloc(MalSortedXVec,dim=1)
+                ! ... and push him "away" for the next round
+                MalSortedXVec(k)=(minval(MalSortedXVec))-1
+                ! Allocate no. of matings
+                nTmp=int(MalXVec(k)*(nMatings))
                 nMatingPerMal(k)=nTmp
                 do j=1,nTmp
                     l=l+1 ! l evolves from 1 to nMatings independently of i.
-                    MatingMalIdVec(l)=IdMal(k) ! MatingIdVec takes the value of k, or SortedIdVec(i), at positions 1 to nTmp.
+                    MatingMalIdVec(l)=IdMal(k)
                     if (l == (nMatings)) exit
                 enddo
                 if (l == (nMatings)) exit
             enddo
 
-            if (sum(nMatingPerMal) < (nMatings)) then ! if all of the remaining matings have not received individuals.
+            ! Make sure that we fill all matings (could have skipped some above due to rounding, i.e., int())
+            if (sum(nMatingPerMal) < (nMatings)) then
                 do
                     call random_number(RanNum)
                     k=int(RanNum*nMal)+1
                     call random_number(RanNum)
-                    if (RanNum < MalXvec(k)) then ! ids are selected for these matings according to their contribution.
+                    if (RanNum < MalXVec(k)) then ! ids are selected for these matings according to their contribution.
                         l=l+1
                         MatingMalIdVec(l)=IdMal(k)
                         nMatingPerMal(k)=nMatingPerMal(k)+1
@@ -1019,23 +1113,21 @@ module AlphaMateModule
                 enddo
             endif
 
-            ! Select female parents
+            ! --- Females ---
 
+            ! Allocate matings according to contributions
+            FemXVec(:)=XVec(IdFem)
+            FemSortedXVec(:)=FemXVec(:)
             MatingFemIdVec=0
             nMatingPerFem=0
-
             l=0
-            do i=1,nFem
-                FemXvec(i)=XVec(IdFem(i))
-            enddo
-
-            FemSortedXvec(:)=FemXvec(:)
-
-            do i=1,nFem
-                k=maxloc(FemSortedXvec,dim=1)
-                FemSortedXvec(k)=(minval(FemSortedXvec))-1
-
-                nTmp=int(FemXvec(k)*(nMatings))
+            do i=1,nFemParents
+                ! Find the most contributing parent
+                k=maxloc(FemSortedXVec,dim=1)
+                ! ... and push him "away" for the next round
+                FemSortedXVec(k)=(minval(FemSortedXVec))-1
+                ! Allocate no. of matings
+                nTmp=int(FemXVec(k)*(nMatings))
                 nMatingPerFem(k)=nTmp
                 do j=1,nTmp
                     l=l+1
@@ -1045,12 +1137,13 @@ module AlphaMateModule
                 if (l == (nMatings)) exit
             enddo
 
+            ! Make sure that we fill all matings (could have skipped some above due to rounding, i.e., int())
             if (sum(nMatingPerFem) < (nMatings)) then
                 do
                     call random_number(RanNum)
                     k=int(RanNum*nFem)+1
                     call random_number(RanNum)
-                    if (RanNum < FemXvec(k)) then
+                    if (RanNum < FemXVec(k)) then ! ids are selected for these matings according to their contribution.
                         l=l+1
                         MatingFemIdVec(l)=IdFem(k)
                         nMatingPerFem(k)=nMatingPerFem(k)+1
@@ -1059,11 +1152,9 @@ module AlphaMateModule
                 enddo
             endif
 
-            ! Perform matings
-
+            ! Randomize allocations and pair parents
             call RandomOrder(ShuffleMatingMalVec,nMatings)
             call RandomOrder(ShuffleMatingFemVec,nMatings)
-
             l=0
             do i=1,nMatings
                 l=l+1
@@ -1072,15 +1163,24 @@ module AlphaMateModule
             enddo
 
             ! Fill nMatingPerInd
-
             nMatingPerInd=0
-
             do i=1,nMal
                 nMatingPerInd(IdMal(i))=nMatingPerMal(i)
             enddo
             do i=1,nFem
                 nMatingPerInd(IdFem(i))=nMatingPerFem(i)
             enddo
+
+            ! Evaluate this particular mating
+            ! TODO: PAGE
+            XVec(:)=dble(nMatingPerInd(:))/dble(nMatings*2)
+            ValueHold=CalcCriterion(nInd,XVec,CriterionType)
+            write(stdout,"(a)") "The produced mating gives:"
+            !                       12345678901   12345678901   12345678901   12345678901   12345678901   12345678901   12345678901   12345678901   12345678901
+            write(stdout,"(9a11)") " SearchMode","       Step","       Gain"," Inbreeding"," ...-Target","  RateOfInb"," ...-Target","  Criterion"," AcceptRate"
+            write(stdout,"(a11,i11,7f11.4)") CriterionType,EvolAlgNGen+1,Gain,FCurrent,(FCurrent-FTarget),DeltaFCurrent,(DeltaFCurrent-DeltaFTarget),ValueHold,0.0
+            ! write(Unit,  "(a11,i11,7f11.4)") CriterionType,EvolAlgNGen+1,Gain,FCurrent,(FCurrent-FTarget),DeltaFCurrent,(DeltaFCurrent-DeltaFTarget),ValueHold,0.0
+            write(stdout,"(a)") " "
         end subroutine PerformMatingGenderIncl
 
         !#######################################################################
@@ -1099,11 +1199,11 @@ program AlphaMate
     call AlphaMateTitles
 
     ! Create output folder
-    Success=systemQQ(RMDIR//" AlphaMateResults")
+    Success=SystemQQ(RMDIR//" AlphaMateResults")
     if (.not.Success) then
         write(stderr,"(a)") "ERROR: Failure to remove old output folder!"
     endif
-    Success=systemQQ(MKDIR//" AlphaMateResults")
+    Success=SystemQQ(MKDIR//" AlphaMateResults")
     if (.not.Success) then
         write(stderr,"(a)") "ERROR: Failure to make output folder!"
     endif
