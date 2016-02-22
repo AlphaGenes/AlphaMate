@@ -128,7 +128,7 @@ module AlphaSuiteModule
         !#######################################################################
 
         function Int2Char(i) result(Res)
-            ! TODO: source of this?
+            ! From http://stackoverflow.com/questions/1262695/converting-integers-to-strings-in-fortran
             implicit none
             character(:),allocatable :: Res
             integer,intent(in) :: i
@@ -143,7 +143,7 @@ end module AlphaSuiteModule
 !###############################################################################
 
 Module m_MrgRnk
-    ! http://www.fortran-2000.com/rank/MrgRnk.f90 (2016-02-15)
+    ! From http://www.fortran-2000.com/rank/MrgRnk.f90 (2016-02-15)
     Integer, Parameter :: kdp = selected_real_kind(15)
     public :: MrgRnk
     private :: kdp
@@ -785,7 +785,6 @@ module AlphaMateModule
     integer :: EvolAlgNSol,EvolAlgNGen,EvolAlgNGenBurnIn,EvolAlgNGenStop,EvolAlgNGenPrint
     integer,allocatable :: Gender(:),IdPotPar1(:),IdPotPar2(:),nVec(:),nVecPar1(:),nVecPar2(:),Mate(:,:)
 
-    ! TODO: can we not work with single precision to speed up?
     double precision :: EvolAlgStopTol
     double precision :: Gain,GainScaled,GainMinInb,GainMinInbScaled,GainOpt,GainOptScaled
     double precision :: RateInbTarget,RateInbSol,RateInbMinInb,RateInbOpt
@@ -905,7 +904,9 @@ module AlphaMateModule
                 read(UnitSpec,*) DumC,InbOld
             endif
             read(UnitSpec,*) DumC,RateInbTarget,PopInbPenalty
-            read(UnitSpec,*) DumC,RateIndInbTarget,IndInbPenalty
+            !read(UnitSpec,*) DumC,RateIndInbTarget,IndInbPenalty
+            ! TODO: handle this at some point
+            RateIndInbTarget=0.01d0
 
             read(UnitSpec,*) DumC,DumC
             if (trim(DumC) == "No") then
@@ -1263,7 +1264,7 @@ module AlphaMateModule
             integer :: SolA,SolB,SolC,BestSol,BestSolOld
             integer :: Unit
 
-            double precision :: RanNum,F,FHold,FHigh1,FHigh2,CR,CRLow,CRHigh
+            double precision :: RanNum,TmpR,F,FLow,FHigh1,FHigh2,CR,CRLow,CRHigh
             double precision :: BestValue,BestValueOld,BestValueStop,AcceptRate
             double precision,allocatable :: OldChrom(:,:),NewChrom(:,:),Chrom(:),Value(:)!,MiVal(:),MaVal(:)
 
@@ -1299,9 +1300,9 @@ module AlphaMateModule
             ! F is multiplier of difference used to mutate
             ! Typically between 0.2 and 2.0
             ! (if alleles should be integer, keep F as integer)
-            FHold=0.4d0  ! Conservative moves
-            FHigh1=1.0d0 ! Adventurous moves
-            FHigh2=4.0d0 ! Adventurous moves
+            FLow=0.10d0         ! Conservative moves
+            FHigh1=FLow*5.0d0   ! Adventurous moves
+            FHigh2=FHigh1*4.0d0 ! Adventurous moves
 
             ! Constrain parameters
             ! MiVal=0.0d0
@@ -1309,16 +1310,16 @@ module AlphaMateModule
 
             ! --- Initialise foundation population of solutions ---
 
-            ! A solution with equal contributions ! TODO: make arguments for this to make evol alg code generic?
-            !OldChrom(:,1)=1.0d0 ! TODO: how should this be setup for the mate selection driver?
-            !Value(1)=FixSolMateAndCalcCrit(nParam,OldChrom(:,1),CritType)
+            ! A solution with equal values (good to find minimal possible inbreeding)
+            OldChrom(:,1)=1.0d0
+            Value(1)=FixSolMateAndCalcCrit(nParam,OldChrom(:,1),CritType)
 
             ! Solutions with varied contributions
-            !do Sol=2,nSol
-            do Sol=1,nSol
+            TmpR=dble(nMat)/10.0d0
+            do Sol=2,nSol
                 do Param=1,nParam                   ! Set a wide range for each parameter
                     call random_number(RanNum)      ! May need integer values for some problems
-                    OldChrom(Param,Sol)=RanNum*(dble(nMat)/2.0d0) ! TODO: what would a good range be?
+                    OldChrom(Param,Sol)=RanNum*TmpR
                 enddo
                 Value(Sol)=FixSolMateAndCalcCrit(nParam,OldChrom(:,Sol),CritType)
             enddo
@@ -1345,18 +1346,18 @@ module AlphaMateModule
                 if (mod(Gen,4) == 0) then
                     F=FHigh1
                 else
-                    F=FHold
+                    F=FLow
                 endif
 
                 if (mod(Gen,7) == 0) then
                     F=FHigh2
                 else
-                    F=FHold
+                    F=FLow
                 endif
 
                 ! --- Generate competitors ---
 
-                ! TODO: paralelize this loop? Is it worth it?
+                ! TODO: paralelize this loop? Is it worth it? Can we do it given the
                 BestSolChanged=.false.
                 AcceptRate=0.0d0
                 do Sol=1,nSol
@@ -1416,7 +1417,7 @@ module AlphaMateModule
                     ! - this is preferablly not done as it slows convergence
                     ! - it is preferable for criterion function to handle constraints
                     ! - for AlphaMate GG found that it is advised to keep parameters
-                    !   unconstrained and set negative values to zero in criterion
+                    !   unconstrained and handle mapping when evaluating criterion
                     ! do Param=1,nParam
                     !    if (Chrom(Param) < MiVal(Param)) Chrom(Param)=MiVal(Param)
                     !    if (Chrom(Param) > MaVal(Param)) Chrom(Param)=MaVal(Param)
@@ -1511,7 +1512,7 @@ module AlphaMateModule
             character(len=*),intent(in)    :: CritType    ! Type of criterion (MinInb,OptGain)
             ! Other
             integer :: i,j,k,m,nCumMat,RankSol(nInd),SolInt(nInd),MatPar2(nMat),TmpMin,TmpMax
-            double precision :: TmpVec(nInd,1),Criterion
+            double precision :: TmpVec(nInd,1),Criterion!,InbSol2
 
             ! Solution has:
             ! - nPotPar1 individual contributions for "parent1" (males when GenderMatters)
@@ -1526,10 +1527,15 @@ module AlphaMateModule
 
             ! --- Is the solution valid? ---
 
-            ! TODO: ALLOW SELFFERTILISATION - AN OPTION? In mate allocations?
+            ! TODO: ALLOW SELFFERTILISATION - AN OPTION In mate allocations?
             !       will we have to modify solution if this is not achieved?
             !       progeny inbreeding would help in lowering objective, but that
             !       might not be desired in say plants
+
+            ! TODO: how do we equalize contributions? - distribute equal contributions to nPar positions
+            ! TODO: how do we limit the number of parents? - take the top nPar (or nMalPar and nFemPar) positions
+            !       (will have to add missing contributions only to these parents!!!)
+            ! TODO: limit min and max usage
 
             ! TODO: This implementation adds one contribution to "trailing" individuals (have values < 1)
             !       until nMat is reached. Should we add these contributions to the first trailing
@@ -1601,11 +1607,6 @@ module AlphaMateModule
                 write(stderr,"(a)") "TODO: nCumMat < nMat!"
                 stop 1
             endif
-
-            ! TODO: how do we equalize contributions? - distribute equal contributions to nPar positions
-            ! TODO: how do we limit the number of parents? - take the top nPar (or nMalPar and nFemPar) positions
-            !       (will have to add missing contributions only to these parents!!!)
-            ! TODO: how to limit min and max usage
 
             ! do i=1,nInd
             !    write(stdout,"(i,3f)") i,Sol(i),Sol(nPotPar1+i),Sol(nPotPar1+nPotPar2+i)
@@ -1782,7 +1783,6 @@ module AlphaMateModule
             enddo
             ! xAx
             InbSol=0.5d0*dot_product(TmpVec(:,1),xVec)
-            ! print*,xVec,TmpVec,InbSol
 
             ! Matrix multiplication with symmetric matrix using BLAS routine
             ! (it was ~5x slower than the above with 1.000 individuals, might be
@@ -1795,6 +1795,18 @@ module AlphaMateModule
             ! InbSol=0.5d0*dot_product(xVec,TmpVec(:,1))
             ! print*,xVec,TmpVec,InbSol
             ! stop 1
+
+            ! This would compute group coancestry without accounting for self-coancestries
+            ! (we likely will not self-fertilize individuals)
+            !
+            ! ! xA
+            ! do i=1,nInd
+            !     TmpVec(i,1)=dot_product(xVec,RelMtx(:,i))
+            !     TmpVec(i,1)=TmpVec(i,1)-xVec(i)*(RelMtx(i,i)-1.0d0) ! remove self-coancestry
+            ! enddo
+            ! ! xAx
+            ! InbSol2=0.5d0*dot_product(TmpVec(:,1),xVec)
+            ! print*,InbSol,InbSol2
 
             InbSolRebased=(InbSol-InbOld)/(1.0d0-InbOld)
             RateInbSol=InbSolRebased
@@ -1841,14 +1853,16 @@ module AlphaMateModule
             endif
 
             ! Individual inbreeding
-            if (RateIndInbSol <= RateIndInbTarget) then
-                Criterion=Criterion-(IndInbSolRebased-IndInbTargetRebased)
-            else
-                ! Say IndInbPenalty=100, this would be a penalty of 1 SD for 0.01
-                ! increase in inbreeding above the target. Note that gain is scaled
-                ! and inbreeding is rebased so this should be a "stable" soft constraint.
-                Criterion=Criterion-IndInbPenalty*(IndInbSolRebased-IndInbTargetRebased)
-            endif
+            ! TODO: how do we properly handle the individual inbreeding as we do for
+            !       the population inbreeding
+            ! if (RateIndInbSol <= RateIndInbTarget) then
+            !     Criterion=Criterion-(IndInbSolRebased-IndInbTargetRebased)
+            ! else
+            !     ! Say IndInbPenalty=100, this would be a penalty of 1 SD for 0.01
+            !     ! increase in inbreeding above the target. Note that gain is scaled
+            !     ! and inbreeding is rebased so this should be a "stable" soft constraint.
+            !     Criterion=Criterion-IndInbPenalty*(IndInbSolRebased-IndInbTargetRebased)
+            ! endif
 
             return
         end function FixSolMateAndCalcCrit
