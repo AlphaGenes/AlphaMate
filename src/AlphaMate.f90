@@ -785,7 +785,7 @@ module AlphaMateModule
     integer :: EvolAlgNSol,EvolAlgNGen,EvolAlgNGenBurnIn,EvolAlgNGenStop,EvolAlgNGenPrint
     integer,allocatable :: Gender(:),IdPotPar1(:),IdPotPar2(:),nVec(:),nVecPar1(:),nVecPar2(:),Mate(:,:)
 
-    double precision :: EvolAlgStopTol
+    double precision :: EvolAlgStopTol,EvolAlgCRBurnIn,EvolAlgCRLate,EvolAlgFBase,EvolAlgFHigh1,EvolAlgFHigh2
     double precision :: Gain,GainScaled,GainMinInb,GainMinInbScaled,GainOpt,GainOptScaled
     double precision :: RateInbTarget,RateInbSol,RateInbMinInb,RateInbOpt
     double precision :: InbOld,InbTarget,InbTargetRebased,InbSol,InbSolRebased,InbMinInb
@@ -798,7 +798,8 @@ module AlphaMateModule
 
     character(len=300),allocatable :: IdC(:)
 
-    logical :: GenderMatters,EqualizeMales,EqualizeFemales,InferInbOld,EvaluateFrontier
+    logical :: MinInbThenOptGain,GenderMatters,EqualizeMales,EqualizeFemales,InferInbOld
+    logical :: EvaluateFrontier
 
     contains
 
@@ -836,6 +837,13 @@ module AlphaMateModule
             ! --- Spec file ---
 
             open(newunit=UnitSpec,file="AlphaMateSpec.txt",status="old")
+
+            read(UnitSpec,*) DumC,DumC
+            if (trim(DumC) == "MinInbThenOptGain") then
+                MinInbThenOptGain=.true.
+            else
+                MinInbThenOptGain=.false.
+            endif
 
             read(UnitSpec,*) DumC,RelMtxFile
             read(UnitSpec,*) DumC,BvFile
@@ -881,6 +889,7 @@ module AlphaMateModule
             endif
 
             ! TODO: should there be a parameter about how many progeny to produce and what is litter size?
+            !       does this fall within the number of valid matings?
 
             read(UnitSpec,*) DumC,DumC
             if (GenderMatters .and. (trim(DumC) == "Yes")) then
@@ -921,6 +930,7 @@ module AlphaMateModule
             endif
 
             read(UnitSpec,*) DumC,EvolAlgNSol,EvolAlgNGen,EvolAlgNGenBurnIn,EvolAlgNGenStop,EvolAlgStopTol,EvolAlgNGenPrint
+            read(UnitSpec,*) DumC,EvolAlgCRBurnIn,EvolAlgCRLate,EvolAlgFBase,EvolAlgFHigh1,EvolAlgFHigh2
 
             read(UnitSpec,*) DumC,DumC
             SeedFile="AlphaMateResults"//DASH//"Seed.txt"
@@ -1078,9 +1088,9 @@ module AlphaMateModule
         subroutine AlphaMateSearch
             implicit none
 
-            integer :: i,UnitInbree,UnitMating,UnitContri,UnitFrontier,nTmp
+            integer :: i,j,UnitInbree,UnitMating,UnitContri,UnitFrontier,nTmp,Rank(nInd)
 
-            double precision :: StdDev,Mean,RateInbFrontierStep
+            double precision :: StdDev,Mean
             double precision :: InbTargetRebasedHold,InbTargetHold,RateInbTargetHold
 
             character(len=300) :: EvolAlgLogFile
@@ -1095,76 +1105,86 @@ module AlphaMateModule
 
             ! --- Optimise for minimum inbreeding ---
 
-            write(stdout,"(a)") "Optimise for minimum inbreeding:"
-            write(stdout,"(a)") " "
+            if (MinInbThenOptGain) then
+                write(stdout,"(a)") "Optimise for minimum inbreeding:"
+                write(stdout,"(a)") " "
 
-            EvolAlgLogFile="AlphaMateResults"//DASH//"OptimisationLog1MinimumInbreeding.txt"
-            nTmp=nPotPar1+nPotPar2+nMat ! TODO: add PAGE dimension
-            call EvolAlgForAlphaMate(nParam=nTmp,nSol=EvolAlgNSol,nGen=EvolAlgNGen,nGenBurnIn=EvolAlgNGenBurnIn,&
-                                     nGenStop=EvolAlgNGenStop,StopTolerance=EvolAlgStopTol,&
-                                     nGenPrint=EvolAlgNGenPrint,File=EvolAlgLogFile,CritType="MinInb")
-            GainMinInb=Gain
-            GainMinInbScaled=GainScaled
-            InbMinInb=InbSol
-            InbMinInbRebased=InbSolRebased
-            RateInbMinInb=RateInbSol
-            IndInbMinInb=IndInbSol
-            RateIndInbMinInb=RateIndInbSol
-            ValueHoldMinInb=ValueHold
+                EvolAlgLogFile="AlphaMateResults"//DASH//"OptimisationLog1MinimumInbreeding.txt"
+                nTmp=nPotPar1+nPotPar2+nMat ! TODO: add PAGE dimension
+                call EvolAlgForAlphaMate(nParam=nTmp,nSol=EvolAlgNSol,nGen=EvolAlgNGen,nGenBurnIn=EvolAlgNGenBurnIn,&
+                                         nGenStop=EvolAlgNGenStop,StopTolerance=EvolAlgStopTol,&
+                                         nGenPrint=EvolAlgNGenPrint,File=EvolAlgLogFile,CritType="MinInb",&
+                                         CRBurnIn=EvolAlgCRBurnIn,CRLate=EvolAlgCRLate,&
+                                         FBase=EvolAlgFBase,FHigh1=EvolAlgFHigh1,FHigh2=EvolAlgFHigh2)
+                GainMinInb=Gain
+                GainMinInbScaled=GainScaled
+                InbMinInb=InbSol
+                InbMinInbRebased=InbSolRebased
+                RateInbMinInb=RateInbSol
+                IndInbMinInb=IndInbSol
+                RateIndInbMinInb=RateIndInbSol
+                ValueHoldMinInb=ValueHold
 
-            open(newunit=UnitContri,file="AlphaMateResults"//DASH//"ContribAndMatingsPerIndivMinimumInbreeding.txt",status="unknown")
-            !                           12345678901   12345678901   12345678901   12345678901   12345678901
-            write(UnitContri,"(5a11)") "         Id","     OrigId","     Gender"," Contribute","   nMatings"
-            do i=1,nInd
-                write(UnitContri,"(i11,a11,i11,f11.5,i11)") i,trim(IdC(i)),Gender(i),xVec(i),nVec(i)
-            enddo
-            close(UnitContri)
+                open(newunit=UnitContri,file="AlphaMateResults"//DASH//"ContribAndMatingsPerIndivMinimumInbreeding.txt",status="unknown")
+                !                           12345678901   12345678901   12345678901   12345678901   12345678901   12345678901
+                write(UnitContri,"(6a11)") "     OrigId","     Gender","      Merit"," AvgCoances"," Contribute","   nMatings"
+                call MrgRnk(nVec,Rank)
+                do i=nInd,1,-1 ! MrgRnk ranks small to large
+                    j=Rank(i)
+                    write(UnitContri,"(a11,i11,3f11.5,i11)") trim(IdC(j)),Gender(j),Bv(j),sum(RelMtx(:,j))/(2.0d0*dble(nInd)),xVec(j),nVec(j)
+                enddo
+                close(UnitContri)
 
-            open(newunit=UnitMating,file="AlphaMateResults"//DASH//"MatingListMinimumInbreeding.txt",status="unknown")
-            !                           12345678901   12345678901
-            write(UnitMating,"(2a11)") "    Parent1","    Parent2"
-            do i=1,nMat
-                write(UnitMating,"(2i11)") Mate(i,:)
-            enddo
-            close(UnitMating)
+                open(newunit=UnitMating,file="AlphaMateResults"//DASH//"MatingListMinimumInbreeding.txt",status="unknown")
+                !                           12345678901   12345678901
+                write(UnitMating,"(2a11)") "    Parent1","    Parent2"
+                do i=1,nMat
+                    write(UnitMating,"(2i11)") Mate(i,:)
+                enddo
+                close(UnitMating)
+
+                if (InbOld > InbSol) then
+                    write(stdout,"(a)") "NOTE: Old inbreeding is higher than the minimum group coancestry (x'Ax/2) under no selection."
+                    write(stdout,"(a)") "NOTE: Resetting the old inbreeding to the minimum group coancestry under no selection and"
+                    write(stdout,"(a)") "NOTE:   recomputing the targeted inbreeding."
+                    InbOld=InbSol
+                    InbTarget=InbOld*(1.0d0-RateInbTarget)+RateInbTarget
+                    InbTargetRebased=(InbTarget-InbOld)/(1.0d0-InbOld)
+                    InbMinInbRebased=0.0d0
+                    RateInbMinInb=0.0d0
+                    write(stdout,"(a,f)") "Previous coancestry (=old inbreeding): ",InbOld
+                    write(stdout,"(a,f)") "Targeted rate of inbreeding: ",RateInbTarget
+                    write(stdout,"(a,f)") "Targeted inbreeding:",InbTarget
+                    write(stdout,"(a)") " "
+                endif
+
+                if (InbSol > InbTarget) then
+                    write(stderr,"(a)") "ERROR: Targeted inbreeding is lower than the group coancestry (x'Ax/2) under no selection."
+                    write(stderr,"(a)") "ERROR: Can not optimise!"
+                    stop 1
+                endif
+
+                open(newunit=UnitInbree,file="AlphaMateResults"//DASH//"ConstraintPopulationInbreeding.txt",status="old")
+                write(UnitInbree,"(a,f)") "Old_inbreeding_redefined, ",InbOld
+                write(UnitInbree,"(a,f)") "Targeted_rate_of_inbreeding_redefined, ",RateInbTarget
+                write(UnitInbree,"(a,f)") "Targeted_inbreeding_redefined, ",InbTarget
+                close(UnitInbree)
+            else
+                GainMinInbScaled=0.0d0
+            endif
 
             ! --- Optimise for maximum gain with constraint on inbreeding ---
 
             write(stdout,"(a)") "Optimise for maximum gain with constraint on inbreeding:"
             write(stdout,"(a)") " "
 
-            if (InbOld > InbSol) then
-                write(stdout,"(a)") "NOTE: Old inbreeding is higher than the minimum group coancestry (x'Ax/2) under no selection."
-                write(stdout,"(a)") "NOTE: Resetting the old inbreeding to the minimum group coancestry under no selection and"
-                write(stdout,"(a)") "NOTE:   recomputing the targeted inbreeding."
-                InbOld=InbSol
-                InbTarget=InbOld*(1.0d0-RateInbTarget)+RateInbTarget
-                InbTargetRebased=(InbTarget-InbOld)/(1.0d0-InbOld)
-                InbMinInbRebased=0.0d0
-                RateInbMinInb=0.0d0
-                write(stdout,"(a,f)") "Previous coancestry (=old inbreeding): ",InbOld
-                write(stdout,"(a,f)") "Targeted rate of inbreeding: ",RateInbTarget
-                write(stdout,"(a,f)") "Targeted inbreeding:",InbTarget
-                write(stdout,"(a)") " "
-            endif
-
-            if (InbSol > InbTarget) then
-                write(stderr,"(a)") "ERROR: Targeted inbreeding is lower than the group coancestry (x'Ax/2) under no selection."
-                write(stderr,"(a)") "ERROR: Can not optimise!"
-                stop 1
-            endif
-
-            open(newunit=UnitInbree,file="AlphaMateResults"//DASH//"ConstraintPopulationInbreeding.txt",status="old")
-            write(UnitInbree,"(a,f)") "Old_inbreeding_redefined, ",InbOld
-            write(UnitInbree,"(a,f)") "Targeted_rate_of_inbreeding_redefined, ",RateInbTarget
-            write(UnitInbree,"(a,f)") "Targeted_inbreeding_redefined, ",InbTarget
-            close(UnitInbree)
-
             EvolAlgLogFile="AlphaMateResults"//DASH//"OptimisationLog2OptimumGain.txt"
             nTmp=nPotPar1+nPotPar2+nMat ! TODO: add PAGE dimension
             call EvolAlgForAlphaMate(nParam=nTmp,nSol=EvolAlgNSol,nGen=EvolAlgNGen,nGenBurnIn=EvolAlgNGenBurnIn,&
                                      nGenStop=EvolAlgNGenStop,StopTolerance=EvolAlgStopTol,&
-                                     nGenPrint=EvolAlgNGenPrint,File=EvolAlgLogFile,CritType="OptGain")
+                                     nGenPrint=EvolAlgNGenPrint,File=EvolAlgLogFile,CritType="OptGain",&
+                                     CRBurnIn=EvolAlgCRBurnIn,CRLate=EvolAlgCRLate,&
+                                     FBase=EvolAlgFBase,FHigh1=EvolAlgFHigh1,FHigh2=EvolAlgFHigh2)
             GainOpt=Gain
             GainOptScaled=GainScaled
             InbOpt=InbSol
@@ -1175,10 +1195,12 @@ module AlphaMateModule
             ValueHoldOpt=ValueHold
 
             open(newunit=UnitContri,file="AlphaMateResults"//DASH//"ContribAndMatingNbPerIndivOptimumGain.txt",status="unknown")
-            !                           12345678901   12345678901   12345678901   12345678901   12345678901
-            write(UnitContri,"(5a11)") "         Id","     OrigId","     Gender"," Contribute","   nMatings"
-            do i=1,nInd
-                write(UnitContri,"(i11,a11,i11,f11.5,i11)") i,trim(IdC(i)),Gender(i),xVec(i),nVec(i)
+            !                           12345678901   12345678901   12345678901   12345678901   12345678901   12345678901
+            write(UnitContri,"(6a11)") "     OrigId","     Gender","      Merit"," AvgCoances"," Contribute","   nMatings"
+            call MrgRnk(nVec,Rank)
+            do i=nInd,1,-1 ! MrgRnk ranks small to large
+                j=Rank(i)
+                write(UnitContri,"(a11,i11,3f11.5,i11)") trim(IdC(j)),Gender(j),Bv(j),sum(RelMtx(:,j))/(2.0d0*dble(nInd)),xVec(j),nVec(j)
             enddo
             close(UnitContri)
 
@@ -1200,14 +1222,18 @@ module AlphaMateModule
                 open(newunit=UnitFrontier,file="AlphaMateResults"//DASH//"Frontier.txt",status="unknown")
                 !                             12345678901   12345678901   12345678901   12345678901   12345678901   12345678901   12345678901   12345678901
                 write(UnitFrontier,"(8a11)") "       Step","       Gain"," GainScaled"," PopInbreed"," RatePopInb"," IndInbreed"," RateIndInb","  Objective"
-                write(UnitFrontier,"(i11,7f11.5)") 1,GainMinInb,GainMinInbScaled,InbMinInb,RateInbMinInb,IndInbMinInb,RateIndInbMinInb,ValueHoldMinInb
-                write(UnitFrontier,"(i11,7f11.5)") 2,GainOpt,   GainOptScaled,   InbOpt,   RateInbOpt,   IndInbOpt,   RateIndInbOpt,   ValueHoldOpt
+                j=0
+                if (MinInbThenOptGain) then
+                    j=j+1
+                    write(UnitFrontier,"(i11,7f11.5)") j,GainMinInb,GainMinInbScaled,InbMinInb,RateInbMinInb,IndInbMinInb,RateIndInbMinInb,ValueHoldMinInb
+                endif
+                j=j+1
+                write(UnitFrontier,"(i11,7f11.5)") j,GainOpt,   GainOptScaled,   InbOpt,   RateInbOpt,   IndInbOpt,   RateIndInbOpt,   ValueHoldOpt
 
                 ! Hold old results
                 InbTargetRebasedHold=InbTargetRebased
                 InbTargetHold=InbTarget
                 RateInbTargetHold=RateInbTarget
-                RateInbTarget=RateInbMinInb
 
                 ! Evaluate
                 do i=1,nFrontierSteps
@@ -1220,8 +1246,10 @@ module AlphaMateModule
                     nTmp=nPotPar1+nPotPar2+nMat ! TODO: add PAGE dimension
                     call EvolAlgForAlphaMate(nParam=nTmp,nSol=EvolAlgNSol,nGen=EvolAlgNGen,nGenBurnIn=EvolAlgNGenBurnIn,&
                                              nGenStop=EvolAlgNGenStop,StopTolerance=EvolAlgStopTol,&
-                                             nGenPrint=EvolAlgNGenPrint,File=EvolAlgLogFile,CritType="OptGain")
-                    write(UnitFrontier,"(i11,7f11.5)") i+2,Gain,GainScaled,InbSol,RateInbSol,IndInbSol,RateIndInbSol,ValueHold
+                                             nGenPrint=EvolAlgNGenPrint,File=EvolAlgLogFile,CritType="OptGain",&
+                                             CRBurnIn=EvolAlgCRBurnIn,CRLate=EvolAlgCRLate,&
+                                             FBase=EvolAlgFBase,FHigh1=EvolAlgFHigh1,FHigh2=EvolAlgFHigh2)
+                    write(UnitFrontier,"(i11,7f11.5)") j+i,Gain,GainScaled,InbSol,RateInbSol,IndInbSol,RateIndInbSol,ValueHold
                     if ((RateInbTarget-RateInbSol) > 0.01d0) then
                         write(stdout,"(a,f)") "NOTE: Could not achieve the rate of inbreeding of ",RateInbTarget
                         write(stdout,"(a,f)") "NOTE: Stopping the frontier evaluation."
@@ -1245,28 +1273,33 @@ module AlphaMateModule
         !#######################################################################
 
         subroutine EvolAlgForAlphaMate(nParam,nSol,nGen,nGenBurnIn,nGenStop,&
-            StopTolerance,nGenPrint,File,CritType)
+            StopTolerance,nGenPrint,File,CritType,CRBurnIn,CRLate,FBase,FHigh1,FHigh2)
             implicit none
 
             ! Arguments
-            integer,intent(in)          :: nParam        ! No. of parameters in a solution
-            integer,intent(in)          :: nSol          ! No. of solutions to test each generation
-            integer,intent(in)          :: nGen          ! No. of generations to run
-            integer,intent(in)          :: nGenBurnIn    ! No. of generations with more
-            integer,intent(in)          :: nGenStop      ! Stop after no progress for nGenerationStop
-            double precision,intent(in) :: StopTolerance ! Stopping tolerance
-            integer,intent(in)          :: nGenPrint     ! Print changed solution every nGenerationPrint
-            character(len=*),intent(in) :: File          ! Which file to write to
-            character(len=*),intent(in) :: CritType      ! Passed to FixSolMateAndCalcCrit
+            integer,intent(in)          :: nParam            ! No. of parameters in a solution
+            integer,intent(in)          :: nSol              ! No. of solutions to test each generation
+            integer,intent(in)          :: nGen              ! No. of generations to run
+            integer,intent(in)          :: nGenBurnIn        ! No. of generations with more
+            integer,intent(in)          :: nGenStop          ! Stop after no progress for nGenerationStop
+            double precision,intent(in) :: StopTolerance     ! Stopping tolerance
+            integer,intent(in)          :: nGenPrint         ! Print changed solution every nGenerationPrint
+            character(len=*),intent(in) :: File              ! Which file to write to
+            character(len=*),intent(in) :: CritType          ! Passed to FixSolMateAndCalcCrit
+            double precision,intent(in),optional :: CRBurnIn ! Crossover rate for nGenBurnIn
+            double precision,intent(in),optional :: CRLate   ! Crossover rate
+            double precision,intent(in),optional :: FBase    ! F is multiplier of difference used to mutate
+            double precision,intent(in),optional :: FHigh1   ! F is multiplier of difference used to mutate
+            double precision,intent(in),optional :: FHigh2   ! F is multiplier of difference used to mutate
 
             ! Other
             integer :: Param,ParamLoc,Sol,Gen,LastGenPrint
             integer :: SolA,SolB,SolC,BestSol,BestSolOld
             integer :: Unit
 
-            double precision :: RanNum,TmpR,F,FLow,FHigh1,FHigh2,CR,CRLow,CRHigh
+            double precision :: RanNum,TmpR,FInt,FBaseInt,FHigh1Int,FHigh2Int,CRInt,CRBurnInInt,CRLateInt
             double precision :: BestValue,BestValueOld,BestValueStop,AcceptRate
-            double precision,allocatable :: OldChrom(:,:),NewChrom(:,:),Chrom(:),Value(:)!,MiVal(:),MaVal(:)
+            double precision,allocatable :: OldChrom(:,:),NewChrom(:,:),Chrom(:),Value(:)
 
             logical :: DiffOnly,BestSolChanged
 
@@ -1292,25 +1325,44 @@ module AlphaMateModule
 
             ! --- Set parameters ---
 
-            ! TODO: make arguments for this to make evol alg code generic?
             ! Crossover rate
-            CRHigh=0.4d0 ! For first few generations (burn-in)
-            CRLow=0.2d0  ! For later climbs
+            ! ... for later climbs
+            if (present(CRLate)) then
+                CRLateInt=CRLate
+            else
+                CRLateInt=0.1d0
+            endif
+            ! ... for first few generations (burn-in)
+            if (present(CRBurnIn)) then
+                CRBurnInInt=CRBurnIn
+            else
+                CRBurnInInt=2.0d0*CRLateInt
+            endif
 
             ! F is multiplier of difference used to mutate
             ! Typically between 0.2 and 2.0
             ! (if alleles should be integer, keep F as integer)
-            FLow=0.10d0         ! Conservative moves
-            FHigh1=FLow*5.0d0   ! Adventurous moves
-            FHigh2=FHigh1*4.0d0 ! Adventurous moves
-
-            ! Constrain parameters
-            ! MiVal=0.0d0
-            ! MaVal=1.0d0
+            ! ... conservative moves
+            if (present(FBase)) then
+                FBaseInt=FBase
+            else
+                FBaseInt=0.1d0
+            endif
+            ! ... adventurous moves
+            if (present(FHigh1)) then
+                FHigh1Int=FHigh1
+            else
+                FHigh1Int=10.0d0*FBaseInt
+            endif
+            if (present(FHigh2)) then
+                FHigh2Int=FHigh2
+            else
+                FHigh2Int=4.0d0*FHigh1Int
+            endif
 
             ! --- Initialise foundation population of solutions ---
 
-            ! A solution with equal values (good to find minimal possible inbreeding)
+            ! A solution with equal values (good for finding minimal possible inbreeding)
             OldChrom(:,1)=1.0d0
             Value(1)=FixSolMateAndCalcCrit(nParam,OldChrom(:,1),CritType)
 
@@ -1337,27 +1389,28 @@ module AlphaMateModule
 
                 ! Burn-in
                 if (Gen < nGenBurnIn) then
-                    CR=CRHigh
+                    CRInt=CRBurnInInt
                 else
-                    CR=CRLow
+                    CRInt=CRLateInt
                 endif
 
                 ! Vary mutation rate every few generations
                 if (mod(Gen,4) == 0) then
-                    F=FHigh1
+                    FInt=FHigh1Int
                 else
-                    F=FLow
+                    FInt=FBaseInt
                 endif
 
                 if (mod(Gen,7) == 0) then
-                    F=FHigh2
+                    FInt=FHigh2Int
                 else
-                    F=FLow
+                    FInt=FBaseInt
                 endif
 
                 ! --- Generate competitors ---
 
-                ! TODO: paralelize this loop? Is it worth it? Can we do it given the
+                ! TODO: Paralelize this loop? Is it worth it?
+                !       Can we do it given the saving to OldChrom&NewChrom?
                 BestSolChanged=.false.
                 AcceptRate=0.0d0
                 do Sol=1,nSol
@@ -1386,21 +1439,21 @@ module AlphaMateModule
                     Param=int(RanNum*nParam)+1 ! Cycle through parameters starting at a random point
                     do ParamLoc=1,nParam
                         call random_number(RanNum)
-                        if ((RanNum < CR) .or. (ParamLoc == nParam)) then
+                        if ((RanNum < CRInt) .or. (ParamLoc == nParam)) then
                             ! Recombine
                             call random_number(RanNum)
                             if ((RanNum < 0.8d0) .or. DiffOnly) then
                                 ! Differential mutation (with prob 0.8 or 1)
-                                Chrom(Param)=OldChrom(Param,SolC) + F*(OldChrom(Param,SolA)-OldChrom(Param,SolB))
+                                Chrom(Param)=OldChrom(Param,SolC) + FInt*(OldChrom(Param,SolA)-OldChrom(Param,SolB))
                             else
                                 ! Non-differential mutation (to avoid getting stuck)
                                 call random_number(RanNum)
                                 if (RanNum < 0.5d0) then
                                     call random_number(RanNum)
-                                    Chrom(Param)=OldChrom(Param,SolC) * (0.9d0 + 0.2d0 * RanNum)
+                                    Chrom(Param)=OldChrom(Param,SolC) * (0.9d0+0.2d0*RanNum)
                                 else
                                     call random_number(RanNum)
-                                    Chrom(Param)=OldChrom(Param,SolC) + 0.01d0 * F * (OldChrom(Param,SolA) + 0.01d0) * (RanNum - 0.5d0)
+                                    Chrom(Param)=OldChrom(Param,SolC) + 0.01d0*FInt*(OldChrom(Param,SolA)+0.01d0)*(RanNum-0.5d0)
                                 endif
                             endif
                         else
@@ -1410,18 +1463,6 @@ module AlphaMateModule
                         Param=Param+1
                         if (Param > nParam) Param=Param-nParam
                     enddo
-
-                    ! --- Constrain parameters ---
-
-                    ! TODO: make a subroutine/condition for this to make evol alg code generic?
-                    ! - this is preferablly not done as it slows convergence
-                    ! - it is preferable for criterion function to handle constraints
-                    ! - for AlphaMate GG found that it is advised to keep parameters
-                    !   unconstrained and handle mapping when evaluating criterion
-                    ! do Param=1,nParam
-                    !    if (Chrom(Param) < MiVal(Param)) Chrom(Param)=MiVal(Param)
-                    !    if (Chrom(Param) > MaVal(Param)) Chrom(Param)=MaVal(Param)
-                    ! enddo
 
                     ! --- Evaluate and Select ---
 
@@ -1433,19 +1474,12 @@ module AlphaMateModule
                     else
                         NewChrom(:,Sol)=OldChrom(:,Sol)                    ! Else keep the old solution
                     endif
-                enddo ! nSol
+                enddo ! Sol
 
                 AcceptRate=AcceptRate/dble(nSol)
 
                 ! --- New parents ---
 
-                ! TODO: could we reduce memory requirement by having only OldChrom and Chrom
-                !       and replace solutions within OldChrom directly when a new better solution
-                !       is found - would this be too greedy? The logic would be that in-silico
-                !       we can already use new solution for "mating" as we do not need to follow
-                !       discrete generations logic - make generations continous. But this might
-                !       become very GREEDY scheme that gets stuck in local optima. An option to
-                !       alternate between the two?
                 do Sol=1,nSol
                     OldChrom(:,Sol)=NewChrom(:,Sol)
                 enddo
@@ -1486,7 +1520,6 @@ module AlphaMateModule
             ! --- Evaluate the winner ---
 
             ! TODO: make a subroutine for this to make evol alg code generic?
-            ! TODO: add ind. inbreeding to print-out
             ValueHold=FixSolMateAndCalcCrit(nParam,NewChrom(:,BestSol),CritType)
             write(stdout,"(a11,i11,7f11.5)") CritType,Gen,Gain,InbSol,RateInbSol,IndInbSol,RateIndInbSol,ValueHold,AcceptRate
             write(Unit,  "(a11,i11,7f11.5)") CritType,Gen,Gain,InbSol,RateInbSol,IndInbSol,RateIndInbSol,ValueHold,AcceptRate
@@ -1570,7 +1603,6 @@ module AlphaMateModule
             enddo
             !write(stdout,"(a2,2i4,"//Int2Char(nPotPar1)//"f6.1)") "1",nCumMat,nMat,Sol(RankSol(1:nPotPar1))
             if (nCumMat < nMat) then
-                ! TODO
                 write(stderr,"(a)") "TODO: nCumMat < nMat!"
                 stop 1
             endif
@@ -1603,7 +1635,6 @@ module AlphaMateModule
             enddo
             !write(stdout,"(a2,2i4,"//Int2Char(nPotPar2)//"f6.1)") "2",nCumMat,nMat,Sol(nPotPar1+RankSol(1:nPotPar2))
             if (nCumMat < nMat) then
-                ! TODO
                 write(stderr,"(a)") "TODO: nCumMat < nMat!"
                 stop 1
             endif
@@ -1748,7 +1779,7 @@ module AlphaMateModule
                 enddo
             enddo
 
-            ! Reorder them according to the rank of matings
+            ! Reorder parent2 according to the rank of matings
             call MrgRnk(Sol((nPotPar1+nPotPar2+1):(nPotPar1+nPotPar2+nMat)),RankSol(1:nMat))
             RankSol(1:nMat)=RankSol(nMat:1:-1) ! MrgRnk ranks small to large
             MatPar2(:)=MatPar2(RankSol(1:nMat))
@@ -1797,7 +1828,7 @@ module AlphaMateModule
             ! stop 1
 
             ! This would compute group coancestry without accounting for self-coancestries
-            ! (we likely will not self-fertilize individuals)
+            ! (we likely will not self-fertilize individuals, no?)
             !
             ! ! xA
             ! do i=1,nInd
@@ -1822,6 +1853,7 @@ module AlphaMateModule
             enddo
             IndInbSol=IndInbSol/dble(nMat)
             IndInbSolRebased=(IndInbSol-InbOld)/(1.0d0-InbOld)
+            ! TODO: Should do something with "negative" inbreeding - another rebase?
             !if (IndInbSolRebased < 0.0) then
             !    IndInbSolRebased=0.0d0
             !endif
@@ -1846,7 +1878,7 @@ module AlphaMateModule
             if (RateInbSol <= RateInbTarget) then
                 Criterion=Criterion-(InbSolRebased-InbTargetRebased)
             else
-                ! Say IndInbPenalty=100, this would be a penalty of 1 SD for 0.01
+                ! Say IndInbPenalty=100, which would be a penalty of 1 SD for 0.01
                 ! increase in inbreeding above the target. Note that gain is scaled
                 ! and inbreeding is rebased so this should be a "stable" soft constraint.
                 Criterion=Criterion-PopInbPenalty*(InbSolRebased-InbTargetRebased)
