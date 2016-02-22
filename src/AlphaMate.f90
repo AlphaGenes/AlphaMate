@@ -1115,7 +1115,7 @@ module AlphaMateModule
             !                           12345678901   12345678901   12345678901   12345678901   12345678901
             write(UnitContri,"(5a11)") "         Id","     OrigId","     Gender"," Contribute","   nMatings"
             do i=1,nInd
-                write(UnitContri,"(i11,a11,i11,f11.4,i11)") i,trim(IdC(i)),Gender(i),xVec(i),nVec(i)
+                write(UnitContri,"(i11,a11,i11,f11.5,i11)") i,trim(IdC(i)),Gender(i),xVec(i),nVec(i)
             enddo
             close(UnitContri)
 
@@ -1177,7 +1177,7 @@ module AlphaMateModule
             !                           12345678901   12345678901   12345678901   12345678901   12345678901
             write(UnitContri,"(5a11)") "         Id","     OrigId","     Gender"," Contribute","   nMatings"
             do i=1,nInd
-                write(UnitContri,"(i11,a11,i11,f11.4,i11)") i,trim(IdC(i)),Gender(i),xVec(i),nVec(i)
+                write(UnitContri,"(i11,a11,i11,f11.5,i11)") i,trim(IdC(i)),Gender(i),xVec(i),nVec(i)
             enddo
             close(UnitContri)
 
@@ -1199,8 +1199,8 @@ module AlphaMateModule
                 open(newunit=UnitFrontier,file="AlphaMateResults"//DASH//"Frontier.txt",status="unknown")
                 !                             12345678901   12345678901   12345678901   12345678901   12345678901   12345678901   12345678901   12345678901
                 write(UnitFrontier,"(8a11)") "       Step","       Gain"," GainScaled"," PopInbreed"," RatePopInb"," IndInbreed"," RateIndInb","  Objective"
-                write(UnitFrontier,"(i11,7f11.4)") 1,GainMinInb,GainMinInbScaled,InbMinInb,RateInbMinInb,IndInbMinInb,RateIndInbMinInb,ValueHoldMinInb
-                write(UnitFrontier,"(i11,7f11.4)") 2,GainOpt,   GainOptScaled,   InbOpt,   RateInbOpt,   IndInbOpt,   RateIndInbOpt,   ValueHoldOpt
+                write(UnitFrontier,"(i11,7f11.5)") 1,GainMinInb,GainMinInbScaled,InbMinInb,RateInbMinInb,IndInbMinInb,RateIndInbMinInb,ValueHoldMinInb
+                write(UnitFrontier,"(i11,7f11.5)") 2,GainOpt,   GainOptScaled,   InbOpt,   RateInbOpt,   IndInbOpt,   RateIndInbOpt,   ValueHoldOpt
 
                 ! Hold old results
                 InbTargetRebasedHold=InbTargetRebased
@@ -1213,14 +1213,14 @@ module AlphaMateModule
                     RateInbTarget=RateInbFrontier(i)
                     InbTargetRebased=RateInbTarget ! due to rebasing F=RateInb
                     InbTarget=InbOld*(1.0d0-RateInbTarget)+RateInbTarget
-                    write(stdout,"(a,i3,a,i3,a,f7.4)") "Step ",i," out of ",nFrontierSteps, " for the rate of inbreeding of",RateInbTarget
+                    write(stdout,"(a,i3,a,i3,a,f8.5)") "Step ",i," out of ",nFrontierSteps, " for the rate of inbreeding of",RateInbTarget
                     write(stdout,"(a)") ""
                     EvolAlgLogFile="AlphaMateResults"//DASH//"OptimisationLog"//Int2Char(i)//".txt"
                     nTmp=nPotPar1+nPotPar2+nMat ! TODO: add PAGE dimension
                     call EvolAlgForAlphaMate(nParam=nTmp,nSol=EvolAlgNSol,nGen=EvolAlgNGen,nGenBurnIn=EvolAlgNGenBurnIn,&
                                              nGenStop=EvolAlgNGenStop,StopTolerance=EvolAlgStopTol,&
                                              nGenPrint=EvolAlgNGenPrint,File=EvolAlgLogFile,CritType="OptGain")
-                    write(UnitFrontier,"(i11,7f11.4)") i+2,Gain,GainScaled,InbSol,RateInbSol,IndInbSol,RateIndInbSol,ValueHold
+                    write(UnitFrontier,"(i11,7f11.5)") i+2,Gain,GainScaled,InbSol,RateInbSol,IndInbSol,RateIndInbSol,ValueHold
                     if ((RateInbTarget-RateInbSol) > 0.01d0) then
                         write(stdout,"(a,f)") "NOTE: Could not achieve the rate of inbreeding of ",RateInbTarget
                         write(stdout,"(a,f)") "NOTE: Stopping the frontier evaluation."
@@ -1475,8 +1475,8 @@ module AlphaMateModule
                         LastGenPrint=Gen
                         ! TODO: make a subroutine for this to make evol alg code generic?
                         ValueHold=FixSolMateAndCalcCrit(nParam,NewChrom(:,BestSol),CritType)
-                        write(stdout,"(a11,i11,7f11.4)") CritType,Gen,Gain,InbSol,RateInbSol,IndInbSol,RateIndInbSol,ValueHold,AcceptRate
-                        write(Unit,  "(a11,i11,7f11.4)") CritType,Gen,Gain,InbSol,RateInbSol,IndInbSol,RateIndInbSol,ValueHold,AcceptRate
+                        write(stdout,"(a11,i11,7f11.5)") CritType,Gen,Gain,InbSol,RateInbSol,IndInbSol,RateIndInbSol,ValueHold,AcceptRate
+                        write(Unit,  "(a11,i11,7f11.5)") CritType,Gen,Gain,InbSol,RateInbSol,IndInbSol,RateIndInbSol,ValueHold,AcceptRate
                     endif
                 endif
 
@@ -1487,8 +1487,8 @@ module AlphaMateModule
             ! TODO: make a subroutine for this to make evol alg code generic?
             ! TODO: add ind. inbreeding to print-out
             ValueHold=FixSolMateAndCalcCrit(nParam,NewChrom(:,BestSol),CritType)
-            write(stdout,"(a11,i11,7f11.4)") CritType,Gen,Gain,InbSol,RateInbSol,IndInbSol,RateIndInbSol,ValueHold,AcceptRate
-            write(Unit,  "(a11,i11,7f11.4)") CritType,Gen,Gain,InbSol,RateInbSol,IndInbSol,RateIndInbSol,ValueHold,AcceptRate
+            write(stdout,"(a11,i11,7f11.5)") CritType,Gen,Gain,InbSol,RateInbSol,IndInbSol,RateIndInbSol,ValueHold,AcceptRate
+            write(Unit,  "(a11,i11,7f11.5)") CritType,Gen,Gain,InbSol,RateInbSol,IndInbSol,RateIndInbSol,ValueHold,AcceptRate
             write(stdout,"(a)") " "
 
             close(Unit)
