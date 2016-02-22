@@ -127,12 +127,14 @@ module AlphaSuiteModule
 
         !#######################################################################
 
-        function int2char(i) result(res)
-            character(:),allocatable :: res
+        function Int2Char(i) result(Res)
+            ! TODO: source of this?
+            implicit none
+            character(:),allocatable :: Res
             integer,intent(in) :: i
-            character(range(i)+2) :: tmp
-            write(tmp,'(i0)') i
-            res=trim(tmp)
+            character(range(i)+2) :: Tmp
+            write(Tmp,'(i0)') i
+            Res=trim(Tmp)
         end function
 
         !#######################################################################
@@ -140,9 +142,630 @@ end module AlphaSuiteModule
 
 !###############################################################################
 
-module AlphaMateModule
-    use IFPort  ! required for SystemQQ,SortQQ
+Module m_MrgRnk
+    ! http://www.fortran-2000.com/rank/MrgRnk.f90 (2016-02-15)
+    Integer, Parameter :: kdp = selected_real_kind(15)
+    public :: MrgRnk
+    private :: kdp
+    private :: R_MrgRnk, I_MrgRnk, D_MrgRnk
+    interface MrgRnk
+      module procedure D_MrgRnk, R_MrgRnk, I_MrgRnk
+    end interface MrgRnk
 
+    contains
+
+        !#######################################################################
+
+        Subroutine D_MrgRnk (XDONT, IRNGT)
+            ! __________________________________________________________
+            !   MRGRNK = Merge-sort ranking of an array
+            !   For performance reasons, the first 2 passes are taken
+            !   out of the standard loop, and use dedicated coding.
+            ! __________________________________________________________
+            ! __________________________________________________________
+              Real (kind=kdp), Dimension (:), Intent (In) :: XDONT
+              Integer, Dimension (:), Intent (Out) :: IRNGT
+            ! __________________________________________________________
+              Real (kind=kdp) :: XVALA, XVALB
+            !
+              Integer, Dimension (SIZE(IRNGT)) :: JWRKT
+              Integer :: LMTNA, LMTNC, IRNG1, IRNG2
+              Integer :: NVAL, IIND, IWRKD, IWRK, IWRKF, JINDA, IINDA, IINDB
+            !
+              NVAL = Min (SIZE(XDONT), SIZE(IRNGT))
+              Select Case (NVAL)
+              Case (:0)
+                 Return
+              Case (1)
+                 IRNGT (1) = 1
+                 Return
+              Case Default
+                 Continue
+              End Select
+            !
+            !  Fill-in the index array, creating ordered couples
+            !
+              Do IIND = 2, NVAL, 2
+                 If (XDONT(IIND-1) <= XDONT(IIND)) Then
+                    IRNGT (IIND-1) = IIND - 1
+                    IRNGT (IIND) = IIND
+                 Else
+                    IRNGT (IIND-1) = IIND
+                    IRNGT (IIND) = IIND - 1
+                 End If
+              End Do
+              If (Modulo(NVAL, 2) /= 0) Then
+                 IRNGT (NVAL) = NVAL
+              End If
+            !
+            !  We will now have ordered subsets A - B - A - B - ...
+            !  and merge A and B couples into     C   -   C   - ...
+            !
+              LMTNA = 2
+              LMTNC = 4
+            !
+            !  First iteration. The length of the ordered subsets goes from 2 to 4
+            !
+              Do
+                 If (NVAL <= 2) Exit
+            !
+            !   Loop on merges of A and B into C
+            !
+                 Do IWRKD = 0, NVAL - 1, 4
+                    If ((IWRKD+4) > NVAL) Then
+                       If ((IWRKD+2) >= NVAL) Exit
+            !
+            !   1 2 3
+            !
+                       If (XDONT(IRNGT(IWRKD+2)) <= XDONT(IRNGT(IWRKD+3))) Exit
+            !
+            !   1 3 2
+            !
+                       If (XDONT(IRNGT(IWRKD+1)) <= XDONT(IRNGT(IWRKD+3))) Then
+                          IRNG2 = IRNGT (IWRKD+2)
+                          IRNGT (IWRKD+2) = IRNGT (IWRKD+3)
+                          IRNGT (IWRKD+3) = IRNG2
+            !
+            !   3 1 2
+            !
+                       Else
+                          IRNG1 = IRNGT (IWRKD+1)
+                          IRNGT (IWRKD+1) = IRNGT (IWRKD+3)
+                          IRNGT (IWRKD+3) = IRNGT (IWRKD+2)
+                          IRNGT (IWRKD+2) = IRNG1
+                       End If
+                       Exit
+                    End If
+            !
+            !   1 2 3 4
+            !
+                    If (XDONT(IRNGT(IWRKD+2)) <= XDONT(IRNGT(IWRKD+3))) Cycle
+            !
+            !   1 3 x x
+            !
+                    If (XDONT(IRNGT(IWRKD+1)) <= XDONT(IRNGT(IWRKD+3))) Then
+                       IRNG2 = IRNGT (IWRKD+2)
+                       IRNGT (IWRKD+2) = IRNGT (IWRKD+3)
+                       If (XDONT(IRNG2) <= XDONT(IRNGT(IWRKD+4))) Then
+            !   1 3 2 4
+                          IRNGT (IWRKD+3) = IRNG2
+                       Else
+            !   1 3 4 2
+                          IRNGT (IWRKD+3) = IRNGT (IWRKD+4)
+                          IRNGT (IWRKD+4) = IRNG2
+                       End If
+            !
+            !   3 x x x
+            !
+                    Else
+                       IRNG1 = IRNGT (IWRKD+1)
+                       IRNG2 = IRNGT (IWRKD+2)
+                       IRNGT (IWRKD+1) = IRNGT (IWRKD+3)
+                       If (XDONT(IRNG1) <= XDONT(IRNGT(IWRKD+4))) Then
+                          IRNGT (IWRKD+2) = IRNG1
+                          If (XDONT(IRNG2) <= XDONT(IRNGT(IWRKD+4))) Then
+            !   3 1 2 4
+                             IRNGT (IWRKD+3) = IRNG2
+                          Else
+            !   3 1 4 2
+                             IRNGT (IWRKD+3) = IRNGT (IWRKD+4)
+                             IRNGT (IWRKD+4) = IRNG2
+                          End If
+                       Else
+            !   3 4 1 2
+                          IRNGT (IWRKD+2) = IRNGT (IWRKD+4)
+                          IRNGT (IWRKD+3) = IRNG1
+                          IRNGT (IWRKD+4) = IRNG2
+                       End If
+                    End If
+                 End Do
+            !
+            !  The Cs become As and Bs
+            !
+                 LMTNA = 4
+                 Exit
+              End Do
+            !
+            !  Iteration loop. Each time, the length of the ordered subsets
+            !  is doubled.
+            !
+              Do
+                 If (LMTNA >= NVAL) Exit
+                 IWRKF = 0
+                 LMTNC = 2 * LMTNC
+            !
+            !   Loop on merges of A and B into C
+            !
+                 Do
+                    IWRK = IWRKF
+                    IWRKD = IWRKF + 1
+                    JINDA = IWRKF + LMTNA
+                    IWRKF = IWRKF + LMTNC
+                    If (IWRKF >= NVAL) Then
+                       If (JINDA >= NVAL) Exit
+                       IWRKF = NVAL
+                    End If
+                    IINDA = 1
+                    IINDB = JINDA + 1
+            !
+            !   Shortcut for the case when the max of A is smaller
+            !   than the min of B. This line may be activated when the
+            !   initial set is already close to sorted.
+            !
+            !          IF (XDONT(IRNGT(JINDA)) <= XDONT(IRNGT(IINDB))) CYCLE
+            !
+            !  One steps in the C subset, that we build in the final rank array
+            !
+            !  Make a copy of the rank array for the merge iteration
+            !
+                    JWRKT (1:LMTNA) = IRNGT (IWRKD:JINDA)
+            !
+                    XVALA = XDONT (JWRKT(IINDA))
+                    XVALB = XDONT (IRNGT(IINDB))
+            !
+                    Do
+                       IWRK = IWRK + 1
+            !
+            !  We still have unprocessed values in both A and B
+            !
+                       If (XVALA > XVALB) Then
+                          IRNGT (IWRK) = IRNGT (IINDB)
+                          IINDB = IINDB + 1
+                          If (IINDB > IWRKF) Then
+            !  Only A still with unprocessed values
+                             IRNGT (IWRK+1:IWRKF) = JWRKT (IINDA:LMTNA)
+                             Exit
+                          End If
+                          XVALB = XDONT (IRNGT(IINDB))
+                       Else
+                          IRNGT (IWRK) = JWRKT (IINDA)
+                          IINDA = IINDA + 1
+                          If (IINDA > LMTNA) Exit! Only B still with unprocessed values
+                          XVALA = XDONT (JWRKT(IINDA))
+                       End If
+            !
+                    End Do
+                 End Do
+            !
+            !  The Cs become As and Bs
+            !
+                 LMTNA = 2 * LMTNA
+              End Do
+            !
+              Return
+            !
+        End Subroutine D_MrgRnk
+
+        !#######################################################################
+
+        Subroutine R_MrgRnk (XDONT, IRNGT)
+            ! __________________________________________________________
+            !   MRGRNK = Merge-sort ranking of an array
+            !   For performance reasons, the first 2 passes are taken
+            !   out of the standard loop, and use dedicated coding.
+            ! __________________________________________________________
+            ! _________________________________________________________
+              Real, Dimension (:), Intent (In) :: XDONT
+              Integer, Dimension (:), Intent (Out) :: IRNGT
+            ! __________________________________________________________
+              Real :: XVALA, XVALB
+            !
+              Integer, Dimension (SIZE(IRNGT)) :: JWRKT
+              Integer :: LMTNA, LMTNC, IRNG1, IRNG2
+              Integer :: NVAL, IIND, IWRKD, IWRK, IWRKF, JINDA, IINDA, IINDB
+            !
+              NVAL = Min (SIZE(XDONT), SIZE(IRNGT))
+              Select Case (NVAL)
+              Case (:0)
+                 Return
+              Case (1)
+                 IRNGT (1) = 1
+                 Return
+              Case Default
+                 Continue
+              End Select
+            !
+            !  Fill-in the index array, creating ordered couples
+            !
+              Do IIND = 2, NVAL, 2
+                 If (XDONT(IIND-1) <= XDONT(IIND)) Then
+                    IRNGT (IIND-1) = IIND - 1
+                    IRNGT (IIND) = IIND
+                 Else
+                    IRNGT (IIND-1) = IIND
+                    IRNGT (IIND) = IIND - 1
+                 End If
+              End Do
+              If (Modulo(NVAL, 2) /= 0) Then
+                 IRNGT (NVAL) = NVAL
+              End If
+            !
+            !  We will now have ordered subsets A - B - A - B - ...
+            !  and merge A and B couples into     C   -   C   - ...
+            !
+              LMTNA = 2
+              LMTNC = 4
+            !
+            !  First iteration. The length of the ordered subsets goes from 2 to 4
+            !
+              Do
+                 If (NVAL <= 2) Exit
+            !
+            !   Loop on merges of A and B into C
+            !
+                 Do IWRKD = 0, NVAL - 1, 4
+                    If ((IWRKD+4) > NVAL) Then
+                       If ((IWRKD+2) >= NVAL) Exit
+            !
+            !   1 2 3
+            !
+                       If (XDONT(IRNGT(IWRKD+2)) <= XDONT(IRNGT(IWRKD+3))) Exit
+            !
+            !   1 3 2
+            !
+                       If (XDONT(IRNGT(IWRKD+1)) <= XDONT(IRNGT(IWRKD+3))) Then
+                          IRNG2 = IRNGT (IWRKD+2)
+                          IRNGT (IWRKD+2) = IRNGT (IWRKD+3)
+                          IRNGT (IWRKD+3) = IRNG2
+            !
+            !   3 1 2
+            !
+                       Else
+                          IRNG1 = IRNGT (IWRKD+1)
+                          IRNGT (IWRKD+1) = IRNGT (IWRKD+3)
+                          IRNGT (IWRKD+3) = IRNGT (IWRKD+2)
+                          IRNGT (IWRKD+2) = IRNG1
+                       End If
+                       Exit
+                    End If
+            !
+            !   1 2 3 4
+            !
+                    If (XDONT(IRNGT(IWRKD+2)) <= XDONT(IRNGT(IWRKD+3))) Cycle
+            !
+            !   1 3 x x
+            !
+                    If (XDONT(IRNGT(IWRKD+1)) <= XDONT(IRNGT(IWRKD+3))) Then
+                       IRNG2 = IRNGT (IWRKD+2)
+                       IRNGT (IWRKD+2) = IRNGT (IWRKD+3)
+                       If (XDONT(IRNG2) <= XDONT(IRNGT(IWRKD+4))) Then
+            !   1 3 2 4
+                          IRNGT (IWRKD+3) = IRNG2
+                       Else
+            !   1 3 4 2
+                          IRNGT (IWRKD+3) = IRNGT (IWRKD+4)
+                          IRNGT (IWRKD+4) = IRNG2
+                       End If
+            !
+            !   3 x x x
+            !
+                    Else
+                       IRNG1 = IRNGT (IWRKD+1)
+                       IRNG2 = IRNGT (IWRKD+2)
+                       IRNGT (IWRKD+1) = IRNGT (IWRKD+3)
+                       If (XDONT(IRNG1) <= XDONT(IRNGT(IWRKD+4))) Then
+                          IRNGT (IWRKD+2) = IRNG1
+                          If (XDONT(IRNG2) <= XDONT(IRNGT(IWRKD+4))) Then
+            !   3 1 2 4
+                             IRNGT (IWRKD+3) = IRNG2
+                          Else
+            !   3 1 4 2
+                             IRNGT (IWRKD+3) = IRNGT (IWRKD+4)
+                             IRNGT (IWRKD+4) = IRNG2
+                          End If
+                       Else
+            !   3 4 1 2
+                          IRNGT (IWRKD+2) = IRNGT (IWRKD+4)
+                          IRNGT (IWRKD+3) = IRNG1
+                          IRNGT (IWRKD+4) = IRNG2
+                       End If
+                    End If
+                 End Do
+            !
+            !  The Cs become As and Bs
+            !
+                 LMTNA = 4
+                 Exit
+              End Do
+            !
+            !  Iteration loop. Each time, the length of the ordered subsets
+            !  is doubled.
+            !
+              Do
+                 If (LMTNA >= NVAL) Exit
+                 IWRKF = 0
+                 LMTNC = 2 * LMTNC
+            !
+            !   Loop on merges of A and B into C
+            !
+                 Do
+                    IWRK = IWRKF
+                    IWRKD = IWRKF + 1
+                    JINDA = IWRKF + LMTNA
+                    IWRKF = IWRKF + LMTNC
+                    If (IWRKF >= NVAL) Then
+                       If (JINDA >= NVAL) Exit
+                       IWRKF = NVAL
+                    End If
+                    IINDA = 1
+                    IINDB = JINDA + 1
+            !
+            !   Shortcut for the case when the max of A is smaller
+            !   than the min of B. This line may be activated when the
+            !   initial set is already close to sorted.
+            !
+            !          IF (XDONT(IRNGT(JINDA)) <= XDONT(IRNGT(IINDB))) CYCLE
+            !
+            !  One steps in the C subset, that we build in the final rank array
+            !
+            !  Make a copy of the rank array for the merge iteration
+            !
+                    JWRKT (1:LMTNA) = IRNGT (IWRKD:JINDA)
+            !
+                    XVALA = XDONT (JWRKT(IINDA))
+                    XVALB = XDONT (IRNGT(IINDB))
+            !
+                    Do
+                       IWRK = IWRK + 1
+            !
+            !  We still have unprocessed values in both A and B
+            !
+                       If (XVALA > XVALB) Then
+                          IRNGT (IWRK) = IRNGT (IINDB)
+                          IINDB = IINDB + 1
+                          If (IINDB > IWRKF) Then
+            !  Only A still with unprocessed values
+                             IRNGT (IWRK+1:IWRKF) = JWRKT (IINDA:LMTNA)
+                             Exit
+                          End If
+                          XVALB = XDONT (IRNGT(IINDB))
+                       Else
+                          IRNGT (IWRK) = JWRKT (IINDA)
+                          IINDA = IINDA + 1
+                          If (IINDA > LMTNA) Exit! Only B still with unprocessed values
+                          XVALA = XDONT (JWRKT(IINDA))
+                       End If
+            !
+                    End Do
+                 End Do
+            !
+            !  The Cs become As and Bs
+            !
+                 LMTNA = 2 * LMTNA
+              End Do
+            !
+              Return
+            !
+        End Subroutine R_MrgRnk
+
+        !#######################################################################
+
+        Subroutine I_MrgRnk (XDONT, IRNGT)
+            ! __________________________________________________________
+            !   MRGRNK = Merge-sort ranking of an array
+            !   For performance reasons, the first 2 passes are taken
+            !   out of the standard loop, and use dedicated coding.
+            ! __________________________________________________________
+            ! __________________________________________________________
+              Integer, Dimension (:), Intent (In)  :: XDONT
+              Integer, Dimension (:), Intent (Out) :: IRNGT
+            ! __________________________________________________________
+              Integer :: XVALA, XVALB
+            !
+              Integer, Dimension (SIZE(IRNGT)) :: JWRKT
+              Integer :: LMTNA, LMTNC, IRNG1, IRNG2
+              Integer :: NVAL, IIND, IWRKD, IWRK, IWRKF, JINDA, IINDA, IINDB
+            !
+              NVAL = Min (SIZE(XDONT), SIZE(IRNGT))
+              Select Case (NVAL)
+              Case (:0)
+                 Return
+              Case (1)
+                 IRNGT (1) = 1
+                 Return
+              Case Default
+                 Continue
+              End Select
+            !
+            !  Fill-in the index array, creating ordered couples
+            !
+              Do IIND = 2, NVAL, 2
+                 If (XDONT(IIND-1) <= XDONT(IIND)) Then
+                    IRNGT (IIND-1) = IIND - 1
+                    IRNGT (IIND) = IIND
+                 Else
+                    IRNGT (IIND-1) = IIND
+                    IRNGT (IIND) = IIND - 1
+                 End If
+              End Do
+              If (Modulo(NVAL, 2) /= 0) Then
+                 IRNGT (NVAL) = NVAL
+              End If
+            !
+            !  We will now have ordered subsets A - B - A - B - ...
+            !  and merge A and B couples into     C   -   C   - ...
+            !
+              LMTNA = 2
+              LMTNC = 4
+            !
+            !  First iteration. The length of the ordered subsets goes from 2 to 4
+            !
+              Do
+                 If (NVAL <= 2) Exit
+            !
+            !   Loop on merges of A and B into C
+            !
+                 Do IWRKD = 0, NVAL - 1, 4
+                    If ((IWRKD+4) > NVAL) Then
+                       If ((IWRKD+2) >= NVAL) Exit
+            !
+            !   1 2 3
+            !
+                       If (XDONT(IRNGT(IWRKD+2)) <= XDONT(IRNGT(IWRKD+3))) Exit
+            !
+            !   1 3 2
+            !
+                       If (XDONT(IRNGT(IWRKD+1)) <= XDONT(IRNGT(IWRKD+3))) Then
+                          IRNG2 = IRNGT (IWRKD+2)
+                          IRNGT (IWRKD+2) = IRNGT (IWRKD+3)
+                          IRNGT (IWRKD+3) = IRNG2
+            !
+            !   3 1 2
+            !
+                       Else
+                          IRNG1 = IRNGT (IWRKD+1)
+                          IRNGT (IWRKD+1) = IRNGT (IWRKD+3)
+                          IRNGT (IWRKD+3) = IRNGT (IWRKD+2)
+                          IRNGT (IWRKD+2) = IRNG1
+                       End If
+                       Exit
+                    End If
+            !
+            !   1 2 3 4
+            !
+                    If (XDONT(IRNGT(IWRKD+2)) <= XDONT(IRNGT(IWRKD+3))) Cycle
+            !
+            !   1 3 x x
+            !
+                    If (XDONT(IRNGT(IWRKD+1)) <= XDONT(IRNGT(IWRKD+3))) Then
+                       IRNG2 = IRNGT (IWRKD+2)
+                       IRNGT (IWRKD+2) = IRNGT (IWRKD+3)
+                       If (XDONT(IRNG2) <= XDONT(IRNGT(IWRKD+4))) Then
+            !   1 3 2 4
+                          IRNGT (IWRKD+3) = IRNG2
+                       Else
+            !   1 3 4 2
+                          IRNGT (IWRKD+3) = IRNGT (IWRKD+4)
+                          IRNGT (IWRKD+4) = IRNG2
+                       End If
+            !
+            !   3 x x x
+            !
+                    Else
+                       IRNG1 = IRNGT (IWRKD+1)
+                       IRNG2 = IRNGT (IWRKD+2)
+                       IRNGT (IWRKD+1) = IRNGT (IWRKD+3)
+                       If (XDONT(IRNG1) <= XDONT(IRNGT(IWRKD+4))) Then
+                          IRNGT (IWRKD+2) = IRNG1
+                          If (XDONT(IRNG2) <= XDONT(IRNGT(IWRKD+4))) Then
+            !   3 1 2 4
+                             IRNGT (IWRKD+3) = IRNG2
+                          Else
+            !   3 1 4 2
+                             IRNGT (IWRKD+3) = IRNGT (IWRKD+4)
+                             IRNGT (IWRKD+4) = IRNG2
+                          End If
+                       Else
+            !   3 4 1 2
+                          IRNGT (IWRKD+2) = IRNGT (IWRKD+4)
+                          IRNGT (IWRKD+3) = IRNG1
+                          IRNGT (IWRKD+4) = IRNG2
+                       End If
+                    End If
+                 End Do
+            !
+            !  The Cs become As and Bs
+            !
+                 LMTNA = 4
+                 Exit
+              End Do
+            !
+            !  Iteration loop. Each time, the length of the ordered subsets
+            !  is doubled.
+            !
+              Do
+                 If (LMTNA >= NVAL) Exit
+                 IWRKF = 0
+                 LMTNC = 2 * LMTNC
+            !
+            !   Loop on merges of A and B into C
+            !
+                 Do
+                    IWRK = IWRKF
+                    IWRKD = IWRKF + 1
+                    JINDA = IWRKF + LMTNA
+                    IWRKF = IWRKF + LMTNC
+                    If (IWRKF >= NVAL) Then
+                       If (JINDA >= NVAL) Exit
+                       IWRKF = NVAL
+                    End If
+                    IINDA = 1
+                    IINDB = JINDA + 1
+            !
+            !   Shortcut for the case when the max of A is smaller
+            !   than the min of B. This line may be activated when the
+            !   initial set is already close to sorted.
+            !
+            !          IF (XDONT(IRNGT(JINDA)) <= XDONT(IRNGT(IINDB))) CYCLE
+            !
+            !  One steps in the C subset, that we build in the final rank array
+            !
+            !  Make a copy of the rank array for the merge iteration
+            !
+                    JWRKT (1:LMTNA) = IRNGT (IWRKD:JINDA)
+            !
+                    XVALA = XDONT (JWRKT(IINDA))
+                    XVALB = XDONT (IRNGT(IINDB))
+            !
+                    Do
+                       IWRK = IWRK + 1
+            !
+            !  We still have unprocessed values in both A and B
+            !
+                       If (XVALA > XVALB) Then
+                          IRNGT (IWRK) = IRNGT (IINDB)
+                          IINDB = IINDB + 1
+                          If (IINDB > IWRKF) Then
+            !  Only A still with unprocessed values
+                             IRNGT (IWRK+1:IWRKF) = JWRKT (IINDA:LMTNA)
+                             Exit
+                          End If
+                          XVALB = XDONT (IRNGT(IINDB))
+                       Else
+                          IRNGT (IWRK) = JWRKT (IINDA)
+                          IINDA = IINDA + 1
+                          If (IINDA > LMTNA) Exit! Only B still with unprocessed values
+                          XVALA = XDONT (JWRKT(IINDA))
+                       End If
+            !
+                    End Do
+                 End Do
+            !
+            !  The Cs become As and Bs
+            !
+                 LMTNA = 2 * LMTNA
+              End Do
+            !
+              Return
+            !
+        End Subroutine I_MrgRnk
+
+        !#######################################################################
+end module m_MrgRnk
+
+!###############################################################################
+
+module AlphaMateModule
 #ifdef f2003
     use,intrinsic :: iso_fortran_env, only : stdin=>input_unit, &
                                              stdout=>output_unit, &
@@ -152,21 +775,31 @@ module AlphaMateModule
 #define stdout 6
 #define stderr 0
 #endif
+    use IFPort,only : SystemQQ,SortQQ
+    use m_MrgRnk,only : MrgRnk
+    use AlphaSuiteModule,only : SetSeed,CountLines,Int2Char
 
     implicit none
 
-    integer :: nInd,idum,nMatings,nMal,nFem,nParents,nMalParents,nFemParents,nFrontierSteps
+    integer :: nInd,nMat,nPar,nPotPar1,nPotPar2,nMal,nFem,nMalPar,nFemPar,nFrontierSteps
     integer :: EvolAlgNSol,EvolAlgNGen,EvolAlgNGenBurnIn,EvolAlgNGenStop,EvolAlgNGenPrint
-    integer,allocatable :: Gender(:),IdMal(:),IdFem(:),nMatingPerInd(:),Matings(:,:)
+    integer,allocatable :: Gender(:),IdPotPar1(:),IdPotPar2(:),nVec(:),nVecPar1(:),nVecPar2(:),Mate(:,:)
 
-    double precision :: EvolAlgStopTol,Gain,GainScaled,GainMinInb,GainMinInbScaled,GainOpt,GainOptScaled
-    double precision :: DeltaFTarget,DeltaFCurrent,DeltaFMinInb,DeltaFOpt,DeltaFMaxFrontier
-    double precision :: FOld,FTarget,FTargetRebased,FCurrent,FCurrentRebased,FMinInb,FMinInbRebased,FOpt,FOptRebased
-    double precision,allocatable :: Bv(:),BvScaled(:),XVec(:),RelMat(:,:)
+    ! TODO: can we not work with single precision to speed up?
+    double precision :: EvolAlgStopTol
+    double precision :: Gain,GainScaled,GainMinInb,GainMinInbScaled,GainOpt,GainOptScaled
+    double precision :: RateInbTarget,RateInbSol,RateInbMinInb,RateInbOpt
+    double precision :: InbOld,InbTarget,InbTargetRebased,InbSol,InbSolRebased,InbMinInb
+    double precision :: InbMinInbRebased,InbOpt,InbOptRebased,IndInbSol,IndInbSolRebased
+    double precision :: IndInbTargetRebased,RateIndInbSol,RateIndInbTarget,IndInbMinInb
+    double precision :: IndInbOpt,RateIndInbMinInb,RateIndInbOpt,PopInbPenalty,IndInbPenalty
+    double precision :: ValueHold,ValueHoldMinInb,ValueHoldOpt
+
+    double precision,allocatable :: Bv(:),BvScaled(:),xVec(:),RelMtx(:,:),RateInbFrontier(:)
 
     character(len=300),allocatable :: IdC(:)
 
-    logical :: GenderMatters,EqualizeMales,EqualizeFemales,InferFOld,EvaluateFrontier
+    logical :: GenderMatters,EqualizeMales,EqualizeFemales,InferInbOld,EvaluateFrontier
 
     contains
 
@@ -189,22 +822,26 @@ module AlphaMateModule
 
         !#######################################################################
 
-        subroutine ReadParametersAndDataForAlphaMate
-            use AlphaSuiteModule,only : SetSeed,CountLines
+        subroutine ReadSpecAndDataForAlphaMate
             implicit none
 
-            integer :: DumI,i,j,jMal,jFem,nIndTmp,GenderTmp,UnitSpec,UnitRelMat,UnitBv,UnitGender,Seed
+            integer :: i,j,DumI,jMal,jFem,nIndTmp,GenderTmp,Seed
+            integer :: UnitSpec,UnitRelMtx,UnitBv,UnitGender
+            integer,allocatable :: BvRank(:)
 
             double precision :: BvTmp
 
-            character(len=1000) :: DumC,RelMatFile,BvFile,GenderFile,SeedFile,IdCTmp
+            character(len=1000) :: DumC,IdCTmp
+            character(len=1000) :: RelMtxFile,BvFile,GenderFile,SeedFile
+
+            ! --- Spec file ---
 
             open(newunit=UnitSpec,file="AlphaMateSpec.txt",status="old")
 
-            read(UnitSpec,*) DumC,RelMatFile
+            read(UnitSpec,*) DumC,RelMtxFile
             read(UnitSpec,*) DumC,BvFile
 
-            call CountLines(RelMatFile,nInd)
+            call CountLines(RelMtxFile,nInd)
             call CountLines(BvFile,nIndTmp)
 
             if (nIndTmp /= nInd) then
@@ -220,32 +857,40 @@ module AlphaMateModule
             endif
 
             read(UnitSpec,*) DumC,nInd
-            read(UnitSpec,*) DumC,nMatings
-            read(UnitSpec,*) DumC,nParents
-            if (nParents > nInd) then
-                write(stderr,"(a)") "ERROR: Number of parents can not be larger than the number or all individuals!"
+            read(UnitSpec,*) DumC,nMat
+            if (nMat > nInd) then
+                write(stderr,"(a)") "ERROR: Number of matings can not be larger than the number or all individuals!"
                 write(stderr,"(a,i)") "ERROR: Number of individuals: ",nInd
-                write(stderr,"(a,i)") "ERROR: Number of     parents: ",nParents
+                write(stderr,"(a,i)") "ERROR: Number of     matings: ",nMat
                 stop 1
             endif
-            read(UnitSpec,*) DumC,nMalParents
-            read(UnitSpec,*) DumC,nFemParents
-            if (GenderMatters .and. ((nMalParents+nFemParents) /= nParents)) then
+            read(UnitSpec,*) DumC,nPar
+            if (nPar > nInd) then
+                write(stderr,"(a)") "ERROR: Number of parents can not be larger than the number or all individuals!"
+                write(stderr,"(a,i)") "ERROR: Number of individuals: ",nInd
+                write(stderr,"(a,i)") "ERROR: Number of     parents: ",nPar
+                stop 1
+            endif
+            read(UnitSpec,*) DumC,nMalPar
+            read(UnitSpec,*) DumC,nFemPar
+            if (GenderMatters .and. ((nMalPar+nFemPar) /= nPar)) then
                 write(stderr,"(a)") "ERROR: Number of male and female parents does not match with the number of parents!"
-                write(stderr,"(a,i)") "ERROR: Number of        parents: ",nParents
-                write(stderr,"(a,i)") "ERROR: Number of   male parents: ",nMalParents
-                write(stderr,"(a,i)") "ERROR: Number of female parents: ",nFemParents
+                write(stderr,"(a,i)") "ERROR: Number of        parents: ",nPar
+                write(stderr,"(a,i)") "ERROR: Number of   male parents: ",nMalPar
+                write(stderr,"(a,i)") "ERROR: Number of female parents: ",nFemPar
                 stop 1
             endif
 
-            read(UnitSpec,*) dumC,dumC
-            if (GenderMatters .and. (trim(dumC) == "Yes")) then
+            ! TODO: should there be a parameter about how many progeny to produce and what is litter size?
+
+            read(UnitSpec,*) DumC,DumC
+            if (GenderMatters .and. (trim(DumC) == "Yes")) then
                 EqualizeMales=.true.
             else
                 EqualizeMales=.false.
             endif
-            read(UnitSpec,*) dumC,dumC
-            if (GenderMatters .and. (trim(dumC) == "Yes")) then
+            read(UnitSpec,*) DumC,DumC
+            if (GenderMatters .and. (trim(DumC) == "Yes")) then
                 EqualizeFemales=.true.
             else
                 EqualizeFemales=.false.
@@ -253,13 +898,14 @@ module AlphaMateModule
 
             read(UnitSpec,*) DumC,DumC
             if (trim(DumC) == "Unknown") then
-                InferFOld=.true.
+                InferInbOld=.true.
             else
-                InferFOld=.false.
+                InferInbOld=.false.
                 backspace(UnitSpec)
-                read(UnitSpec,*) DumC,FOld
+                read(UnitSpec,*) DumC,InbOld
             endif
-            read(UnitSpec,*) DumC,DeltaFTarget
+            read(UnitSpec,*) DumC,RateInbTarget,PopInbPenalty
+            read(UnitSpec,*) DumC,RateIndInbTarget,IndInbPenalty
 
             read(UnitSpec,*) DumC,DumC
             if (trim(DumC) == "No") then
@@ -267,7 +913,10 @@ module AlphaMateModule
             else
                 EvaluateFrontier=.true.
                 backspace(UnitSpec)
-                read(UnitSpec,*) DumC,DumC,DeltaFMaxFrontier,nFrontierSteps
+                read(UnitSpec,*) DumC,DumC,nFrontierSteps
+                allocate(RateInbFrontier(nFrontierSteps))
+                backspace(UnitSpec)
+                read(UnitSpec,*) DumC,DumC,DumC,RateInbFrontier(:)
             endif
 
             read(UnitSpec,*) DumC,EvolAlgNSol,EvolAlgNGen,EvolAlgNGenBurnIn,EvolAlgNGenStop,EvolAlgStopTol,EvolAlgNGenPrint
@@ -286,26 +935,27 @@ module AlphaMateModule
 
             close(UnitSpec)
 
-            allocate(Matings(nMatings,2))
-            allocate(nMatingPerInd(nInd))
-
-            allocate(RelMat(nInd,nInd))
             allocate(Bv(nInd))
+            allocate(RelMtx(nInd,nInd))
             allocate(IdC(nInd))
-            allocate(XVec(nInd))
+            allocate(nVec(nInd))
+            allocate(xVec(nInd))
+            allocate(Mate(nMat,2))
 
-            open(newunit=UnitRelMat,file=trim(RelMatFile),status="old")
+            ! --- Breeding values and relationship matrix ---
+
+            open(newunit=UnitRelMtx,file=trim(RelMtxFile),status="old")
             open(newunit=UnitBv,file=trim(BvFile),status="old")
 
             do i=1,nInd
-                read(UnitRelMat,*) idC(i),RelMat(:,i)
+                read(UnitRelMtx,*) IdC(i),RelMtx(:,i)
             enddo
-            close(UnitRelMat)
+            close(UnitRelMtx)
 
             do i=1,nInd
                 read(UnitBv,*) IdCTmp,BvTmp
                 do j=1,nInd
-                    if (trim(IdCTmp) == trim(idC(j))) then
+                    if (trim(IdCTmp) == trim(IdC(j))) then
                         Bv(j)=BvTmp
                         exit
                     endif
@@ -313,9 +963,12 @@ module AlphaMateModule
             enddo
             close(UnitBv)
 
+            ! --- Gender ---
+
             allocate(Gender(nInd))
-            Gender(:)=0
-            if (GenderMatters) then
+            if (.not.GenderMatters) then
+                Gender(:)=0
+            else
                 nMal=0
                 nFem=0
                 open(newunit=UnitGender,file=trim(GenderFile),status="old")
@@ -327,35 +980,59 @@ module AlphaMateModule
                     elseif (GenderTmp == 2) then
                         nFem=nFem+1
                     else
-                        write(stderr,"(a)") "ERROR: Gender code must be either 1 or 2!"
-                        write(stderr,"(a,a,i3)") "ERROR: ",IdCTmp,GenderTmp
+                        write(stderr,"(a)") "ERROR: Gender code must be either 1 for males or 2 for females!"
+                        write(stderr,"(a,i6,a,i3)") "ERROR: ",i,IdCTmp,GenderTmp
                         stop 1
                     endif
                     do j=1,nInd
-                        if (trim(IdCTmp) == trim(idC(j))) then
+                        if (trim(IdCTmp) == trim(IdC(j))) then
                             Gender(j)=GenderTmp
                             exit
                         endif
                     enddo
                 enddo
                 close(UnitGender)
+            endif
 
-                allocate(IdMal(nMal))
-                allocate(IdFem(nFem))
+            ! --- Order the data by breeding values ---
+
+            allocate(BvRank(nInd))
+            call MrgRnk(Bv,BvRank)
+            BvRank(:)=BvRank(nInd:1:-1) ! MrgRnk ranks small to large
+            Bv(:)=Bv(BvRank)
+            Gender(:)=Gender(BvRank)
+            RelMtx(:,:)=RelMtx(BvRank,BvRank)
+            deallocate(BvRank)
+
+            if (.not.GenderMatters) then
+                allocate(IdPotPar1(nInd))
+                allocate(IdPotPar2(nInd))
+                allocate(nVecPar1(nInd))
+                allocate(nVecPar2(nInd))
+                nPotPar1=nInd
+                nPotPar2=nInd
+                IdPotPar1(:)=[1:nPotPar1]
+                IdPotPar2(:)=[1:nPotPar2]
+            else
+                nPotPar1=nMal
+                nPotPar2=nFem
+                allocate(IdPotPar1(nMal))
+                allocate(IdPotPar2(nFem))
+                allocate(nVecPar1(nMal))
+                allocate(nVecPar2(nFem))
                 jMal=0
                 jFem=0
                 do i=1,nInd
                     if (Gender(i) == 1) then
                         jMal=jMal+1
-                        IdMal(jMal)=i
+                        IdPotPar1(jMal)=i
                     else
                         jFem=jFem+1
-                        IdFem(jFem)=i
+                        IdPotPar2(jFem)=i
                     endif
                 enddo
-
             endif
-        end subroutine ReadParametersAndDataForAlphaMate
+        end subroutine ReadSpecAndDataForAlphaMate
 
         !#######################################################################
 
@@ -365,46 +1042,45 @@ module AlphaMateModule
             double precision :: Tmp
 
             ! Old inbreeding
-            if (InferFOld) then
-                FOld=0.0
+            if (InferInbOld) then
+                InbOld=0.0d0
                 do i=1,nInd
-                    Tmp=RelMat(i,i)-1.0d0
-                    if (Tmp < 0.0) then
+                    Tmp=RelMtx(i,i)-1.0d0
+                    if (Tmp < 0.0d0) then
                         write(stderr,"(a)") "ERROR: Relationship matrix must have diagonals equal or more than 1.0!"
                         stop 1
                     endif
-                    FOld=FOld+Tmp
+                    InbOld=InbOld+Tmp
                 enddo
-                FOld=FOld/dble(nInd)
+                InbOld=InbOld/dble(nInd)
             endif
 
             ! New inbreeding
-            FTarget=FOld*(1.0d0-DeltaFTarget)+DeltaFTarget
-            FTargetRebased=(FTarget-FOld)/(1.0d0-FOld)
+            InbTarget=InbOld*(1.0d0-RateInbTarget)+RateInbTarget
+            InbTargetRebased=(InbTarget-InbOld)/(1.0d0-InbOld)
 
             ! Report
-            write(stdout,"(a,f)") "Old inbreeding: ",FOld
-            write(stdout,"(a,f)") "Targeted rate of inbreeding: ",DeltaFTarget
-            write(stdout,"(a,f)") "Targeted inbreeding: ",FTarget
+            write(stdout,"(a,f)") "Previous coancestry (=old inbreeding): ",InbOld
+            write(stdout,"(a,f)") "Targeted rate of inbreeding: ",RateInbTarget
+            write(stdout,"(a,f)") "Targeted inbreeding: ",InbTarget
             write(stdout,"(a)") " "
 
-            open(newunit=UnitInbree,file="AlphaMateResults"//DASH//"ConstraintInbreeding.txt",status="unknown")
-            write(UnitInbree,"(a,f)") "Old_inbreeding_defined, ",FOld
-            write(UnitInbree,"(a,f)") "Targeted_rate_of_inbreeding_defined, ",DeltaFTarget
-            write(UnitInbree,"(a,f)") "Targeted_inbreeding_defined, ",FTarget
+            open(newunit=UnitInbree,file="AlphaMateResults"//DASH//"ConstraintPopulationInbreeding.txt",status="unknown")
+            write(UnitInbree,"(a,f)") "Old_inbreeding_defined, ",InbOld
+            write(UnitInbree,"(a,f)") "Targeted_rate_of_inbreeding_defined, ",RateInbTarget
+            write(UnitInbree,"(a,f)") "Targeted_inbreeding_defined, ",InbTarget
             close(UnitInbree)
         end subroutine SetInbreedingParameters
 
         !#######################################################################
 
         subroutine AlphaMateSearch
-            use AlphaSuiteModule,only : int2char
             implicit none
 
-            integer :: i,UnitInbree,UnitMating,UnitContri,UnitFrontier
+            integer :: i,UnitInbree,UnitMating,UnitContri,UnitFrontier,nTmp
 
-            double precision :: StdDev,Mean,DeltaFFrontierStep
-            double precision :: FTargetRebasedHold,FTargetHold,DeltaFTargetHold
+            double precision :: StdDev,Mean,RateInbFrontierStep
+            double precision :: InbTargetRebasedHold,InbTargetHold,RateInbTargetHold
 
             character(len=300) :: EvolAlgLogFile
 
@@ -422,103 +1098,96 @@ module AlphaMateModule
             write(stdout,"(a)") " "
 
             EvolAlgLogFile="AlphaMateResults"//DASH//"OptimisationLog1MinimumInbreeding.txt"
-            open(newunit=UnitMating,file="AlphaMateResults"//DASH//"MatingListMinimumInbreeding.txt",status="unknown")
-            open(newunit=UnitContri,file="AlphaMateResults"//DASH//"ContribAndMatingNbPerIndivMinimumInbreeding.txt",status="unknown")
-
-            call EvolAlgForAlphaMate(nParam=nInd,nSolution=EvolAlgNSol,nGeneration=EvolAlgNGen,nGenerationBurnIn=EvolAlgNGenBurnIn,&
-                                     nGenerationStop=EvolAlgNGenStop,StopTolerance=EvolAlgStopTol,&
-                                     nGenerationPrint=EvolAlgNGenPrint,File=EvolAlgLogFile,CriterionType="MinInb")
+            nTmp=nPotPar1+nPotPar2+nMat ! TODO: add PAGE dimension
+            call EvolAlgForAlphaMate(nParam=nTmp,nSol=EvolAlgNSol,nGen=EvolAlgNGen,nGenBurnIn=EvolAlgNGenBurnIn,&
+                                     nGenStop=EvolAlgNGenStop,StopTolerance=EvolAlgStopTol,&
+                                     nGenPrint=EvolAlgNGenPrint,File=EvolAlgLogFile,CritType="MinInb")
             GainMinInb=Gain
             GainMinInbScaled=GainScaled
-            FMinInb=FCurrent
-            FMinInbRebased=FCurrentRebased
-            DeltaFMinInb=DeltaFCurrent
+            InbMinInb=InbSol
+            InbMinInbRebased=InbSolRebased
+            RateInbMinInb=RateInbSol
+            IndInbMinInb=IndInbSol
+            RateIndInbMinInb=RateIndInbSol
+            ValueHoldMinInb=ValueHold
 
-            if (GenderMatters) then
-                call PerformMatingGenderIncl(CriterionType="MinInb")
-            else
-                call PerformMating(CriterionType="MinInb")
-            endif
-
-            !                           12345678901   12345678901
-            write(UnitMating,"(2a11)") "    Parent1","    Parent2"
-            do i=1,nMatings
-                write(UnitMating,"(2i11)") Matings(i,:)
-            enddo
-
+            open(newunit=UnitContri,file="AlphaMateResults"//DASH//"ContribAndMatingsPerIndivMinimumInbreeding.txt",status="unknown")
             !                           12345678901   12345678901   12345678901   12345678901   12345678901
             write(UnitContri,"(5a11)") "         Id","     OrigId","     Gender"," Contribute","   nMatings"
             do i=1,nInd
-                write(UnitContri,"(i11,a11,i11,f11.4,i11)") i,trim(IdC(i)),Gender(i),XVec(i),nMatingPerInd(i)
+                write(UnitContri,"(i11,a11,i11,f11.4,i11)") i,trim(IdC(i)),Gender(i),xVec(i),nVec(i)
             enddo
-
-            close(UnitMating)
             close(UnitContri)
+
+            open(newunit=UnitMating,file="AlphaMateResults"//DASH//"MatingListMinimumInbreeding.txt",status="unknown")
+            !                           12345678901   12345678901
+            write(UnitMating,"(2a11)") "    Parent1","    Parent2"
+            do i=1,nMat
+                write(UnitMating,"(2i11)") Mate(i,:)
+            enddo
+            close(UnitMating)
 
             ! --- Optimise for maximum gain with constraint on inbreeding ---
 
             write(stdout,"(a)") "Optimise for maximum gain with constraint on inbreeding:"
             write(stdout,"(a)") " "
 
-            if (FOld > FCurrent) then
+            if (InbOld > InbSol) then
                 write(stdout,"(a)") "NOTE: Old inbreeding is higher than the minimum group coancestry (x'Ax/2) under no selection."
                 write(stdout,"(a)") "NOTE: Resetting the old inbreeding to the minimum group coancestry under no selection and"
                 write(stdout,"(a)") "NOTE:   recomputing the targeted inbreeding."
-                FOld=FCurrent
-                FTarget=FOld*(1.0d0-DeltaFTarget)+DeltaFTarget
-                FTargetRebased=(FTarget-FOld)/(1.0d0-FOld)
-                FMinInbRebased=0.0
-                DeltaFMinInb=0.0
-                write(stdout,"(a,f)") "Old inbreeding: ",FOld
-                write(stdout,"(a,f)") "Targeted rate of inbreeding: ",DeltaFTarget
-                write(stdout,"(a,f)") "Targeted inbreeding:",FTarget
+                InbOld=InbSol
+                InbTarget=InbOld*(1.0d0-RateInbTarget)+RateInbTarget
+                InbTargetRebased=(InbTarget-InbOld)/(1.0d0-InbOld)
+                InbMinInbRebased=0.0d0
+                RateInbMinInb=0.0d0
+                write(stdout,"(a,f)") "Previous coancestry (=old inbreeding): ",InbOld
+                write(stdout,"(a,f)") "Targeted rate of inbreeding: ",RateInbTarget
+                write(stdout,"(a,f)") "Targeted inbreeding:",InbTarget
                 write(stdout,"(a)") " "
             endif
 
-            if (FCurrent > FTarget) then
+            if (InbSol > InbTarget) then
                 write(stderr,"(a)") "ERROR: Targeted inbreeding is lower than the group coancestry (x'Ax/2) under no selection."
                 write(stderr,"(a)") "ERROR: Can not optimise!"
                 stop 1
             endif
 
-            open(newunit=UnitInbree,file="AlphaMateResults"//DASH//"ConstraintInbreeding.txt",status="old")
-            write(UnitInbree,"(a,f)") "Old_inbreeding_redefined, ",FOld
-            write(UnitInbree,"(a,f)") "Targeted_rate_of_inbreeding_redefined, ",DeltaFTarget
-            write(UnitInbree,"(a,f)") "Targeted_inbreeding_redefined, ",FTarget
+            open(newunit=UnitInbree,file="AlphaMateResults"//DASH//"ConstraintPopulationInbreeding.txt",status="old")
+            write(UnitInbree,"(a,f)") "Old_inbreeding_redefined, ",InbOld
+            write(UnitInbree,"(a,f)") "Targeted_rate_of_inbreeding_redefined, ",RateInbTarget
+            write(UnitInbree,"(a,f)") "Targeted_inbreeding_redefined, ",InbTarget
             close(UnitInbree)
 
-            EvolAlgLogFile="AlphaMateResults"//DASH//"OptimisationLog2MaximumGain.txt"
-            open(newunit=UnitMating,file="AlphaMateResults"//DASH//"MatingListMaximumGain.txt",status="unknown")
-            open(newunit=UnitContri,file="AlphaMateResults"//DASH//"ContribAndMatingNbPerIndivMaximumGain.txt",status="unknown")
-
-            call EvolAlgForAlphaMate(nParam=nInd,nSolution=EvolAlgNSol,nGeneration=EvolAlgNGen,nGenerationBurnIn=EvolAlgNGenBurnIn,&
-                                     nGenerationStop=EvolAlgNGenStop,StopTolerance=EvolAlgStopTol,&
-                                     nGenerationPrint=EvolAlgNGenPrint,File=EvolAlgLogFile,CriterionType="MaxGain")
+            EvolAlgLogFile="AlphaMateResults"//DASH//"OptimisationLog2OptimumGain.txt"
+            nTmp=nPotPar1+nPotPar2+nMat ! TODO: add PAGE dimension
+            call EvolAlgForAlphaMate(nParam=nTmp,nSol=EvolAlgNSol,nGen=EvolAlgNGen,nGenBurnIn=EvolAlgNGenBurnIn,&
+                                     nGenStop=EvolAlgNGenStop,StopTolerance=EvolAlgStopTol,&
+                                     nGenPrint=EvolAlgNGenPrint,File=EvolAlgLogFile,CritType="OptGain")
             GainOpt=Gain
             GainOptScaled=GainScaled
-            FOpt=FCurrent
-            FOptRebased=FCurrentRebased
-            DeltaFOpt=DeltaFCurrent
+            InbOpt=InbSol
+            InbOptRebased=InbSolRebased
+            RateInbOpt=RateInbSol
+            IndInbOpt=IndInbSol
+            RateIndInbOpt=RateIndInbSol
+            ValueHoldOpt=ValueHold
 
-            if (GenderMatters) then
-               call PerformMatingGenderIncl(CriterionType="MinInb")
-            else
-               call PerformMating(CriterionType="MinInb")
-            endif
-
-            !                           12345678901   12345678901
-            write(UnitMating,"(2a11)") "    Parent1","    Parent2"
-            do i=1,nMatings
-                write(UnitMating,"(2i11)") Matings(i,:)
-            enddo
+            open(newunit=UnitContri,file="AlphaMateResults"//DASH//"ContribAndMatingNbPerIndivOptimumGain.txt",status="unknown")
             !                           12345678901   12345678901   12345678901   12345678901   12345678901
             write(UnitContri,"(5a11)") "         Id","     OrigId","     Gender"," Contribute","   nMatings"
             do i=1,nInd
-                write(UnitContri,"(i11,a11,i11,f11.4,i11)") i,trim(IdC(i)),Gender(i),XVec(i),nMatingPerInd(i)
+                write(UnitContri,"(i11,a11,i11,f11.4,i11)") i,trim(IdC(i)),Gender(i),xVec(i),nVec(i)
             enddo
-
-            close(UnitMating)
             close(UnitContri)
+
+            open(newunit=UnitMating,file="AlphaMateResults"//DASH//"MatingListOptimumGain.txt",status="unknown")
+            !                           12345678901   12345678901
+            write(UnitMating,"(2a11)") "    Parent1","    Parent2"
+            do i=1,nMat
+                write(UnitMating,"(2i11)") i,Mate(i,:)
+            enddo
+            close(UnitMating)
 
             ! --- Evaluate the full frontier ---
 
@@ -528,37 +1197,42 @@ module AlphaMateModule
                 write(stdout,"(a)") " "
 
                 open(newunit=UnitFrontier,file="AlphaMateResults"//DASH//"Frontier.txt",status="unknown")
-                !                             12345678901   12345678901   12345678901   12345678901   12345678901   12345678901
-                write(UnitFrontier,"(7a11)") "       Step","       Gain"," GainScaled"," Inbreeding","  RateOfInb","  Objective"
-                write(UnitFrontier,"(i11,6f11.4)") 1,GainMinInb,GainMinInbScaled,FMinInb,DeltaFMinInb,GainMinInbScaled-(FMinInbRebased-FTargetRebased)
-                write(UnitFrontier,"(i11,6f11.4)") 2,GainOpt,   GainOptScaled,   FOpt,   DeltaFOpt,   GainOptScaled   -(FOptRebased   -FTargetRebased)
+                !                             12345678901   12345678901   12345678901   12345678901   12345678901   12345678901   12345678901   12345678901
+                write(UnitFrontier,"(8a11)") "       Step","       Gain"," GainScaled"," PopInbreed"," RatePopInb"," IndInbreed"," RateIndInb","  Objective"
+                write(UnitFrontier,"(i11,7f11.4)") 1,GainMinInb,GainMinInbScaled,InbMinInb,RateInbMinInb,IndInbMinInb,RateIndInbMinInb,ValueHoldMinInb
+                write(UnitFrontier,"(i11,7f11.4)") 2,GainOpt,   GainOptScaled,   InbOpt,   RateInbOpt,   IndInbOpt,   RateIndInbOpt,   ValueHoldOpt
 
-                DeltaFFrontierStep=(DeltaFMaxFrontier-DeltaFMinInb)/dble(nFrontierSteps)
-                FTargetRebasedHold=FTargetRebased
-                FTargetHold=FTarget
-                DeltaFTargetHold=DeltaFTarget
-                DeltaFTarget=DeltaFMinInb
-                do i=3,(nFrontierSteps+2)
-                    DeltaFTarget=DeltaFTarget+DeltaFFrontierStep
-                    FTargetRebased=DeltaFTarget ! due to rebasing F=DeltaF
-                    FTarget=FOld*(1.0d0-DeltaFTarget)+DeltaFTarget
-                    write(stdout,"(a,i3,a,i3,a,f7.4)") "Step ",i," out of ",(nFrontierSteps+2), " for the rate of inbreeding of",DeltaFTarget
+                ! Hold old results
+                InbTargetRebasedHold=InbTargetRebased
+                InbTargetHold=InbTarget
+                RateInbTargetHold=RateInbTarget
+                RateInbTarget=RateInbMinInb
+
+                ! Evaluate
+                do i=1,nFrontierSteps
+                    RateInbTarget=RateInbFrontier(i)
+                    InbTargetRebased=RateInbTarget ! due to rebasing F=RateInb
+                    InbTarget=InbOld*(1.0d0-RateInbTarget)+RateInbTarget
+                    write(stdout,"(a,i3,a,i3,a,f7.4)") "Step ",i," out of ",nFrontierSteps, " for the rate of inbreeding of",RateInbTarget
                     write(stdout,"(a)") ""
-                    EvolAlgLogFile="AlphaMateResults"//DASH//"OptimisationLog"//int2char(i)//".txt"
-                    call EvolAlgForAlphaMate(nParam=nInd,nSolution=EvolAlgNSol,nGeneration=EvolAlgNGen,nGenerationBurnIn=EvolAlgNGenBurnIn,&
-                                             nGenerationStop=EvolAlgNGenStop,StopTolerance=EvolAlgStopTol,&
-                                             nGenerationPrint=EvolAlgNGenPrint,File=EvolAlgLogFile,CriterionType="MaxGain")
-                    write(UnitFrontier,"(i11,6f11.4)") i,Gain,GainScaled,FCurrent,DeltaFCurrent,GainScaled-(FCurrentRebased-FTargetRebasedHold)
-                    if ((DeltaFTarget-DeltaFCurrent) > 0.01) then
-                        write(stdout,"(a,f)") "NOTE: Could not achieve the rate of inbreeding of ",DeltaFTarget
-                        write(stdout,"(a,f)") "NOTE: Stopping the evaluation of frontier."
+                    EvolAlgLogFile="AlphaMateResults"//DASH//"OptimisationLog"//Int2Char(i)//".txt"
+                    nTmp=nPotPar1+nPotPar2+nMat ! TODO: add PAGE dimension
+                    call EvolAlgForAlphaMate(nParam=nTmp,nSol=EvolAlgNSol,nGen=EvolAlgNGen,nGenBurnIn=EvolAlgNGenBurnIn,&
+                                             nGenStop=EvolAlgNGenStop,StopTolerance=EvolAlgStopTol,&
+                                             nGenPrint=EvolAlgNGenPrint,File=EvolAlgLogFile,CritType="OptGain")
+                    write(UnitFrontier,"(i11,7f11.4)") i+2,Gain,GainScaled,InbSol,RateInbSol,IndInbSol,RateIndInbSol,ValueHold
+                    if ((RateInbTarget-RateInbSol) > 0.01d0) then
+                        write(stdout,"(a,f)") "NOTE: Could not achieve the rate of inbreeding of ",RateInbTarget
+                        write(stdout,"(a,f)") "NOTE: Stopping the frontier evaluation."
                         write(stdout,"(a)") ""
                         exit
                     endif
                 enddo
-                FTargetRebased=FTargetRebasedHold
-                FTarget=FTargetHold
-                DeltaFTarget=DeltaFTargetHold
+
+                ! Put back old results
+                InbTargetRebased=InbTargetRebasedHold
+                InbTarget=InbTargetHold
+                RateInbTarget=RateInbTargetHold
 
                 close(UnitFrontier)
 
@@ -569,41 +1243,41 @@ module AlphaMateModule
 
         !#######################################################################
 
-        subroutine EvolAlgForAlphaMate(nParam,nSolution,nGeneration,nGenerationBurnIn,&
-            nGenerationStop,StopTolerance,nGenerationPrint,File,CriterionType)
+        subroutine EvolAlgForAlphaMate(nParam,nSol,nGen,nGenBurnIn,nGenStop,&
+            StopTolerance,nGenPrint,File,CritType)
             implicit none
 
             ! Arguments
-            integer,intent(in)          :: nParam            ! Number of parameters in a solution
-            integer,intent(in)          :: nSolution         ! Number of solutions to test each generation
-            integer,intent(in)          :: nGeneration       ! Number of generations to run
-            integer,intent(in)          :: nGenerationBurnIn ! Number of generations with more
-            integer,intent(in)          :: nGenerationStop   ! Stop after no progress for nGenerationStop
-            double precision,intent(in) :: StopTolerance     ! Stopping tolerance
-            integer,intent(in)          :: nGenerationPrint  ! Print changed solution every nGenerationPrint
-            character(len=*),intent(in) :: File              ! Which file to write to
-            character(len=*),intent(in) :: CriterionType     ! Passed to CalcCriterion
+            integer,intent(in)          :: nParam        ! No. of parameters in a solution
+            integer,intent(in)          :: nSol          ! No. of solutions to test each generation
+            integer,intent(in)          :: nGen          ! No. of generations to run
+            integer,intent(in)          :: nGenBurnIn    ! No. of generations with more
+            integer,intent(in)          :: nGenStop      ! Stop after no progress for nGenerationStop
+            double precision,intent(in) :: StopTolerance ! Stopping tolerance
+            integer,intent(in)          :: nGenPrint     ! Print changed solution every nGenerationPrint
+            character(len=*),intent(in) :: File          ! Which file to write to
+            character(len=*),intent(in) :: CritType      ! Passed to FixSolMateAndCalcCrit
 
             ! Other
-            integer :: Param,ParamLoc,Solution,Generation,LastGenerationPrint
-            integer :: SolutionA,SolutionB,SolutionC,BestSolution,BestSolutionOld
-            integer :: DiffOnly,Unit
+            integer :: Param,ParamLoc,Sol,Gen,LastGenPrint
+            integer :: SolA,SolB,SolC,BestSol,BestSolOld
+            integer :: Unit
 
             double precision :: RanNum,F,FHold,FHigh1,FHigh2,CR,CRLow,CRHigh
-            double precision :: ValueHold,BestValue,BestValueOld,BestValueStop,AcceptRate
-            double precision,allocatable :: ParentChrom(:,:),ProgenyChrom(:,:),Chrom(:),Value(:)!,MiVal(:),MaVal(:)
+            double precision :: BestValue,BestValueOld,BestValueStop,AcceptRate
+            double precision,allocatable :: OldChrom(:,:),NewChrom(:,:),Chrom(:),Value(:)!,MiVal(:),MaVal(:)
 
-            logical :: BestSolutionChanged
+            logical :: DiffOnly,BestSolChanged
 
-            LastGenerationPrint=0
-            BestSolutionOld=0
-            BestValueOld=-999999.0
+            LastGenPrint=0
+            BestSolOld=0
+            BestValueOld=-999999.0d0
             BestValueStop=BestValueOld
 
-            allocate(ParentChrom(nParam,nSolution))
-            allocate(ProgenyChrom(nParam,nSolution))
+            allocate(OldChrom(nParam,nSol))
+            allocate(NewChrom(nParam,nSol))
             allocate(Chrom(nParam))
-            allocate(Value(nSolution))
+            allocate(Value(nSol))
             ! allocate(MiVal(nParam))
             ! allocate(MaVal(nParam))
 
@@ -611,69 +1285,70 @@ module AlphaMateModule
 
             ! TODO: make a subroutine for this to make evol alg code generic?
             open(newunit=Unit,file=trim(File),status="unknown")
-            !                       12345678901   12345678901   12345678901   12345678901   12345678901   12345678901   12345678901   12345678901   12345678901
-            write(stdout,"(9a11)") " SearchMode","       Step","       Gain"," Inbreeding"," ...-Target","  RateOfInb"," ...-Target","  Criterion"," AcceptRate"
-            write(Unit,  "(9a11)") " SearchMode","       Step","       Gain"," Inbreeding"," ...-Target","  RateOfInb"," ...-Target","  Criterion"," AcceptRate"
+            !                        12345678901   12345678901   12345678901   12345678901   12345678901   12345678901   12345678901   12345678901   12345678901
+            write(stdout,"(9a11)") " SearchMode","       Step","       Gain"," PopInbreed"," RatePopInb"," IndInbreed"," RateIndInb","  Criterion"," AcceptRate"
+            write(Unit,  "(9a11)") " SearchMode","       Step","       Gain"," PopInbreed"," RatePopInb"," IndInbreed"," RateIndInb","  Criterion"," AcceptRate"
 
             ! --- Set parameters ---
 
             ! TODO: make arguments for this to make evol alg code generic?
             ! Crossover rate
-            CRHigh=0.4 ! For first few generations (burn-in)
-            CRLow=0.2  ! For later climbs
+            CRHigh=0.4d0 ! For first few generations (burn-in)
+            CRLow=0.2d0  ! For later climbs
 
             ! F is multiplier of difference used to mutate
             ! Typically between 0.2 and 2.0
             ! (if alleles should be integer, keep F as integer)
-            FHold=0.2  ! Conservative moves
-            FHigh1=1.0 ! Adventurous moves
-            FHigh2=2.0 ! Adventurous moves
+            FHold=0.4d0  ! Conservative moves
+            FHigh1=1.0d0 ! Adventurous moves
+            FHigh2=4.0d0 ! Adventurous moves
 
             ! Constrain parameters
-            ! MiVal=0.0
-            ! MaVal=1.0
+            ! MiVal=0.0d0
+            ! MaVal=1.0d0
 
             ! --- Initialise foundation population of solutions ---
 
             ! A solution with equal contributions ! TODO: make arguments for this to make evol alg code generic?
-            ParentChrom(:,1)=0.5
-            Value(1)=CalcCriterion(nParam,ParentChrom(:,1),CriterionType)
+            !OldChrom(:,1)=1.0d0 ! TODO: how should this be setup for the mate selection driver?
+            !Value(1)=FixSolMateAndCalcCrit(nParam,OldChrom(:,1),CritType)
 
-            ! Solutions with caried contributions
-            do Solution=2,nSolution
-                do Param=1,nParam                      ! Set a wide range for each parameter
-                    call random_number(RanNum)         ! May need integer values for some problems
-                    ParentChrom(Param,Solution)=RanNum
+            ! Solutions with varied contributions
+            !do Sol=2,nSol
+            do Sol=1,nSol
+                do Param=1,nParam                   ! Set a wide range for each parameter
+                    call random_number(RanNum)      ! May need integer values for some problems
+                    OldChrom(Param,Sol)=RanNum*(dble(nMat)/2.0d0) ! TODO: what would a good range be?
                 enddo
-                Value(Solution)=CalcCriterion(nParam,ParentChrom(:,Solution),CriterionType)
+                Value(Sol)=FixSolMateAndCalcCrit(nParam,OldChrom(:,Sol),CritType)
             enddo
 
             ! --- Evolve ---
 
-            do Generation=1,nGeneration
+            do Gen=1,nGen
 
                 ! Vary differential and non-differential mutation to escape valleys
-                if (mod(Generation,3) == 0) then
-                    DiffOnly=1
+                if (mod(Gen,3) == 0) then
+                    DiffOnly=.true.
                 else
-                    DiffOnly=0
+                    DiffOnly=.false.
                 endif
 
                 ! Burn-in
-                if (Generation < nGenerationBurnIn) then
+                if (Gen < nGenBurnIn) then
                     CR=CRHigh
                 else
                     CR=CRLow
                 endif
 
                 ! Vary mutation rate every few generations
-                if (mod(Generation,4) == 0) then
+                if (mod(Gen,4) == 0) then
                     F=FHigh1
                 else
                     F=FHold
                 endif
 
-                if (mod(Generation,7) == 0) then
+                if (mod(Gen,7) == 0) then
                     F=FHigh2
                 else
                     F=FHold
@@ -682,27 +1357,27 @@ module AlphaMateModule
                 ! --- Generate competitors ---
 
                 ! TODO: paralelize this loop? Is it worth it?
-                BestSolutionChanged=.false.
-                AcceptRate=0.0
-                do Solution=1,nSolution
+                BestSolChanged=.false.
+                AcceptRate=0.0d0
+                do Sol=1,nSol
 
                     ! --- Mutate and recombine ---
 
                     ! Get three different solutions
-                    SolutionA=Solution
-                    do while (SolutionA == Solution)
+                    SolA=Sol
+                    do while (SolA == Sol)
                         call random_number(RanNum)
-                        SolutionA=int(RanNum*nSolution)+1
+                        SolA=int(RanNum*nSol)+1
                     enddo
-                    SolutionB=Solution
-                    do while ((SolutionB == Solution) .or. (SolutionB == SolutionA))
+                    SolB=Sol
+                    do while ((SolB == Sol) .or. (SolB == SolA))
                         call random_number(RanNum)
-                        SolutionB=int(RanNum*nSolution)+1
+                        SolB=int(RanNum*nSol)+1
                     enddo
-                    SolutionC=Solution
-                    do while ((SolutionC == Solution) .or. (SolutionC == SolutionA) .or. (SolutionC == SolutionB))
+                    SolC=Sol
+                    do while ((SolC == Sol) .or. (SolC == SolA) .or. (SolC == SolB))
                         call random_number(RanNum)
-                        SolutionC=int(RanNum*nSolution)+1
+                        SolC=int(RanNum*nSol)+1
                     enddo
 
                     ! Mate the solutions
@@ -713,23 +1388,23 @@ module AlphaMateModule
                         if ((RanNum < CR) .or. (ParamLoc == nParam)) then
                             ! Recombine
                             call random_number(RanNum)
-                            if ((RanNum < 0.8) .or. (DiffOnly == 1)) then
+                            if ((RanNum < 0.8d0) .or. DiffOnly) then
                                 ! Differential mutation (with prob 0.8 or 1)
-                                Chrom(Param)=ParentChrom(Param,SolutionC) + F*(ParentChrom(Param,SolutionA)-ParentChrom(Param,SolutionB))
+                                Chrom(Param)=OldChrom(Param,SolC) + F*(OldChrom(Param,SolA)-OldChrom(Param,SolB))
                             else
                                 ! Non-differential mutation (to avoid getting stuck)
                                 call random_number(RanNum)
-                                if (RanNum < 0.5) then
+                                if (RanNum < 0.5d0) then
                                     call random_number(RanNum)
-                                    Chrom(Param)=ParentChrom(Param,SolutionC) * (0.9d0 + 0.2d0 * RanNum)
+                                    Chrom(Param)=OldChrom(Param,SolC) * (0.9d0 + 0.2d0 * RanNum)
                                 else
                                     call random_number(RanNum)
-                                    Chrom(Param)=ParentChrom(Param,SolutionC) + 0.01d0 * F * (ParentChrom(Param,SolutionA) + 0.01d0) * (RanNum - 0.5d0)
+                                    Chrom(Param)=OldChrom(Param,SolC) + 0.01d0 * F * (OldChrom(Param,SolA) + 0.01d0) * (RanNum - 0.5d0)
                                 endif
                             endif
                         else
                             ! Do not recombine
-                            Chrom(Param)=ParentChrom(Param,Solution)
+                            Chrom(Param)=OldChrom(Param,Sol)
                         endif
                         Param=Param+1
                         if (Param > nParam) Param=Param-nParam
@@ -749,69 +1424,77 @@ module AlphaMateModule
 
                     ! --- Evaluate and Select ---
 
-                    ValueHold=CalcCriterion(nParam,Chrom,CriterionType)  ! Merit of competitor
-                    if (ValueHold >= Value(Solution)) then               ! If competitor is better or equal, keep it
-                        ProgenyChrom(:,Solution)=Chrom(:)                ! ("equal" to force evolution)
-                        Value(Solution)=ValueHold
-                        AcceptRate=AcceptRate+1.0
+                    ValueHold=FixSolMateAndCalcCrit(nParam,Chrom,CritType) ! Merit of competitor
+                    if (ValueHold >= Value(Sol)) then                      ! If competitor is better or equal, keep it
+                        NewChrom(:,Sol)=Chrom(:)                           !   ("equal" to force evolution)
+                        Value(Sol)=ValueHold
+                        AcceptRate=AcceptRate+1.0d0
                     else
-                        ProgenyChrom(:,Solution)=ParentChrom(:,Solution) ! else keep the old solution
+                        NewChrom(:,Sol)=OldChrom(:,Sol)                    ! Else keep the old solution
                     endif
-                enddo ! nSolution
+                enddo ! nSol
 
-                AcceptRate=AcceptRate/dble(nSolution)
+                AcceptRate=AcceptRate/dble(nSol)
 
                 ! --- New parents ---
 
-                do Solution=1,nSolution
-                    ParentChrom(:,Solution)=ProgenyChrom(:,Solution)
+                ! TODO: could we reduce memory requirement by having only OldChrom and Chrom
+                !       and replace solutions within OldChrom directly when a new better solution
+                !       is found - would this be too greedy? The logic would be that in-silico
+                !       we can already use new solution for "mating" as we do not need to follow
+                !       discrete generations logic - make generations continous. But this might
+                !       become very GREEDY scheme that gets stuck in local optima. An option to
+                !       alternate between the two?
+                do Sol=1,nSol
+                    OldChrom(:,Sol)=NewChrom(:,Sol)
                 enddo
 
                 ! --- Find the best solution in this generation ---
 
-                BestSolution=maxloc(Value,dim=1)
-                BestValue=Value(BestSolution)
-                if (BestValue > BestValueOld) BestSolutionChanged=.true.
-                BestSolutionOld=BestSolution
+                BestSol=maxloc(Value,dim=1)
+                BestValue=Value(BestSol)
+                if (BestValue > BestValueOld) BestSolChanged=.true.
+                BestSolOld=BestSol
                 BestValueOld=BestValue
 
                 ! --- Test if solution is improving to stop early ---
 
-                if (mod(Generation,nGenerationStop) == 0) then
+                if (mod(Gen,nGenStop) == 0) then
                     if ((BestValue-BestValueStop) > StopTolerance) then
                         BestValueStop=BestValue
                     else
-                        write(stdout,"(a,f,a,i,a)") "NOTE: Evolutionary algorithm did not improve objective for ",StopTolerance, " in the last ",nGenerationStop," generations. Stopping."
+                        write(stdout,"(a,f,a,i,a)") "NOTE: Evolutionary algorithm did not improve objective for ",StopTolerance, " in the last ",nGenStop," generations. Stopping."
                         exit
                     endif
                 endif
 
                 ! --- Monitor ---
 
-                if (BestSolutionChanged) then
-                    if (((Generation - LastGenerationPrint) >= nGenerationPrint)) then
-                        LastGenerationPrint=Generation
+                if (BestSolChanged) then
+                    if (((Gen - LastGenPrint) >= nGenPrint)) then
+                        LastGenPrint=Gen
                         ! TODO: make a subroutine for this to make evol alg code generic?
-                        ValueHold=CalcCriterion(nParam,ProgenyChrom(:,BestSolution),CriterionType)
-                        write(stdout,"(a11,i11,7f11.4)") CriterionType,Generation,Gain,FCurrent,(FCurrent-FTarget),DeltaFCurrent,(DeltaFCurrent-DeltaFTarget),ValueHold,AcceptRate
-                        write(Unit,  "(a11,i11,7f11.4)") CriterionType,Generation,Gain,FCurrent,(FCurrent-FTarget),DeltaFCurrent,(DeltaFCurrent-DeltaFTarget),ValueHold,AcceptRate
+                        ValueHold=FixSolMateAndCalcCrit(nParam,NewChrom(:,BestSol),CritType)
+                        write(stdout,"(a11,i11,7f11.4)") CritType,Gen,Gain,InbSol,RateInbSol,IndInbSol,RateIndInbSol,ValueHold,AcceptRate
+                        write(Unit,  "(a11,i11,7f11.4)") CritType,Gen,Gain,InbSol,RateInbSol,IndInbSol,RateIndInbSol,ValueHold,AcceptRate
                     endif
                 endif
 
-            enddo ! Generation
+            enddo ! Gen
 
             ! --- Evaluate the winner ---
 
             ! TODO: make a subroutine for this to make evol alg code generic?
-            ValueHold=CalcCriterion(nParam,ProgenyChrom(:,BestSolution),CriterionType)
-            write(stdout,"(a11,i11,7f11.4)") CriterionType,Generation,Gain,FCurrent,(FCurrent-FTarget),DeltaFCurrent,(DeltaFCurrent-DeltaFTarget),ValueHold,AcceptRate
-            write(Unit,  "(a11,i11,7f11.4)") CriterionType,Generation,Gain,FCurrent,(FCurrent-FTarget),DeltaFCurrent,(DeltaFCurrent-DeltaFTarget),ValueHold,AcceptRate
+            ! TODO: add ind. inbreeding to print-out
+            ValueHold=FixSolMateAndCalcCrit(nParam,NewChrom(:,BestSol),CritType)
+            write(stdout,"(a11,i11,7f11.4)") CritType,Gen,Gain,InbSol,RateInbSol,IndInbSol,RateIndInbSol,ValueHold,AcceptRate
+            write(Unit,  "(a11,i11,7f11.4)") CritType,Gen,Gain,InbSol,RateInbSol,IndInbSol,RateIndInbSol,ValueHold,AcceptRate
             write(stdout,"(a)") " "
 
             close(Unit)
 
-            deallocate(ParentChrom)
-            deallocate(ProgenyChrom)
+            deallocate(OldChrom)
+            deallocate(NewChrom)
             deallocate(Chrom)
             deallocate(Value)
             ! deallocate(MiVal)
@@ -820,368 +1503,355 @@ module AlphaMateModule
 
         !#######################################################################
 
-        function CalcCriterion(nParam,Solution,CriterionType) result(Criterion)
+        function FixSolMateAndCalcCrit(nParam,Sol,CritType) result(Criterion)
             implicit none
             ! Arguments
-            integer,intent(in)          :: nParam           ! No. of parameters
-            double precision,intent(in) :: Solution(nParam) ! Solution
-            character(len=*),intent(in) :: CriterionType    ! Type of criterion (MinInb,MaxGain)
+            integer,intent(in)             :: nParam      ! No. of parameters
+            double precision,intent(inout) :: Sol(nParam) ! Solution
+            character(len=*),intent(in)    :: CritType    ! Type of criterion (MinInb,OptGain)
             ! Other
-            integer :: i,nTmp
-            double precision :: SolutionIn(nParam),SolutionInSorted(nInd),Threshold,ThresholdSum,TmpVec(nInd,1),Criterion
+            integer :: i,j,k,m,nCumMat,RankSol(nInd),SolInt(nInd),MatPar2(nMat),TmpMin,TmpMax
+            double precision :: TmpVec(nInd,1),Criterion
 
-            ! --- Negative-to-zero mapping ---
+            ! Solution has:
+            ! - nPotPar1 individual contributions for "parent1" (males when GenderMatters)
+            ! - nPotPar2 individual contributions for "parent2" (females when GenderMatters)
+            ! - nMat     rankings of parent1 1:nMat matings to pair with 1:nPotPar2 "parent2" (see bellow)
+            ! - nInd     rankings for genome editing
 
-            ! Evolutionary algorithm and its use in AlphaMate is very sensitive to how the
-            ! parameters are constrained and used in calculating criterion. Ideally evolutionary
-            ! algorithm would work with unconstrained parameters as this gives more information
-            ! to "optimiser" and speeds convergence. Negative values are however not "allowed"
-            ! for contributions. An optimal solution seems to be to constrain negative values
-            ! to zero and rescale positive values to desired range. When only a number of ind.
-            ! is needed then just the top positive values are used in rescaling.
-            do i=1,nParam
-                if (Solution(i) < 0.0) then
-                    SolutionIn(i)=0.0
-                else
-                    SolutionIn(i)=Solution(i)
+            ! Say we have Sol=(|0,2,0,1|...|2.5,1.5,1.0) then we mate
+            ! - male 2 with the first  available female (rank 2.5)
+            ! - male 2 with the second available female (rank 1.5)
+            ! - male 4 with the third  available female (rank 1.0)
+
+            ! --- Is the solution valid? ---
+
+            ! TODO: ALLOW SELFFERTILISATION - AN OPTION? In mate allocations?
+            !       will we have to modify solution if this is not achieved?
+            !       progeny inbreeding would help in lowering objective, but that
+            !       might not be desired in say plants
+
+            ! TODO: This implementation adds one contribution to "trailing" individuals (have values < 1)
+            !       until nMat is reached. Should we add these contributions to the first trailing
+            !       ind and then jump back to top ind and start adding contributions to top inds sequentially
+            !       until we reach next trailing ind and then we repeat this process?
+
+            ! Assure we have nMat contributions for "parent1"
+            ! ... find ranks to find the top values
+            !write(stdout,"(a)") " "
+            call MrgRnk(Sol(1:nPotPar1),RankSol(1:nPotPar1))
+            RankSol(1:nPotPar1)=RankSol(nPotPar1:1:-1) ! MrgRnk ranks small to large
+            ! ... accumulate the top values as integers (towards nMat)
+            !write(stdout,"("//Int2Char(nPotPar1)//"f6.1)") Sol(RankSol(1:nPotPar1))
+            nCumMat=0
+            do i=1,nPotPar1
+                if (Sol(RankSol(i)) < 1.0d0) then
+                    ! ... fix by setting to 1 mating
+                    Sol(RankSol(i))=1.0d0
+                endif
+                nCumMat=nCumMat+nint(Sol(RankSol(i))) ! internally real, externally integer
+                if (nCumMat >= nMat) then
+                    if (nCumMat > nMat) then
+                        ! ... make sure there are exactly nMat contributions
+                        Sol(RankSol(i))=Sol(RankSol(i))-dble(nCumMat-nMat)
+                    endif
+                    ! ... make sure all other values are negative
+                    if (i < nPotPar1) then
+                        Sol(RankSol((i+1):nPotPar1))=sign(Sol(RankSol((i+1):nPotPar1)),-1.0d0)
+                    endif
+                    exit
                 endif
             enddo
-
-            ! --- Genetic contributions (XVec) ---
-
-            if (.not.GenderMatters) then
-                if (nParents == nInd) then
-                    ! Take all individuals
-                    XVec(:)=SolutionIn(1:nInd)/sum(SolutionIn(1:nInd))
-                else ! nParents < nInd
-                    ! Take the top nParents individuals
-                    SolutionInSorted(:)=SolutionIn(1:nInd)
-                    nTmp=nInd
-                    call SortQQ(Loc(SolutionInSorted),nTmp,SRT$REAL8) ! https://software.intel.com/en-us/node/526803 (2016-02-15)
-                    if (nTmp < nInd) then
-                        write(stderr,"(a)") "Sorting failed"
-                        stop 1
-                    endif
-                    Threshold=SolutionInSorted(nInd-nParents+1) ! SolutionInSorted is sorted small to large
-                    ThresholdSum=sum(SolutionInSorted((nInd-nParents+1):nInd))
-                    do i=1,nInd
-                        if (SolutionIn(i) < Threshold) then
-                            XVec(i)=0.0
-                        else
-                            XVec(i)=SolutionIn(i)/ThresholdSum
-                        endif
-                    enddo
-                endif
-            else
-                if (nMalParents == nMal) then
-                    ! Take all males
-                    if (EqualizeMales) then
-                        XVec(IdMal)=0.5d0/dble(nMal)
-                    else
-                        XVec(IdMal)=0.5d0*SolutionIn(IdMal)/sum(SolutionIn(IdMal))
-                    endif
-                else ! nMalParents < nMal
-                    ! Take the top nMalParents males
-                    SolutionInSorted(1:nMal)=SolutionIn(IdMal)
-                    nTmp=nMal
-                    call SortQQ(Loc(SolutionInSorted(1:nMal)),nTmp,SRT$REAL8) ! https://software.intel.com/en-us/node/526803 (2016-02-15)
-                    if (nTmp < nMal) then
-                        write(stderr,"(a)") "Sorting failed"
-                        stop 1
-                    endif
-                    Threshold=SolutionInSorted(nMal-nMalParents+1) ! SolutionInSorted is sorted small to large
-                    ThresholdSum=sum(SolutionInSorted((nMal-nMalParents+1):nMal))
-                    do i=1,nMal
-                        if (SolutionIn(IdMal(i)) < Threshold) then
-                            XVec(IdMal(i))=0.0
-                        else
-                            if (EqualizeMales) then
-                                XVec(IdMal(i))=0.5d0/dble(nMalParents)
-                            else
-                                XVec(IdMal(i))=0.5d0*SolutionIn(IdMal(i))/ThresholdSum
-                            endif
-                        endif
-                    enddo
-                endif
-                if (nFemParents == nFem) then
-                    ! Take all females
-                    if (EqualizeFemales) then
-                        XVec(IdFem)=0.5d0/dble(nFem)
-                    else
-                        XVec(IdFem)=0.5d0*SolutionIn(IdFem)/sum(SolutionIn(IdFem))
-                    endif
-                else ! nFemParents < nMal
-                    ! Take the top nFemParents females
-                    SolutionInSorted(1:nFem)=SolutionIn(IdFem)
-                    nTmp=nFem
-                    call SortQQ(Loc(SolutionInSorted(1:nFem)),nTmp,SRT$REAL8) ! https://software.intel.com/en-us/node/526803 (2016-02-15)
-                    if (nTmp < nFem) then
-                        write(stderr,"(a)") "Sorting failed"
-                        stop 1
-                    endif
-                    Threshold=SolutionInSorted(nFem-nFemParents+1) ! SolutionInSorted is sorted small to large
-                    ThresholdSum=sum(SolutionInSorted((nFem-nFemParents+1):nFem))
-                    do i=1,nFem
-                        if (SolutionIn(IdFem(i)) < Threshold) then
-                            XVec(IdFem(i))=0.0
-                        else
-                            if (EqualizeFemales) then
-                                XVec(IdFem(i))=0.5d0/dble(nFemParents)
-                            else
-                                XVec(IdFem(i))=0.5d0*SolutionIn(IdFem(i))/ThresholdSum
-                            endif
-                        endif
-                    enddo
-                endif
+            !write(stdout,"(a2,2i4,"//Int2Char(nPotPar1)//"f6.1)") "1",nCumMat,nMat,Sol(RankSol(1:nPotPar1))
+            if (nCumMat < nMat) then
+                ! TODO
+                write(stderr,"(a)") "TODO: nCumMat < nMat!"
+                stop 1
             endif
 
-            ! --- Group coancestry (=future inbreeding) ---
+            !write(stdout,"(a)") " "
+            ! Assure we have nMat contributions for "parent2"
+            ! ... find ranks to find the top values
+            call MrgRnk(Sol((nPotPar1+1):(nPotPar1+nPotPar2)),RankSol(1:nPotPar2))
+            RankSol(1:nPotPar2)=RankSol(nPotPar2:1:-1) ! MrgRnk ranks small to large
+            !write(stdout,"("//Int2Char(nPotPar2)//"f6.1)") Sol(nPotPar1+RankSol(1:nPotPar2))
+            ! ... accumulate the top values as integers (towards nMat)
+            nCumMat=0
+            do i=1,nPotPar2
+                if (Sol(nPotPar1+RankSol(i)) < 1.0d0) then
+                    ! ... fix by setting to 1 mating
+                    Sol(nPotPar1+RankSol(i))=1.0d0
+                endif
+                nCumMat=nCumMat+nint(Sol(nPotPar1+RankSol(i))) ! internally real, externally integer
+                if (nCumMat >= nMat) then
+                    if (nCumMat > nMat) then
+                        ! ... make sure there are only nMat contributions
+                        Sol(nPotPar1+RankSol(i))=Sol(nPotPar1+RankSol(i))-dble(nCumMat-nMat)
+                    endif
+                    ! ... make sure all other values are negative
+                    if (i < nPotPar2) then
+                        Sol(nPotPar1+(RankSol((i+1):nPotPar2)))=sign(Sol(nPotPar1+(RankSol((i+1):nPotPar2))),-1.0d0)
+                    endif
+                    exit
+                endif
+            enddo
+            !write(stdout,"(a2,2i4,"//Int2Char(nPotPar2)//"f6.1)") "2",nCumMat,nMat,Sol(nPotPar1+RankSol(1:nPotPar2))
+            if (nCumMat < nMat) then
+                ! TODO
+                write(stderr,"(a)") "TODO: nCumMat < nMat!"
+                stop 1
+            endif
+
+            ! TODO: how do we equalize contributions? - distribute equal contributions to nPar positions
+            ! TODO: how do we limit the number of parents? - take the top nPar (or nMalPar and nFemPar) positions
+            !       (will have to add missing contributions only to these parents!!!)
+            ! TODO: how to limit min and max usage
+
+            ! do i=1,nInd
+            !    write(stdout,"(i,3f)") i,Sol(i),Sol(nPotPar1+i),Sol(nPotPar1+nPotPar2+i)
+            ! enddo
+
+            ! --- Genetic contributions (nVec) ---
+
+            ! "Parent1"
+            ! ... get integer values
+            SolInt(1:nPotPar1)=nint(Sol(1:nPotPar1))
+            ! ... remove negatives
+            do i=1,nPotPar1
+                if (SolInt(i) < 0) then
+                    SolInt(i)=0
+                endif
+            enddo
+            ! ... map internal to external order
+            nVecPar1(:)=SolInt(1:nPotPar1)
+            if (.not.GenderMatters) then
+                nVec(:)=nVecPar1(:)
+            else
+                nVec(IdPotPar1)=nVecPar1(:)
+            endif
+
+            ! "Parent2"
+            ! ... get integer values
+            SolInt(1:nPotPar2)=nint(Sol((nPotPar1+1):(nPotPar1+nPotPar2)))
+            ! ... remove negatives
+            do i=1,nPotPar2
+                if (SolInt(i) < 0) then
+                    SolInt(i)=0
+                endif
+            enddo
+            ! ... map internal to external order
+            nVecPar2(:)=SolInt(1:nPotPar2)
+            if (.not.GenderMatters) then
+                nVec(:)=nVec(:)+nVecPar2(:)
+            else
+                nVec(IdPotPar2)=nVecPar2(:)
+            endif
+
+            xVec(:)=dble(nVec(:))/(2.0d0*dble(nMat))
+
+            ! if (.not.GenderMatters) then
+            !     if (nPar == nInd) then
+            !         ! Take all individuals
+            !         nVec(:)=nint(SolIn(1:nInd))!/sum(SolIn(1:nInd))
+            !     else ! nPar < nInd
+            !         ! Take the top nPar individuals
+            !         SolInSorted(:)=SolIn(1:nInd)
+            !         nTmp=nInd
+            !         call SortQQ(Loc(SolInSorted),nTmp,SRT$REAL8) ! https://software.intel.com/en-us/node/526803 (2016-02-15)
+            !         if (nTmp < nInd) then
+            !             write(stderr,"(a)") "Sorting failed"
+            !             stop 1
+            !         endif
+            !         Threshold=SolInSorted(nInd-nPar+1) ! SolInSorted is sorted small to large
+            !         !ThresholdSum=sum(SolInSorted((nInd-nPar+1):nInd))
+            !         do i=1,nInd
+            !             if (SolIn(i) < Threshold) then
+            !                 nVec(i)=0!.0d0
+            !             else
+            !                 nVec(i)=nint(SolIn(i))!/ThresholdSum
+            !             endif
+            !         enddo
+            !     endif
+            ! else
+            !     if (nMalPar == nMal) then
+            !         ! Take all males
+            !         if (EqualizeMales) then
+            !             nVec(IdPotPar1)=0.5d0/dble(nMal)
+            !         else
+            !             nVec(IdPotPar1)=0.5d0*SolIn(IdPotPar1)/sum(SolIn(IdPotPar1))
+            !         endif
+            !     else ! nMalPar < nMal
+            !         ! Take the top nMalPar males
+            !         SolInSorted(1:nMal)=SolIn(IdPotPar1)
+            !         nTmp=nMal
+            !         call SortQQ(Loc(SolInSorted(1:nMal)),nTmp,SRT$REAL8) ! https://software.intel.com/en-us/node/526803 (2016-02-15)
+            !         if (nTmp < nMal) then
+            !             write(stderr,"(a)") "Sorting failed"
+            !             stop 1
+            !         endif
+            !         Threshold=SolInSorted(nMal-nMalPar+1) ! SolInSorted is sorted small to large
+            !         ThresholdSum=sum(SolInSorted((nMal-nMalPar+1):nMal))
+            !         do i=1,nMal
+            !             if (SolIn(IdPotPar1(i)) < Threshold) then
+            !                 nVec(IdPotPar1(i))=0.0d0
+            !             else
+            !                 if (EqualizeMales) then
+            !                     nVec(IdPotPar1(i))=0.5d0/dble(nMalPar)
+            !                 else
+            !                     nVec(IdPotPar1(i))=0.5d0*SolIn(IdPotPar1(i))/ThresholdSum
+            !                 endif
+            !             endif
+            !         enddo
+            !     endif
+            !     if (nFemPar == nFem) then
+            !         ! Take all females
+            !         if (EqualizeFemales) then
+            !             nVec(IdPotPar2)=0.5d0/dble(nFem)
+            !         else
+            !             nVec(IdPotPar2)=0.5d0*SolIn(IdPotPar2)/sum(SolIn(IdPotPar2))
+            !         endif
+            !     else ! nFemPar < nMal
+            !         ! Take the top nFemPar females
+            !         SolInSorted(1:nFem)=SolIn(IdPotPar2)
+            !         nTmp=nFem
+            !         call SortQQ(Loc(SolInSorted(1:nFem)),nTmp,SRT$REAL8) ! https://software.intel.com/en-us/node/526803 (2016-02-15)
+            !         if (nTmp < nFem) then
+            !             write(stderr,"(a)") "Sorting failed"
+            !             stop 1
+            !         endif
+            !         Threshold=SolInSorted(nFem-nFemPar+1) ! SolInSorted is sorted small to large
+            !         ThresholdSum=sum(SolInSorted((nFem-nFemPar+1):nFem))
+            !         do i=1,nFem
+            !             if (SolIn(IdPotPar2(i)) < Threshold) then
+            !                 nVec(IdPotPar2(i))=0.0d0
+            !             else
+            !                 if (EqualizeFemales) then
+            !                     nVec(IdPotPar2(i))=0.5d0/dble(nFemPar)
+            !                 else
+            !                     nVec(IdPotPar2(i))=0.5d0*SolIn(IdPotPar2(i))/ThresholdSum
+            !                 endif
+            !             endif
+            !         enddo
+            !     endif
+            ! endif
+            ! nVec(:)=nVec(:)/(2.0d0*dble(nMat))
+
+            ! --- Mate allocation ---
+
+            ! Distribute parent2 (=females) into matings
+            k=0
+            do i=1,nPotPar2
+                do j=1,nVecPar2(i)
+                    k=k+1
+                    MatPar2(k)=i
+                enddo
+            enddo
+
+            ! Reorder them according to the rank of matings
+            call MrgRnk(Sol((nPotPar1+nPotPar2+1):(nPotPar1+nPotPar2+nMat)),RankSol(1:nMat))
+            RankSol(1:nMat)=RankSol(nMat:1:-1) ! MrgRnk ranks small to large
+            MatPar2(:)=MatPar2(RankSol(1:nMat))
+
+            ! Pair parent1 (=males) and parent2 (=females)
+            m=0
+            Mate(:,:)=0
+            do i=1,nPotPar1
+                do j=1,nVecPar1(i)
+                    m=m+1
+                    Mate(m,1)=i
+                    Mate(m,2)=MatPar2(m)
+                enddo
+            enddo
+
+            ! print*,""
+            ! do i=1,nMat
+            !     write(stdout,"(3i20)") i,Mate(i,:)
+            ! enddo
+            ! do i=1,nPotPar1
+            !     write(stdout,"(2i6)") i,nVecPar1(i)
+            ! enddo
+            ! do i=1,nPotPar2
+            !     write(stdout,"(2i6)") i,nVecPar2(i)
+            ! enddo
+
+            ! --- Group coancestry (=future population inbreeding) ---
 
             ! xA
             do i=1,nInd
-                TmpVec(i,1)=dot_product(XVec,RelMat(:,i))
+                TmpVec(i,1)=dot_product(xVec,RelMtx(:,i))
             enddo
             ! xAx
-            FCurrent=0.5d0*dot_product(TmpVec(:,1),XVec)
-            ! print*,XVec,TmpVec,FCurrent
+            InbSol=0.5d0*dot_product(TmpVec(:,1),xVec)
+            ! print*,xVec,TmpVec,InbSol
 
             ! Matrix multiplication with symmetric matrix using BLAS routine
-            ! (it was slower than the above with 1.000 individuals, might be
-            !  benefical with larger cases so kept in for now.)
+            ! (it was ~5x slower than the above with 1.000 individuals, might be
+            !  benefical with larger cases so kept in as commented.)
             ! http://www.netlib.org/lapack/explore-html/d1/d54/group__double__blas__level3.html#ga253c8edb8b21d1b5b1783725c2a6b692
             ! Ax
-            ! call dsymm(side="l",uplo="l",m=nInd,n=1,alpha=1.0d0,A=RelMat,lda=nInd,b=XVec,ldb=nInd,beta=0,c=TmpVec,ldc=nInd)
-            ! call dsymm(     "l",     "l",  nInd,  1,      1.0d0,  RelMat,    nInd,  XVec,    nInd,     0,  TmpVec,    nInd)
+            ! call dsymm(side="l",uplo="l",m=nInd,n=1,alpha=1.0d0,A=RelMtx,lda=nInd,b=xVec,ldb=nInd,beta=0,c=TmpVec,ldc=nInd)
+            ! call dsymm(     "l",     "l",  nInd,  1,      1.0d0,  RelMtx,    nInd,  xVec,    nInd,     0,  TmpVec,    nInd)
             ! xAx
-            ! FCurrent=0.5d0*dot_product(XVec,TmpVec(:,1))
-            ! print*,XVec,TmpVec,FCurrent
+            ! InbSol=0.5d0*dot_product(xVec,TmpVec(:,1))
+            ! print*,xVec,TmpVec,InbSol
             ! stop 1
 
-            FCurrentRebased=(FCurrent-FOld)/(1.0d0-FOld)
+            InbSolRebased=(InbSol-InbOld)/(1.0d0-InbOld)
+            RateInbSol=InbSolRebased
+
+            ! --- Progeny inbreeding ---
+
+            IndInbSol=0.0d0
+            do i=1,nMat
+                ! Try to speed-up retrieval by targeting lower triangle
+                TmpMin=minval([Mate(i,1),Mate(i,2)])
+                TmpMax=maxval([Mate(i,1),Mate(i,2)])
+                IndInbSol=IndInbSol+0.5d0*RelMtx(TmpMax,TmpMin)
+            enddo
+            IndInbSol=IndInbSol/dble(nMat)
+            IndInbSolRebased=(IndInbSol-InbOld)/(1.0d0-InbOld)
+            !if (IndInbSolRebased < 0.0) then
+            !    IndInbSolRebased=0.0d0
+            !endif
+            RateIndInbSol=IndInbSolRebased
+            IndInbTargetRebased=RateIndInbTarget
 
             ! --- Genetic gain ---
 
-            Gain=dot_product(XVec,Bv)
-            GainScaled=dot_product(XVec,BvScaled)
+            Gain=dot_product(xVec,Bv)
+            GainScaled=dot_product(xVec,BvScaled)
 
             ! --- Criterion ---
 
-            if (trim(CriterionType) == "MinInb") then
-                DeltaFCurrent=(FCurrent-FOld)/(1.0d0-FOld)
-                !Criterion=-1.0d0*(FCurrentRebased-FTargetRebased)
-                Criterion=FTargetRebased-FCurrentRebased
+            Criterion=0.0d0
+
+            ! Gain
+            if (trim(CritType) == "OptGain") then
+                Criterion=Criterion+(GainScaled-GainMinInbScaled)
             endif
 
-            if (trim(CriterionType) == "MaxGain") then
-                DeltaFCurrent=(FCurrent-FOld)/(1.0d0-FOld)
-                if (DeltaFCurrent <= DeltaFTarget) then
-                    Criterion=GainScaled-(FCurrentRebased-FTargetRebased)
-                else
-                    ! This gives a penalty of 1 SD for 0.01 increase in inbreeding above the target.
-                    ! Note that gain is scaled and inbreeding is rebased so this should be a "stable"
-                    ! soft constraint.
-                    Criterion=GainScaled-100.0d0*(FCurrentRebased-FTargetRebased)
-                endif
+            ! Population inbreeding
+            if (RateInbSol <= RateInbTarget) then
+                Criterion=Criterion-(InbSolRebased-InbTargetRebased)
+            else
+                ! Say IndInbPenalty=100, this would be a penalty of 1 SD for 0.01
+                ! increase in inbreeding above the target. Note that gain is scaled
+                ! and inbreeding is rebased so this should be a "stable" soft constraint.
+                Criterion=Criterion-PopInbPenalty*(InbSolRebased-InbTargetRebased)
+            endif
+
+            ! Individual inbreeding
+            if (RateIndInbSol <= RateIndInbTarget) then
+                Criterion=Criterion-(IndInbSolRebased-IndInbTargetRebased)
+            else
+                ! Say IndInbPenalty=100, this would be a penalty of 1 SD for 0.01
+                ! increase in inbreeding above the target. Note that gain is scaled
+                ! and inbreeding is rebased so this should be a "stable" soft constraint.
+                Criterion=Criterion-IndInbPenalty*(IndInbSolRebased-IndInbTargetRebased)
             endif
 
             return
-        end function CalcCriterion
-
-        !#######################################################################
-
-        subroutine PerformMating(CriterionType)
-            use AlphaSuiteModule,only : RandomOrder
-            implicit none
-            ! Arguments
-            character(len=*),intent(in) :: CriterionType    ! Type of criterion (MinInb,MaxGain)
-            ! Other
-            integer :: i,j,k,l,MatingIdVec(nMatings*2),ShuffleMatingIdVec(nMatings*2),nTmp
-            double precision :: SortedXVec(nInd),RanNum,ValueHold
-
-            ! NOTE: XVec and SortedXVec are of length nInd, but there are only
-            !       nParents non-zero elements.
-
-            ! Allocate matings according to contributions
-            SortedXVec(:)=XVec(:)
-            nMatingPerInd=0
-            MatingIdVec=0
-            l=0
-            do i=1,nParents
-                ! Find the most contributing parent
-                k=maxloc(SortedXVec(:),dim=1)
-                ! ... and push him "away" for the next round
-                SortedXVec(k)=(minval(SortedXVec(:)))-1
-                ! Allocate no. of matings
-                nTmp=int(XVec(k)*(nMatings*2))
-                nMatingPerInd(k)=nTmp
-                do j=1,nTmp
-                    l=l+1 ! l evolves from 1 to nMatings independently of i
-                    MatingIdVec(l)=k
-                    if (l == (nMatings*2)) exit
-                enddo
-                if (l == (nMatings*2)) exit
-            enddo
-
-            ! Make sure that we fill all matings (could have skipped some above due to rounding, i.e., int())
-            if (sum(nMatingPerInd(:)) < (nMatings*2)) then
-                do
-                    call random_number(RanNum)
-                    k=int(RanNum*nInd)+1
-                    call random_number(RanNum)
-                    if (RanNum < XVec(k)) then ! ids are selected for these matings according to their contribution
-                        l=l+1
-                        MatingIdVec(l)=k
-                        nMatingPerInd(k)=nMatingPerInd(k)+1
-                    endif
-                    if (l == (nMatings*2)) exit
-                enddo
-            endif
-
-            ! Randomize allocations and pair parents
-            call RandomOrder(ShuffleMatingIdVec,(nMatings*2))
-            l=0
-            do i=1,nMatings
-                l=l+1
-                Matings(i,1)=MatingIdVec(ShuffleMatingIdVec(l))
-                l=l+1
-                Matings(i,2)=MatingIdVec(ShuffleMatingIdVec(l))
-            enddo
-
-            ! Evaluate this particular mating
-            ! TODO: PAGE
-            XVec(:)=dble(nMatingPerInd(:))/dble(nMatings*2)
-            ValueHold=CalcCriterion(nInd,XVec,CriterionType)
-            write(stdout,"(a)") "The produced mating gives:"
-            !                       12345678901   12345678901   12345678901   12345678901   12345678901   12345678901   12345678901   12345678901   12345678901
-            write(stdout,"(9a11)") " SearchMode","       Step","       Gain"," Inbreeding"," ...-Target","  RateOfInb"," ...-Target","  Criterion"," AcceptRate"
-            write(stdout,"(a11,i11,7f11.4)") CriterionType,EvolAlgNGen+1,Gain,FCurrent,(FCurrent-FTarget),DeltaFCurrent,(DeltaFCurrent-DeltaFTarget),ValueHold,0.0
-            ! write(Unit,  "(a11,i11,7f11.4)") CriterionType,EvolAlgNGen+1,Gain,FCurrent,(FCurrent-FTarget),DeltaFCurrent,(DeltaFCurrent-DeltaFTarget),ValueHold,0.0
-            write(stdout,"(a)") " "
-        end subroutine PerformMating
-
-        !#######################################################################
-
-        subroutine PerformMatingGenderIncl(CriterionType)
-            use AlphaSuiteModule,only : RandomOrder
-            implicit none
-            ! Arguments
-            character(len=*),intent(in) :: CriterionType    ! Type of criterion (MinInb,MaxGain)
-            ! Other
-            integer :: i,j,k,l,nTmp,MatingMalIdVec(nMatings),MatingFemIdVec(nMatings),nMatingPerMal(nMal),nMatingPerFem(nFem)
-            integer :: ShuffleMatingMalVec(nMatings),ShuffleMatingFemVec(nMatings)
-            double precision :: MalXVec(nMal),FemXVec(nFem),MalSortedXVec(nMal),FemSortedXVec(nFem),RanNum,ValueHold
-
-            ! NOTE: XVec and SortedXVec are of length nInd, but there are only
-            !       nParents non-zero elements.
-
-            ! --- Males ---
-
-            ! Allocate matings according to contributions
-            MalXVec(:)=XVec(IdMal)
-            MalSortedXVec(:)=MalXVec(:)
-            MatingMalIdVec=0
-            nMatingPerMal=0
-            l=0
-            do i=1,nMalParents
-                ! Find the most contributing parent
-                k=maxloc(MalSortedXVec,dim=1)
-                ! ... and push him "away" for the next round
-                MalSortedXVec(k)=(minval(MalSortedXVec))-1
-                ! Allocate no. of matings
-                nTmp=int(MalXVec(k)*(nMatings))
-                nMatingPerMal(k)=nTmp
-                do j=1,nTmp
-                    l=l+1 ! l evolves from 1 to nMatings independently of i.
-                    MatingMalIdVec(l)=IdMal(k)
-                    if (l == (nMatings)) exit
-                enddo
-                if (l == (nMatings)) exit
-            enddo
-
-            ! Make sure that we fill all matings (could have skipped some above due to rounding, i.e., int())
-            if (sum(nMatingPerMal) < (nMatings)) then
-                do
-                    call random_number(RanNum)
-                    k=int(RanNum*nMal)+1
-                    call random_number(RanNum)
-                    if (RanNum < MalXVec(k)) then ! ids are selected for these matings according to their contribution.
-                        l=l+1
-                        MatingMalIdVec(l)=IdMal(k)
-                        nMatingPerMal(k)=nMatingPerMal(k)+1
-                    endif
-                    if (l == (nMatings)) exit
-                enddo
-            endif
-
-            ! --- Females ---
-
-            ! Allocate matings according to contributions
-            FemXVec(:)=XVec(IdFem)
-            FemSortedXVec(:)=FemXVec(:)
-            MatingFemIdVec=0
-            nMatingPerFem=0
-            l=0
-            do i=1,nFemParents
-                ! Find the most contributing parent
-                k=maxloc(FemSortedXVec,dim=1)
-                ! ... and push him "away" for the next round
-                FemSortedXVec(k)=(minval(FemSortedXVec))-1
-                ! Allocate no. of matings
-                nTmp=int(FemXVec(k)*(nMatings))
-                nMatingPerFem(k)=nTmp
-                do j=1,nTmp
-                    l=l+1
-                    MatingFemIdVec(l)=IdFem(k)
-                    if (l == (nMatings)) exit
-                enddo
-                if (l == (nMatings)) exit
-            enddo
-
-            ! Make sure that we fill all matings (could have skipped some above due to rounding, i.e., int())
-            if (sum(nMatingPerFem) < (nMatings)) then
-                do
-                    call random_number(RanNum)
-                    k=int(RanNum*nFem)+1
-                    call random_number(RanNum)
-                    if (RanNum < FemXVec(k)) then ! ids are selected for these matings according to their contribution.
-                        l=l+1
-                        MatingFemIdVec(l)=IdFem(k)
-                        nMatingPerFem(k)=nMatingPerFem(k)+1
-                    endif
-                    if (l == (nMatings)) exit
-                enddo
-            endif
-
-            ! Randomize allocations and pair parents
-            call RandomOrder(ShuffleMatingMalVec,nMatings)
-            call RandomOrder(ShuffleMatingFemVec,nMatings)
-            l=0
-            do i=1,nMatings
-                l=l+1
-                Matings(i,1)=MatingMalIdVec(ShuffleMatingMalVec(l))
-                Matings(i,2)=MatingFemIdVec(ShuffleMatingFemVec(l))
-            enddo
-
-            ! Fill nMatingPerInd
-            nMatingPerInd=0
-            do i=1,nMal
-                nMatingPerInd(IdMal(i))=nMatingPerMal(i)
-            enddo
-            do i=1,nFem
-                nMatingPerInd(IdFem(i))=nMatingPerFem(i)
-            enddo
-
-            ! Evaluate this particular mating
-            ! TODO: PAGE
-            XVec(:)=dble(nMatingPerInd(:))/dble(nMatings*2)
-            ValueHold=CalcCriterion(nInd,XVec,CriterionType)
-            write(stdout,"(a)") "The produced mating gives:"
-            !                       12345678901   12345678901   12345678901   12345678901   12345678901   12345678901   12345678901   12345678901   12345678901
-            write(stdout,"(9a11)") " SearchMode","       Step","       Gain"," Inbreeding"," ...-Target","  RateOfInb"," ...-Target","  Criterion"," AcceptRate"
-            write(stdout,"(a11,i11,7f11.4)") CriterionType,EvolAlgNGen+1,Gain,FCurrent,(FCurrent-FTarget),DeltaFCurrent,(DeltaFCurrent-DeltaFTarget),ValueHold,0.0
-            ! write(Unit,  "(a11,i11,7f11.4)") CriterionType,EvolAlgNGen+1,Gain,FCurrent,(FCurrent-FTarget),DeltaFCurrent,(DeltaFCurrent-DeltaFTarget),ValueHold,0.0
-            write(stdout,"(a)") " "
-        end subroutine PerformMatingGenderIncl
+        end function FixSolMateAndCalcCrit
 
         !#######################################################################
 end module AlphaMateModule
@@ -1198,17 +1868,18 @@ program AlphaMate
     call cpu_time(Start)
     call AlphaMateTitles
 
-    ! Create output folder
     Success=SystemQQ(RMDIR//" AlphaMateResults")
     if (.not.Success) then
-        write(stderr,"(a)") "ERROR: Failure to remove old output folder!"
+        write(stderr,"(a)") "ERROR: Failure to remove the old output folder!"
+        stop 1
     endif
     Success=SystemQQ(MKDIR//" AlphaMateResults")
     if (.not.Success) then
         write(stderr,"(a)") "ERROR: Failure to make output folder!"
+        stop 1
     endif
 
-    call ReadParametersAndDataForAlphaMate
+    call ReadSpecAndDataForAlphaMate
     call SetInbreedingParameters
     call AlphaMateSearch
     call cpu_time(Finish)
