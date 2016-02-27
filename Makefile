@@ -42,7 +42,7 @@ else
 	uname := $(shell uname)
 	MAKEDIR := @mkdir -p
 	DEL := rm -rf
-  	# Linux only
+	# Linux only
 	ifeq ($(uname), Linux)
 		FFLAGS := $(FFLAGS) -static -static-libgcc -static-libstdc++
 	endif
