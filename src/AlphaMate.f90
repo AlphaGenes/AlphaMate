@@ -1,3 +1,10 @@
+! TODO: add size of penalty to printout to get a feel how well we are doing
+! TODO: make FixSol... return a defined type so we can push more info to the EvolAlg
+!       Then add a method for print out and can push iteration titles out as well
+! TODO: should the solutions be fixed or penalized - what is better?
+! TODO: Manual
+! TODO: PAGE
+
 #ifdef BINARY
 #define BINFILE ,form="unformatted"
 #else
@@ -819,26 +826,35 @@ module AlphaMateModule
   implicit none
 
   integer(int32) :: nInd,nMat,nPar,nPotPar1,nPotPar2,nMal,nFem,nPar1,nPar2,nFrontierSteps
+
   integer(int32) :: EvolAlgNSol,EvolAlgNGen,EvolAlgNGenBurnIn,EvolAlgNGenStop,EvolAlgNGenPrint
+
   integer(int32),allocatable :: Gender(:),IdPotPar1(:),IdPotPar2(:),nVec(:),nVecPar1(:),nVecPar2(:),Mate(:,:)
 
   ! TODO: rename Inb to PopInb
   ! TODO: do we need Inb*Rebased if we have rate of inbreeding? These are the same, no?
+  real(real64) :: LimitPar1Min,LimitPar1Max,LimitPar2Min,LimitPar2Max
+
   real(real64) :: EvolAlgStopTol,EvolAlgCRBurnIn,EvolAlgCRLate,EvolAlgFBase,EvolAlgFHigh1,EvolAlgFHigh2
+
   real(real64) :: Gain,GainScaled,GainMinInb,GainMinInbScaled,GainOpt,GainOptScaled
-  real(real64) :: RateInbTarget,RateInbSol,RateInbMinInb,RateInbOpt
+
+  real(real64) :: RateInbTarget,RateInbSol,RateInbMinInb,RateInbOpt,RateIndInbSol,RateIndInbTarget,RateIndInbMinInb,RateIndInbOpt
+
   real(real64) :: InbOld,InbTarget,InbTargetRebased,InbSol,InbSolRebased,InbMinInb
   real(real64) :: InbMinInbRebased,InbOpt,InbOptRebased,IndInbSol,IndInbSolRebased
-  real(real64) :: IndInbTargetRebased,RateIndInbSol,RateIndInbTarget,IndInbMinInb
-  real(real64) :: IndInbOpt,RateIndInbMinInb,RateIndInbOpt,PopInbPenalty,IndInbPenalty
-  real(real64) :: SelfingPenalty,ValueHold,ValueHoldMinInb,ValueHoldOpt
+  real(real64) :: IndInbTargetRebased,IndInbMinInb,IndInbOpt
+
+  real(real64) :: PopInbPenalty,IndInbPenalty,SelfingPenalty,LimitPar1Penalty,LimitPar2Penalty
+
+  real(real64) :: ValueHold,ValueHoldMinInb,ValueHoldOpt
 
   real(real64),allocatable :: Bv(:),BvScaled(:),xVec(:),RelMtx(:,:),RateInbFrontier(:)
 
   character(len=300),allocatable :: IdC(:)
 
-  logical :: MinInbThenOptGain,GenderMatters,EqualizePar1,EqualizePar2,SelfingAllowed
-  logical :: InferInbOld,EvaluateFrontier
+  logical :: MinInbThenOptGain,GenderMatters,EqualizePar1,EqualizePar2
+  logical :: SelfingAllowed,InferInbOld,EvaluateFrontier
 
   contains
 
@@ -871,22 +887,40 @@ module AlphaMateModule
 
       real(real64) :: BvTmp
 
+      logical :: Success
+
       character(len=1000) :: DumC,IdCTmp
       character(len=1000) :: RelMtxFile,BvFile,GenderFile,SeedFile
 
       ! --- Spec file ---
 
-      open(newunit=UnitSpec,file="AlphaMateSpec.txt",status="old")
-
-      read(UnitSpec,*) DumC,DumC
-      if (trim(DumC) == "MinInbThenOptGain") then
-        MinInbThenOptGain=.true.
-      else
-        MinInbThenOptGain=.false.
+      Success=SystemQQ(COPY//" AlphaMateSpec.txt AlphaMateResults"//DASH//"AlphaMateSpec.txt")
+      if (.not.Success) then
+        write(STDERR,"(a)") "ERROR: Failed to copy the AlphaMateSpec.txt file in the output folder!"
+        write(STDERR,"(a)") " "
+        stop 1
       endif
 
+      open(newunit=UnitSpec,file="AlphaMateSpec.txt",status="old")
+      write(STDOUT,"(a)") "SpecFile: AlphaMateSpec.txt"
+
+      ! Mode
+      read(UnitSpec,*) DumC,DumC
+      if (ToLower(trim(DumC)) == "mininbthenoptgain") then
+        MinInbThenOptGain=.true.
+        write(STDOUT,"(a,l)") "Mode: MinInbThenOptGain"
+      else
+        MinInbThenOptGain=.false.
+        write(STDOUT,"(a,l)") "Mode: OptGain"
+      endif
+
+      ! RelationshipMatrixFile
       read(UnitSpec,*) DumC,RelMtxFile
+      write(STDOUT,"(a,a)") "RelationshipMatrixFile: ",trim(RelMtxFile)
+
+      ! BreedingValueFile
       read(UnitSpec,*) DumC,BvFile
+      write(STDOUT,"(a,a)") "BreedingValueFile: ",trim(BvFile)
 
       call CountLines(RelMtxFile,nInd)
       call CountLines(BvFile,nIndTmp)
@@ -897,15 +931,22 @@ module AlphaMateModule
         stop 1
       endif
 
+      ! GenderFile
       read(UnitSpec,*) DumC,GenderFile
-      if (trim(GenderFile) /= "None") then
+      if (ToLower(trim(GenderFile)) /= "none") then
         GenderMatters=.true.
+        write(STDOUT,"(a,a)") "GenderFile: ",trim(GenderFile)
       else
         GenderMatters=.false.
       endif
 
+      ! NumberOfIndividuals
       read(UnitSpec,*) DumC,nInd
+      write(STDOUT,"(a,i)") "NumberOfIndividuals: ",nInd
+
+      ! NumberOfMatings
       read(UnitSpec,*) DumC,nMat
+      write(STDOUT,"(a,i)") "NumberOfMatings: ",nMat
       ! TODO: In animals one would not be able to generate more matings than there is individuals, i.e.,
       !       10 males and 10 females can give 10 matings only (females are a bottleneck). But if we do
       !       plants or collect ova from females, then we could technically do 10*10=100 matings (each male
@@ -916,7 +957,10 @@ module AlphaMateModule
         write(STDOUT,"(a,i)") "NOTE: Number of individuals: ",nInd
         write(STDOUT,"(a)") " "
       endif
+
+      ! NumberOfParents
       read(UnitSpec,*) DumC,nPar
+      write(STDOUT,"(a,i)") "NumberOfParents: ",nPar
       if (nPar > nInd) then
         write(STDERR,"(a)") "ERROR: The number of parents can not be larger than the number of individuals!"
         write(STDERR,"(a,i)") "ERROR: Number of     parents: ",nPar
@@ -930,136 +974,255 @@ module AlphaMateModule
         write(STDOUT,"(a,i)") "NOTE: Number of parents: ",nPar
         write(STDOUT,"(a)") " "
       endif
+
+      ! NumberOfMaleParents
       read(UnitSpec,*) DumC,nPar1
+
+      ! NumberOfFemaleParents
       read(UnitSpec,*) DumC,nPar2
+
       if (.not.GenderMatters) then
         nPar1=nPar
-        nPar2=nPar
+      else
+        write(STDOUT,"(a,i)") "NumberOfMaleParents: ",nPar1
+        write(STDOUT,"(a,i)") "NumberOfFemaleParents: ",nPar2
       endif
-      if (GenderMatters .and. ((nPar1+nPar2) > nInd)) then
-        write(STDERR,"(a)") "ERROR: The number of parents can not be larger than the number of individuals!"
-        write(STDERR,"(a,i)") "ERROR: Number of        parents: ",nPar1+nPar2
-        write(STDERR,"(a,i)") "ERROR: Number of   male parents: ",nPar1
-        write(STDERR,"(a,i)") "ERROR: Number of female parents: ",nPar2
-        write(STDERR,"(a,i)") "ERROR: Number of    individuals: ",nInd
-        write(STDERR,"(a)") " "
-        stop 1
-      endif
-      if (GenderMatters .and. ((nPar1+nPar2) /= nPar)) then
-        write(STDOUT,"(a)") "NOTE: The number of male and female parents does not match with the total number of parents - redefined!"
-        write(STDOUT,"(a,i)")   "NOTE: Number of   male parents: ",nPar1
-        write(STDOUT,"(a,i)")   "NOTE: Number of female parents: ",nPar2
-        write(STDOUT,"(a,i,a)") "NOTE: Number of        parents: ",nPar," (defined)"
-        nPar=nPar1+nPar2
-        write(STDOUT,"(a,i,a)") "NOTE: Number of        parents: ",nPar," (redefined)"
-        write(STDOUT,"(a)") " "
-      endif
-      if (GenderMatters .and. (nMat > nPar1) .and. (nMat > nPar2)) then
-        write(STDOUT,"(a)") "NOTE: The number of matings is larger than the number of male and female parents! Was this really the intention?"
-        write(STDOUT,"(a,i)") "NOTE: Number of        matings: ",nMat
-        write(STDOUT,"(a,i)") "NOTE: Number of   male parents: ",nPar1
-        write(STDOUT,"(a,i)") "NOTE: Number of female parents: ",nPar2
-        write(STDOUT,"(a)") " "
-      endif
-
-      read(UnitSpec,*) DumC,DumC
-      if (trim(DumC) == "Yes") then
-        EqualizePar1=.true.
-        if (mod(nMat,nPar1) /= 0) then
-          ! TODO: might consider handling this better at some point
-          write(STDERR,"(a)") "ERROR: When contributions are equalized the number of matings needs to divide into the number of parents"
-          write(STDERR,"(a,i)") "ERROR: Number of       matings: ",nMat
-          write(STDERR,"(a,i)") "ERROR: Number of  male parents: ",nPar1
-          write(STDERR,"(a,i)") "ERROR: Modulo (should be zero): ",mod(nMat,nPar1)
+      if (GenderMatters) then
+        if ((nPar1+nPar2) > nInd) then
+          write(STDERR,"(a)") "ERROR: The number of parents can not be larger than the number of individuals!"
+          write(STDERR,"(a,i)") "ERROR: Number of        parents: ",nPar1+nPar2
+          write(STDERR,"(a,i)") "ERROR: Number of   male parents: ",nPar1
+          write(STDERR,"(a,i)") "ERROR: Number of female parents: ",nPar2
+          write(STDERR,"(a,i)") "ERROR: Number of    individuals: ",nInd
           write(STDERR,"(a)") " "
           stop 1
         endif
+        if ((nPar1+nPar2) /= nPar) then
+          write(STDOUT,"(a)") "NOTE: The number of male and female parents does not match with the total number of parents - redefined!"
+          write(STDOUT,"(a,i)")   "NOTE: Number of   male parents: ",nPar1
+          write(STDOUT,"(a,i)")   "NOTE: Number of female parents: ",nPar2
+          write(STDOUT,"(a,i,a)") "NOTE: Number of        parents: ",nPar," (defined)"
+          nPar=nPar1+nPar2
+          write(STDOUT,"(a,i,a)") "NOTE: Number of        parents: ",nPar," (redefined)"
+          write(STDOUT,"(a)") " "
+        endif
+        if ((nMat > nPar1) .and. (nMat > nPar2)) then
+          write(STDOUT,"(a)") "NOTE: The number of matings is larger than the number of male and female parents! Was this really the intention?"
+          write(STDOUT,"(a,i)") "NOTE: Number of        matings: ",nMat
+          write(STDOUT,"(a,i)") "NOTE: Number of   male parents: ",nPar1
+          write(STDOUT,"(a,i)") "NOTE: Number of female parents: ",nPar2
+          write(STDOUT,"(a)") " "
+        endif
+      endif
+
+      ! EqualizeParentContributions
+      read(UnitSpec,*) DumC,DumC
+      if (ToLower(trim(DumC)) == "yes") then
+        EqualizePar1=.true.
+        write(STDOUT,"(a)") "EqualizeParentContributions: yes"
       else
         EqualizePar1=.false.
+        write(STDOUT,"(a)") "EqualizeParentContributions: no"
       endif
 
+      ! EqualizeMaleParentContributions
       read(UnitSpec,*) DumC,DumC
-      if ((trim(DumC) == "Yes")) then
-        EqualizePar2=.true.
-        if (mod(nMat,nPar2) /= 0) then
-          ! TODO: might consider handling this better at some point
-          write(STDERR,"(a)") "ERROR: When contributions are equalized the number of matings needs to divide into the number of parents"
-          write(STDERR,"(a,i)") "ERROR: Number of        matings: ",nMat
-          write(STDERR,"(a,i)") "ERROR: Number of female parents: ",nPar2
-          write(STDERR,"(a,i)") "ERROR: Modulo  (should be zero): ",mod(nMat,nPar2)
-          write(STDERR,"(a)") " "
-          stop 1
+      if (ToLower(trim(DumC)) == "yes") then
+        if (GenderMatters) then
+          EqualizePar1=.true.
+          if (mod(nMat,nPar1) /= 0) then
+            ! TODO: might consider handling this better at some point
+            write(STDERR,"(a)") "ERROR: When contributions are equalized the number of matings needs to divide into the number of parents"
+            write(STDERR,"(a,i)") "ERROR: Number of       matings: ",nMat
+            write(STDERR,"(a,i)") "ERROR: Number of  male parents: ",nPar1
+            write(STDERR,"(a,i)") "ERROR: Modulo (should be zero): ",mod(nMat,nPar1)
+            write(STDERR,"(a)") " "
+            stop 1
+          endif
+          write(STDOUT,"(a)") "EqualizeMaleParentContributions: yes"
+        else
+          EqualizePar1=.false.
+          write(STDOUT,"(a)") "EqualizeMaleParentContributions: no"
+          write(STDOUT,"(a)") "NOTE: Equalize male parent contributions option ignored when the gender file is not given!"
+          write(STDOUT,"(a)") " "
         endif
       else
-        EqualizePar2=.false.
-      endif
-
-      if (.not.GenderMatters .and. (EqualizePar1 .or. EqualizePar2)) then
-        if (.not.EqualizePar1) then
-          EqualizePar1=.true.
-          write(STDOUT,"(a)") "NOTE: One of 'equalize parent contributions' options was set on. Turned on for all parents!"
-          write(STDOUT,"(a)") " "
-        endif
-        if (.not.EqualizePar2) then
-          EqualizePar2=.true.
-          write(STDOUT,"(a)") "NOTE: One of 'equalize parent contributions' options was set on. Turned on for all parents!"
-          write(STDOUT,"(a)") " "
+        if (GenderMatters) then
+          EqualizePar1=.false.
+          write(STDOUT,"(a)") "EqualizeMaleParentContributions: no"
         endif
       endif
 
-      ! TODO: Selfing and GenderMatters - can we have both?
-      ! TODO: add size of penalty to printout to get a feel how well we are doing
-      ! TODO: make FixSol... return a defined type so we can push more info to the EvolAlg
-      !       Then add a method for print out and can push iteration titles out as well
-      ! TODO: should the solutions be fixed or penalized - what is better?
-
+      ! EqualizeFemaleParentContributions
       read(UnitSpec,*) DumC,DumC
-      if (trim(DumC) == "Yes") then
+      if (ToLower(trim(DumC)) == "yes") then
+        if (GenderMatters) then
+          EqualizePar2=.true.
+          if (mod(nMat,nPar2) /= 0) then
+            ! TODO: might consider handling this better at some point
+            write(STDERR,"(a)") "ERROR: When contributions are equalized the number of matings needs to divide into the number of parents"
+            write(STDERR,"(a,i)") "ERROR: Number of        matings: ",nMat
+            write(STDERR,"(a,i)") "ERROR: Number of female parents: ",nPar2
+            write(STDERR,"(a,i)") "ERROR: Modulo  (should be zero): ",mod(nMat,nPar2)
+            write(STDERR,"(a)") " "
+            stop 1
+          endif
+          write(STDOUT,"(a)") "EqualizeFemaleParentContributions: yes"
+        else
+          EqualizePar2=.false.
+          write(STDOUT,"(a)") "EqualizeFemaleParentContributions: no"
+          write(STDOUT,"(a)") "NOTE: Equalize female parent contributions option ignored when the gender file is not given!"
+          write(STDOUT,"(a)") " "
+        endif
+      else
+        if (GenderMatters) then
+          EqualizePar2=.false.
+          write(STDOUT,"(a)") "EqualizeFemaleParentContributions: no"
+        endif
+      endif
+
+      ! LimitParentContributions
+      read(UnitSpec,*) DumC,DumC
+      LimitPar1Min=1.0d0
+      LimitPar1Max=huge(LimitPar1Max)-1.0d0
+      LimitPar1Penalty=0.0d0
+      if (ToLower(trim(DumC)) == "yes") then
+        if (EqualizePar1) then
+          write(STDOUT,"(a)") "LimitParentContributions: no"
+          write(STDOUT,"(a)") "NOTE: Limit parent contributions option ignored when contributions are to be equalized!"
+          write(STDOUT,"(a)") " "
+        else
+          backspace(UnitSpec)
+          read(UnitSpec,*) DumC,DumC,LimitPar1Min,LimitPar1Max,LimitPar1Penalty
+          write(STDOUT,"(a,i,a,i,a,f)") "LimitParentContributions: yes, min ",&
+            nint(LimitPar1Min),", max ",nint(LimitPar1Max),", penalty ",LimitPar1Penalty
+        endif
+      else
+        write(STDOUT,"(a)") "LimitParentContributions: no"
+      endif
+
+      ! LimitMaleParentContributions
+      read(UnitSpec,*) DumC,DumC
+      if (ToLower(trim(DumC)) == "yes") then
+        if (GenderMatters) then
+          if (EqualizePar1) then
+            write(STDOUT,"(a)") "LimitMaleParentContributions: no"
+            write(STDOUT,"(a)") "NOTE: Limit male parent contributions option ignored when contributions are to be equalized!"
+            write(STDOUT,"(a)") " "
+          else
+            backspace(UnitSpec)
+            read(UnitSpec,*) DumC,DumC,LimitPar1Min,LimitPar1Max,LimitPar1Penalty
+            write(STDOUT,"(a,i,a,i,a,f)") "LimitMaleParentContributions: yes, min ",&
+              nint(LimitPar1Min),", max ",nint(LimitPar1Max),", penalty ",LimitPar1Penalty
+          endif
+        else
+          write(STDOUT,"(a)") "LimitMaleParentContributions: no"
+          write(STDOUT,"(a)") "NOTE: Limit male parent contributions option ignored when the gender file is not given!"
+          write(STDOUT,"(a)") " "
+        endif
+      else
+        if (GenderMatters) then
+          write(STDOUT,"(a)") "LimitMaleParentContributions: no"
+        endif
+      endif
+
+      ! LimitFemaleParentContributions
+      read(UnitSpec,*) DumC,DumC
+      LimitPar2Min=1.0d0
+      LimitPar2Max=huge(LimitPar2Max)-1.0d0
+      LimitPar2Penalty=0.0d0
+      if (ToLower(trim(DumC)) == "yes") then
+        if (GenderMatters) then
+          if (EqualizePar2) then
+            write(STDOUT,"(a)") "LimitFemaleParentContributions: no"
+            write(STDOUT,"(a)") "NOTE: Limit female parent contributions option ignored when contributions are to be equalized!"
+            write(STDOUT,"(a)") " "
+          else
+            backspace(UnitSpec)
+            read(UnitSpec,*) DumC,DumC,LimitPar2Min,LimitPar2Max,LimitPar2Penalty
+            write(STDOUT,"(a,i,a,i,a,f)") "LimitFemaleParentContributions: yes, min ",&
+              nint(LimitPar2Min),", max ",nint(LimitPar2Max),", penalty ",LimitPar2Penalty
+          endif
+        else
+          write(STDOUT,"(a)") "LimitFemaleParentContributions: no"
+          write(STDOUT,"(a)") "NOTE: Limit female parent contributions option ignored when the gender file is not given!"
+          write(STDOUT,"(a)") " "
+        endif
+      else
+        if (GenderMatters) then
+          write(STDOUT,"(a)") "LimitFemaleParentContributions: no"
+        endif
+      endif
+
+      ! AllowSelfing
+      read(UnitSpec,*) DumC,DumC
+      if (ToLower(trim(DumC)) == "yes") then
         SelfingAllowed=.true.
+        if (.not.GenderMatters) then
+          write(STDOUT,"(a,f)") "AllowSelfing: Yes"
+          ! TODO: make it clear in the manual that when GenderMatters, we avoid selfing
+          !       by design. In that case selfing can be achieved if a user includes the
+          !       same individual as male and female individual in the data!
+        endif
       else
         SelfingAllowed=.false.
         backspace(UnitSpec)
         read(UnitSpec,*) DumC,DumC,SelfingPenalty
+        write(STDOUT,"(a,f)") "AllowSelfing: no, penalty ",SelfingPenalty
       endif
 
+      ! PreviousCoancestry
       read(UnitSpec,*) DumC,DumC
-      if (trim(DumC) == "Unknown") then
+      if (ToLower(trim(DumC)) == "unknown") then
         InferInbOld=.true.
+        write(STDOUT,"(a,a)") "PreviousCoancestry: unknown"
       else
         InferInbOld=.false.
         backspace(UnitSpec)
         read(UnitSpec,*) DumC,InbOld
+        write(STDOUT,"(a,f)") "PreviousCoancestry: ",InbOld
       endif
-      read(UnitSpec,*) DumC,RateInbTarget,PopInbPenalty
-      !read(UnitSpec,*) DumC,RateIndInbTarget,IndInbPenalty
-      ! TODO: handle this at some point
-      RateIndInbTarget=0.01d0
 
+      ! TargetedRateOfPopulationInbreeding
+      read(UnitSpec,*) DumC,RateInbTarget,PopInbPenalty
+      write(STDOUT,"(a,f,a,f)") "TargetedRateOfPopulationInbreeding: ",RateInbTarget,", penalty ",PopInbPenalty
+
+      ! ???IndividualInbreeding TODO: what do we want here?
+      read(UnitSpec,*) DumC,RateIndInbTarget,IndInbPenalty
+      write(STDOUT,"(a,f,a,f)") "???IndividualInbreeding: ",RateIndInbTarget,", penalty ",IndInbPenalty
+
+      ! EvaluateFrontier
       read(UnitSpec,*) DumC,DumC
-      if (trim(DumC) == "No") then
+      if (ToLower(trim(DumC)) == "no") then
         EvaluateFrontier=.false.
+        write(STDOUT,"(a)") "EvaluateFrontier: no"
       else
         EvaluateFrontier=.true.
         backspace(UnitSpec)
         read(UnitSpec,*) DumC,DumC,nFrontierSteps
         allocate(RateInbFrontier(nFrontierSteps))
         backspace(UnitSpec)
-        read(UnitSpec,*) DumC,DumC,DumC,RateInbFrontier(:)
+        read(UnitSpec,*) DumC,DumC,nFrontierSteps,RateInbFrontier(:)
+        write(STDOUT,"(a,i)") "EvaluateFrontier: yes, #steps: ",nFrontierSteps
       endif
 
+      ! EvolutionaryAlgorithmIterations
       read(UnitSpec,*) DumC,EvolAlgNSol,EvolAlgNGen,EvolAlgNGenBurnIn,EvolAlgNGenStop,EvolAlgStopTol,EvolAlgNGenPrint
+
+      ! EvolutionaryAlgorithmParameters
       read(UnitSpec,*) DumC,EvolAlgCRBurnIn,EvolAlgCRLate,EvolAlgFBase,EvolAlgFHigh1,EvolAlgFHigh2
 
+      ! Seed
       read(UnitSpec,*) DumC,DumC
       SeedFile="AlphaMateResults"//DASH//"Seed.txt"
-      if ((trim(DumC) == "Unknown") .or. (trim(DumC) == "None")) then
+      if ((ToLower(trim(DumC)) == "unknown") .or. (ToLower(trim(DumC)) == "none")) then
         call SetSeed(SeedFile=SeedFile,Out=Seed)
       else
         backspace(UnitSpec)
         read(UnitSpec,*) DumC,DumI
         call SetSeed(Seed=DumI,SeedFile=SeedFile,Out=Seed)
       endif
-      write(STDOUT,"(a,i)") "Used seed: ",Seed
+      write(STDOUT,"(a,i)") "Seed: ",Seed
       write(STDOUT,"(a)") " "
 
       close(UnitSpec)
@@ -1159,14 +1322,10 @@ module AlphaMateModule
 
       if (.not.GenderMatters) then
         nPotPar1=nInd
-        nPotPar2=nInd
         allocate(IdPotPar1(nPotPar1))
-        allocate(IdPotPar2(nPotPar2))
         allocate(nVecPar1(nPotPar1))
-        allocate(nVecPar2(nPotPar2))
         do i=1,nInd
           IdPotPar1(i)=i
-          IdPotPar2(i)=i
         enddo
       else
         nPotPar1=nMal
@@ -1268,7 +1427,11 @@ module AlphaMateModule
         write(STDOUT,"(a)") " "
 
         EvolAlgLogFile="AlphaMateResults"//DASH//"OptimisationLog1MinimumInbreeding.txt"
-        nTmp=nPotPar1+nPotPar2+nMat ! TODO: add PAGE dimension
+        if (GenderMatters) then
+          nTmp=nPotPar1+nPotPar2+nMat ! TODO: add PAGE dimension
+        else
+          nTmp=nPotPar1+nMat          ! TODO: add PAGE dimension
+        endif
         call EvolAlgForAlphaMate(nParam=nTmp,nSol=EvolAlgNSol,nGen=EvolAlgNGen,nGenBurnIn=EvolAlgNGenBurnIn,&
                                  nGenStop=EvolAlgNGenStop,StopTolerance=EvolAlgStopTol,&
                                  nGenPrint=EvolAlgNGenPrint,File=EvolAlgLogFile,CritType="MinInb",&
@@ -1339,7 +1502,11 @@ module AlphaMateModule
       write(STDOUT,"(a)") " "
 
       EvolAlgLogFile="AlphaMateResults"//DASH//"OptimisationLog2OptimumGain.txt"
-      nTmp=nPotPar1+nPotPar2+nMat ! TODO: add PAGE dimension
+      if (GenderMatters) then
+        nTmp=nPotPar1+nPotPar2+nMat ! TODO: add PAGE dimension
+      else
+        nTmp=nPotPar1+nMat          ! TODO: add PAGE dimension
+      endif
       call EvolAlgForAlphaMate(nParam=nTmp,nSol=EvolAlgNSol,nGen=EvolAlgNGen,nGenBurnIn=EvolAlgNGenBurnIn,&
                                nGenStop=EvolAlgNGenStop,StopTolerance=EvolAlgStopTol,&
                                nGenPrint=EvolAlgNGenPrint,File=EvolAlgLogFile,CritType="OptGain",&
@@ -1403,7 +1570,11 @@ module AlphaMateModule
           write(STDOUT,"(a,i3,a,i3,a,f8.5)") "Step ",i," out of ",nFrontierSteps, " for the rate of inbreeding of",RateInbTarget
           write(STDOUT,"(a)") ""
           EvolAlgLogFile="AlphaMateResults"//DASH//"OptimisationLog"//Int2Char(i)//".txt"
-          nTmp=nPotPar1+nPotPar2+nMat ! TODO: add PAGE dimension
+          if (GenderMatters) then
+            nTmp=nPotPar1+nPotPar2+nMat ! TODO: add PAGE dimension
+          else
+            nTmp=nPotPar1+nMat          ! TODO: add PAGE dimension
+          endif
           call EvolAlgForAlphaMate(nParam=nTmp,nSol=EvolAlgNSol,nGen=EvolAlgNGen,nGenBurnIn=EvolAlgNGenBurnIn,&
                                    nGenStop=EvolAlgNGenStop,StopTolerance=EvolAlgStopTol,&
                                    nGenPrint=EvolAlgNGenPrint,File=EvolAlgLogFile,CritType="OptGain",&
@@ -1693,7 +1864,7 @@ module AlphaMateModule
       character(len=*),intent(in) :: CritType    ! Type of criterion (MinInb,OptGain)
 
       ! Other
-      integer(int32) :: i,j,k,l,nCumMat,RankSol(nInd),SolInt(nInd),MatPar2(nMat)
+      integer(int32) :: i,j,k,l,g,nCumMat,RankSol(nInd),SolInt(nInd),MatPar2(nMat)
       integer(int32) :: TmpMin,TmpMax
 
       real(real64) :: TmpVec(nInd,1),Criterion!,RanNum,TmpR!,InbSol2
@@ -1703,7 +1874,7 @@ module AlphaMateModule
 
       ! The solution (based on the mate selection driver) has:
       ! - nPotPar1 individual contributions for "parent1" (males when GenderMatters)
-      ! - nPotPar2 individual contributions for "parent2" (females when GenderMatters)
+      ! - nPotPar2 individual contributions for "parent2" (females when GenderMatters, present only when GenderMatters)
       ! - nMat     rankings of parent1 1:nMat matings to pair with 1:nPotPar2 "parent2" (see bellow)
       ! - nInd     rankings for genome editing
 
@@ -1713,8 +1884,6 @@ module AlphaMateModule
       ! - male 4 with the third  available female (rank 1.0)
 
       ! --- Parse the mate selection driver (=Is the solution valid?) ---
-
-      ! TODO: limit min and max usage (general or for each individual, doh)
 
       ! The approach bellow assures that we have nMat contributions for each of
       ! the two parent sets. It does this by ranking internal solution values and
@@ -1733,7 +1902,11 @@ module AlphaMateModule
       ! order is that this gives more randomness and more solutions being explored.
 
       ! "Parent1"
-      ! write(STDOUT,"(a)") " "
+      if (GenderMatters) then
+        g=1
+      else
+        g=2
+      endif
       ! ... find ranks to find the top values
       if (.not.(EqualizePar1 .and. (nPar1 == nPotPar1))) then
         call MrgRnk(Sol(1:nPotPar1),RankSol(1:nPotPar1))
@@ -1743,33 +1916,38 @@ module AlphaMateModule
       if (EqualizePar1) then
         if (nPar1 == nPotPar1) then
           ! ... set integers to all the values (no need for sorting here)
-          Sol(1:nPotPar1)=dble(nMat)/dble(nPar1)
+          Sol(1:nPotPar1)=dble(nMat*g)/dble(nPar1)
         else
           ! ... set integers to the top values
-          Sol(RankSol(1:nPar1))=dble(nMat)/dble(nPar1)
+          Sol(RankSol(1:nPar1))=dble(nMat*g)/dble(nPar1)
           ! TODO: anything better to preserve the order of non contributing individuals? See below!
           Sol(RankSol((nPar1+1):nPotPar1))=0.0d0
           ! Sol(RankSol((nPar1+1):nPotPar1))=-1.0d0
         endif
       else
         ! ... handle cases with unequal contributions
-        !write(STDOUT,"("//Int2Char(nPotPar1)//"f6.1)") Sol(RankSol(1:nPotPar1))
         ! ... work for the defined number or parents
-        ! print*,sum(nint(Sol(1:nPotPar1))),sum(nint(Sol(RankSol(1:nPar1))))
         nCumMat=0
         do i=1,nPar1
           j=RankSol(i)
-          ! ... these would have zero contributions and if we hit them then they need at least 1
-          if (Sol(j) < 0.5d0) then
-            Sol(j)=1.0d0
+          ! ... these would have "zero" contributions and if we hit them then they need at least minimum contrib
+          if (Sol(j) < LimitPar1Min) then
+            Sol(j)=LimitPar1Min
+          endif
+          ! ... but not above max allowed
+          if (Sol(j) > LimitPar1Max) then
+            Sol(j)=LimitPar1Max
           endif
           ! ... accumulate and check if we reached nMat
           nCumMat=nCumMat+nint(Sol(j)) ! internally real, externally integer
-          if (nCumMat >= nMat) then
+          if (nCumMat >= nMat*g) then
             ! ... there should be exactly nMat contributions
-            if (nCumMat > nMat) then
-              Sol(j)=Sol(j)-dble(nCumMat-nMat)
-              nCumMat=nMat
+            if (nCumMat > nMat*g) then
+              Sol(j)=Sol(j)-dble(nCumMat-nMat*g)
+              if (nint(Sol(j)) < LimitPar1Min) then
+                Criterion=Criterion-LimitPar1Penalty*(LimitPar1Min-nint(Sol(j)))
+              endif
+              nCumMat=nMat*g
             endif
             exit
           endif
@@ -1778,7 +1956,6 @@ module AlphaMateModule
         if (i <= nPar1) then
           i=i+1
         endif
-        ! print*,sum(nint(Sol(1:nPotPar1))),sum(nint(Sol(RankSol(1:nPar1))))
         ! ... the other individuals do not contribute
         if (i <= nPotPar1) then ! "=" to capture incremented i+1 on the do loop exit
           ! ... zero (the same for all ind so no order)
@@ -1800,116 +1977,113 @@ module AlphaMateModule
           !   Sol(RankSol(j))=-1.0d0*RanNum
           ! enddo
         endif
-        ! print*,sum(nint(Sol(1:nPotPar1))),sum(nint(Sol(RankSol(1:nPar1))))
         ! ... nMat still not reached?
-        do while (nCumMat < nMat)
-          ! print*,sum(nint(Sol(1:nPotPar1))),sum(nint(Sol(RankSol(1:nPar1)))),"in"
+        do while (nCumMat < nMat*g)
           ! ... add more contributions
           do i=nPar1,1,-1 ! to low ranked individuals (to avoid local optima)
             j=RankSol(i)
             Sol(j)=Sol(j)+1.0d0
             ! ... accumulate and check if we reached nMat
             nCumMat=nCumMat+1
-            if (nCumMat == nMat) then
+            if (nCumMat >= nMat*g) then
               exit
             endif
           enddo
         enddo
-        ! print*,sum(nint(Sol(1:nPotPar1))),sum(nint(Sol(RankSol(1:nPar1)))),"fin"
-        ! write(STDOUT,"(a2,2i4,"//Int2Char(nPotPar1)//"f6.1)") "1",nCumMat,nMat,Sol(RankSol(1:nPotPar1))
       endif
 
       ! "Parent2"
-      ! write(STDOUT,"(a)") " "
-      ! ... find ranks to find the top values
-      if (.not.(EqualizePar2 .and. (nPar2 == nPotPar2))) then
-        call MrgRnk(Sol((nPotPar1+1):(nPotPar1+nPotPar2)),RankSol(1:nPotPar2))
-        RankSol(1:nPotPar2)=RankSol(nPotPar2:1:-1) ! MrgRnk ranks small to large
-      endif
-      ! ... handle cases with equalized contributions
-      if (EqualizePar2) then
-        if (nPar2 == nPotPar2) then
-          ! ... set integers to all the values (no need for sorting here)
-          Sol((nPotPar1+1):(nPotPar1+nPotPar2))=dble(nMat)/dble(nPar2)
+      if (GenderMatters) then
+        ! ... find ranks to find the top values
+        if (.not.(EqualizePar2 .and. (nPar2 == nPotPar2))) then
+          call MrgRnk(Sol((nPotPar1+1):(nPotPar1+nPotPar2)),RankSol(1:nPotPar2))
+          RankSol(1:nPotPar2)=RankSol(nPotPar2:1:-1) ! MrgRnk ranks small to large
+        endif
+        ! ... handle cases with equalized contributions
+        if (EqualizePar2) then
+          if (nPar2 == nPotPar2) then
+            ! ... set integers to all the values (no need for sorting here)
+            Sol((nPotPar1+1):(nPotPar1+nPotPar2))=dble(nMat)/dble(nPar2)
+          else
+            ! ... set integers to the top values
+            Sol(nPotPar1+RankSol(1:nPar2))=dble(nMat)/dble(nPar2)
+            ! TODO: anything better to preserve the order of non contributing individuals? See below!
+            Sol(nPotPar1+RankSol((nPar2+1):nPotPar2))=0.0d0
+            ! Sol(nPotPar1+RankSol((nPar2+1):nPotPar2))=-1.0d0
+          endif
         else
-          ! ... set integers to the top values
-          Sol(nPotPar1+RankSol(1:nPar2))=dble(nMat)/dble(nPar2)
-          ! TODO: anything better to preserve the order of non contributing individuals? See below!
-          Sol(nPotPar1+RankSol((nPar2+1):nPotPar2))=0.0d0
-          ! Sol(nPotPar1+RankSol((nPar2+1):nPotPar2))=-1.0d0
-        endif
-      else
-        ! ... handle cases with unequal contributions
-        !write(STDOUT,"("//Int2Char(nPotPar2)//"f6.1)") Sol(nPotPar1+RankSol(1:nPotPar2))
-        ! ... work for the defined number or parents
-        nCumMat=0
-        do i=1,nPar2
-          j=nPotPar1+RankSol(i)
-          ! ... these would have zero contributions and if we hit them then they need at least 1
-          if (Sol(j) < 0.5d0) then
-            Sol(j)=1.0d0
-          endif
-          ! ... accumulate and check if we reached nMat
-          nCumMat=nCumMat+nint(Sol(j)) ! internally real, externally integer
-          if (nCumMat >= nMat) then
-            ! ... there should be exactly nMat contributions
-            if (nCumMat > nMat) then
-              Sol(j)=Sol(j)-dble(nCumMat-nMat)
-              nCumMat=nMat
-            endif
-            exit
-          endif
-        enddo
-        ! ... increment i if we have hit the exit, do loop would have ended with i=nPar2+1
-        if (i <= nPar2) then
-          i=i+1
-        endif
-        ! ... the other individuals do not contribute
-        if (i <= nPotPar2) then ! "="" to capture incremented i+1 on the do loop exit
-          ! ... zero (the same for all ind so no order)
-          Sol(nPotPar1+(RankSol(i:nPotPar2)))=0.0d0
-          ! ... negative (the same for all ind so no order)
-          ! Sol(nPotPar1+(RankSol(i:nPotPar2)))=-1.0d0
-          ! ... negative (variable with partially preserving order, i.e., ~large positives become ~large negatives)
-          !     Found faster convergence than with properly decreasing negative values?
-          !     I guess it adds some more randomness, i.e., it causes suffling of individuals that just did not make it onto the mating list.
-          ! Sol(nPotPar1+(RankSol(i:nPotPar2)))=sign(Sol(nPotPar1+(RankSol(i:nPotPar2))),-1.0d0)
-          ! ... negative and properly decreasing
-          ! TmpR=maxval(Sol(nPotPar1+(RankSol(i:nPotPar2))))
-          ! if (TmpR > 0.0d0) then
-          !     Sol(nPotPar1+(RankSol(i:nPotPar2)))=Sol(nPotPar1+(RankSol(i:nPotPar2)))-abs(TmpR)
-          ! endif
-          ! ... negative (random so no order)
-          ! do j=i,nPotPar2 ! TODO: really need this loop?
-          !   call random_number(RanNum)
-          !   Sol(nPotPar1+RankSol(j))=-1.0d0*RanNum
-          ! enddo
-        endif
-        ! ... nMat still not reached?
-        do while (nCumMat < nMat)
-          ! ... add more contributions
-          do i=nPar2,1,-1 ! to low ranked individuals (to avoid local optima)
+          ! ... handle cases with unequal contributions
+          ! ... work for the defined number or parents
+          nCumMat=0
+          do i=1,nPar2
             j=nPotPar1+RankSol(i)
-            Sol(j)=Sol(j)+1.0d0
+            ! ... these would have "zero" contributions and if we hit them then they need at least minimum contrib
+            if (Sol(j) < LimitPar2Min) then
+              Sol(j)=LimitPar2Min
+            endif
+            ! ... but not above max allowed
+            if (Sol(j) > LimitPar2Max) then
+              Sol(j)=LimitPar2Max
+            endif
             ! ... accumulate and check if we reached nMat
-            nCumMat=nCumMat+1
-            if (nCumMat == nMat) then
+            nCumMat=nCumMat+nint(Sol(j)) ! internally real, externally integer
+            if (nCumMat >= nMat) then
+              ! ... there should be exactly nMat contributions
+              if (nCumMat > nMat) then
+                Sol(j)=Sol(j)-dble(nCumMat-nMat)
+                if (nint(Sol(j)) < LimitPar2Min) then
+                  Criterion=Criterion-LimitPar2Penalty*(LimitPar2Min-nint(Sol(j)))
+                endif
+                nCumMat=nMat
+              endif
               exit
             endif
           enddo
-        enddo
-        !write(STDOUT,"(a2,2i4,"//Int2Char(nPotPar2)//"f6.1)") "2",nCumMat,nMat,Sol(nPotPar1+RankSol(1:nPotPar2))
+          ! ... increment i if we have hit the exit, do loop would have ended with i=nPar2+1
+          if (i <= nPar2) then
+            i=i+1
+          endif
+          ! ... the other individuals do not contribute
+          if (i <= nPotPar2) then ! "="" to capture incremented i+1 on the do loop exit
+            ! ... zero (the same for all ind so no order)
+            Sol(nPotPar1+(RankSol(i:nPotPar2)))=0.0d0
+            ! ... negative (the same for all ind so no order)
+            ! Sol(nPotPar1+(RankSol(i:nPotPar2)))=-1.0d0
+            ! ... negative (variable with partially preserving order, i.e., ~large positives become ~large negatives)
+            !     Found faster convergence than with properly decreasing negative values?
+            !     I guess it adds some more randomness, i.e., it causes suffling of individuals that just did not make it onto the mating list.
+            ! Sol(nPotPar1+(RankSol(i:nPotPar2)))=sign(Sol(nPotPar1+(RankSol(i:nPotPar2))),-1.0d0)
+            ! ... negative and properly decreasing
+            ! TmpR=maxval(Sol(nPotPar1+(RankSol(i:nPotPar2))))
+            ! if (TmpR > 0.0d0) then
+            !     Sol(nPotPar1+(RankSol(i:nPotPar2)))=Sol(nPotPar1+(RankSol(i:nPotPar2)))-abs(TmpR)
+            ! endif
+            ! ... negative (random so no order)
+            ! do j=i,nPotPar2 ! TODO: really need this loop?
+            !   call random_number(RanNum)
+            !   Sol(nPotPar1+RankSol(j))=-1.0d0*RanNum
+            ! enddo
+          endif
+          ! ... nMat still not reached?
+          do while (nCumMat < nMat)
+            ! ... add more contributions
+            do i=nPar2,1,-1 ! to low ranked individuals (to avoid local optima)
+              j=nPotPar1+RankSol(i)
+              Sol(j)=Sol(j)+1.0d0
+              ! ... accumulate and check if we reached nMat
+              nCumMat=nCumMat+1
+              if (nCumMat == nMat) then
+                exit
+              endif
+            enddo
+          enddo
+        endif
       endif
-
-      ! do i=1,nInd
-      !    write(STDOUT,"(i,3f)") i,Sol(i),Sol(nPotPar1+i),Sol(nPotPar1+nPotPar2+i)
-      ! enddo
 
       ! --- Genetic contributions (nVec) ---
 
       nVec(:)=0
       nVecPar1(:)=0
-      nVecPar2(:)=0
 
       ! "Parent1"
       ! ... get integer values
@@ -1929,33 +2103,30 @@ module AlphaMateModule
       endif
 
       ! "Parent2"
-      ! ... get integer values
-      SolInt(1:nPotPar2)=nint(Sol((nPotPar1+1):(nPotPar1+nPotPar2)))
-      ! ... remove negatives
-      do i=1,nPotPar2
-        if (SolInt(i) < 0) then
-          SolInt(i)=0
-        endif
-      enddo
-      ! ... map internal to external order
-      nVecPar2(:)=SolInt(1:nPotPar2)
-      if (.not.GenderMatters) then
-        nVec(:)=nVec(:)+nVecPar2(:)
-      else
+      if (GenderMatters) then
+        nVecPar2(:)=0
+        ! ... get integer values
+        SolInt(1:nPotPar2)=nint(Sol((nPotPar1+1):(nPotPar1+nPotPar2)))
+        ! ... remove negatives
+        do i=1,nPotPar2
+          if (SolInt(i) < 0) then
+            SolInt(i)=0
+          endif
+        enddo
+        ! ... map internal to external order
+        nVecPar2(:)=SolInt(1:nPotPar2)
         nVec(IdPotPar2)=nVecPar2(:)
       endif
 
-      ! print*,sum(nVec),sum(nVecPar1),sum(nVecPar2)
-
-      xVec(:)=dble(nVec(:))/(2.0d0*dble(nMat))
+      xVec(:)=dble(nVec(:))/(dble(2*nMat))
 
       ! --- Genetic gain ---
 
       Gain=dot_product(xVec,Bv)
       GainScaled=dot_product(xVec,BvScaled)
 
-      ! TODO: do we always have GainMinInbScaled?
-      if (trim(CritType) == "OptGain") then
+      ! TODO: do we always have GainMinInbScaled? What happens when we skip min inb mode?
+      if (ToLower(trim(CritType)) == "optgain") then
         Criterion=Criterion+(GainScaled-GainMinInbScaled)
       endif
 
@@ -2006,25 +2177,46 @@ module AlphaMateModule
 
       ! --- Mate allocation ---
 
-      ! Distribute parent2 (=female) contributions into matings
-      k=0
-      do i=1,nPotPar2 ! need to loop whole nVecPar2 as some entries are zero
-        do j=1,nVecPar2(i)
-          k=k+1
-          MatPar2(k)=i
+      if (GenderMatters) then
+        ! Distribute parent2 (=female) contributions into matings
+        k=0
+        do i=1,nPotPar2 ! need to loop whole nVecPar2 as some entries are zero
+          do j=1,nVecPar2(i)
+            k=k+1
+            MatPar2(k)=i
+          enddo
         enddo
-      enddo
+        ! Reorder parent2 contributions according to the rank of matings
+        call MrgRnk(Sol((nPotPar1+nPotPar2+1):(nPotPar1+nPotPar2+nMat)),RankSol(1:nMat))
+        MatPar2(:)=MatPar2(RankSol(1:nMat))
+      else
+        ! Distribute one half of contributions into matings
+        k=0
+        do while (k < nMat)
+          do i=1,nPotPar1 ! need to loop whole nVecPar1 as some entries are zero
+            l=nVecPar1(i)/2
+            do j=1,l
+              if (k == nMat) then
+                exit
+              endif
+              k=k+1
+              MatPar2(k)=i
+              nVecPar1(i)=nVecPar1(i)-1
+            enddo
+          enddo
+        enddo
+        ! Reorder one half of contributions according to the rank of matings
+        call MrgRnk(Sol((nPotPar1+1):(nPotPar1+nMat)),RankSol(1:nMat))
+        MatPar2(:)=MatPar2(RankSol(1:nMat))
+      endif
 
-      ! Reorder parent2 according to the rank of matings
-      call MrgRnk(Sol((nPotPar1+nPotPar2+1):(nPotPar1+nPotPar2+nMat)),RankSol(1:nMat))
-      MatPar2(:)=MatPar2(RankSol(1:nMat))
-
-      ! Pair parent1 (=males) and parent2 (=females)
+      ! Pair the contributions
       k=nMat ! MrgRnk ranks small to large
       Mate(:,:)=0
       if (GenderMatters .or. SelfingAllowed) then
-        ! When GenderMatters selfing can not happen (we have two distinct sets of parents)
-        ! and when SelfingAllowed we do not need to care about it - faster code
+        ! When GenderMatters selfing can not happen (we have two distinct sets of parents,
+        ! unless the user adds individuals of one sex in both sets) and when SelfingAllowed
+        ! we do not need to care about it - faster code
         do i=1,nPotPar1
           do j=1,nVecPar1(i)
             ! print*,k,i,j
@@ -2034,17 +2226,17 @@ module AlphaMateModule
           enddo
         enddo
       else
-        ! When .not. GenderMatters selfing can happen (we have two sets of the same parents)
+        ! When .not. GenderMatters selfing can happen (we have one set of parents)
         ! and when .not. SelfingAllowed we do need to care about it - slower code
         do i=1,nPotPar1
           do j=1,nVecPar1(i)
             Mate(k,1)=i
             if (MatPar2(k) == i) then
-              ! Trying to avoid selfing by swapping the MatPar2 and Rank elements
+              ! Try to avoid selfing by swapping the MatPar2 and Rank elements
               do l=k,1,-1
                 if (MatPar2(l) /= i) then
                   MatPar2([k,l])=MatPar2([l,k])
-                  Sol(nPotPar1+nPotPar2+RankSol([k,l]))=Sol(nPotPar1+nPotPar2+RankSol([l,k]))
+                  Sol(nPotPar1+RankSol([k,l]))=Sol(nPotPar1+RankSol([l,k]))
                   exit
                 endif
               enddo
@@ -2059,16 +2251,6 @@ module AlphaMateModule
           enddo
         enddo
       endif
-      ! print*,""
-      ! do i=1,nMat
-      !     write(STDOUT,"(3i20)") i,Mate(i,:)
-      ! enddo
-      ! do i=1,nPotPar1
-      !     write(STDOUT,"(2i6)") i,nVecPar1(i)
-      ! enddo
-      ! do i=1,nPotPar2
-      !     write(STDOUT,"(2i6)") i,nVecPar2(i)
-      ! enddo
 
       ! --- Individual (=progeny) inbreeding ---
 
@@ -2122,13 +2304,13 @@ program AlphaMate
 
   Success=SystemQQ(RMDIR//" AlphaMateResults")
   if (.not.Success) then
-    write(STDERR,"(a)") "ERROR: Failure to remove the old output folder!"
+    write(STDERR,"(a)") "ERROR: Failed to remove the old output folder (AlphaMateResults)!"
     write(STDERR,"(a)") " "
     stop 1
   endif
   Success=SystemQQ(MKDIR//" AlphaMateResults")
   if (.not.Success) then
-    write(STDERR,"(a)") "ERROR: Failure to make output folder!"
+    write(STDERR,"(a)") "ERROR: Failed to make the output folder (AlphaMateResults)!"
     write(STDERR,"(a)") " "
     stop 1
   endif
