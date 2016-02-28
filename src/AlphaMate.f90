@@ -31,6 +31,13 @@ module AlphaSuiteModule
 
   implicit none
 
+  private
+  public :: CountLines,Int2Char,RandomOrder,SetSeed,ToLower
+
+  ! List of characters for case conversion in ToLower
+  CHARACTER(*),PARAMETER :: LOWER_CASE = 'abcdefghijklmnopqrstuvwxyz'
+  CHARACTER(*),PARAMETER :: UPPER_CASE = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+
   contains
 
     !###########################################################################
@@ -152,11 +159,29 @@ module AlphaSuiteModule
     end subroutine SetSeed
 
     !###########################################################################
+
+    function ToLower(StringIn) result(StringOut)
+      ! From https://groups.google.com/forum/#!topic/comp.lang.fortran/CKx1L2Ahkxg
+      character(len=*),intent(in) :: StringIn
+      character(len(StringIn))    :: StringOut
+      integer :: i,n
+
+      ! Copy input string
+      StringOut=StringIn
+
+      ! Convert case character by character
+      do i=1,len(StringOut)
+        n=index(UPPER_CASE,StringOut(i:i))
+        if (n /= 0) StringOut(i:i)=LOWER_CASE(n:n)
+      enddo
+    end function ToLower
+
+    !###########################################################################
 end module AlphaSuiteModule
 
 !###############################################################################
 
-Module OrderPack
+module OrderPack
   ! From http://www.fortran-2000.com/rank/MrgRnk.f90 (2016-02-15)
   ! Modified to work with ISO_Fortran_Env types
 
@@ -165,10 +190,10 @@ Module OrderPack
   implicit none
 
   public :: MrgRnk
-  private :: R_MrgRnk, I_MrgRnk, D_MrgRnk
+  private :: R_MrgRnk,I_MrgRnk,D_MrgRnk
 
   interface MrgRnk
-    module procedure D_MrgRnk, R_MrgRnk, I_MrgRnk
+    module procedure D_MrgRnk,R_MrgRnk,I_MrgRnk
   end interface MrgRnk
 
   contains
@@ -789,7 +814,7 @@ module AlphaMateModule
   use ISO_Fortran_Env, STDIN=>input_unit,STDOUT=>output_unit,STDERR=>error_unit
   use IFPort,only : SystemQQ
   use OrderPack,only : MrgRnk
-  use AlphaSuiteModule,only : CountLines,Int2Char,RandomOrder,SetSeed
+  use AlphaSuiteModule,only : CountLines,Int2Char,RandomOrder,SetSeed,ToLower
 
   implicit none
 
