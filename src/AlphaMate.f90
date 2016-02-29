@@ -1,7 +1,3 @@
-! TODO: add size of penalty to printout to get a feel how well we are doing
-! TODO: make FixSol... return a defined type so we can push more info to the EvolAlg
-!       Then add a method for print out and can push iteration titles out as well
-! TODO: should the solutions be fixed or penalized - what is better?
 ! TODO: Manual
 ! TODO: PAGE
 
@@ -196,8 +192,8 @@ module OrderPack
 
   implicit none
 
+  private
   public :: MrgRnk
-  private :: R_MrgRnk,I_MrgRnk,D_MrgRnk
 
   interface MrgRnk
     module procedure D_MrgRnk,R_MrgRnk,I_MrgRnk
@@ -816,11 +812,320 @@ end module OrderPack
 
 !###############################################################################
 
+module AlphaEvolAlg
+
+  use ISO_Fortran_Env, STDIN=>input_unit,STDOUT=>output_unit,STDERR=>error_unit
+
+  implicit none
+
+  type :: EvolAlgCrit
+    real(real64) :: Value
+    real(real64) :: Penalty
+    real(real64),allocatable :: Content(:)
+  end type EvolAlgCrit
+
+  private
+  public :: EvolAlgDE,EvolAlgCrit,SetupEvolAlgCrit
+
+  contains
+
+    !###########################################################################
+
+    subroutine EvolAlgDE(nParam,nSol,nGen,nGenBurnIn,nGenStop,StopTolerance,&
+      nGenPrint,File,CritType,CRBurnIn,CRLate,FBase,FHigh1,FHigh2,&
+      CalcCriterion,LogHeader,Log)
+
+      implicit none
+
+      ! Arguments
+      integer(int32),intent(in)          :: nParam        ! No. of parameters in a solution
+      integer(int32),intent(in)          :: nSol          ! No. of solutions to test each generation
+      integer(int32),intent(in)          :: nGen          ! No. of generations to run
+      integer(int32),intent(in)          :: nGenBurnIn    ! No. of generations with more
+      integer(int32),intent(in)          :: nGenStop      ! Stop after no progress for nGenerationStop
+      real(real64),intent(in)            :: StopTolerance ! Stopping tolerance
+      integer(int32),intent(in)          :: nGenPrint     ! Print changed solution every nGenerationPrint
+      character(len=*),intent(in)        :: File          ! Which file to write to
+      character(len=*),intent(in)        :: CritType      ! Passed to FixSolMateAndCalcCrit
+      real(real64),intent(in),optional   :: CRBurnIn      ! Crossover rate for nGenBurnIn
+      real(real64),intent(in),optional   :: CRLate        ! Crossover rate
+      real(real64),intent(in),optional   :: FBase         ! F is multiplier of difference used to mutate
+      real(real64),intent(in),optional   :: FHigh1        ! F is multiplier of difference used to mutate
+      real(real64),intent(in),optional   :: FHigh2        ! F is multiplier of difference used to mutate
+
+      interface
+        function CalcCriterion(nParam,Sol,CritType)
+          use ISO_Fortran_Env
+          import :: EvolAlgCrit
+          type(EvolAlgCrit)           :: CalcCriterion
+          integer(int32),intent(in)   :: nParam      ! No. of parameters
+          real(real64),intent(inout)  :: Sol(nParam) ! Solution
+          character(len=*),intent(in) :: CritType    ! Type of criterion
+        end function CalcCriterion
+
+        subroutine LogHeader(LogUnit)
+          use ISO_Fortran_Env
+          integer(int32),intent(in) :: LogUnit
+        end subroutine LogHeader
+
+        subroutine Log(LogUnit,Gen,AcceptRate,Criterion)
+          use ISO_Fortran_Env
+          import :: EvolAlgCrit
+          integer(int32),intent(in)    :: LogUnit
+          integer(int32),intent(in)    :: Gen
+          real(real64),intent(in)      :: AcceptRate
+          type(EvolAlgCrit),intent(in) :: Criterion
+        end subroutine Log
+      end interface
+
+      ! Other
+      integer(int32) :: Param,ParamLoc,Sol,Gen,LastGenPrint
+      integer(int32) :: SolA,SolB,SolC,BestSol,BestSolOld
+      integer(int32) :: Unit
+
+      real(real64) :: RanNum,FInt,FBaseInt,FHigh1Int,FHigh2Int,CRInt,CRBurnInInt,CRLateInt
+      real(real64) :: AcceptRate,OldChrom(nParam,nSol),NewChrom(nParam,nSol),Chrom(nParam)
+
+      logical :: DiffOnly,BestSolChanged
+
+      type(EvolAlgCrit) :: Criterion(nSol),CriterionHold,BestCriterion,BestCriterionOld,BestCriterionStop
+
+      LastGenPrint=0
+      BestSolOld=0
+      BestCriterionOld%Value=-999999.0d0
+      BestCriterionStop=BestCriterionOld
+
+      ! --- Printout ---
+
+      open(newunit=Unit,file=trim(File),status="unknown")
+      call LogHeader(LogUnit=Unit)
+
+      ! --- Set parameters ---
+
+      ! Crossover rate
+      ! ... for later climbs
+      if (present(CRLate)) then
+        CRLateInt=CRLate
+      else
+        CRLateInt=0.1d0
+      endif
+      ! ... for first few generations (burn-in)
+      if (present(CRBurnIn)) then
+        CRBurnInInt=CRBurnIn
+      else
+        CRBurnInInt=2.0d0*CRLateInt
+      endif
+
+      ! F is multiplier of difference used to mutate
+      ! Typically between 0.2 and 2.0
+      ! (if alleles should be integer, keep F as integer)
+      ! ... conservative moves
+      if (present(FBase)) then
+        FBaseInt=FBase
+      else
+        FBaseInt=0.1d0
+      endif
+      ! ... adventurous moves
+      if (present(FHigh1)) then
+        FHigh1Int=FHigh1
+      else
+        FHigh1Int=10.0d0*FBaseInt
+      endif
+      if (present(FHigh2)) then
+        FHigh2Int=FHigh2
+      else
+        FHigh2Int=4.0d0*FHigh1Int
+      endif
+
+      ! --- Initialise foundation population of solutions ---
+
+      ! A solution with equal values (good for finding minimal possible inbreeding)
+      OldChrom(:,1)=1.0d0
+      Criterion(1)=CalcCriterion(nParam,OldChrom(:,1),CritType)
+
+      ! Solutions with varied contributions
+      do Sol=2,nSol
+        call random_number(OldChrom(:,Sol)) ! Set a wide range for each parameter
+        Criterion(Sol)=CalcCriterion(nParam,OldChrom(:,Sol),CritType)
+      enddo
+
+      ! --- Evolve ---
+
+      do Gen=1,nGen
+
+        ! Vary differential and non-differential mutation to escape valleys
+        if (mod(Gen,3) == 0) then
+          DiffOnly=.true.
+        else
+          DiffOnly=.false.
+        endif
+
+        ! Burn-in
+        if (Gen < nGenBurnIn) then
+          CRInt=CRBurnInInt
+        else
+          CRInt=CRLateInt
+        endif
+
+        ! Vary mutation rate every few generations
+        if (mod(Gen,4) == 0) then
+          FInt=FHigh1Int
+        else
+          FInt=FBaseInt
+        endif
+
+        if (mod(Gen,7) == 0) then
+          FInt=FHigh2Int
+        else
+          FInt=FBaseInt
+        endif
+
+        ! --- Generate competitors ---
+
+        ! TODO: Paralelize this loop? Is it worth it?
+        !       Can we do it given the saving to OldChrom&NewChrom?
+        BestSolChanged=.false.
+        AcceptRate=0.0d0
+        do Sol=1,nSol
+
+          ! --- Mutate and recombine ---
+
+          ! Get three different solutions
+          SolA=Sol
+          do while (SolA == Sol)
+            call random_number(RanNum)
+            SolA=int(RanNum*nSol)+1
+          enddo
+          SolB=Sol
+          do while ((SolB == Sol) .or. (SolB == SolA))
+            call random_number(RanNum)
+            SolB=int(RanNum*nSol)+1
+          enddo
+          SolC=Sol
+          do while ((SolC == Sol) .or. (SolC == SolA) .or. (SolC == SolB))
+            call random_number(RanNum)
+            SolC=int(RanNum*nSol)+1
+          enddo
+
+          ! Mate the solutions
+          call random_number(RanNum)
+          Param=int(RanNum*nParam)+1 ! Cycle through parameters starting at a random point
+          do ParamLoc=1,nParam
+            call random_number(RanNum)
+            if ((RanNum < CRInt) .or. (ParamLoc == nParam)) then
+              ! Recombine
+              call random_number(RanNum)
+              if ((RanNum < 0.8d0) .or. DiffOnly) then
+                ! Differential mutation (with prob 0.8 or 1)
+                Chrom(Param)=OldChrom(Param,SolC) + FInt*(OldChrom(Param,SolA)-OldChrom(Param,SolB))
+              else
+                ! Non-differential mutation (to avoid getting stuck)
+                call random_number(RanNum)
+                if (RanNum < 0.5d0) then
+                  call random_number(RanNum)
+                  Chrom(Param)=OldChrom(Param,SolC) * (0.9d0+0.2d0*RanNum)
+                else
+                  call random_number(RanNum)
+                  Chrom(Param)=OldChrom(Param,SolC) + 0.01d0*FInt*(OldChrom(Param,SolA)+0.01d0)*(RanNum-0.5d0)
+                endif
+              endif
+            else
+              ! Do not recombine
+              Chrom(Param)=OldChrom(Param,Sol)
+            endif
+            Param=Param+1
+            if (Param > nParam) then
+              Param=Param-nParam
+            endif
+          enddo
+
+          ! --- Evaluate and Select ---
+
+          CriterionHold=CalcCriterion(nParam,Chrom,CritType)    ! Merit of competitor
+          if (CriterionHold%Value >= Criterion(Sol)%Value) then ! If competitor is better or equal, keep it
+            NewChrom(:,Sol)=Chrom(:)                            !   ("equal" to force evolution)
+            Criterion(Sol)=CriterionHold
+            AcceptRate=AcceptRate+1.0d0
+          else
+            NewChrom(:,Sol)=OldChrom(:,Sol)                     ! Else keep the old solution
+          endif
+        enddo ! Sol
+
+        AcceptRate=AcceptRate/dble(nSol)
+
+        ! --- New parents ---
+
+        do Sol=1,nSol
+          OldChrom(:,Sol)=NewChrom(:,Sol)
+        enddo
+
+        ! --- Find the best solution in this generation ---
+
+        BestSol=maxloc(Criterion(:)%Value,dim=1)
+        BestCriterion=Criterion(BestSol)
+        if (BestCriterion%Value > BestCriterionOld%Value) then
+          BestSolChanged=.true.
+        endif
+        BestSolOld=BestSol
+        BestCriterionOld=BestCriterion
+
+        ! --- Test if solution is improving to stop early ---
+
+        if (mod(Gen,nGenStop) == 0) then
+          if ((BestCriterion%Value-BestCriterionStop%Value) > StopTolerance) then
+            BestCriterionStop=BestCriterion
+          else
+            write(STDOUT,"(a,f,a,i,a)") "NOTE: Evolutionary algorithm did not improve objective for ",StopTolerance, " in the last ",nGenStop," generations. Stopping."
+            write(STDOUT,"(a)") " "
+            exit
+          endif
+        endif
+
+        ! --- Monitor ---
+
+        if (BestSolChanged) then
+          if (((Gen - LastGenPrint) >= nGenPrint)) then
+            LastGenPrint=Gen
+            CriterionHold=CalcCriterion(nParam,NewChrom(:,BestSol),CritType)
+            call Log(Unit,Gen,AcceptRate,CriterionHold)
+          endif
+        endif
+
+      enddo ! Gen
+
+      ! --- Evaluate the winner ---
+
+      CriterionHold=CalcCriterion(nParam,NewChrom(:,BestSol),CritType)
+      call Log(Unit,Gen,AcceptRate,CriterionHold)
+      write(STDOUT,"(a)") " "
+
+      close(Unit)
+    end subroutine EvolAlgDE
+
+    !###########################################################################
+
+    function SetupEvolAlgCrit(Value,Penalty,nContent)
+      implicit none
+      type(EvolAlgCrit)         :: SetupEvolAlgCrit
+      real(real64),intent(in)   :: Value
+      real(real64),intent(in)   :: Penalty
+      integer(int32),intent(in) :: nContent
+      SetupEvolAlgCrit%Value=Value
+      SetupEvolAlgCrit%Penalty=Penalty
+      allocate(SetupEvolAlgCrit%Content(nContent))
+    end function SetupEvolAlgCrit
+
+    !###########################################################################
+end module AlphaEvolAlg
+
+!###############################################################################
+
 module AlphaMateModule
 
   use ISO_Fortran_Env, STDIN=>input_unit,STDOUT=>output_unit,STDERR=>error_unit
   use IFPort,only : SystemQQ
   use OrderPack,only : MrgRnk
+  use AlphaEvolAlg
   use AlphaSuiteModule,only : CountLines,Int2Char,RandomOrder,SetSeed,ToLower
 
   implicit none
@@ -1432,11 +1737,13 @@ module AlphaMateModule
         else
           nTmp=nPotPar1+nMat          ! TODO: add PAGE dimension
         endif
-        call EvolAlgForAlphaMate(nParam=nTmp,nSol=EvolAlgNSol,nGen=EvolAlgNGen,nGenBurnIn=EvolAlgNGenBurnIn,&
-                                 nGenStop=EvolAlgNGenStop,StopTolerance=EvolAlgStopTol,&
-                                 nGenPrint=EvolAlgNGenPrint,File=EvolAlgLogFile,CritType="MinInb",&
-                                 CRBurnIn=EvolAlgCRBurnIn,CRLate=EvolAlgCRLate,&
-                                 FBase=EvolAlgFBase,FHigh1=EvolAlgFHigh1,FHigh2=EvolAlgFHigh2)
+        call EvolAlgDE(nParam=nTmp,nSol=EvolAlgNSol,nGen=EvolAlgNGen,nGenBurnIn=EvolAlgNGenBurnIn,&
+                       nGenStop=EvolAlgNGenStop,StopTolerance=EvolAlgStopTol,&
+                       nGenPrint=EvolAlgNGenPrint,File=EvolAlgLogFile,CritType="MinInb",&
+                       CRBurnIn=EvolAlgCRBurnIn,CRLate=EvolAlgCRLate,&
+                       FBase=EvolAlgFBase,FHigh1=EvolAlgFHigh1,FHigh2=EvolAlgFHigh2,&
+                       CalcCriterion=FixSolMateAndCalcCrit,&
+                       LogHeader=EvolAlgLogHeaderForAlphaMate,Log=EvolAlgLogForAlphaMate)
         GainMinInb=Gain
         GainMinInbScaled=GainScaled
         InbMinInb=InbSol
@@ -1507,11 +1814,13 @@ module AlphaMateModule
       else
         nTmp=nPotPar1+nMat          ! TODO: add PAGE dimension
       endif
-      call EvolAlgForAlphaMate(nParam=nTmp,nSol=EvolAlgNSol,nGen=EvolAlgNGen,nGenBurnIn=EvolAlgNGenBurnIn,&
-                               nGenStop=EvolAlgNGenStop,StopTolerance=EvolAlgStopTol,&
-                               nGenPrint=EvolAlgNGenPrint,File=EvolAlgLogFile,CritType="OptGain",&
-                               CRBurnIn=EvolAlgCRBurnIn,CRLate=EvolAlgCRLate,&
-                               FBase=EvolAlgFBase,FHigh1=EvolAlgFHigh1,FHigh2=EvolAlgFHigh2)
+      call EvolAlgDE(nParam=nTmp,nSol=EvolAlgNSol,nGen=EvolAlgNGen,nGenBurnIn=EvolAlgNGenBurnIn,&
+                     nGenStop=EvolAlgNGenStop,StopTolerance=EvolAlgStopTol,&
+                     nGenPrint=EvolAlgNGenPrint,File=EvolAlgLogFile,CritType="OptGain",&
+                     CRBurnIn=EvolAlgCRBurnIn,CRLate=EvolAlgCRLate,&
+                     FBase=EvolAlgFBase,FHigh1=EvolAlgFHigh1,FHigh2=EvolAlgFHigh2,&
+                     CalcCriterion=FixSolMateAndCalcCrit,&
+                     LogHeader=EvolAlgLogHeaderForAlphaMate,Log=EvolAlgLogForAlphaMate)
       GainOpt=Gain
       GainOptScaled=GainScaled
       InbOpt=InbSol
@@ -1575,11 +1884,13 @@ module AlphaMateModule
           else
             nTmp=nPotPar1+nMat          ! TODO: add PAGE dimension
           endif
-          call EvolAlgForAlphaMate(nParam=nTmp,nSol=EvolAlgNSol,nGen=EvolAlgNGen,nGenBurnIn=EvolAlgNGenBurnIn,&
-                                   nGenStop=EvolAlgNGenStop,StopTolerance=EvolAlgStopTol,&
-                                   nGenPrint=EvolAlgNGenPrint,File=EvolAlgLogFile,CritType="OptGain",&
-                                   CRBurnIn=EvolAlgCRBurnIn,CRLate=EvolAlgCRLate,&
-                                   FBase=EvolAlgFBase,FHigh1=EvolAlgFHigh1,FHigh2=EvolAlgFHigh2)
+          call EvolAlgDE(nParam=nTmp,nSol=EvolAlgNSol,nGen=EvolAlgNGen,nGenBurnIn=EvolAlgNGenBurnIn,&
+                         nGenStop=EvolAlgNGenStop,StopTolerance=EvolAlgStopTol,&
+                         nGenPrint=EvolAlgNGenPrint,File=EvolAlgLogFile,CritType="OptGain",&
+                         CRBurnIn=EvolAlgCRBurnIn,CRLate=EvolAlgCRLate,&
+                         FBase=EvolAlgFBase,FHigh1=EvolAlgFHigh1,FHigh2=EvolAlgFHigh2,&
+                         CalcCriterion=FixSolMateAndCalcCrit,&
+                         LogHeader=EvolAlgLogHeaderForAlphaMate,Log=EvolAlgLogForAlphaMate)
           write(UnitFrontier,"(i11,7f11.5)") j+i,Gain,GainScaled,InbSol,RateInbSol,IndInbSol,RateIndInbSol,ValueHold
           if ((RateInbTarget-RateInbSol) > 0.01d0) then
             write(STDOUT,"(a,f)") "NOTE: Could not achieve the rate of inbreeding of ",RateInbTarget
@@ -1601,256 +1912,25 @@ module AlphaMateModule
 
     !###########################################################################
 
-    subroutine EvolAlgForAlphaMate(nParam,nSol,nGen,nGenBurnIn,nGenStop,&
-      StopTolerance,nGenPrint,File,CritType,CRBurnIn,CRLate,FBase,FHigh1,FHigh2)
-
+    subroutine EvolAlgLogHeaderForAlphaMate(LogUnit)
       implicit none
-
-      ! Arguments
-      integer(int32),intent(in)          :: nParam         ! No. of parameters in a solution
-      integer(int32),intent(in)          :: nSol           ! No. of solutions to test each generation
-      integer(int32),intent(in)          :: nGen           ! No. of generations to run
-      integer(int32),intent(in)          :: nGenBurnIn     ! No. of generations with more
-      integer(int32),intent(in)          :: nGenStop       ! Stop after no progress for nGenerationStop
-      real(real64),intent(in)            :: StopTolerance  ! Stopping tolerance
-      integer(int32),intent(in)          :: nGenPrint      ! Print changed solution every nGenerationPrint
-      character(len=*),intent(in)        :: File           ! Which file to write to
-      character(len=*),intent(in)        :: CritType       ! Passed to FixSolMateAndCalcCrit
-      real(real64),intent(in),optional   :: CRBurnIn       ! Crossover rate for nGenBurnIn
-      real(real64),intent(in),optional   :: CRLate         ! Crossover rate
-      real(real64),intent(in),optional   :: FBase          ! F is multiplier of difference used to mutate
-      real(real64),intent(in),optional   :: FHigh1         ! F is multiplier of difference used to mutate
-      real(real64),intent(in),optional   :: FHigh2         ! F is multiplier of difference used to mutate
-
-      ! Other
-      integer(int32) :: Param,ParamLoc,Sol,Gen,LastGenPrint
-      integer(int32) :: SolA,SolB,SolC,BestSol,BestSolOld
-      integer(int32) :: Unit
-
-      real(real64) :: RanNum,FInt,FBaseInt,FHigh1Int,FHigh2Int,CRInt,CRBurnInInt,CRLateInt
-      real(real64) :: BestValue,BestValueOld,BestValueStop,AcceptRate
-      real(real64) :: OldChrom(nParam,nSol),NewChrom(nParam,nSol),Chrom(nParam),Value(nSol)
-
-      logical :: DiffOnly,BestSolChanged
-
-      LastGenPrint=0
-      BestSolOld=0
-      BestValueOld=-999999.0d0
-      BestValueStop=BestValueOld
-
-      ! --- Printout ---
-
-      ! TODO: make a subroutine for this to make evol alg code generic?
-      open(newunit=Unit,file=trim(File),status="unknown")
+      integer(int32),intent(in) :: LogUnit
       !                        12345678901   12345678901   12345678901   12345678901   12345678901   12345678901   12345678901   12345678901   12345678901
-      write(STDOUT,"(9a11)") " SearchMode","       Step","       Gain"," PopInbreed"," RatePopInb"," IndInbreed"," RateIndInb","  Criterion"," AcceptRate"
-      write(Unit,  "(9a11)") " SearchMode","       Step","       Gain"," PopInbreed"," RatePopInb"," IndInbreed"," RateIndInb","  Criterion"," AcceptRate"
+      write(STDOUT, "(9a11)") "       Step"," AcceptRate","  Criterion","    Penalty","       Gain"," PopInbreed"," RatePopInb"," IndInbreed"," RateIndInb"
+      write(LogUnit,"(9a11)") "       Step"," AcceptRate","  Criterion","    Penalty","       Gain"," PopInbreed"," RatePopInb"," IndInbreed"," RateIndInb"
+    end subroutine EvolAlgLogHeaderForAlphaMate
 
-      ! --- Set parameters ---
+    !###########################################################################
 
-      ! Crossover rate
-      ! ... for later climbs
-      if (present(CRLate)) then
-        CRLateInt=CRLate
-      else
-        CRLateInt=0.1d0
-      endif
-      ! ... for first few generations (burn-in)
-      if (present(CRBurnIn)) then
-        CRBurnInInt=CRBurnIn
-      else
-        CRBurnInInt=2.0d0*CRLateInt
-      endif
-
-      ! F is multiplier of difference used to mutate
-      ! Typically between 0.2 and 2.0
-      ! (if alleles should be integer, keep F as integer)
-      ! ... conservative moves
-      if (present(FBase)) then
-        FBaseInt=FBase
-      else
-        FBaseInt=0.1d0
-      endif
-      ! ... adventurous moves
-      if (present(FHigh1)) then
-        FHigh1Int=FHigh1
-      else
-        FHigh1Int=10.0d0*FBaseInt
-      endif
-      if (present(FHigh2)) then
-        FHigh2Int=FHigh2
-      else
-        FHigh2Int=4.0d0*FHigh1Int
-      endif
-
-      ! --- Initialise foundation population of solutions ---
-
-      ! A solution with equal values (good for finding minimal possible inbreeding)
-      OldChrom(:,1)=1.0d0
-      Value(1)=FixSolMateAndCalcCrit(nParam,OldChrom(:,1),CritType)
-
-      ! Solutions with varied contributions
-      do Sol=2,nSol
-        call random_number(OldChrom(:,Sol)) ! Set a wide range for each parameter
-        Value(Sol)=FixSolMateAndCalcCrit(nParam,OldChrom(:,Sol),CritType)
-      enddo
-
-      ! --- Evolve ---
-
-      do Gen=1,nGen
-
-        ! Vary differential and non-differential mutation to escape valleys
-        if (mod(Gen,3) == 0) then
-          DiffOnly=.true.
-        else
-          DiffOnly=.false.
-        endif
-
-        ! Burn-in
-        if (Gen < nGenBurnIn) then
-          CRInt=CRBurnInInt
-        else
-          CRInt=CRLateInt
-        endif
-
-        ! Vary mutation rate every few generations
-        if (mod(Gen,4) == 0) then
-          FInt=FHigh1Int
-        else
-          FInt=FBaseInt
-        endif
-
-        if (mod(Gen,7) == 0) then
-          FInt=FHigh2Int
-        else
-          FInt=FBaseInt
-        endif
-
-        ! --- Generate competitors ---
-
-        ! TODO: Paralelize this loop? Is it worth it?
-        !       Can we do it given the saving to OldChrom&NewChrom?
-        BestSolChanged=.false.
-        AcceptRate=0.0d0
-        do Sol=1,nSol
-
-          ! --- Mutate and recombine ---
-
-          ! Get three different solutions
-          SolA=Sol
-          do while (SolA == Sol)
-            call random_number(RanNum)
-            SolA=int(RanNum*nSol)+1
-          enddo
-          SolB=Sol
-          do while ((SolB == Sol) .or. (SolB == SolA))
-            call random_number(RanNum)
-            SolB=int(RanNum*nSol)+1
-          enddo
-          SolC=Sol
-          do while ((SolC == Sol) .or. (SolC == SolA) .or. (SolC == SolB))
-            call random_number(RanNum)
-            SolC=int(RanNum*nSol)+1
-          enddo
-
-          ! Mate the solutions
-          call random_number(RanNum)
-          Param=int(RanNum*nParam)+1 ! Cycle through parameters starting at a random point
-          do ParamLoc=1,nParam
-            call random_number(RanNum)
-            if ((RanNum < CRInt) .or. (ParamLoc == nParam)) then
-              ! Recombine
-              call random_number(RanNum)
-              if ((RanNum < 0.8d0) .or. DiffOnly) then
-                ! Differential mutation (with prob 0.8 or 1)
-                Chrom(Param)=OldChrom(Param,SolC) + FInt*(OldChrom(Param,SolA)-OldChrom(Param,SolB))
-              else
-                ! Non-differential mutation (to avoid getting stuck)
-                call random_number(RanNum)
-                if (RanNum < 0.5d0) then
-                  call random_number(RanNum)
-                  Chrom(Param)=OldChrom(Param,SolC) * (0.9d0+0.2d0*RanNum)
-                else
-                  call random_number(RanNum)
-                  Chrom(Param)=OldChrom(Param,SolC) + 0.01d0*FInt*(OldChrom(Param,SolA)+0.01d0)*(RanNum-0.5d0)
-                endif
-              endif
-            else
-              ! Do not recombine
-              Chrom(Param)=OldChrom(Param,Sol)
-            endif
-            Param=Param+1
-            if (Param > nParam) then
-              Param=Param-nParam
-            endif
-          enddo
-
-          ! --- Evaluate and Select ---
-
-          ValueHold=FixSolMateAndCalcCrit(nParam,Chrom,CritType) ! Merit of competitor
-          if (ValueHold >= Value(Sol)) then                      ! If competitor is better or equal, keep it
-            NewChrom(:,Sol)=Chrom(:)                             !   ("equal" to force evolution)
-            Value(Sol)=ValueHold
-            AcceptRate=AcceptRate+1.0d0
-          else
-            NewChrom(:,Sol)=OldChrom(:,Sol)                      ! Else keep the old solution
-          endif
-        enddo ! Sol
-
-        AcceptRate=AcceptRate/dble(nSol)
-
-        ! --- New parents ---
-
-        do Sol=1,nSol
-          OldChrom(:,Sol)=NewChrom(:,Sol)
-        enddo
-
-        ! --- Find the best solution in this generation ---
-
-        BestSol=maxloc(Value,dim=1)
-        BestValue=Value(BestSol)
-        if (BestValue > BestValueOld) then
-          BestSolChanged=.true.
-        endif
-        BestSolOld=BestSol
-        BestValueOld=BestValue
-
-        ! --- Test if solution is improving to stop early ---
-
-        if (mod(Gen,nGenStop) == 0) then
-          if ((BestValue-BestValueStop) > StopTolerance) then
-            BestValueStop=BestValue
-          else
-            write(STDOUT,"(a,f,a,i,a)") "NOTE: Evolutionary algorithm did not improve objective for ",StopTolerance, " in the last ",nGenStop," generations. Stopping."
-            write(STDOUT,"(a)") " "
-            exit
-          endif
-        endif
-
-        ! --- Monitor ---
-
-        if (BestSolChanged) then
-          if (((Gen - LastGenPrint) >= nGenPrint)) then
-            LastGenPrint=Gen
-            ! TODO: make a subroutine for this to make evol alg code generic?
-            ValueHold=FixSolMateAndCalcCrit(nParam,NewChrom(:,BestSol),CritType)
-            write(STDOUT,"(a11,i11,7f11.5)") CritType,Gen,Gain,InbSol,RateInbSol,IndInbSol,RateIndInbSol,ValueHold,AcceptRate
-            write(Unit,  "(a11,i11,7f11.5)") CritType,Gen,Gain,InbSol,RateInbSol,IndInbSol,RateIndInbSol,ValueHold,AcceptRate
-          endif
-        endif
-
-      enddo ! Gen
-
-      ! --- Evaluate the winner ---
-
-      ! TODO: make a subroutine for this to make evol alg code generic?
-      ValueHold=FixSolMateAndCalcCrit(nParam,NewChrom(:,BestSol),CritType)
-      write(STDOUT,"(a11,i11,7f11.5)") CritType,Gen,Gain,InbSol,RateInbSol,IndInbSol,RateIndInbSol,ValueHold,AcceptRate
-      write(Unit,  "(a11,i11,7f11.5)") CritType,Gen,Gain,InbSol,RateInbSol,IndInbSol,RateIndInbSol,ValueHold,AcceptRate
-      write(STDOUT,"(a)") " "
-
-      close(Unit)
-    end subroutine EvolAlgForAlphaMate
+    subroutine EvolAlgLogForAlphaMate(LogUnit,Gen,AcceptRate,Criterion)
+      implicit none
+      integer(int32),intent(in)    :: LogUnit
+      integer(int32),intent(in)    :: Gen
+      real(real64),intent(in)      :: AcceptRate
+      type(EvolAlgCrit),intent(in) :: Criterion
+      write(STDOUT, "(i11,8f11.5)") Gen,AcceptRate,Criterion%Value,Criterion%Penalty,Criterion%Content(:)
+      write(LogUnit,"(i11,8f11.5)") Gen,AcceptRate,Criterion%Value,Criterion%Penalty,Criterion%Content(:)
+    end subroutine EvolAlgLogForAlphaMate
 
     !###########################################################################
 
@@ -1859,6 +1939,7 @@ module AlphaMateModule
       implicit none
 
       ! Arguments
+      type(EvolAlgCrit)           :: Criterion
       integer(int32),intent(in)   :: nParam      ! No. of parameters
       real(real64),intent(inout)  :: Sol(nParam) ! Solution
       character(len=*),intent(in) :: CritType    ! Type of criterion (MinInb,OptGain)
@@ -1867,10 +1948,10 @@ module AlphaMateModule
       integer(int32) :: i,j,k,l,g,nCumMat,RankSol(nInd),SolInt(nInd),MatPar2(nMat)
       integer(int32) :: TmpMin,TmpMax
 
-      real(real64) :: TmpVec(nInd,1),Criterion!,RanNum,TmpR!,InbSol2
+      real(real64) :: TmpVec(nInd,1),TmpR!,RanNum,InbSol2
 
       ! Criterion base
-      Criterion=0.0d0
+      Criterion=SetupEvolAlgCrit(Value=0.0d0,Penalty=0.0d0,nContent=5)
 
       ! The solution (based on the mate selection driver) has:
       ! - nPotPar1 individual contributions for "parent1" (males when GenderMatters)
@@ -1945,7 +2026,9 @@ module AlphaMateModule
             if (nCumMat > nMat*g) then
               Sol(j)=Sol(j)-dble(nCumMat-nMat*g)
               if (nint(Sol(j)) < LimitPar1Min) then
-                Criterion=Criterion-LimitPar1Penalty*(LimitPar1Min-nint(Sol(j)))
+                TmpR=LimitPar1Penalty*(LimitPar1Min-nint(Sol(j)))
+                Criterion%Value=Criterion%Value-TmpR
+                Criterion%Penalty=Criterion%Penalty+TmpR
               endif
               nCumMat=nMat*g
             endif
@@ -2032,7 +2115,9 @@ module AlphaMateModule
               if (nCumMat > nMat) then
                 Sol(j)=Sol(j)-dble(nCumMat-nMat)
                 if (nint(Sol(j)) < LimitPar2Min) then
-                  Criterion=Criterion-LimitPar2Penalty*(LimitPar2Min-nint(Sol(j)))
+                  TmpR=LimitPar2Penalty*(LimitPar2Min-nint(Sol(j)))
+                  Criterion%Value=Criterion%Value-TmpR
+                  Criterion%Penalty=Criterion%Penalty+TmpR
                 endif
                 nCumMat=nMat
               endif
@@ -2127,8 +2212,10 @@ module AlphaMateModule
 
       ! TODO: do we always have GainMinInbScaled? What happens when we skip min inb mode?
       if (ToLower(trim(CritType)) == "optgain") then
-        Criterion=Criterion+(GainScaled-GainMinInbScaled)
+        Criterion%Value=Criterion%Value+(GainScaled-GainMinInbScaled)
       endif
+
+      Criterion%Content(1)=Gain
 
       ! --- Future population inbreeding (=selected group coancestry) ---
 
@@ -2167,13 +2254,18 @@ module AlphaMateModule
       RateInbSol=InbSolRebased
 
       if (RateInbSol <= RateInbTarget) then
-        Criterion=Criterion-(InbSolRebased-InbTargetRebased)
+        Criterion%Value=Criterion%Value-(InbSolRebased-InbTargetRebased)
       else
         ! Say IndInbPenalty=100, which would be a penalty of 1 SD for 0.01
         ! increase in inbreeding above the target. Note that gain is scaled
         ! and inbreeding is rebased so this should be a "stable" soft constraint.
-        Criterion=Criterion-PopInbPenalty*(InbSolRebased-InbTargetRebased)
+        TmpR=PopInbPenalty*(InbSolRebased-InbTargetRebased)
+        Criterion%Value=Criterion%Value-TmpR
+        Criterion%Penalty=Criterion%Penalty+TmpR
       endif
+
+      Criterion%Content(2)=InbSol
+      Criterion%Content(3)=RateInbSol
 
       ! --- Mate allocation ---
 
@@ -2243,7 +2335,8 @@ module AlphaMateModule
               if (l < 1) then ! Above loop ran out without finding a swap
                 ! write(STDOUT,"(a)") "NOTE: Could not find a non-selfing mating - applying a penalty."
                 ! write(STDOUT,"(a)") " "
-                Criterion=Criterion-SelfingPenalty
+                Criterion%Value=Criterion%Value-SelfingPenalty
+                Criterion%Penalty=Criterion%Penalty+SelfingPenalty
               endif
             endif
             Mate(k,2)=MatPar2(k)
@@ -2273,13 +2366,18 @@ module AlphaMateModule
       ! TODO: how do we properly handle the individual inbreeding as we do for
       !       the population inbreeding
       ! if (RateIndInbSol <= RateIndInbTarget) then
-      !   Criterion=Criterion-(IndInbSolRebased-IndInbTargetRebased)
+      !   Criterion%Value=Criterion%Value-(IndInbSolRebased-IndInbTargetRebased)
       ! else
       !   ! Say IndInbPenalty=100, this would be a penalty of 1 SD for 0.01
       !   ! increase in inbreeding above the target. Note that gain is scaled
       !   ! and inbreeding is rebased so this should be a "stable" soft constraint.
-      !   Criterion=Criterion-IndInbPenalty*(IndInbSolRebased-IndInbTargetRebased)
+      !   TmpR=IndInbPenalty*(IndInbSolRebased-IndInbTargetRebased)
+      !   Criterion%Value=Criterion%Value-TmpR
+      !   Criterion%Penalty=Criterion%Penalty+TmpR
       ! endif
+
+      Criterion%Content(4)=IndInbSol
+      Criterion%Content(5)=RateIndInbSol
 
       return
     end function FixSolMateAndCalcCrit
