@@ -1696,12 +1696,15 @@ module AlphaMateModule
 
       implicit none
 
-      integer(int32) :: i,j,UnitInbree,UnitMating,UnitContri,UnitFrontier,nTmp,Rank(nInd)
+      integer(int32) :: i,j,UnitInbree,UnitMating,UnitContri,UnitLog,UnitLog2,UnitFrontier
+      integer(int32) :: nTmp,DumI,Rank(nInd)
 
-      real(real64) :: BvMean,BvStdDev,PopInbTargetHold,RatePopInbTargetHold
+      real(real64) :: BvMean,BvStdDev,PopInbTargetHold,RatePopInbTargetHold,TmpR,DumR(9)
       real(real64),allocatable :: InitEqual(:,:)
 
-      character(len=300) :: EvolAlgLogFile
+      character(len=300) :: EvolAlgLogFile,EvolAlgLogFile2,DumC
+
+      logical :: Success
 
       type(EvolAlgCrit) :: CritMin,CritOpt,Crit
 
@@ -1756,17 +1759,49 @@ module AlphaMateModule
         close(UnitMating)
 
         if (PopInbOld > CritMin%PopInb) then
+
           write(STDOUT,"(a)") "NOTE: Old coancestry is higher than the minimum group coancestry (x'Ax/2) under no selection."
           write(STDOUT,"(a)") "NOTE: Resetting the old coancestry to the minimum group coancestry under no selection and"
-          write(STDOUT,"(a)") "NOTE:   recomputing the targeted 'population' inbreeding."
+          write(STDOUT,"(a)") "NOTE:   recomputing the log file values and the targeted 'population' inbreeding."
           write(STDOUT,"(a)") " "
           PopInbOld=CritMin%PopInb
           PopInbTarget=(1.0d0-RatePopInbTarget)*PopInbOld+RatePopInbTarget
           CritMin%RatePopInb=0.0d0
+
+          EvolAlgLogFile2="AlphaMateResults"//DASH//"OptimisationLog1MinimumInbreedingOld.txt"
+          Success=SystemQQ(COPY//" "//EvolAlgLogFile//" "//EvolAlgLogFile2)
+          if (.not.Success) then
+            write(STDERR,"(a)") "ERROR: Failed to make a backup of the "//EvolAlgLogFile//" file in the output folder!"
+            write(STDERR,"(a)") " "
+            stop 1
+          end if
+
+          open(newunit=UnitLog,file=trim(EvolAlgLogFile),status="unknown")
+          open(newunit=UnitLog2,file=trim(EvolAlgLogFile2),status="unknown")
+          call CountLines(EvolAlgLogFile,nTmp)
+          read(UnitLog2,*) DumC
+          do i=2,nTmp
+            read(UnitLog2,*) DumI,DumR(:)
+          end do
+          TmpR=DumR(6)     ! The above loop and this assigment are just to set final rate to zero
+          rewind(UnitLog2) ! (not using PopInbOld due to loss of precision in output and we want it nice)
+          read(UnitLog2,*) DumC
+          call EvolAlgLogHeaderForAlphaMate(UnitLog)
+          do i=2,nTmp
+            read(UnitLog2,*) DumI,DumR(:)
+            DumR(7)=(DumR(6)-TmpR)/(1.0d0-TmpR)
+            write(STDOUT, "(i11,11f11.5)") DumI,DumR(:)
+            write(UnitLog,"(i11,11f11.5)") DumI,DumR(:)
+          end do
+          write(STDOUT,"(a)") " "
+          close(UnitLog)
+          close(UnitLog2)
+
           write(STDOUT,"(a,f9.5)") "Old coancestry: ",PopInbOld
           write(STDOUT,"(a,f9.5)") "Targeted rate of 'population' inbreeding: ",RatePopInbTarget
           write(STDOUT,"(a,f9.5)") "Targeted 'population' inbreeding:",PopInbTarget
           write(STDOUT,"(a)") " "
+
         end if
 
         if (PopInbTarget < CritMin%PopInb) then
