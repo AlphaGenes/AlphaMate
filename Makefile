@@ -17,7 +17,7 @@ ifeq ($(OS), Windows_NT)
 	TARGETDIR   :=
 	OSFLAG := "OS_WIN"
 	## see also https://software.intel.com/en-us/compiler_winapp_f (2014-12-03)
-	FFLAGS := $(FFLAGS) /static /fpp /Qmkl /D $(OSFLAG)
+	FFLAGS := $(FFLAGS) /static /fpp /Qmkl /D $(OSFLAG) # /Qparallel
 	obj := .obj
 	MAKEDIR :=
 	exe := .exe
@@ -38,7 +38,7 @@ else
 	MKLLIB := -L$(MKLROOT)/lib -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -openmp -lpthread -lm
 	MKLINC := -I$(MKLROOT)/include
 	exe :=
-	FFLAGS:= $(FFLAGS) -mkl -static-intel -fpp -openmp-link=static  -module $(BUILDDIR) -D $(OSFLAG)
+	FFLAGS:= $(FFLAGS) -mkl -static-intel -fpp -openmp-link=static -module $(BUILDDIR) -D $(OSFLAG) # -parallel
 	uname := $(shell uname)
 	MAKEDIR := @mkdir -p
 	DEL := rm -rf
@@ -66,6 +66,10 @@ debug: FFLAGS := $(FFLAGS) -i8 -traceback -g -debug all -warn -check bounds -che
 		-check output_conversion -check pointers -check uninit -fpp
 
 debug: all
+
+parallel: FFLAGS := $(FFLAGS) -par-report1 -guide-par
+
+parallel: all
 
 web: FFLAGS := $(FFLAGS) -D "WEB"
 

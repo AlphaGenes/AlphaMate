@@ -2,6 +2,8 @@
 ! TODO: variance within generated crosses - another file with some values per
 !       each possible mating or perhaps just matings that one would consider
 ! TODO: Manual
+! TODO: An option to read the latest state and start optimisation from thereonwards
+!       with potentially changed parameters?
 
 #ifdef BINARY
 #define BINFILE ,form="unformatted"
@@ -999,8 +1001,9 @@ module AlphaEvolAlg
 
         ! --- Generate competitors ---
 
-        ! TODO: Paralelize this loop? Is it worth it?
-        !       Can we do it given the saving to OldChrom&NewChrom?
+        ! TODO: Paralelize this loop? Is it worth it? Would be possible if
+        !       CalcCriterion would be pure (no I/O and having side effects
+        !       outside of the function/subroutine, like module variables)
         BestSolChanged=.false.
         AcceptRate=0.0d0
         do Sol=1,nSol
@@ -1138,6 +1141,16 @@ module AlphaMateModule
   real(real64),allocatable :: Bv(:),BvStand(:),RelMtx(:,:),RatePopInbFrontier(:),xVec(:)
 
   character(len=300),allocatable :: IdC(:)
+  CHARACTER(len=300),PARAMETER :: FMTLOGHEADERSTDOUT="(12a12)"
+  CHARACTER(len=300),PARAMETER :: FMTLOGSTDOUT="(i12,11(1x,f11.5))"
+  CHARACTER(len=300),PARAMETER :: FMTLOGHEADERUNIT="(12a,11a22)"
+  CHARACTER(len=300),PARAMETER :: FMTLOGUNIT="(i12,11(1x,es21.14))"
+  CHARACTER(len=300),PARAMETER :: FMTCONHEAD="(6a12)"
+  CHARACTER(len=300),PARAMETER :: FMTCON="(a12,i12,3f12.5,i12,2f12.5)"
+  CHARACTER(len=300),PARAMETER :: FMTMATHEAD="(3a12)"
+  CHARACTER(len=300),PARAMETER :: FMTMAT="(3i12)"
+  CHARACTER(len=300),PARAMETER :: FMTFROHEAD="(a12,7a22)"
+  CHARACTER(len=300),PARAMETER :: FMTFRO="(i12,7(1x,es21.14))"
 
   logical :: MinThenOpt,GenderMatters,EqualizePar1,EqualizePar2
   logical :: SelfingAllowed,InferPopInbOld,EvaluateFrontier
@@ -1699,7 +1712,7 @@ module AlphaMateModule
       integer(int32) :: i,j,UnitInbree,UnitMating,UnitContri,UnitLog,UnitLog2,UnitFrontier
       integer(int32) :: nTmp,DumI,Rank(nInd)
 
-      real(real64) :: BvMean,BvStdDev,PopInbTargetHold,RatePopInbTargetHold,TmpR,DumR(9)
+      real(real64) :: BvMean,BvStdDev,PopInbTargetHold,RatePopInbTargetHold,DumR(9)
       real(real64),allocatable :: InitEqual(:,:)
 
       character(len=300) :: EvolAlgLogFile,EvolAlgLogFile2,DumC
@@ -1722,6 +1735,7 @@ module AlphaMateModule
         write(STDOUT,"(a)") " "
 
         EvolAlgLogFile="AlphaMateResults"//DASH//"OptimisationLog1MinimumInbreeding.txt"
+        EvolAlgLogFile2="AlphaMateResults"//DASH//"OptimisationLog1MinimumInbreedingInitial.txt"
         if (GenderMatters) then
           nTmp=nPotPar1+nPotPar2+nMat ! TODO: add PAGE dimension
         else
@@ -1740,21 +1754,28 @@ module AlphaMateModule
         deallocate(InitEqual)
         GainMinStand=CritMin%GainStand
 
-        open(newunit=UnitContri,file="AlphaMateResults"//DASH//"ContribAndMatingsPerIndivMinimumInbreeding.txt",status="unknown")
-        !                           12345678901   12345678901   12345678901   12345678901   12345678901   12345678901
-        write(UnitContri,"(6a11)") "     OrigId","     Gender","      Merit"," AvgCoances"," Contribute","   nMatings"
+        open(newunit=UnitContri,file="AlphaMateResults"//DASH//"ContributionsAndMatingsPerIndivMinimumInbreeding.txt",status="unknown")
+        !                             1234567890123456789012
+        write(UnitContri,FMTCONHEAD) "      OrigId",&
+                                     "      Gender",&
+                                     "       Merit",&
+                                     " AvgCoancest",&
+                                     "  Contribute",&
+                                     "    nMatings"
         call MrgRnk(nVec,Rank)
         do i=nInd,1,-1 ! MrgRnk ranks small to large
           j=Rank(i)
-          write(UnitContri,"(a11,i11,3f11.5,i11)") trim(IdC(j)),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),nVec(j)
+          write(UnitContri,FMTCON) trim(IdC(j)),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),nVec(j)
         end do
         close(UnitContri)
 
         open(newunit=UnitMating,file="AlphaMateResults"//DASH//"MatingListMinimumInbreeding.txt",status="unknown")
-        !                           12345678901   12345678901   12345678901
-        write(UnitMating,"(3a11)") "     Mating","    Parent1","    Parent2"
+        !                             1234567890123456789012
+        write(UnitMating,FMTMATHEAD) "      Mating",&
+                                     "     Parent1",&
+                                     "     Parent2"
         do i=1,nMat
-          write(UnitMating,"(3i11)") i,Mate(i,:)
+          write(UnitMating,FMTMAT) i,Mate(i,:)
         end do
         close(UnitMating)
 
@@ -1768,7 +1789,6 @@ module AlphaMateModule
           PopInbTarget=(1.0d0-RatePopInbTarget)*PopInbOld+RatePopInbTarget
           CritMin%RatePopInb=0.0d0
 
-          EvolAlgLogFile2="AlphaMateResults"//DASH//"OptimisationLog1MinimumInbreedingOld.txt"
           Success=SystemQQ(COPY//" "//EvolAlgLogFile//" "//EvolAlgLogFile2)
           if (.not.Success) then
             write(STDERR,"(a)") "ERROR: Failed to make a backup of the "//EvolAlgLogFile//" file in the output folder!"
@@ -1778,20 +1798,14 @@ module AlphaMateModule
 
           open(newunit=UnitLog,file=trim(EvolAlgLogFile),status="unknown")
           open(newunit=UnitLog2,file=trim(EvolAlgLogFile2),status="unknown")
-          call CountLines(EvolAlgLogFile,nTmp)
-          read(UnitLog2,*) DumC
-          do i=2,nTmp
-            read(UnitLog2,*) DumI,DumR(:)
-          end do
-          TmpR=DumR(6)     ! The above loop and this assigment are just to set final rate to zero
-          rewind(UnitLog2) ! (not using PopInbOld due to loss of precision in output and we want it nice)
+          call CountLines(EvolAlgLogFile2,nTmp)
           read(UnitLog2,*) DumC
           call EvolAlgLogHeaderForAlphaMate(UnitLog)
           do i=2,nTmp
             read(UnitLog2,*) DumI,DumR(:)
-            DumR(7)=(DumR(6)-TmpR)/(1.0d0-TmpR)
-            write(STDOUT, "(i11,11f11.5)") DumI,DumR(:)
-            write(UnitLog,"(i11,11f11.5)") DumI,DumR(:)
+            DumR(7)=(DumR(6)-CritMin%PopInb)/(1.0d0-CritMin%PopInb)
+            write(STDOUT, FMTLOGSTDOUT) DumI,DumR(:)
+            write(UnitLog,FMTLOGUNIT)   DumI,DumR(:)
           end do
           write(STDOUT,"(a)") " "
           close(UnitLog)
@@ -1840,21 +1854,28 @@ module AlphaMateModule
                      LogHeader=EvolAlgLogHeaderForAlphaMate,Log=EvolAlgLogForAlphaMate,&
                      BestCriterion=CritOpt)
 
-      open(newunit=UnitContri,file="AlphaMateResults"//DASH//"ContribAndMatingNbPerIndivOptimumGain.txt",status="unknown")
-      !                           12345678901   12345678901   12345678901   12345678901   12345678901   12345678901
-      write(UnitContri,"(6a11)") "     OrigId","     Gender","      Merit"," AvgCoances"," Contribute","   nMatings"
+      open(newunit=UnitContri,file="AlphaMateResults"//DASH//"ContributionsAndMatingsPerIndivOptimumGain.txt",status="unknown")
+      !                             1234567890123456789012
+      write(UnitContri,FMTCONHEAD) "      OrigId",&
+                                   "      Gender",&
+                                   "       Merit",&
+                                   " AvgCoancest",&
+                                   "  Contribute",&
+                                   "    nMatings"
       call MrgRnk(nVec,Rank)
       do i=nInd,1,-1 ! MrgRnk ranks small to large
         j=Rank(i)
-        write(UnitContri,"(a11,i11,3f11.5,i11,2f11.5)") trim(IdC(j)),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),nVec(j)
+        write(UnitContri,FMTCON) trim(IdC(j)),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),nVec(j)
       end do
       close(UnitContri)
 
       open(newunit=UnitMating,file="AlphaMateResults"//DASH//"MatingListOptimumGain.txt",status="unknown")
-      !                           12345678901   12345678901   12345678901
-      write(UnitMating,"(3a11)") "     Mating","    Parent1","    Parent2"
+      !                             1234567890123456789012
+      write(UnitMating,FMTMATHEAD) "      Mating",&
+                                   "     Parent1",&
+                                   "     Parent2"
       do i=1,nMat
-        write(UnitMating,"(3i11)") i,Mate(i,:)
+        write(UnitMating,FMTMAT) i,Mate(i,:)
       end do
       close(UnitMating)
 
@@ -1865,15 +1886,21 @@ module AlphaMateModule
         write(STDOUT,"(a)") " "
 
         open(newunit=UnitFrontier,file="AlphaMateResults"//DASH//"Frontier.txt",status="unknown")
-        !                             12345678901   12345678901   12345678901   12345678901   12345678901   12345678901   12345678901   12345678901
-        write(UnitFrontier,"(8a11)") "       Step","  Objective","       Gain","  GainStand"," PopInbreed"," RatePopInb"," PopInbree2"," IndInbreed"
+        !                               1234567890123456789012
+        write(UnitFrontier,FMTFROHEAD) "        Step",&
+                                       "                  Gain",&
+                                       "             GainStand",&
+                                       "            PopInbreed",&
+                                       "            RatePopInb",&
+                                       "            PopInbree2",&
+                                       "            IndInbreed"
         j=0
         if (MinThenOpt) then
           j=j+1
-          write(UnitFrontier,"(i11,7f11.5)") j,CritMin%Value,CritMin%Gain,CritMin%GainStand,CritMin%PopInb,CritMin%RatePopInb,CritMin%PopInb2,CritMin%IndInb
+          write(UnitFrontier,FMTFRO) j,CritMin%Value,CritMin%Gain,CritMin%GainStand,CritMin%PopInb,CritMin%RatePopInb,CritMin%PopInb2,CritMin%IndInb
         end if
         j=j+1
-        write(UnitFrontier,"(i11,7f11.5)")   j,CritOpt%Value,CritOpt%Gain,CritOpt%GainStand,CritOpt%PopInb,CritOpt%RatePopInb,CritMin%PopInb2,CritOpt%IndInb
+        write(UnitFrontier,FMTFRO)   j,CritOpt%Value,CritOpt%Gain,CritOpt%GainStand,CritOpt%PopInb,CritOpt%RatePopInb,CritMin%PopInb2,CritOpt%IndInb
 
         ! Hold old results
         PopInbTargetHold=PopInbTarget
@@ -1883,9 +1910,10 @@ module AlphaMateModule
         do i=1,nFrontierSteps
           RatePopInbTarget=RatePopInbFrontier(i)
           PopInbTarget=(1.0d0-RatePopInbTarget)*PopInbOld+RatePopInbTarget
-          write(STDOUT,"(a,i3,a,i3,a,f8.5)") "Step ",i," out of ",nFrontierSteps, " for the rate of inbreeding of",RatePopInbTarget
+          write(STDOUT,"(a,i3,a,i3,a,f8.5,a,f8.5,a)") "Step ",i," out of ",nFrontierSteps, " for the rate of inbreeding of ",RatePopInbTarget,&
+                                                      " (=pop. inbreed. of ",PopInbTarget,")"
           write(STDOUT,"(a)") ""
-          EvolAlgLogFile="AlphaMateResults"//DASH//"OptimisationLog"//Int2Char(i)//".txt"
+          EvolAlgLogFile="AlphaMateResults"//DASH//"OptimisationLog"//Int2Char(j+i)//".txt"
           if (GenderMatters) then
             nTmp=nPotPar1+nPotPar2+nMat ! TODO: add PAGE dimension
           else
@@ -1899,7 +1927,7 @@ module AlphaMateModule
                          CalcCriterion=FixSolMateAndCalcCrit,&
                          LogHeader=EvolAlgLogHeaderForAlphaMate,Log=EvolAlgLogForAlphaMate,&
                          BestCriterion=Crit)
-          write(UnitFrontier,"(i11,7f11.5)") j+i,Crit%Value,Crit%Gain,Crit%GainStand,Crit%PopInb,Crit%RatePopInb,Crit%PopInb2,Crit%IndInb
+          write(UnitFrontier,FMTFRO) j+i,Crit%Value,Crit%Gain,Crit%GainStand,Crit%PopInb,Crit%RatePopInb,Crit%PopInb2,Crit%IndInb
           if ((RatePopInbTarget-Crit%RatePopInb) > 0.01d0) then
             write(STDOUT,"(a,f8.5)") "NOTE: Could not achieve the rate of 'population' inbreeding of ",RatePopInbTarget
             write(STDOUT,"(a)") "NOTE: Stopping the frontier evaluation."
@@ -1922,9 +1950,20 @@ module AlphaMateModule
     subroutine EvolAlgLogHeaderForAlphaMate(LogUnit)
       implicit none
       integer(int32),intent(in) :: LogUnit
-      !                         12345678901   12345678901   12345678901   12345678901   12345678901   12345678901   12345678901   12345678901   12345678901   12345678901
-      write(STDOUT, "(12a11)") "       Step"," AcceptRate","  Criterion","  Penalties","       Gain","  GainStand"," PopInbreed"," RatePopInb"," PopInbree2"," IndInbreed"
-      write(LogUnit,"(12a11)") "       Step"," AcceptRate","  Criterion","  Penalties","       Gain","  GainStand"," PopInbreed"," RatePopInb"," PopInbree2"," IndInbreed"
+      ! With ifort this way of formating the code was requied to get desired layout
+      ! in STDOUT and in the file. Odd.
+      write(STDOUT,FMTLOGHEADERSTDOUT) "Step","AcceptRate","Criterion","Penalties","Gain","GainStand","PopInbreed","RatePopInb","PopInbree2","IndInbreed"
+      !                                 1234567890123456789012
+      write(LogUnit,FMTLOGHEADERUNIT)  "        Step",&
+                                       "            AcceptRate",&
+                                       "             Criterion",&
+                                       "             Penalties",&
+                                       "                  Gain",&
+                                       "             GainStand",&
+                                       "            PopInbreed",&
+                                       "            RatePopInb",&
+                                       "            PopInbree2",&
+                                       "            IndInbreed"
     end subroutine
 
     !###########################################################################
@@ -1935,8 +1974,8 @@ module AlphaMateModule
       integer(int32),intent(in)    :: Gen
       real(real64),intent(in)      :: AcceptRate
       type(EvolAlgCrit),intent(in) :: Criterion
-      write(STDOUT, "(i11,11f11.5)") Gen,AcceptRate,Criterion%Value,Criterion%Penalty,Criterion%Gain,Criterion%GainStand,Criterion%PopInb,Criterion%RatePopInb,Criterion%PopInb2,Criterion%IndInb
-      write(LogUnit,"(i11,11f11.5)") Gen,AcceptRate,Criterion%Value,Criterion%Penalty,Criterion%Gain,Criterion%GainStand,Criterion%PopInb,Criterion%RatePopInb,Criterion%PopInb2,Criterion%IndInb
+      write(STDOUT, FMTLOGSTDOUT) Gen,AcceptRate,Criterion%Value,Criterion%Penalty,Criterion%Gain,Criterion%GainStand,Criterion%PopInb,Criterion%RatePopInb,Criterion%PopInb2,Criterion%IndInb
+      write(LogUnit,FMTLOGUNIT)   Gen,AcceptRate,Criterion%Value,Criterion%Penalty,Criterion%Gain,Criterion%GainStand,Criterion%PopInb,Criterion%RatePopInb,Criterion%PopInb2,Criterion%IndInb
     end subroutine
 
     !###########################################################################
@@ -2283,7 +2322,12 @@ module AlphaMateModule
       if (ToLower(trim(CritType)) == "min") then
         Criterion%Value=Criterion%Value-Criterion%PopInb
       else
-        TmpR=PopInbPenalty*abs(RatePopInbTarget-Criterion%RatePopInb)
+        TmpR=Criterion%RatePopInb/RatePopInbTarget
+        if (TmpR > 1.0d0) then
+          TmpR=PopInbPenalty*abs(1.0d0-      TmpR)
+        else
+          TmpR=PopInbPenalty*abs(1.0d0-1.0d0/TmpR)
+        end if
         Criterion%Value=Criterion%Value-TmpR
         Criterion%Penalty=Criterion%Penalty+TmpR
       endif
