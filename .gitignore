@@ -4,3 +4,5 @@ objs
 *.o
 *.mod
 *.txt
+.Rhistory
+*.pdf
