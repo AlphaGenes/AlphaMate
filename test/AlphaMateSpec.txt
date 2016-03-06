@@ -6,13 +6,13 @@ NumberOfIndividuals                     ,200
 NumberOfMatings                         ,50
 NumberOfParents                         ,20
 NumberOfMaleParents                     ,10
-NumberOfFemaleParents                   ,25
+NumberOfFemaleParents                   ,50
 EqualizeParentContributions             ,No
 EqualizeMaleParentContributions         ,No
-EqualizeFemaleParentContributions       ,No
+EqualizeFemaleParentContributions       ,Yes
 LimitParentContributions                ,No,5,20,0.01
 LimitMaleParentContributions            ,Yes,5,20,0.01
-LimitFemaleParentContributions          ,Yes,2,5,0.01
+LimitFemaleParentContributions          ,Yes,1,1,0.01
 AllowSelfing                            ,No,0.1
 OldCoancestry                           ,Unknown 0.6965578362500001
 TargetedRateOfPopulationInbreeding      ,0.01,1

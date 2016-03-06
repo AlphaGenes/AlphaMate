@@ -1,4 +1,8 @@
 ! TODO: PAGE
+! TODO: generic way to add reward or penalty on animal or mate basis?
+!       - to handle costs
+!       - to handle variance of crosses
+!       - etc?
 ! TODO: variance within generated crosses - another file with some values per
 !       each possible mating or perhaps just matings that one would consider
 ! TODO: Manual
@@ -1148,7 +1152,7 @@ module AlphaMateModule
   CHARACTER(len=300),PARAMETER :: FMTCONHEAD="(6a12)"
   CHARACTER(len=300),PARAMETER :: FMTCON="(a12,i12,3f12.5,i12,2f12.5)"
   CHARACTER(len=300),PARAMETER :: FMTMATHEAD="(3a12)"
-  CHARACTER(len=300),PARAMETER :: FMTMAT="(3i12)"
+  CHARACTER(len=300),PARAMETER :: FMTMAT="(i12,2a12)"
   CHARACTER(len=300),PARAMETER :: FMTFROHEAD="(a12,7a22)"
   CHARACTER(len=300),PARAMETER :: FMTFRO="(i12,7(1x,es21.14))"
 
@@ -1538,7 +1542,7 @@ module AlphaMateModule
       allocate(Gender(nInd))
       allocate(xVec(nInd))
       allocate(nVec(nInd))
-      allocate(Mate(nMat,2))
+      allocate(Mate(2,nMat))
 
       ! --- Breeding values and relationship matrix ---
 
@@ -1756,7 +1760,7 @@ module AlphaMateModule
 
         open(newunit=UnitContri,file="AlphaMateResults"//DASH//"ContributionsAndMatingsPerIndivMinimumInbreeding.txt",status="unknown")
         !                             1234567890123456789012
-        write(UnitContri,FMTCONHEAD) "      OrigId",&
+        write(UnitContri,FMTCONHEAD) "          Id",&
                                      "      Gender",&
                                      "       Merit",&
                                      " AvgCoancest",&
@@ -1775,7 +1779,7 @@ module AlphaMateModule
                                      "     Parent1",&
                                      "     Parent2"
         do i=1,nMat
-          write(UnitMating,FMTMAT) i,Mate(i,:)
+          write(UnitMating,FMTMAT) i,trim(IdC(Mate(1,i))),trim(IdC(Mate(2,i)))
         end do
         close(UnitMating)
 
@@ -1856,7 +1860,7 @@ module AlphaMateModule
 
       open(newunit=UnitContri,file="AlphaMateResults"//DASH//"ContributionsAndMatingsPerIndivOptimumGain.txt",status="unknown")
       !                             1234567890123456789012
-      write(UnitContri,FMTCONHEAD) "      OrigId",&
+      write(UnitContri,FMTCONHEAD) "          Id",&
                                    "      Gender",&
                                    "       Merit",&
                                    " AvgCoancest",&
@@ -1875,7 +1879,7 @@ module AlphaMateModule
                                    "     Parent1",&
                                    "     Parent2"
       do i=1,nMat
-        write(UnitMating,FMTMAT) i,Mate(i,:)
+        write(UnitMating,FMTMAT) i,trim(IdC(Mate(1,i))),trim(IdC(Mate(2,i)))
       end do
       close(UnitMating)
 
@@ -2340,7 +2344,7 @@ module AlphaMateModule
         do i=1,nPotPar2 ! need to loop whole nVecPar2 as some entries are zero
           do j=1,nVecPar2(i)
             k=k+1
-            MatPar2(k)=i
+            MatPar2(k)=IdPotPar2(i)
           end do
         end do
         ! Reorder parent2 contributions according to the rank of matings
@@ -2357,7 +2361,7 @@ module AlphaMateModule
                 exit
               end if
               k=k+1
-              MatPar2(k)=i
+              MatPar2(k)=IdPotPar1(i)
               nVecPar1(i)=nVecPar1(i)-1
             end do
           end do
@@ -2377,8 +2381,8 @@ module AlphaMateModule
         do i=1,nPotPar1
           do j=1,nVecPar1(i)
             ! print*,k,i,j
-            Mate(k,1)=i
-            Mate(k,2)=MatPar2(k)
+            Mate(1,k)=IdPotPar1(i)
+            Mate(2,k)=MatPar2(k)
             k=k-1
           end do
         end do
@@ -2387,11 +2391,11 @@ module AlphaMateModule
         ! and when .not. SelfingAllowed we do need to care about it - slower code
         do i=1,nPotPar1
           do j=1,nVecPar1(i)
-            Mate(k,1)=i
-            if (MatPar2(k) == i) then
+            Mate(1,k)=IdPotPar1(i)
+            if (MatPar2(k) == IdPotPar1(i)) then
               ! Try to avoid selfing by swapping the MatPar2 and Rank elements
               do l=k,1,-1
-                if (MatPar2(l) /= i) then
+                if (MatPar2(l) /= IdPotPar1(i)) then
                   MatPar2([k,l])=MatPar2([l,k])
                   Sol(nPotPar1+RankSol([k,l]))=Sol(nPotPar1+RankSol([l,k]))
                   exit
@@ -2402,7 +2406,7 @@ module AlphaMateModule
                 Criterion%Penalty=Criterion%Penalty+SelfingPenalty
               end if
             end if
-            Mate(k,2)=MatPar2(k)
+            Mate(2,k)=MatPar2(k)
             k=k-1
           end do
         end do
@@ -2413,8 +2417,8 @@ module AlphaMateModule
       TmpR=0.0d0
       do i=1,nMat
         ! Try to speed-up retrieval by targeting lower triangle
-        TmpMin=minval([Mate(i,1),Mate(i,2)])
-        TmpMax=maxval([Mate(i,1),Mate(i,2)])
+        TmpMin=minval([Mate(1,i),Mate(2,i)])
+        TmpMax=maxval([Mate(1,i),Mate(2,i)])
         TmpR=TmpR+0.5d0*RelMtx(TmpMax,TmpMin)
       end do
       Criterion%IndInb=TmpR/dble(nMat)
