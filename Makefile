@@ -52,9 +52,9 @@ endif
 MODS := $(SRCDIR)AlphaSuiteMod.f90 $(SRCDIR)OrderPackMod.f90 $(SRCDIR)AlphaEvolveMod.f90
 
 # Compile everything
-all: directories $(TARGETDIR)$(NAME)$(exe) $(TARGETDIR)$(NAME)$(exe)
+all: directories $(TARGETDIR)$(NAME)$(exe)
 
-eddie: directories
+eddie: directories Makefile $(MODS) $(SRCDIR)$(NAME).f90
 	$(FC) $(MODS) $(SRCDIR)$(NAME).f90 $(EDDIEFLAGS) -o $(TARGETDIR)$(NAME)$(exe)
 
 directories:
@@ -82,7 +82,7 @@ binary: FFLAGS := $(FFLAGS) -D "BINARY"
 
 binary: all
 # Compile
-$(TARGETDIR)$(NAME)$(exe): $(SRCDIR)$(NAME).f90
+$(TARGETDIR)$(NAME)$(exe): Makefile $(MODS) $(SRCDIR)$(NAME).f90
 	@echo "Compiling $(NAME)..."
 	$(FC) $(MODS) $(SRCDIR)$(NAME).f90 $(FFLAGS) -o $(TARGETDIR)$(NAME)$(exe)
 	@echo
