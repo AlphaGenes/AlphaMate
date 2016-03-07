@@ -32,14 +32,15 @@ else
 	obj := .o
 	OSFLAG := "OS_UNIX"
 	# TODO: can we make this generic?
-	MKLROOT := /opt/intel/mkl
+	MKLROOT := 
 	# On Eddie
 	# MKLROOT:=/exports/applications/apps/intel/ClusterStudio2013/mkl
-	MKLLIB := -L$(MKLROOT)/lib -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -openmp -lpthread -lm
+	MKLLIB := -L $(MKLROOT)/lib -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -openmp -lpthread -lm
 	MKLINC := -I$(MKLROOT)/include
 	exe :=
 	FFLAGS:= $(FFLAGS) -mkl -static-intel -fpp -openmp-link=static -module $(BUILDDIR) -D $(OSFLAG) # -parallel
 	uname := $(shell uname)
+        EDDIEFLAGS:= $(FFLAGS)
 	MAKEDIR := @mkdir -p
 	DEL := rm -rf
 	# Linux only
@@ -49,7 +50,10 @@ else
 endif
 
 # Compile everything
-all: directories $(TARGETDIR)$(NAME)$(exe) $(TARGETDIR)AlphaMate$(exe)
+all: directories $(TARGETDIR)$(NAME)$(exe) $(TARGETDIR)AlphaMate$(exe) 
+
+eddie: directories 
+	$(FC) $(SRCDIR)AlphaMate.f90 $(EDDIEFLAGS) -o $(TARGETDIR)AlphaMate$(exe) 
 
 directories:
 	$(MAKEDIR)  $(TARGETDIR)
@@ -82,7 +86,7 @@ binary: all
 # Compile AlphaMate
 $(TARGETDIR)AlphaMate$(exe): $(SRCDIR)AlphaMate.f90
 	@echo "Compiling AlphaMate..."
-	$(FC) $(SRCDIR)AlphaMate.f90 $(FFLAGS) -o $(TARGETDIR)AlphaMate$(exe)
+	$(FC) $(SRCDIR)AlphaMate.f90 $(FFLAGS) -o $(TARGETDIR)AlphaMate$(exe) 
 	@echo
 
 # Cleaning
