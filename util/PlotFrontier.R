@@ -35,6 +35,7 @@ if (length(LogFiles) < 1 & !file.exists("Frontier.txt")) {
 pdf(file="Frontier.pdf")
 
 if (length(LogFiles) > 0) {
+  ## Get the data
   Dat <- vector(mode="list", length=length(LogFiles))
   for (LogFile in LogFiles) {
     ## LogFile <- "OptimisationLog1MinimumInbreeding.txt"
@@ -44,13 +45,14 @@ if (length(LogFiles) > 0) {
     colnames(Dat[[LogFileCount]]) <- c("Step", "AcceptRate", "Criterion", "Penalties", "Gain", "GainStand", "PopInbreed", "RatePopInb", "PopInbree2", "IndInbreed")
     #Dat[[LogFileCount]] <- Dat[[LogFileCount]][order(Dat[[LogFileCount]]$RatePopInb), ]
     if (FindYLim) {
-      ylim <- range(c(ylim, Dat[[LogFileCount]]$Gain))
+      ylim <- range(c(ylim, Dat[[LogFileCount]]$GainStand))
     }
     if (FindXLim) {
       xlim <- range(c(xlim, Dat[[LogFileCount]]$RatePopInb))
     }
   }
   
+  ## Plot the data
   LogFileCount <- 0
   for (LogFile in LogFiles) {
     ## LogFile <- "OptimisationLog1MinimumInbreeding.txt"
@@ -66,17 +68,24 @@ if (length(LogFiles) > 0) {
     }
     Test <- which.max(Dat[[LogFileCount]]$Step)
     if (LogFileCount == 1) {
-      plot(y=Dat[[LogFileCount]]$Gain, x=Dat[[LogFileCount]]$RatePopInb, type="o",
+      plot(y=Dat[[LogFileCount]]$GainStand, x=Dat[[LogFileCount]]$RatePopInb, type="o",
            pch=21, lwd=0.5, ylim=ylim, xlim=xlim, col=Col, bg=Col,
            cex=0.5*Dat[[LogFileCount]]$Criterion/Dat[[LogFileCount]][Test, "Criterion"],
-           xlab="Rate of inbreeding", ylab="Genetic gain")
+           xlab="Rate of inbreeding", ylab="Genetic gain (standardized)")
     } else {
-      points(y=Dat[[LogFileCount]]$Gain, x=Dat[[LogFileCount]]$RatePopInb, type="o",
+      points(y=Dat[[LogFileCount]]$GainStand, x=Dat[[LogFileCount]]$RatePopInb, type="o",
              pch=21, lwd=0.5, ylim=ylim, xlim=xlim, col=Col, bg=Col,
              cex=0.5*Dat[[LogFileCount]]$Criterion/Dat[[LogFileCount]][Test, "Criterion"])
     }
+    if (LogFile == "OptimisationLog1MinimumInbreeding.txt") {
+      DeltaF <- axis(side=1)
+      CoefF <- Dat[[LogFileCount]][nrow(Dat[[LogFileCount]]), "PopInbreed"]
+      CoefF <- DeltaF*(1-CoefF) + CoefF
+      axis(side=3, at=DeltaF, labels=round(CoefF,digits=3))
+      mtext(side=3, text="Coef. of inbreeding", line=2.5)
+    }
     if (LogFile %in% c("OptimisationLog1MinimumInbreeding.txt", "OptimisationLog2OptimumGain.txt")) {
-      abline(h=Dat[[LogFileCount]][Test, ]$Gain,       lwd=1, lty=2, col=Col)
+      abline(h=Dat[[LogFileCount]][Test, ]$GainStand,  lwd=1, lty=2, col=Col)
       abline(v=Dat[[LogFileCount]][Test, ]$RatePopInb, lwd=1, lty=2, col=Col)
     }
   }
@@ -94,8 +103,8 @@ if (file.exists("Frontier.txt")) {
     Mat <- matrix(nrow=nrow(Frontier),ncol=3)
     Mat[,1] <- 1 # fitted value will be >= observed value (0 for =)
     Mat[,2] <- Frontier$RatePopInb
-    Mat[,3] <- Frontier$Gain
-    Tmp <- cobs(x=Frontier$RatePopInb, y=Frontier$Gain, pointwise=Mat,
+    Mat[,3] <- Frontier$GainStand
+    Tmp <- cobs(x=Frontier$RatePopInb, y=Frontier$GainStand, pointwise=Mat,
                 ic="BIC")#, nknots=10)
     x <- seq(from=min(Frontier$RatePopInb),
              to=max(Frontier$RatePopInb),
@@ -103,7 +112,7 @@ if (file.exists("Frontier.txt")) {
     y <- predict(Tmp, z=x)
     lines(y=y[, 2], x=x, pch=21, cex=.5, lwd=2, col=ColRoslinGray)
   } else {
-    lines(y=Frontier$Gain, x=Frontier$RatePopInb,
+    lines(y=Frontier$GainStand, x=Frontier$RatePopInb,
           pch=21, cex=.5, lwd=2, col=ColRoslinGray)
   }
 }
