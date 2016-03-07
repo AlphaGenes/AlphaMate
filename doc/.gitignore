@@ -1,0 +1,5 @@
+*.tex
+*.html
+_build
+_static
+_templates
