@@ -48,8 +48,10 @@ else
 	endif
 endif
 
+MODS := $(SRCDIR)AlphaSuiteMod.f90 $(SRCDIR)OrderPackMod.f90 $(SRCDIR)AlphaEvolveMod.f90
+
 # Compile everything
-all: directories $(TARGETDIR)$(NAME)$(exe) $(TARGETDIR)AlphaMate$(exe)
+all: directories $(TARGETDIR)$(NAME)$(exe) $(TARGETDIR)$(NAME)$(exe)
 
 directories:
 	$(MAKEDIR)  $(TARGETDIR)
@@ -79,10 +81,10 @@ web: all
 binary: FFLAGS := $(FFLAGS) -D "BINARY"
 
 binary: all
-# Compile AlphaMate
-$(TARGETDIR)AlphaMate$(exe): $(SRCDIR)AlphaMate.f90
-	@echo "Compiling AlphaMate..."
-	$(FC) $(SRCDIR)AlphaMate.f90 $(FFLAGS) -o $(TARGETDIR)AlphaMate$(exe)
+# Compile
+$(TARGETDIR)$(NAME)$(exe): $(SRCDIR)$(NAME).f90
+	@echo "Compiling $(NAME)..."
+	$(FC) $(MODS) $(SRCDIR)$(NAME).f90 $(FFLAGS) -o $(TARGETDIR)$(NAME)$(exe)
 	@echo
 
 # Cleaning
@@ -90,7 +92,7 @@ sparklinglyclean: veryclean
 	rm -rf TARGETDIR
 
 veryclean: clean
-	$(DEL) $(TARGETDIR)AlphaMate$(exe)
+	$(DEL) $(TARGETDIR)$(NAME)$(exe)
 
 clean:
 	$(DEL) -rf $(BUILDDIR) *$(obj) *.mod *.dwarf *.i90 *__genmod* *~

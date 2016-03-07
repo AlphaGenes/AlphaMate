@@ -92,7 +92,7 @@ An example of *AlphaMateSpec.txt* is shown in `Figure 1`_. Text to the left of t
     OldCoancestry                           ,Unknown
     TargetedRateOfPopulationInbreeding      ,0.01,1
     IndividualInbreedingPenalty             ,0.1
-    EvaluateFrontier                        ,No,11,0.000001,0.00001,0.0001,0.0005,0.001,0.005,0.0075,0.025,0.05,0.075,0.1
+    EvaluateFrontier                        ,No,3,0.000001,0.00001,0.0001
     EvolutionaryAlgorithmIterations         ,100,20000,500,1000,0.001,50
     EvolutionaryAlgorithmParameters         ,0.4,0.2,0.1,1.0,4.0
     Seed                                    ,19791123
