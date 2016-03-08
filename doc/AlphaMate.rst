@@ -90,7 +90,7 @@ An example of *AlphaMateSpec.txt* is shown in `Figure 1`_. Text to the left of t
     LimitFemaleParentContributions          ,Yes,1,1,0.01
     AllowSelfing                            ,No,0.1
     OldCoancestry                           ,Unknown
-    TargetedRateOfPopulationInbreeding      ,0.01,1
+    TargetedRateOfPopulationInbreeding      ,0.01,1,Above
     IndividualInbreedingPenalty             ,0.1
     EvaluateFrontier                        ,No,3,0.000001,0.00001,0.0001
     EvolutionaryAlgorithmIterations         ,100,20000,500,1000,0.001,50
@@ -101,11 +101,14 @@ An example of *AlphaMateSpec.txt* is shown in `Figure 1`_. Text to the left of t
 
 **Figure 1**. Example of AlphaMateSpec.txt
 
-**Mode** specifies the mode of running AlphaMate. When mode is ``Min``, the program optimises contributions that would give minimum possible inbreeding. Once the solution is found, the specified level of old coancestry (see **OldCoancestry**) is corroborated. When mode is ``Opt``, the program optimises contributions that would give maximum genetic gain under **TargetedRateOfPopulationInbreeding**. When mode is ``MinThenOpt``, the program runs first the ``Min`` mode and then the ``Opt`` mode. The ``MinThenOpt`` mode requires the least amount of information from the user and should be the default mode if you are new to AlphaMate.
+**Mode** specifies the mode of running AlphaMate.
+* When mode is ``Min``, the program optimises contributions that would give minimum possible inbreeding. Once the solution is found, the specified level of old coancestry (see **OldCoancestry**) is corroborated.
+* When mode is ``Opt``, the program optimises contributions that would give maximum genetic gain under **TargetedRateOfPopulationInbreeding**.
+* When mode is ``MinThenOpt``, the program runs first the ``Min`` mode and then the ``Opt`` mode. The ``MinThenOpt`` mode requires the least amount of information from the user and should be the default mode if you are new to AlphaMate.
 
 **RelationshipMatrixFile** specifies the file holding a relationship matrix. The first column must be individual identification and the subsequent columns are relationship coefficients. Relationship coefficients need to be "proper" - they should reflect probability of sharing genetic material that is identical, either by descent or by state. The relationship matrix can be built from either pedigree or genotype information. We suggest our AlphaAGH program for this task. When using genotype data, make sure to use the Nejati-Javaremi version of relationship matrix and no addition to the diagonal elements of the matrix. This is required to have proper connections between relationship and inbreeding coefficients and the rate of inbreeding within the AlphaMate.
 
-**BreedingValueFile** specifies a file holding (estimated) breeding values. The first must be individual identification and the second column breeding values.
+**BreedingValueFile** specifies a file holding (estimated) breeding values. The first column must be individual identification and the second column breeding values.
 
 **GenderFile**  specifies a file holding gender information. The first must be individual identification and the second column gender coded as 1 for males and 2 for females. When gender is not relevant, i.e., individuals can act both as male or female parents, use keyword *None* and no file need to be provided. Wether gender information is relevant, the program performs optimisation in a different way.
 
@@ -125,18 +128,18 @@ An example of *AlphaMateSpec.txt* is shown in `Figure 1`_. Text to the left of t
 
 **EqualizeFemaleParentContributions** is the same as **EqualizeParentContributions**, but specific for females when gender must be considered.
 
-**LimitParentContributions** specifies minimum and maximum number of contributions allowed. This option is ignored when the first keyword is ``No``. When the first keyword is ``Yes``, the user needs to provide three more values/keywords: minimum number of contributions, maximum number of contributions, and a penalty when such limits can not be imposed. The penalty is added to the optimised objective for each individual. See the section TODO to understand what level of values for penalty should you use.
+**LimitParentContributions** specifies minimum and maximum number of contributions allowed. This option is ignored when the first keyword is ``No``. When the first keyword is ``Yes``, the user needs to provide three more values/keywords: i) minimum number of contributions, ii) maximum number of contributions, and iii) a penalty when such limits can not be imposed. The penalty is added to the optimised objective for each individual that violates the constraints. See the section TODO to understand what level of penalty values should you use.
 
 **LimitMaleParentContributions** is the same as **LimitParentContributions**, but specific for males when gender must be considered.
 
 **LimitFemaleParentContributions** is the same as **LimitParentContributions**, but specific for females when gender must be considered.
 
-**AllowSelfing** specifies whether to allow selfing (the first keyword must be ``Yes``) or not (the first keyword must be ``No``). Selfing is only possible when gender need not be considered. When selfing is not allowed, the second keyword must also be given to specify a penalty - AlphaMate tries to avoid selfing, but sometimes this is not possible for every explored solution during the optimisation and in such a case a penalty is added to the optimised objective for each selfed mating. See the section TODO to understand what level of values for penalty should you use.
+**AllowSelfing** specifies whether to allow selfing (the first keyword must be ``Yes``) or not (the first keyword must be ``No``). Selfing is only possible when gender need not be considered. When selfing is not allowed, the second keyword must also be given to specify a penalty - AlphaMate tries to avoid selfing, but sometimes this is not possible for every explored solution during the optimisation and in such a case a penalty is added to the optimised objective for each selfed mating encountered. See the section TODO to understand what level of values for penalty should you use.
 
 **OldCoancestry** specifies average coancestry among the parents of individuals provided to AlphaMate. This can be either a number, say 0.125, or a keyword ``Unknown``. When keyword ``Unknown`` is specified, AlphaMate attempts to estimate the coancestry from average inbreeding coefficients of individuals provided to AlphaMate. This information is required to compute the rate of inbreeding (the population inbreeding part of objective in AlphaMate). When information about the **OldCoancestry** is not available or imorecise, we propose to use keyword ``Unknown`` and set the **Mode** to ``Min`` or ``MinThenOpt``.
 
 **TargetedRateOfPopulationInbreeding** specifies the rate of inbreeding that AlphaMate should achieve when optimising genetic contributions of selected individuals. The second value specifies the penalty when the rate of inbreeding is either too low or too high.
-See the section TODO to understand what level of values for penalty should you use. this penalty is very important and values around 1.0 guide optimisation to the desired rate of inbreeding (lower values allow for more exlporation, but also less weight on inbreeding versus genetic gain).
+See the section TODO to understand what level of values for penalty should you use. this penalty is very important and values around 1.0 guide optimisation to the desired rate of inbreeding (lower values allow for more exlporation, but also less weight on inbreeding versus genetic gain). The third value specifies if penalty should be applied when the achieved rate of inbreeding is larger then targeted ``Above`` or also when the the achieved rate of inbreeding is lower than targeted ``AboveAndBellow``. The latter is always switched on when evaluating the frontier.
 
 **IndividualInbreedingPenalty specifies a penalty for inbreeding in future progeny given the proposed mating list. While the option **TargetedRateOfPopulationInbreeding** enables control of the genetic diversity of the whole population, this option enables penalising mating lists that give high inbreeding of individual progeny, perhaps with the aim to mitigate inbreeding depression. See the section TODO to understand what level of values for penalty should you use. This penalty is likely to be specific for each example - depending on the level of inbreeding values. If this penalty is set to zero, the produced matings are essentialy random matings.
 

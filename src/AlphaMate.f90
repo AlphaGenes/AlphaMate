@@ -69,7 +69,7 @@ module AlphaMateModule
   CHARACTER(len=300),PARAMETER :: FMTFRO="(i12,7(1x,es21.14))"
 
   logical :: ModeMin,ModeOpt,GenderMatters,EqualizePar1,EqualizePar2
-  logical :: SelfingAllowed,InferPopInbOld,EvaluateFrontier
+  logical :: SelfingAllowed,PopInbPenaltyBellow,InferPopInbOld,EvaluateFrontier
 
   private
   public :: AlphaMateTitles,ReadSpecAndDataForAlphaMate,SetInbreedingParameters
@@ -139,7 +139,7 @@ module AlphaMateModule
         ModeOpt=.true.
         write(STDOUT,"(a)") "Mode: Opt"
       else
-        write(STDERR,"(a)") "ERROR: Undefined mode!"
+        write(STDERR,"(a)") "ERROR: Mode must be: Min, Opt, or MinThenOpt!"
         write(STDERR,"(a)") " "
         stop 1
       end if
@@ -156,7 +156,7 @@ module AlphaMateModule
       call CountLines(BvFile,nIndTmp)
 
       if (nIndTmp /= nInd) then
-        write(STDERR,"(a)") "ERROR: Number of individuals in ebv file and Relationship Matrix file is not the same!"
+        write(STDERR,"(a)") "ERROR: Number of individuals in Ebv file and Relationship Matrix file is not the same!"
         write(STDERR,"(a)") " "
         stop 1
       end if
@@ -247,19 +247,24 @@ module AlphaMateModule
 
       ! EqualizeParentContributions
       read(UnitSpec,*) DumC,DumC
-      if (ToLower(trim(DumC)) == "yes") then
-        EqualizePar1=.true.
-        write(STDOUT,"(a)") "EqualizeParentContributions: yes"
-      else
-        EqualizePar1=.false.
-        write(STDOUT,"(a)") "EqualizeParentContributions: no"
+      if (.not.GenderMatters) then
+        if      (ToLower(trim(DumC)) == "no") then
+          EqualizePar1=.true.
+          write(STDOUT,"(a)") "EqualizeParentContributions: yes"
+        else if (ToLower(trim(DumC)) == "yes") then
+          EqualizePar1=.false.
+          write(STDOUT,"(a)") "EqualizeParentContributions: no"
+        else
+          write(STDERR,"(a)") "ERROR: EqualizeParentContributions must be: Yes or no!"
+          write(STDERR,"(a)") " "
+          stop 1
+        end if
       end if
 
       ! EqualizeMaleParentContributions
       read(UnitSpec,*) DumC,DumC
-      if (ToLower(trim(DumC)) == "yes") then
-        if (GenderMatters) then
-          EqualizePar1=.true.
+      if (GenderMatters) then
+        if      (ToLower(trim(DumC)) == "yes") then
           if (mod(nMat,nPar1) /= 0) then
             ! TODO: might consider handling this better at some point
             write(STDERR,"(a)") "ERROR: When contributions are equalized the number of matings needs to divide into the number of parents"
@@ -269,25 +274,22 @@ module AlphaMateModule
             write(STDERR,"(a)") " "
             stop 1
           end if
+          EqualizePar1=.true.
           write(STDOUT,"(a)") "EqualizeMaleParentContributions: yes"
+        else if (ToLower(trim(DumC)) == "no") then
+          EqualizePar1=.false.
+          write(STDOUT,"(a)") "EqualizeMaleParentContributions: no"
         else
-          EqualizePar1=.false.
-          write(STDOUT,"(a)") "EqualizeMaleParentContributions: no"
-          write(STDOUT,"(a)") "NOTE: Equalize male parent contributions option ignored when the gender file is not given!"
-          write(STDOUT,"(a)") " "
-        end if
-      else
-        if (GenderMatters) then
-          EqualizePar1=.false.
-          write(STDOUT,"(a)") "EqualizeMaleParentContributions: no"
+          write(STDERR,"(a)") "ERROR: EqualizeMaleParentContributions must be: Yes or No!"
+          write(STDERR,"(a)") " "
+          stop 1
         end if
       end if
 
       ! EqualizeFemaleParentContributions
       read(UnitSpec,*) DumC,DumC
-      if (ToLower(trim(DumC)) == "yes") then
-        if (GenderMatters) then
-          EqualizePar2=.true.
+      if (GenderMatters) then
+        if      (ToLower(trim(DumC)) == "yes") then
           if (mod(nMat,nPar2) /= 0) then
             ! TODO: might consider handling this better at some point
             write(STDERR,"(a)") "ERROR: When contributions are equalized the number of matings needs to divide into the number of parents"
@@ -297,17 +299,15 @@ module AlphaMateModule
             write(STDERR,"(a)") " "
             stop 1
           end if
+          EqualizePar2=.true.
           write(STDOUT,"(a)") "EqualizeFemaleParentContributions: yes"
+        else if (ToLower(trim(DumC)) == "no") then
+          EqualizePar2=.false.
+          write(STDOUT,"(a)") "EqualizeFemaleParentContributions: no"
         else
-          EqualizePar2=.false.
-          write(STDOUT,"(a)") "EqualizeFemaleParentContributions: no"
-          write(STDOUT,"(a)") "NOTE: Equalize female parent contributions option ignored when the gender file is not given!"
-          write(STDOUT,"(a)") " "
-        end if
-      else
-        if (GenderMatters) then
-          EqualizePar2=.false.
-          write(STDOUT,"(a)") "EqualizeFemaleParentContributions: no"
+          write(STDERR,"(a)") "ERROR: EqualizeFemaleParentContributions must be: Yes or No!"
+          write(STDERR,"(a)") " "
+          stop 1
         end if
       end if
 
@@ -316,25 +316,31 @@ module AlphaMateModule
       LimitPar1Min=1.0d0
       LimitPar1Max=huge(LimitPar1Max)-1.0d0
       LimitPar1Penalty=0.0d0
-      if (ToLower(trim(DumC)) == "yes") then
-        if (EqualizePar1) then
+      if (.not.GenderMatters) then
+        if      (ToLower(trim(DumC)) == "yes") then
+          if (EqualizePar1) then
+            write(STDOUT,"(a)") "LimitParentContributions: no"
+            write(STDOUT,"(a)") "NOTE: Limit parent contributions option ignored when contributions are to be equalized!"
+            write(STDOUT,"(a)") " "
+          else
+            backspace(UnitSpec)
+            read(UnitSpec,*) DumC,DumC,LimitPar1Min,LimitPar1Max,LimitPar1Penalty
+            write(STDOUT,"(a,i9,a,i9,a,f9.5)") "LimitParentContributions: yes, min ",&
+              nint(LimitPar1Min),", max ",nint(LimitPar1Max),", penalty ",LimitPar1Penalty
+          end if
+        else if (ToLower(trim(DumC)) == "no") then
           write(STDOUT,"(a)") "LimitParentContributions: no"
-          write(STDOUT,"(a)") "NOTE: Limit parent contributions option ignored when contributions are to be equalized!"
-          write(STDOUT,"(a)") " "
         else
-          backspace(UnitSpec)
-          read(UnitSpec,*) DumC,DumC,LimitPar1Min,LimitPar1Max,LimitPar1Penalty
-          write(STDOUT,"(a,i9,a,i9,a,f9.5)") "LimitParentContributions: yes, min ",&
-            nint(LimitPar1Min),", max ",nint(LimitPar1Max),", penalty ",LimitPar1Penalty
+          write(STDERR,"(a)") "ERROR: LimitParentContributions must be: Yes or No!"
+          write(STDERR,"(a)") " "
+          stop 1
         end if
-      else
-        write(STDOUT,"(a)") "LimitParentContributions: no"
       end if
 
       ! LimitMaleParentContributions
       read(UnitSpec,*) DumC,DumC
-      if (ToLower(trim(DumC)) == "yes") then
-        if (GenderMatters) then
+      if (GenderMatters) then
+        if      (ToLower(trim(DumC)) == "yes") then
           if (EqualizePar1) then
             write(STDOUT,"(a)") "LimitMaleParentContributions: no"
             write(STDOUT,"(a)") "NOTE: Limit male parent contributions option ignored when contributions are to be equalized!"
@@ -345,14 +351,12 @@ module AlphaMateModule
             write(STDOUT,"(a,i9,a,i9,a,f9.5)") "LimitMaleParentContributions: yes, min ",&
               nint(LimitPar1Min),", max ",nint(LimitPar1Max),", penalty ",LimitPar1Penalty
           end if
+        else if (ToLower(trim(DumC)) == "no") then
+          write(STDOUT,"(a)") "LimitMaleParentContributions: no"
         else
-          write(STDOUT,"(a)") "LimitMaleParentContributions: no"
-          write(STDOUT,"(a)") "NOTE: Limit male parent contributions option ignored when the gender file is not given!"
-          write(STDOUT,"(a)") " "
-        end if
-      else
-        if (GenderMatters) then
-          write(STDOUT,"(a)") "LimitMaleParentContributions: no"
+          write(STDERR,"(a)") "ERROR: LimitMaleParentContributions must be: Yes or No!"
+          write(STDERR,"(a)") " "
+          stop 1
         end if
       end if
 
@@ -361,8 +365,8 @@ module AlphaMateModule
       LimitPar2Min=1.0d0
       LimitPar2Max=huge(LimitPar2Max)-1.0d0
       LimitPar2Penalty=0.0d0
-      if (ToLower(trim(DumC)) == "yes") then
-        if (GenderMatters) then
+      if (GenderMatters) then
+        if      (ToLower(trim(DumC)) == "yes") then
           if (EqualizePar2) then
             write(STDOUT,"(a)") "LimitFemaleParentContributions: no"
             write(STDOUT,"(a)") "NOTE: Limit female parent contributions option ignored when contributions are to be equalized!"
@@ -373,32 +377,34 @@ module AlphaMateModule
             write(STDOUT,"(a,i9,a,i9,a,f9.5)") "LimitFemaleParentContributions: yes, min ",&
               nint(LimitPar2Min),", max ",nint(LimitPar2Max),", penalty ",LimitPar2Penalty
           end if
+        else if (ToLower(trim(DumC)) == "no") then
+          write(STDOUT,"(a)") "LimitFemaleParentContributions: no"
         else
-          write(STDOUT,"(a)") "LimitFemaleParentContributions: no"
-          write(STDOUT,"(a)") "NOTE: Limit female parent contributions option ignored when the gender file is not given!"
-          write(STDOUT,"(a)") " "
-        end if
-      else
-        if (GenderMatters) then
-          write(STDOUT,"(a)") "LimitFemaleParentContributions: no"
+          write(STDERR,"(a)") "ERROR: LimitFemaleParentContributions must be: Yes or No!"
+          write(STDERR,"(a)") " "
+          stop 1
         end if
       end if
 
       ! AllowSelfing
       read(UnitSpec,*) DumC,DumC
-      if (ToLower(trim(DumC)) == "yes") then
+      if      (ToLower(trim(DumC)) == "yes") then
         SelfingAllowed=.true.
         if (.not.GenderMatters) then
           write(STDOUT,"(a)") "AllowSelfing: Yes"
-          ! TODO: make it clear in the manual that when GenderMatters, we avoid selfing
-          !       by design. In that case selfing can be achieved if a user includes the
-          !       same individual as male and female individual in the data!
+        else
+          write(STDOUT,"(a)") "NOTE: When gender matters, AlphaMate can not perform selfing! See the manual for a solution."
+          write(STDOUT,"(a)") " "
         end if
-      else
+      else if (ToLower(trim(DumC)) == "no") then
         SelfingAllowed=.false.
         backspace(UnitSpec)
         read(UnitSpec,*) DumC,DumC,SelfingPenalty
         write(STDOUT,"(a,f9.5)") "AllowSelfing: no, penalty ",SelfingPenalty
+      else
+        write(STDERR,"(a)") "ERROR: AllowSelfing must be: Yes or No!"
+        write(STDERR,"(a)") " "
+        stop 1
       end if
 
       ! OldCoancestry
@@ -414,8 +420,17 @@ module AlphaMateModule
       end if
 
       ! TargetedRateOfPopulationInbreeding
-      read(UnitSpec,*) DumC,RatePopInbTarget,PopInbPenalty
-      write(STDOUT,"(a,f9.5,a,f9.5)") "TargetedRateOfPopulationInbreeding: ",RatePopInbTarget,", penalty ",PopInbPenalty
+      read(UnitSpec,*) DumC,RatePopInbTarget,PopInbPenalty,DumC
+      if      (ToLower(trim(DumC)) == "above") then
+        PopInbPenaltyBellow=.false.
+      else if (ToLower(trim(DumC)) == "aboveandbellow") then
+        PopInbPenaltyBellow=.true.
+      else
+        write(STDERR,"(a)") "ERROR: PopInbPenaltyMode must be: Above or AboveAndBellow!"
+        write(STDERR,"(a)") " "
+        stop 1
+      end if
+      write(STDOUT,"(a,f9.5,a,f9.5,a)") "TargetedRateOfPopulationInbreeding: ",RatePopInbTarget,", penalty ",PopInbPenalty, ", mode "//DumC
 
       ! IndividualInbreedingPenalty
       read(UnitSpec,*) DumC,IndInbPenalty
@@ -423,10 +438,10 @@ module AlphaMateModule
 
       ! EvaluateFrontier
       read(UnitSpec,*) DumC,DumC
-      if (ToLower(trim(DumC)) == "no") then
+      if      (ToLower(trim(DumC)) == "no") then
         EvaluateFrontier=.false.
         write(STDOUT,"(a)") "EvaluateFrontier: no"
-      else
+      else if (ToLower(trim(DumC)) == "yes") then
         EvaluateFrontier=.true.
         backspace(UnitSpec)
         read(UnitSpec,*) DumC,DumC,nFrontierSteps
@@ -434,6 +449,10 @@ module AlphaMateModule
         backspace(UnitSpec)
         read(UnitSpec,*) DumC,DumC,nFrontierSteps,RatePopInbFrontier(:)
         write(STDOUT,"(a,i9)") "EvaluateFrontier: yes, #steps: ",nFrontierSteps
+      else
+        write(STDERR,"(a)") "ERROR: EvaluateFrontier must be: Yes or No!"
+        write(STDERR,"(a)") " "
+        stop 1
       end if
 
       ! EvolutionaryAlgorithmIterations
@@ -813,6 +832,8 @@ module AlphaMateModule
       if (EvaluateFrontier) then
         write(STDOUT,"(a)") "Evaluate the full frontier (this might take quite some time!):"
         write(STDOUT,"(a)") " "
+
+        PopInbPenaltyBellow=.true. ! we want to target certain rates of inbreeding
 
         open(newunit=UnitFrontier,file="AlphaMateResults"//DASH//"Frontier.txt",status="unknown")
         !                               1234567890123456789012
@@ -1257,7 +1278,11 @@ module AlphaMateModule
         if (TmpR > 1.0d0) then
           TmpR=PopInbPenalty*abs(1.0d0-      TmpR)
         else
-          TmpR=PopInbPenalty*abs(1.0d0-1.0d0/TmpR)
+          if (PopInbPenaltyBellow) then
+            TmpR=PopInbPenalty*abs(1.0d0-1.0d0/TmpR)
+          else
+            TmpR=0.0d0
+          end if
         end if
         Criterion%Value=Criterion%Value-TmpR
         Criterion%Penalty=Criterion%Penalty+TmpR

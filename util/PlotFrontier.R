@@ -32,7 +32,7 @@ if (length(LogFiles) < 1 & !file.exists("Frontier.txt")) {
   stop("ERROR: No optimisation and frontier log files to plot!")
 }
 
-pdf(file="Frontier.pdf")
+pdf(file="Frontier.pdf", width=10, height=10*2/3, pointsize=14)
 
 if (length(LogFiles) > 0) {
   ## Get the data
