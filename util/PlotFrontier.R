@@ -67,15 +67,15 @@ if (length(LogFiles) > 0) {
       Col <- ColRoslinGray
     }
     Test <- which.max(Dat[[LogFileCount]]$Step)
+    Ratio <- Dat[[LogFileCount]]$Criterion/Dat[[LogFileCount]][Test, "Criterion"]
+    Ratio <- Ratio/max(Ratio)
     if (LogFileCount == 1) {
       plot(y=Dat[[LogFileCount]]$GainStand, x=Dat[[LogFileCount]]$RatePopInb, type="o",
-           pch=21, lwd=0.5, ylim=ylim, xlim=xlim, col=Col, bg=Col,
-           cex=0.5*Dat[[LogFileCount]]$Criterion/Dat[[LogFileCount]][Test, "Criterion"],
+           pch=21, lwd=0.5, ylim=ylim, xlim=xlim, col=Col, bg=Col, cex=0.5*Ratio,
            xlab="Rate of inbreeding", ylab="Genetic gain (standardized)")
     } else {
       points(y=Dat[[LogFileCount]]$GainStand, x=Dat[[LogFileCount]]$RatePopInb, type="o",
-             pch=21, lwd=0.5, ylim=ylim, xlim=xlim, col=Col, bg=Col,
-             cex=0.5*Dat[[LogFileCount]]$Criterion/Dat[[LogFileCount]][Test, "Criterion"])
+             pch=21, lwd=0.5, ylim=ylim, xlim=xlim, col=Col, bg=Col, cex=0.5*Ratio)
     }
     if (LogFile == "OptimisationLog1MinimumInbreeding.txt") {
       DeltaF <- axis(side=1)
@@ -88,6 +88,7 @@ if (length(LogFiles) > 0) {
       abline(h=Dat[[LogFileCount]][Test, ]$GainStand,  lwd=1, lty=2, col=Col)
       abline(v=Dat[[LogFileCount]][Test, ]$RatePopInb, lwd=1, lty=2, col=Col)
     }
+    #readline(prompt=cat("Pause:", LogFile))
   }
 }
 
