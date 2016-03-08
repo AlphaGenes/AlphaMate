@@ -101,7 +101,7 @@ An example of *AlphaMateSpec.txt* is shown in `Figure 1`_. Text to the left of t
 
 **Figure 1**. Example of AlphaMateSpec.txt
 
-**Mode** defines the mode of running AlphaMate. When mode is ``MinThenOpt``, the program at first optimises contributions that would give minimum possible inbreeding. Once the solution is found, the defined level of coancestry is corroborated and a targeted level of inbreeding is defined given the minimum possible inbreeding and **TargetedRateOfPopulationInbreeding**. Finally, the program optimises contributions that would give maximum genetic gain under targeted rate of inbreeding. When mode is ``Opt``, the program skips finding the minimum possible inbreeding.
+**Mode** specifies the mode of running AlphaMate. When mode is ``Min``, the program optimises contributions that would give minimum possible inbreeding. Once the solution is found, the specified level of old coancestry (see **OldCoancestry**) is corroborated. When mode is ``Opt``, the program optimises contributions that would give maximum genetic gain under **TargetedRateOfPopulationInbreeding**. When mode is ``MinThenOpt``, the program runs first the ``Min`` mode and then the ``Opt`` mode. The ``MinThenOpt`` mode requires the least amount of information from the user and should be the default mode if you are new to AlphaMate.
 
 **RelationshipMatrixFile** specifies the file holding a relationship matrix. The first column must be individual identification and the subsequent columns are relationship coefficients. Relationship coefficients need to be "proper" - they should reflect probability of sharing genetic material that is identical, either by descent or by state. The relationship matrix can be built from either pedigree or genotype information. We suggest our AlphaAGH program for this task. When using genotype data, make sure to use the Nejati-Javaremi version of relationship matrix and no addition to the diagonal elements of the matrix. This is required to have proper connections between relationship and inbreeding coefficients and the rate of inbreeding within the AlphaMate.
 
@@ -133,7 +133,7 @@ An example of *AlphaMateSpec.txt* is shown in `Figure 1`_. Text to the left of t
 
 **AllowSelfing** specifies whether to allow selfing (the first keyword must be ``Yes``) or not (the first keyword must be ``No``). Selfing is only possible when gender need not be considered. When selfing is not allowed, the second keyword must also be given to specify a penalty - AlphaMate tries to avoid selfing, but sometimes this is not possible for every explored solution during the optimisation and in such a case a penalty is added to the optimised objective for each selfed mating. See the section TODO to understand what level of values for penalty should you use.
 
-**OldCoancestry** specifies average coancestry among the parents of individuals provided to AlphaMate. This can be either a number, say 0.125, or a keyword ``Unknown``. When keyword ``Unknown`` is specified, AlphaMate attempts to estimate the coancestry from average inbreeding coefficients of individuals provided to AlphaMate. This information is required to defined the level of inbreeding coefficient AlphaMate tries to optimise under.
+**OldCoancestry** specifies average coancestry among the parents of individuals provided to AlphaMate. This can be either a number, say 0.125, or a keyword ``Unknown``. When keyword ``Unknown`` is specified, AlphaMate attempts to estimate the coancestry from average inbreeding coefficients of individuals provided to AlphaMate. This information is required to compute the rate of inbreeding (the population inbreeding part of objective in AlphaMate). When information about the **OldCoancestry** is not available or imorecise, we propose to use keyword ``Unknown`` and set the **Mode** to ``Min`` or ``MinThenOpt``.
 
 **TargetedRateOfPopulationInbreeding** specifies the rate of inbreeding that AlphaMate should achieve when optimising genetic contributions of selected individuals. The second value specifies the penalty when the rate of inbreeding is either too low or too high.
 See the section TODO to understand what level of values for penalty should you use. this penalty is very important and values around 1.0 guide optimisation to the desired rate of inbreeding (lower values allow for more exlporation, but also less weight on inbreeding versus genetic gain).
@@ -142,15 +142,15 @@ See the section TODO to understand what level of values for penalty should you u
 
 **EvaluateFrontier** specifies if AlphaMate should evaluate frontier of Pareto equivalent solutions (the first keyword must be ``Yes``) or no. If ``Yes``, then the second keyword specifies the number of points on the Pareto curve, followed by the rates of inbreeding for each point on the curve.
 
-**EvolutionaryAlgorithmIterations** controls the evolutinary algorithm. The first keyword defines how many solutions should the algorithm test every iteration - values around 100 seems to be ok. The second keyword defines the maximum number of iteration the algorithm should run. The third keyword defines the number of so called "burn-in" iterations, where the aglgorithm is exploring solutions with "large/bold steps". The fourth and fifth keywords define the number of iterations to stop optimisation if objective is not improving for a given precision. The sixth keyword defines an interval to print optimisation results.
+**EvolutionaryAlgorithmIterations** controls the evolutinary algorithm. The first keyword specifies how many solutions should the algorithm test every iteration - values around 100 seems to be ok. The second keyword specifies the maximum number of iteration the algorithm should run. The third keyword specifies the number of so called "burn-in" iterations, where the aglgorithm is exploring solutions with "large/bold steps". The fourth and fifth keywords specifies the number of iterations to stop optimisation if objective is not improving for a given precision. The sixth keyword specifies an interval to print optimisation results.
 
 **EvolutionaryAlgorithmParameters** control the evolutinary algorithm "engine" (these are advanced options and should only be changed with great caution). The keywords are: cross-over parameter in the "burn-in" phase and after it, the base mutation parameter and two more values for the mutation parameter to enable large/bold jumps in the optimisation - can help with local optima.
 
 **Seed** specifies the seed value for random number generation. If ``None`` is given, a seed value is generated by the program.
 
 
-Output files TODO
-------------
+Output files TODO STOPPED HERE
+------------------------------
 The output of AlphaMate is organised in three directories (*Chromosomes*, *Selection* and *SimulatedData*). A description of what is contained within each of these directories is given below.
 
 In addition to output files, AlphaSim prints statements in the terminal. This output contains information about the process, some synthetic results, error statements and notes. Error statements stop the simulating process. In contrast, notes do not stop the simulating process; however, they can be useful to track an error that would not have been indicated by the program.

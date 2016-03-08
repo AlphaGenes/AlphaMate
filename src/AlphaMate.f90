@@ -68,7 +68,7 @@ module AlphaMateModule
   CHARACTER(len=300),PARAMETER :: FMTFROHEAD="(a12,7a22)"
   CHARACTER(len=300),PARAMETER :: FMTFRO="(i12,7(1x,es21.14))"
 
-  logical :: MinThenOpt,GenderMatters,EqualizePar1,EqualizePar2
+  logical :: ModeMin,ModeOpt,GenderMatters,EqualizePar1,EqualizePar2
   logical :: SelfingAllowed,InferPopInbOld,EvaluateFrontier
 
   private
@@ -127,11 +127,21 @@ module AlphaMateModule
       ! Mode
       read(UnitSpec,*) DumC,DumC
       if (ToLower(trim(DumC)) == "minthenopt") then
-        MinThenOpt=.true.
-        write(STDOUT,"(a,l)") "Mode: MinThenOpt"
+        ModeMin=.true.
+        ModeOpt=.true.
+        write(STDOUT,"(a)") "Mode: MinThenOpt"
+      else if (ToLower(trim(DumC)) == "min") then
+        ModeMin=.true.
+        ModeOpt=.false.
+        write(STDOUT,"(a)") "Mode: Min"
+      else if (ToLower(trim(DumC)) == "opt") then
+        ModeMin=.false.
+        ModeOpt=.true.
+        write(STDOUT,"(a)") "Mode: Opt"
       else
-        MinThenOpt=.false.
-        write(STDOUT,"(a,l)") "Mode: Opt"
+        write(STDERR,"(a)") "ERROR: Undefined mode!"
+        write(STDERR,"(a)") " "
+        stop 1
       end if
 
       ! RelationshipMatrixFile
@@ -604,7 +614,7 @@ module AlphaMateModule
       end if
 
       ! New inbreeding
-      PopInbTarget=PopInbOld*(1.0d0-RatePopInbTarget)+RatePopInbTarget
+      PopInbTarget=PopInbOld+RatePopInbTarget*(1.0d0-PopInbOld)
 
       ! Report
       write(STDOUT,"(a,f9.5)") "Old coancestry: ",PopInbOld
@@ -646,7 +656,7 @@ module AlphaMateModule
 
       ! --- Optimise for minimum inbreeding ---
 
-      if (MinThenOpt) then
+      if (ModeMin) then
         write(STDOUT,"(a)") "Optimise for minimum inbreeding:"
         write(STDOUT,"(a)") " "
 
@@ -702,7 +712,7 @@ module AlphaMateModule
           write(STDOUT,"(a)") "NOTE:   recomputing the log file values and the targeted 'population' inbreeding."
           write(STDOUT,"(a)") " "
           PopInbOld=CritMin%PopInb
-          PopInbTarget=(1.0d0-RatePopInbTarget)*PopInbOld+RatePopInbTarget
+          PopInbTarget=PopInbOld+RatePopInbTarget*(1.0d0-PopInbOld)
           CritMin%RatePopInb=0.0d0
 
           Success=SystemQQ(COPY//" "//EvolAlgLogFile//" "//EvolAlgLogFile2)
@@ -719,6 +729,7 @@ module AlphaMateModule
           call EvolAlgLogHeaderForAlphaMate(UnitLog)
           do i=2,nTmp
             read(UnitLog2,*) DumI,DumR(:)
+            ! RatePopInb=(F(t)-F(min))/(1-F(min))
             DumR(7)=(DumR(6)-CritMin%PopInb)/(1.0d0-CritMin%PopInb)
             write(STDOUT, FMTLOGSTDOUT) DumI,DumR(:)
             write(UnitLog,FMTLOGUNIT)   DumI,DumR(:)
@@ -752,48 +763,50 @@ module AlphaMateModule
 
       ! --- Optimise for maximum gain with constraint on inbreeding ---
 
-      write(STDOUT,"(a)") "Optimise for maximum gain with constraint on inbreeding:"
-      write(STDOUT,"(a)") " "
+      if (ModeOpt) then
+        write(STDOUT,"(a)") "Optimise for maximum gain with constraint on inbreeding:"
+        write(STDOUT,"(a)") " "
 
-      EvolAlgLogFile="AlphaMateResults"//DASH//"OptimisationLog2OptimumGain.txt"
-      if (GenderMatters) then
-        nTmp=nPotPar1+nPotPar2+nMat ! TODO: add PAGE dimension
-      else
-        nTmp=nPotPar1+nMat          ! TODO: add PAGE dimension
+        EvolAlgLogFile="AlphaMateResults"//DASH//"OptimisationLog2OptimumGain.txt"
+        if (GenderMatters) then
+          nTmp=nPotPar1+nPotPar2+nMat ! TODO: add PAGE dimension
+        else
+          nTmp=nPotPar1+nMat          ! TODO: add PAGE dimension
+        end if
+        call EvolAlgDE(nParam=nTmp,nSol=EvolAlgNSol,nGen=EvolAlgNGen,nGenBurnIn=EvolAlgNGenBurnIn,&
+                       nGenStop=EvolAlgNGenStop,StopTolerance=EvolAlgStopTol,&
+                       nGenPrint=EvolAlgNGenPrint,File=EvolAlgLogFile,CritType="Opt",&
+                       CRBurnIn=EvolAlgCRBurnIn,CRLate=EvolAlgCRLate,&
+                       FBase=EvolAlgFBase,FHigh1=EvolAlgFHigh1,FHigh2=EvolAlgFHigh2,&
+                       CalcCriterion=FixSolMateAndCalcCrit,&
+                       LogHeader=EvolAlgLogHeaderForAlphaMate,Log=EvolAlgLogForAlphaMate,&
+                       BestCriterion=CritOpt)
+
+        open(newunit=UnitContri,file="AlphaMateResults"//DASH//"ContributionsAndMatingsPerIndivOptimumGain.txt",status="unknown")
+        !                             1234567890123456789012
+        write(UnitContri,FMTCONHEAD) "          Id",&
+                                     "      Gender",&
+                                     "       Merit",&
+                                     " AvgCoancest",&
+                                     "  Contribute",&
+                                     "    nMatings"
+        call MrgRnk(nVec,Rank)
+        do i=nInd,1,-1 ! MrgRnk ranks small to large
+          j=Rank(i)
+          write(UnitContri,FMTCON) trim(IdC(j)),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),nVec(j)
+        end do
+        close(UnitContri)
+
+        open(newunit=UnitMating,file="AlphaMateResults"//DASH//"MatingListOptimumGain.txt",status="unknown")
+        !                             1234567890123456789012
+        write(UnitMating,FMTMATHEAD) "      Mating",&
+                                     "     Parent1",&
+                                     "     Parent2"
+        do i=1,nMat
+          write(UnitMating,FMTMAT) i,trim(IdC(Mate(1,i))),trim(IdC(Mate(2,i)))
+        end do
+        close(UnitMating)
       end if
-      call EvolAlgDE(nParam=nTmp,nSol=EvolAlgNSol,nGen=EvolAlgNGen,nGenBurnIn=EvolAlgNGenBurnIn,&
-                     nGenStop=EvolAlgNGenStop,StopTolerance=EvolAlgStopTol,&
-                     nGenPrint=EvolAlgNGenPrint,File=EvolAlgLogFile,CritType="Opt",&
-                     CRBurnIn=EvolAlgCRBurnIn,CRLate=EvolAlgCRLate,&
-                     FBase=EvolAlgFBase,FHigh1=EvolAlgFHigh1,FHigh2=EvolAlgFHigh2,&
-                     CalcCriterion=FixSolMateAndCalcCrit,&
-                     LogHeader=EvolAlgLogHeaderForAlphaMate,Log=EvolAlgLogForAlphaMate,&
-                     BestCriterion=CritOpt)
-
-      open(newunit=UnitContri,file="AlphaMateResults"//DASH//"ContributionsAndMatingsPerIndivOptimumGain.txt",status="unknown")
-      !                             1234567890123456789012
-      write(UnitContri,FMTCONHEAD) "          Id",&
-                                   "      Gender",&
-                                   "       Merit",&
-                                   " AvgCoancest",&
-                                   "  Contribute",&
-                                   "    nMatings"
-      call MrgRnk(nVec,Rank)
-      do i=nInd,1,-1 ! MrgRnk ranks small to large
-        j=Rank(i)
-        write(UnitContri,FMTCON) trim(IdC(j)),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),nVec(j)
-      end do
-      close(UnitContri)
-
-      open(newunit=UnitMating,file="AlphaMateResults"//DASH//"MatingListOptimumGain.txt",status="unknown")
-      !                             1234567890123456789012
-      write(UnitMating,FMTMATHEAD) "      Mating",&
-                                   "     Parent1",&
-                                   "     Parent2"
-      do i=1,nMat
-        write(UnitMating,FMTMAT) i,trim(IdC(Mate(1,i))),trim(IdC(Mate(2,i)))
-      end do
-      close(UnitMating)
 
       ! --- Evaluate the full frontier ---
 
@@ -811,12 +824,14 @@ module AlphaMateModule
                                        "            PopInbree2",&
                                        "            IndInbreed"
         j=0
-        if (MinThenOpt) then
+        if (ModeMin) then
           j=j+1
           write(UnitFrontier,FMTFRO) j,CritMin%Value,CritMin%Gain,CritMin%GainStand,CritMin%PopInb,CritMin%RatePopInb,CritMin%PopInb2,CritMin%IndInb
         end if
-        j=j+1
-        write(UnitFrontier,FMTFRO)   j,CritOpt%Value,CritOpt%Gain,CritOpt%GainStand,CritOpt%PopInb,CritOpt%RatePopInb,CritMin%PopInb2,CritOpt%IndInb
+        if (ModeOpt) then
+          j=j+1
+          write(UnitFrontier,FMTFRO) j,CritOpt%Value,CritOpt%Gain,CritOpt%GainStand,CritOpt%PopInb,CritOpt%RatePopInb,CritMin%PopInb2,CritOpt%IndInb
+        end if
 
         ! Hold old results
         PopInbTargetHold=PopInbTarget
@@ -825,7 +840,7 @@ module AlphaMateModule
         ! Evaluate
         do i=1,nFrontierSteps
           RatePopInbTarget=RatePopInbFrontier(i)
-          PopInbTarget=(1.0d0-RatePopInbTarget)*PopInbOld+RatePopInbTarget
+          PopInbTarget=PopInbOld+RatePopInbTarget*(1.0d0-PopInbOld)
           write(STDOUT,"(a,i3,a,i3,a,f8.5,a,f8.5,a)") "Step ",i," out of ",nFrontierSteps, " for the rate of inbreeding of ",RatePopInbTarget,&
                                                       " (=pop. inbreed. of ",PopInbTarget,")"
           write(STDOUT,"(a)") ""
