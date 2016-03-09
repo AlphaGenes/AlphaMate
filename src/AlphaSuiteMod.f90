@@ -74,7 +74,7 @@ module AlphaSuiteModule
       ! Other
       integer(int32) :: i,j,k
 
-      real(real64) :: wk(n-1)
+      real(real64) :: wk(n)
 
       do i=1,n
         order(i)=i
