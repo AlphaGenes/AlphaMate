@@ -8,11 +8,18 @@ module AlphaSuiteModule
   implicit none
 
   private
-  public :: CountLines,Int2Char,RandomOrder,SetSeed,ToLower
+  public :: CountLines,Int2Char,Real2Char,RandomOrder,SetSeed,ToLower
 
   ! List of characters for case conversion in ToLower
   CHARACTER(*),PARAMETER :: LOWER_CASE = 'abcdefghijklmnopqrstuvwxyz'
   CHARACTER(*),PARAMETER :: UPPER_CASE = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+
+  interface Real2Char
+    module procedure RealS2Char,RealD2Char
+  end interface
+
+  ! TODO: add Char2Real
+  ! TODO: add Char2Int
 
   contains
 
@@ -46,17 +53,64 @@ module AlphaSuiteModule
 
     !###########################################################################
 
-    function Int2Char(i) result(Res)
+    function Int2Char(i,fmt) result(Res)
       ! From http://stackoverflow.com/questions/1262695/converting-integers-to-strings-in-fortran
 
       implicit none
 
-      integer(int32),intent(in) :: i
+      integer(int32),intent(in)        :: i
+      character(*),intent(in),optional :: fmt
 
       character(:),allocatable :: Res
       character(range(i)+2) :: Tmp
 
-      write(Tmp,'(i0)') i
+      if (present(fmt)) then
+        write(Tmp,fmt) i
+      else
+        write(Tmp,"(i0)") i
+      end if
+      Res=trim(Tmp)
+    end function
+
+    !###########################################################################
+
+    function RealS2Char(r,fmt) result(Res)
+      ! From http://stackoverflow.com/questions/1262695/converting-integers-to-strings-in-fortran
+
+      implicit none
+
+      real(real32),intent(in)          :: r
+      character(*),intent(in),optional :: fmt
+
+      character(:),allocatable :: Res
+      character(range(r)+2) :: Tmp
+
+      if (present(fmt)) then
+        write(Tmp,fmt) r
+      else
+        write(Tmp,"(f)") r
+      end if
+      Res=trim(Tmp)
+    end function
+
+    !###########################################################################
+
+    function RealD2Char(r,fmt) result(Res)
+      ! From http://stackoverflow.com/questions/1262695/converting-integers-to-strings-in-fortran
+
+      implicit none
+
+      real(real64),intent(in)          :: r
+      character(*),intent(in),optional :: fmt
+
+      character(:),allocatable :: Res
+      character(range(r)+2) :: Tmp
+
+      if (present(fmt)) then
+        write(Tmp,fmt) r
+      else
+        write(Tmp,"(f)") r
+      end if
       Res=trim(Tmp)
     end function
 
