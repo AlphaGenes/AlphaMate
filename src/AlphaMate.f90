@@ -48,6 +48,7 @@ module AlphaMateModule
 
   integer(int32) :: nInd,nMat,nPar,nPotPar1,nPotPar2,nMal,nFem,nPar1,nPar2,nFrontierSteps
   integer(int32) :: EvolAlgNSol,EvolAlgNGen,EvolAlgNGenBurnIn,EvolAlgNGenStop,EvolAlgNGenPrint
+  integer(int32) :: PAGEPar1Max,PAGEPar2Max
   integer(int32),allocatable :: Gender(:),IdPotPar1(:),IdPotPar2(:),nVecPar1(:),nVecPar2(:),nVec(:),Mate(:,:)
 
   real(real64) :: LimitPar1Min,LimitPar1Max,LimitPar2Min,LimitPar2Max
@@ -58,6 +59,7 @@ module AlphaMateModule
 
   logical :: ModeMin,ModeOpt,GenderMatters,EqualizePar1,EqualizePar2
   logical :: SelfingAllowed,PopInbPenaltyBellow,InferPopInbOld,EvaluateFrontier
+  logical :: PAGEPar1,PAGEPar2
 
   character(len=100),allocatable :: IdC(:)
   CHARACTER(len=100),PARAMETER :: FMTREAL2CHAR="(f11.5)"
