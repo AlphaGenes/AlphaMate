@@ -42,7 +42,6 @@ if (length(LogFiles) > 0) {
     ## LogFile <- "OptimisationLog2OptimumGain.txt"
     LogFileCount <- LogFileCount+1
     Dat[[LogFileCount]] <- read.table(file=LogFile, header=TRUE)
-    colnames(Dat[[LogFileCount]]) <- c("Step", "AcceptRate", "Criterion", "Penalties", "Gain", "GainStand", "PopInbreed", "RatePopInb", "PopInbree2", "IndInbreed")
     #Dat[[LogFileCount]] <- Dat[[LogFileCount]][order(Dat[[LogFileCount]]$RatePopInb), ]
     if (FindYLim) {
       ylim <- range(c(ylim, Dat[[LogFileCount]]$GainStand))
