@@ -1,24 +1,24 @@
-Mode                                    ,MinThenOpt Opt
-RelationshipMatrixFile                  ,RelMat.txt
-BreedingValueFile                       ,Ebv.txt
-GenderFile                              ,Gender.txt
-NumberOfIndividuals                     ,200
-NumberOfMatings                         ,50
-NumberOfParents                         ,60
-NumberOfMaleParents                     ,10
-NumberOfFemaleParents                   ,50
-EqualizeParentContributions             ,No
-EqualizeMaleParentContributions         ,No
-EqualizeFemaleParentContributions       ,Yes
-LimitParentContributions                ,No,5,20,0.01
-LimitMaleParentContributions            ,Yes,5,20,0.01
-LimitFemaleParentContributions          ,No,1,1,0.01
-AllowSelfing                            ,No,0.1
-OldCoancestry                           ,Unknown 0.6965578362500001
-TargetedRateOfPopulationInbreeding      ,0.01,0.75,Above
-IndividualInbreedingPenalty             ,0.1
-EvaluateFrontier                        ,Yes,12,0.00001,0.0001,0.001,0.005,0.0075, 0.0125,0.025,0.0375,0.05,0.0625,0.075,0.1
-EvolutionaryAlgorithmIterations         ,100,20000,500,1000,0.0001,1
-EvolutionaryAlgorithmParameters         ,0.4,0.2,0.1,1.0,4.0
-Seed                                    ,19791123 None
+Mode                               ,MinThenOpt Opt
+RelationshipMatrixFile             ,RelMat.txt
+BreedingValueFile                  ,Ebv.txt
+GenderFile                         ,Gender.txt
+NumberOfIndividuals                ,200
+NumberOfMatings                    ,50
+NumberOfParents                    ,60
+NumberOfMaleParents                ,10
+NumberOfFemaleParents              ,50
+EqualizeParentContributions        ,No
+EqualizeMaleParentContributions    ,No
+EqualizeFemaleParentContributions  ,Yes
+LimitParentContributions           ,No,5,20,0.01
+LimitMaleParentContributions       ,No,1,20,0.01
+LimitFemaleParentContributions     ,No,1,1,0.01
+AllowSelfing                       ,No,0.1
+OldCoancestry                      ,Unknown 0.6965578362500001
+TargetedRateOfPopulationInbreeding ,0.01,0.5,AboveAndBellow
+IndividualInbreedingPenalty        ,0 0.01
+EvaluateFrontier                   ,Yes,12,0.00001,0.0001,0.001,0.005,0.0075, 0.0125,0.025,0.0375,0.05,0.0625,0.075,0.1
+EvolutionaryAlgorithmIterations    ,100,20000,500,1000,0.0001,1
+EvolutionaryAlgorithmParameters    ,0.4,0.2,0.1,1.0,4.0
+Seed                               ,19791123 None
 

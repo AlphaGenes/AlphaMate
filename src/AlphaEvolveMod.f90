@@ -290,7 +290,7 @@ module AlphaEvolveModule
           else
             DumC=Real2Char(StopTolerance)!,fmt="(f9.5)")
             DumC2=Int2Char(nGenStop)
-            write(STDOUT,"(5a)") "NOTE: Objective did not improve for ",trim(adjustl(DumC))," in the last ",trim(adjustl(DumC2))," generations. Stopping."
+            write(STDOUT,"(5a)") "NOTE: Objective did not improve for ",trim(adjustl(DumC))," in the last ",trim(adjustl(DumC2))," generations. Stopping the optimisation."
             write(STDOUT,"(a)") " "
             exit
           end if

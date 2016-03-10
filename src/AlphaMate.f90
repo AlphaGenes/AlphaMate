@@ -34,9 +34,6 @@
 #define RENAME "move /Y"
 #endif
 
-! TODO: add a parameter in spec file (after INI system becomes available) about
-!       STDOUT precision for reals and stick to it everywhere
-
 !###############################################################################
 
 module AlphaMateModule
@@ -59,20 +56,21 @@ module AlphaMateModule
   real(real64) :: PopInbPenalty,IndInbPenalty,SelfingPenalty,LimitPar1Penalty,LimitPar2Penalty
   real(real64),allocatable :: Bv(:),BvStand(:),RelMtx(:,:),RatePopInbFrontier(:),xVec(:)
 
-  character(len=300),allocatable :: IdC(:)
-  CHARACTER(len=300),PARAMETER :: FMTLOGHEADERSTDOUT="(12a12)"
-  CHARACTER(len=300),PARAMETER :: FMTLOGSTDOUT="(i12,11(1x,f11.5))"
-  CHARACTER(len=300),PARAMETER :: FMTLOGHEADERUNIT="(12a,11a22)"
-  CHARACTER(len=300),PARAMETER :: FMTLOGUNIT="(i12,11(1x,es21.14))"
-  CHARACTER(len=300),PARAMETER :: FMTCONHEAD="(6a12)"
-  CHARACTER(len=300),PARAMETER :: FMTCON="(a12,i12,3f12.5,i12,2f12.5)"
-  CHARACTER(len=300),PARAMETER :: FMTMATHEAD="(3a12)"
-  CHARACTER(len=300),PARAMETER :: FMTMAT="(i12,2a12)"
-  CHARACTER(len=300),PARAMETER :: FMTFROHEAD="(a12,8a22)"
-  CHARACTER(len=300),PARAMETER :: FMTFRO="(i12,8(1x,es21.14))"
-
   logical :: ModeMin,ModeOpt,GenderMatters,EqualizePar1,EqualizePar2
   logical :: SelfingAllowed,PopInbPenaltyBellow,InferPopInbOld,EvaluateFrontier
+
+  character(len=100),allocatable :: IdC(:)
+  CHARACTER(len=100),PARAMETER :: FMTREAL2CHAR="(f11.5)"
+  CHARACTER(len=100),PARAMETER :: FMTLOGHEADERSTDOUT="(12a12)"
+  CHARACTER(len=100),PARAMETER :: FMTLOGSTDOUT="(i12,11(1x,f11.5))"
+  CHARACTER(len=100),PARAMETER :: FMTLOGHEADERUNIT="(12a,11a22)"
+  CHARACTER(len=100),PARAMETER :: FMTLOGUNIT="(i12,11(1x,es21.14))"
+  CHARACTER(len=100),PARAMETER :: FMTCONHEAD="(6a12)"
+  CHARACTER(len=100),PARAMETER :: FMTCON="(a11,1x,i11,3(1x,f11.5),1x,i11)"
+  CHARACTER(len=100),PARAMETER :: FMTMATHEAD="(3a12)"
+  CHARACTER(len=100),PARAMETER :: FMTMAT="(i12,2(1x,a11))"
+  CHARACTER(len=100),PARAMETER :: FMTFROHEAD="(a12,8a22)"
+  CHARACTER(len=100),PARAMETER :: FMTFRO="(i12,8(1x,es21.14))"
 
   private
   public :: AlphaMateTitles,ReadSpecAndDataForAlphaMate,SetInbreedingParameters
@@ -143,10 +141,13 @@ module AlphaMateModule
 
       logical :: Success
 
-      character(len=1000) :: DumC,DumC2,DumC3,IdCTmp
       character(len=1000) :: RelMtxFile,BvFile,GenderFile,SeedFile
+      character(len=100) :: DumC,DumC2,DumC3,IdCTmp
 
       ! --- Spec file ---
+
+      write(STDOUT,"(a)") "--- Specifications ---"
+      write(STDOUT,"(a)") " "
 
       Success=SystemQQ(COPY//" AlphaMateSpec.txt AlphaMateResults"//DASH//"AlphaMateSpec.txt")
       if (.not.Success) then
@@ -389,7 +390,7 @@ module AlphaMateModule
             read(UnitSpec,*) DumC,DumC,LimitPar1Min,LimitPar1Max,LimitPar1Penalty
             DumC=Int2Char(nint(LimitPar1Min))
             DumC2=Int2Char(nint(LimitPar1Max))
-            DumC3=Real2Char(LimitPar1Penalty)
+            DumC3=Real2Char(LimitPar1Penalty,fmt=FMTREAL2CHAR)
             write(STDOUT,"(6a)") "LimitParentContributions: yes, min ",&
               trim(adjustl(DumC)),", max ",trim(adjustl(DumC2)),", penalty ",trim(adjustl(DumC3))
           end if
@@ -415,7 +416,7 @@ module AlphaMateModule
             read(UnitSpec,*) DumC,DumC,LimitPar1Min,LimitPar1Max,LimitPar1Penalty
             DumC=Int2Char(nint(LimitPar1Min))
             DumC2=Int2Char(nint(LimitPar1Max))
-            DumC3=Real2Char(LimitPar1Penalty)
+            DumC3=Real2Char(LimitPar1Penalty,fmt=FMTREAL2CHAR)
             write(STDOUT,"(6a)") "LimitMaleParentContributions: yes, min ",&
               trim(adjustl(DumC)),", max ",trim(adjustl(DumC)),", penalty ",trim(adjustl(DumC3))
           end if
@@ -444,7 +445,7 @@ module AlphaMateModule
             read(UnitSpec,*) DumC,DumC,LimitPar2Min,LimitPar2Max,LimitPar2Penalty
             DumC=Int2Char(nint(LimitPar2Min))
             DumC2=Int2Char(nint(LimitPar2Max))
-            DumC3=Real2Char(LimitPar2Penalty)
+            DumC3=Real2Char(LimitPar2Penalty,fmt=FMTREAL2CHAR)
             write(STDOUT,"(6a)") "LimitFemaleParentContributions: yes, min ",&
               trim(adjustl(DumC)),", max ",trim(adjustl(DumC)),", penalty ",trim(adjustl(DumC3))
           end if
@@ -471,7 +472,7 @@ module AlphaMateModule
         SelfingAllowed=.false.
         backspace(UnitSpec)
         read(UnitSpec,*) DumC,DumC,SelfingPenalty
-        DumC=Real2Char(SelfingPenalty)
+        DumC=Real2Char(SelfingPenalty,fmt=FMTREAL2CHAR)
         write(STDOUT,"(2a)") "AllowSelfing: no, penalty ",trim(adjustl(DumC))
       else
         write(STDERR,"(a)") "ERROR: AllowSelfing must be: Yes or No!"
@@ -488,7 +489,7 @@ module AlphaMateModule
         InferPopInbOld=.false.
         backspace(UnitSpec)
         read(UnitSpec,*) DumC,PopInbOld
-        DumC=Real2Char(PopInbOld)
+        DumC=Real2Char(PopInbOld,fmt=FMTREAL2CHAR)
         write(STDOUT,"(2a)") "OldCoancestry: ",trim(adjustl(DumC))
       end if
 
@@ -503,13 +504,13 @@ module AlphaMateModule
         write(STDERR,"(a)") " "
         stop 1
       end if
-      DumC2=Real2Char(RatePopInbTarget)!,fmt="(f8.5)")
-      DumC3=Real2Char(PopInbPenalty)
+      DumC2=Real2Char(RatePopInbTarget,fmt=FMTREAL2CHAR)
+      DumC3=Real2Char(PopInbPenalty,fmt=FMTREAL2CHAR)
       write(STDOUT,"(6a)") "TargetedRateOfPopulationInbreeding: ",trim(adjustl(DumC2)),", penalty ",trim(adjustl(DumC3)), ", mode "//trim(adjustl(DumC))
 
       ! IndividualInbreedingPenalty
       read(UnitSpec,*) DumC,IndInbPenalty
-      DumC=Real2Char(IndInbPenalty)
+      DumC=Real2Char(IndInbPenalty,fmt=FMTREAL2CHAR)
       write(STDOUT,"(2a)") "IndividualInbreedingPenalty: ",trim(adjustl(DumC))
 
       ! EvaluateFrontier
@@ -722,11 +723,11 @@ module AlphaMateModule
       PopInbTarget=RatePopInbTarget+(1.0d0-RatePopInbTarget)*PopInbOld
 
       ! Report
-      DumC=Real2Char(PopInbOld)!,fmt="(f8.5)")
+      DumC=Real2Char(PopInbOld,fmt=FMTREAL2CHAR)
       write(STDOUT,"(2a)") "Old coancestry: ",trim(adjustl(DumC))
-      DumC=Real2Char(RatePopInbTarget)!,fmt="(f8.5)")
+      DumC=Real2Char(RatePopInbTarget,fmt=FMTREAL2CHAR)
       write(STDOUT,"(2a)") "Targeted rate of 'population' inbreeding: ",trim(adjustl(DumC))
-      DumC=Real2Char(PopInbTarget)!,fmt="(f8.5)")
+      DumC=Real2Char(PopInbTarget,fmt=FMTREAL2CHAR)
       write(STDOUT,"(2a)") "Targeted 'population' inbreeding: ",trim(adjustl(DumC))
       write(STDOUT,"(a)") " "
 
@@ -743,13 +744,14 @@ module AlphaMateModule
 
       implicit none
 
-      integer(int32) :: i,j,UnitInbree,UnitMating,UnitContri,UnitLog,UnitLog2,UnitFrontier
-      integer(int32) :: nTmp,DumI,Rank(nInd)
+      integer(int32) :: i,j,k,l,nTmp,DumI,Rank(nInd)
+      integer(int32) :: UnitInbree,UnitMating,UnitContri,UnitLog,UnitLog2,UnitFrontier
 
       real(real64) :: BvMean,BvStdDev,PopInbTargetHold,RatePopInbTargetHold,DumR(9)
       real(real64),allocatable :: InitEqual(:,:)
 
-      character(len=300) :: EvolAlgLogFile,EvolAlgLogFile2,DumC,DumC2,DumC3,DumC4
+      character(len=1000) :: EvolAlgLogFile,EvolAlgLogFile2
+      character(len=100) :: DumC,DumC2,DumC3,DumC4
 
       logical :: Success
 
@@ -765,7 +767,7 @@ module AlphaMateModule
       ! --- Optimise for minimum inbreeding ---
 
       if (ModeMin) then
-        write(STDOUT,"(a)") "Optimise for minimum inbreeding"
+        write(STDOUT,"(a)") "--- Optimise for minimum inbreeding --- "
         write(STDOUT,"(a)") " "
 
         EvolAlgLogFile="AlphaMateResults"//DASH//"OptimisationLog1MinimumInbreeding.txt"
@@ -848,11 +850,11 @@ module AlphaMateModule
           close(UnitLog)
           close(UnitLog2)
 
-          DumC=Real2Char(PopInbOld)!,fmt="(f8.5)")
+          DumC=Real2Char(PopInbOld,fmt=FMTREAL2CHAR)
           write(STDOUT,"(2a)") "Old coancestry: ",trim(adjustl(DumC))
-          DumC=Real2Char(RatePopInbTarget)!,fmt="(f8.5)")
+          DumC=Real2Char(RatePopInbTarget,fmt=FMTREAL2CHAR)
           write(STDOUT,"(2a)") "Targeted rate of 'population' inbreeding: ",trim(adjustl(DumC))
-          DumC=Real2Char(PopInbTarget)!,fmt="(f8.5)")
+          DumC=Real2Char(PopInbTarget,fmt=FMTREAL2CHAR)
           write(STDOUT,"(2a)") "Targeted 'population' inbreeding: ",trim(adjustl(DumC))
           write(STDOUT,"(a)") " "
 
@@ -877,7 +879,7 @@ module AlphaMateModule
       ! --- Optimise for maximum gain with constraint on inbreeding ---
 
       if (ModeOpt) then
-        write(STDOUT,"(a)") "Optimise for maximum gain with constraint on inbreeding"
+        write(STDOUT,"(a)") "--- Optimise for maximum gain with constraint on inbreeding ---"
         write(STDOUT,"(a)") " "
 
         EvolAlgLogFile="AlphaMateResults"//DASH//"OptimisationLog2OptimumGain.txt"
@@ -924,7 +926,7 @@ module AlphaMateModule
       ! --- Evaluate the full frontier ---
 
       if (EvaluateFrontier) then
-        write(STDOUT,"(a)") "Evaluate the full frontier (this might take some time!)"
+        write(STDOUT,"(a)") "--- Evaluate the full frontier (this might take some time!) ---"
         write(STDOUT,"(a)") " "
 
         PopInbPenaltyBellow=.true. ! we want to target certain rates of inbreeding
@@ -940,14 +942,14 @@ module AlphaMateModule
                                        "            RatePopInb",&
                                        "            PopInbree2",&
                                        "            IndInbreed"
-        j=0
+        l=0
         if (ModeMin) then
-          j=j+1
-          write(UnitFrontier,FMTFRO) j,CritMin%Value,CritMin%Penalty,CritMin%Gain,CritMin%GainStand,CritMin%PopInb,CritMin%RatePopInb,CritMin%PopInb2,CritMin%IndInb
+          l=l+1
+          write(UnitFrontier,FMTFRO) l,CritMin%Value,CritMin%Penalty,CritMin%Gain,CritMin%GainStand,CritMin%PopInb,CritMin%RatePopInb,CritMin%PopInb2,CritMin%IndInb
         end if
         if (ModeOpt) then
-          j=j+1
-          write(UnitFrontier,FMTFRO) j,CritOpt%Value,CritOpt%Penalty,CritOpt%Gain,CritOpt%GainStand,CritOpt%PopInb,CritOpt%RatePopInb,CritMin%PopInb2,CritOpt%IndInb
+          l=l+1
+          write(UnitFrontier,FMTFRO) l,CritOpt%Value,CritOpt%Penalty,CritOpt%Gain,CritOpt%GainStand,CritOpt%PopInb,CritOpt%RatePopInb,CritMin%PopInb2,CritOpt%IndInb
         end if
 
         ! Hold old results
@@ -955,19 +957,19 @@ module AlphaMateModule
         RatePopInbTargetHold=RatePopInbTarget
 
         ! Evaluate
-        do i=1,nFrontierSteps
-          RatePopInbTarget=RatePopInbFrontier(i)
+        do k=1,nFrontierSteps
+          RatePopInbTarget=RatePopInbFrontier(k)
           ! F_t = DeltaF + (1 - DeltaF) * F_t-1
           PopInbTarget=RatePopInbTarget+(1.0d0-RatePopInbTarget)*PopInbOld
-          DumC=Int2Char(i)
+          DumC=Int2Char(k)
           DumC2=Int2Char(nFrontierSteps)
-          DumC3=Real2Char(RatePopInbTarget)
-          DumC4=Real2Char(PopInbTarget)
+          DumC3=Real2Char(RatePopInbTarget,fmt=FMTREAL2CHAR)
+          DumC4=Real2Char(PopInbTarget,fmt=FMTREAL2CHAR)
           write(STDOUT,"(9a)") "Step ",trim(adjustl(DumC))," out of ",trim(adjustl(DumC2)),&
                                " for the rate of inbreeding of ",trim(adjustl(DumC3)),&
                                " (=pop. inbreed. of ",trim(adjustl(DumC4)),")"
           write(STDOUT,"(a)") ""
-          EvolAlgLogFile="AlphaMateResults"//DASH//"OptimisationLog"//Int2Char(j+i)//".txt"
+          EvolAlgLogFile="AlphaMateResults"//DASH//"OptimisationLog"//Int2Char(l+k)//".txt"
           if (GenderMatters) then
             nTmp=nPotPar1+nPotPar2+nMat ! TODO: add PAGE dimension
           else
@@ -981,9 +983,35 @@ module AlphaMateModule
                          CalcCriterion=FixSolMateAndCalcCrit,&
                          LogHeader=EvolAlgLogHeaderForAlphaMate,Log=EvolAlgLogForAlphaMate,&
                          BestCriterion=Crit)
-          write(UnitFrontier,FMTFRO) j+i,Crit%Value,Crit%Penalty,Crit%Gain,Crit%GainStand,Crit%PopInb,Crit%RatePopInb,Crit%PopInb2,Crit%IndInb
+          write(UnitFrontier,FMTFRO) l+k,Crit%Value,Crit%Penalty,Crit%Gain,Crit%GainStand,Crit%PopInb,Crit%RatePopInb,Crit%PopInb2,Crit%IndInb
+
+          open(newunit=UnitContri,file="AlphaMateResults"//DASH//"ContributionsAndMatingsPerIndiv"//Int2Char(l+k)//".txt",status="unknown")
+          !                             1234567890123456789012
+          write(UnitContri,FMTCONHEAD) "          Id",&
+                                       "      Gender",&
+                                       "       Merit",&
+                                       " AvgCoancest",&
+                                       "  Contribute",&
+                                       "    nMatings"
+          call MrgRnk(nVec,Rank)
+          do i=nInd,1,-1 ! MrgRnk ranks small to large
+            j=Rank(i)
+            write(UnitContri,FMTCON) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),nVec(j)
+          end do
+          close(UnitContri)
+
+          open(newunit=UnitMating,file="AlphaMateResults"//DASH//"MatingListOptimumGain"//Int2Char(l+k)//".txt",status="unknown")
+          !                             1234567890123456789012
+          write(UnitMating,FMTMATHEAD) "      Mating",&
+                                       "     Parent1",&
+                                       "     Parent2"
+          do i=1,nMat
+            write(UnitMating,FMTMAT) i,IdC(Mate(1,i)),IdC(Mate(2,i))
+          end do
+          close(UnitMating)
+
           if ((RatePopInbTarget-Crit%RatePopInb) > 0.01d0) then
-            DumC=Real2Char(RatePopInbTarget)
+            DumC=Real2Char(RatePopInbTarget,fmt=FMTREAL2CHAR)
             write(STDOUT,"(2a)") "NOTE: Could not achieve the rate of 'population' inbreeding of ",trim(adjustl(DumC))
             write(STDOUT,"(a)") "NOTE: Stopping the frontier evaluation."
             write(STDOUT,"(a)") ""
