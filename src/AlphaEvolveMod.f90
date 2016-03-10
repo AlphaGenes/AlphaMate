@@ -4,14 +4,15 @@
 module AlphaEvolveModule
 
   use ISO_Fortran_Env, STDIN=>input_unit,STDOUT=>output_unit,STDERR=>error_unit
+  use AlphaSuiteModule, only : Int2Char,Real2Char
 
   implicit none
 
   type :: EvolveCrit
-    ! TODO: How do I get this done generically? I have created an extended type
-    !       in AlphaMateModule of base EvolveCrit here, but got bitten through
-    !       using polymorphic (class() stuff) objects, where I am not allowed to
-    !       do a=b etc.
+    ! TODO: How do I get this done generically? This is type specific for AlphaMate
+    !       I have created an extended type in AlphaMateModule of base EvolveCrit here,
+    !       but got bitten through using polymorphic (class() stuff) objects, where I
+    !       am not allowed to do a=b etc.
     real(real64) :: Value
     real(real64) :: Penalty
     real(real64) :: Gain
@@ -86,6 +87,8 @@ module AlphaEvolveModule
       real(real64) :: AcceptRate,OldChrom(nParam,nSol),NewChrom(nParam,nSol),Chrom(nParam)
 
       logical :: DiffOnly,BestSolChanged
+
+      character(len=100) :: DumC,DumC2
 
       type(EvolveCrit) :: Criterion(nSol),CriterionHold,BestCriterionStop
 
@@ -285,7 +288,9 @@ module AlphaEvolveModule
           if ((BestCriterion%Value-BestCriterionStop%Value) > StopTolerance) then
             BestCriterionStop=BestCriterion
           else
-            write(STDOUT,"(a,f9.5,a,i9,a)") "NOTE: Evolutionary algorithm did not improve objective for ",StopTolerance, " in the last ",nGenStop," generations. Stopping."
+            DumC=Real2Char(StopTolerance)!,fmt="(f9.5)")
+            DumC2=Int2Char(nGenStop)
+            write(STDOUT,"(5a)") "NOTE: Objective did not improve for ",trim(adjustl(DumC))," in the last ",trim(adjustl(DumC2))," generations. Stopping."
             write(STDOUT,"(a)") " "
             exit
           end if
