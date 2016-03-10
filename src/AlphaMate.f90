@@ -1359,7 +1359,7 @@ module AlphaMateModule
 
       TmpR=Criterion%GainStand-GainMinStand
       if (ToLower(trim(CritType)) == "min") then
-        Criterion%Value=Criterion%Value+1.0d-6*TmpR
+        Criterion%Value=Criterion%Value
       else
         Criterion%Value=Criterion%Value+TmpR
       end if
@@ -1372,6 +1372,11 @@ module AlphaMateModule
       end do
       ! xAx
       Criterion%PopInb=0.5d0*dot_product(TmpVec(:,1),xVec)
+      if (Criterion%PopInb < 0.0d0) then
+        write(STDERR,"(a)") "ERROR: negative inbreeding examples have not been tested yet! Stopping."
+        write(STDERR,"(a)") " "
+        stop 1
+      endif
 
       ! TODO: Should group coancestry account for self-coancestries or not (the code
       !       bellow does not include them), but then should we account for coancestries
