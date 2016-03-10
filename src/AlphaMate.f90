@@ -34,6 +34,9 @@
 #define RENAME "move /Y"
 #endif
 
+! TODO: add a parameter in spec file (after INI system becomes available) about
+!       STDOUT precision for reals and stick to it everywhere
+
 !###############################################################################
 
 module AlphaMateModule
@@ -42,7 +45,7 @@ module AlphaMateModule
   use IFPort,only : SystemQQ
   use OrderPack,only : MrgRnk
   use AlphaEvolveModule,only : EvolAlgDE,EvolveCrit
-  use AlphaSuiteModule,only : CountLines,Int2Char,RandomOrder,SetSeed,ToLower
+  use AlphaSuiteModule,only : CountLines,Int2Char,Real2Char,RandomOrder,SetSeed,ToLower
 
   implicit none
 
@@ -65,8 +68,8 @@ module AlphaMateModule
   CHARACTER(len=300),PARAMETER :: FMTCON="(a12,i12,3f12.5,i12,2f12.5)"
   CHARACTER(len=300),PARAMETER :: FMTMATHEAD="(3a12)"
   CHARACTER(len=300),PARAMETER :: FMTMAT="(i12,2a12)"
-  CHARACTER(len=300),PARAMETER :: FMTFROHEAD="(a12,7a22)"
-  CHARACTER(len=300),PARAMETER :: FMTFRO="(i12,7(1x,es21.14))"
+  CHARACTER(len=300),PARAMETER :: FMTFROHEAD="(a12,8a22)"
+  CHARACTER(len=300),PARAMETER :: FMTFRO="(i12,8(1x,es21.14))"
 
   logical :: ModeMin,ModeOpt,GenderMatters,EqualizePar1,EqualizePar2
   logical :: SelfingAllowed,PopInbPenaltyBellow,InferPopInbOld,EvaluateFrontier
@@ -77,6 +80,37 @@ module AlphaMateModule
   public :: FixSolMateAndCalcCrit
 
   contains
+
+    !###########################################################################
+
+    ! This note is just to make clear what the inbreeding calculations are doing.
+    !
+    ! The total inbreeding that we see today is:
+    !
+    ! F_total = F_recent + (1 - F_recent) * F_ancient,
+    !
+    ! where F_recent is recent/new inbreeding after the previous time point
+    !       F_ancient is ancient/old inbreeding before to the previous time point
+    !
+    ! Equivalent formulas with some other notation are:
+    !
+    ! F_T = F_IS + (1 - F_IS) * F_ST
+    !
+    ! where F_T is (total) inbreeding relative to ancient/old base
+    !       F_IS is (individual-to-subtotal=recent/new) inbreeding relative to recent base
+    !       F-ST is (subtotal-to-total=ancient/old) inbreeding at recent base relative to ancient/old base
+    !
+    ! F_t = DeltaF + (1 - DeltaF) * F_t-1
+    !
+    ! where F_t is (total) inbreeding in generation t
+    !       DeltaF is recent/new inbreeding after generation t-1 (=rate of inbreeding)
+    !       F-t-1 is ancient/old inbreeding before generation t
+    !
+    ! Clearly:
+    !
+    ! F_total   = F_T  = F_t
+    ! F_recent  = F_IS = DeltaF
+    ! F_ancient = F_ST = F_t-1
 
     !###########################################################################
 
@@ -109,7 +143,7 @@ module AlphaMateModule
 
       logical :: Success
 
-      character(len=1000) :: DumC,IdCTmp
+      character(len=1000) :: DumC,DumC2,DumC3,IdCTmp
       character(len=1000) :: RelMtxFile,BvFile,GenderFile,SeedFile
 
       ! --- Spec file ---
@@ -146,11 +180,11 @@ module AlphaMateModule
 
       ! RelationshipMatrixFile
       read(UnitSpec,*) DumC,RelMtxFile
-      write(STDOUT,"(a,a)") "RelationshipMatrixFile: ",trim(RelMtxFile)
+      write(STDOUT,"(2a)") "RelationshipMatrixFile: ",trim(RelMtxFile)
 
       ! BreedingValueFile
       read(UnitSpec,*) DumC,BvFile
-      write(STDOUT,"(a,a)") "BreedingValueFile: ",trim(BvFile)
+      write(STDOUT,"(2a)") "BreedingValueFile: ",trim(BvFile)
 
       call CountLines(RelMtxFile,nInd)
       call CountLines(BvFile,nIndTmp)
@@ -165,43 +199,52 @@ module AlphaMateModule
       read(UnitSpec,*) DumC,GenderFile
       if (ToLower(trim(GenderFile)) /= "none") then
         GenderMatters=.true.
-        write(STDOUT,"(a,a)") "GenderFile: ",trim(GenderFile)
+        write(STDOUT,"(2a)") "GenderFile: ",trim(GenderFile)
       else
         GenderMatters=.false.
       end if
 
       ! NumberOfIndividuals
       read(UnitSpec,*) DumC,nInd
-      write(STDOUT,"(a,i9)") "NumberOfIndividuals: ",nInd
+      DumC=Int2Char(nInd)
+      write(STDOUT,"(2a)") "NumberOfIndividuals: ",trim(adjustl(DumC))
 
       ! NumberOfMatings
       read(UnitSpec,*) DumC,nMat
-      write(STDOUT,"(a,i9)") "NumberOfMatings: ",nMat
+      DumC=Int2Char(nMat)
+      write(STDOUT,"(2a)") "NumberOfMatings: ",trim(adjustl(DumC))
       ! TODO: In animals one would not be able to generate more matings than there is individuals, i.e.,
       !       10 males and 10 females can give 10 matings only (females are a bottleneck). But if we do
       !       plants or collect ova from females, then we could technically do 10*10=100 matings (each male
       !       with each female).
-      if (nMat > nInd) then
-        write(STDOUT,"(a)") "NOTE: The number of matings is larger than the number of all individuals! Was this really the intention?"
-        write(STDOUT,"(a,i9)") "NOTE: Number of     matings: ",nMat
-        write(STDOUT,"(a,i9)") "NOTE: Number of individuals: ",nInd
-        write(STDOUT,"(a)") " "
-      end if
+      ! if (nMat > nInd) then
+      !   write(STDOUT,"(a)") "NOTE: The number of matings is larger than the number of all individuals! Was this really the intention?"
+      !   DumC=Int2Char(nMat)
+      !   write(STDOUT,"(2a)") "NOTE: Number of     matings: ",trim(adjustl(DumC))
+      !   DumC=Int2Char(nInd)
+      !   write(STDOUT,"(2a)") "NOTE: Number of individuals: ",trim(adjustl(DumC))
+      !   write(STDOUT,"(a)") " "
+      ! end if
 
       ! NumberOfParents
       read(UnitSpec,*) DumC,nPar
-      write(STDOUT,"(a,i9)") "NumberOfParents: ",nPar
+      DumC=Int2Char(nPar)
+      write(STDOUT,"(2a)") "NumberOfParents: ",trim(adjustl(DumC))
       if (nPar > nInd) then
         write(STDERR,"(a)") "ERROR: The number of parents can not be larger than the number of individuals!"
-        write(STDERR,"(a,i9)") "ERROR: Number of     parents: ",nPar
-        write(STDERR,"(a,i9)") "ERROR: Number of individuals: ",nInd
+        DumC=Int2Char(nPar)
+        write(STDERR,"(2a)") "ERROR: Number of     parents: ",trim(adjustl(DumC))
+        DumC=Int2Char(nInd)
+        write(STDERR,"(2a)") "ERROR: Number of individuals: ",trim(adjustl(DumC))
         write(STDERR,"(a)") " "
         stop 1
       end if
       if (nMat > nPar) then
         write(STDOUT,"(a)") "NOTE: The number of matings is larger than the number of parents! Was this really the intention?"
-        write(STDOUT,"(a,i9)") "NOTE: Number of matings: ",nMat
-        write(STDOUT,"(a,i9)") "NOTE: Number of parents: ",nPar
+        DumC=Int2Char(nMat)
+        write(STDOUT,"(2a)") "NOTE: Number of matings: ",trim(adjustl(DumC))
+        DumC=Int2Char(nPar)
+        write(STDOUT,"(2a)") "NOTE: Number of parents: ",trim(adjustl(DumC))
         write(STDOUT,"(a)") " "
       end if
 
@@ -214,33 +257,46 @@ module AlphaMateModule
       if (.not.GenderMatters) then
         nPar1=nPar
       else
-        write(STDOUT,"(a,i9)") "NumberOfMaleParents: ",nPar1
-        write(STDOUT,"(a,i9)") "NumberOfFemaleParents: ",nPar2
+        DumC=Int2Char(nPar1)
+        write(STDOUT,"(2a)") "NumberOfMaleParents: ",trim(adjustl(DumC))
+        DumC=Int2Char(nPar2)
+        write(STDOUT,"(2a)") "NumberOfFemaleParents: ",trim(adjustl(DumC))
       end if
       if (GenderMatters) then
         if ((nPar1+nPar2) > nInd) then
           write(STDERR,"(a)") "ERROR: The number of parents can not be larger than the number of individuals!"
-          write(STDERR,"(a,i9)") "ERROR: Number of        parents: ",nPar1+nPar2
-          write(STDERR,"(a,i9)") "ERROR: Number of   male parents: ",nPar1
-          write(STDERR,"(a,i9)") "ERROR: Number of female parents: ",nPar2
-          write(STDERR,"(a,i9)") "ERROR: Number of    individuals: ",nInd
+          DumC=Int2Char(nPar1+nPar2)
+          write(STDERR,"(2a)") "ERROR: Number of        parents: ",trim(adjustl(DumC))
+          DumC=Int2Char(nPar1)
+          write(STDERR,"(2a)") "ERROR: Number of   male parents: ",trim(adjustl(DumC))
+          DumC=Int2Char(nPar2)
+          write(STDERR,"(2a)") "ERROR: Number of female parents: ",trim(adjustl(DumC))
+          DumC=Int2Char(nInd)
+          write(STDERR,"(2a)") "ERROR: Number of    individuals: ",trim(adjustl(DumC))
           write(STDERR,"(a)") " "
           stop 1
         end if
         if ((nPar1+nPar2) /= nPar) then
           write(STDOUT,"(a)") "NOTE: The number of male and female parents does not match with the total number of parents - redefined!"
-          write(STDOUT,"(a,i9)")   "NOTE: Number of   male parents: ",nPar1
-          write(STDOUT,"(a,i9)")   "NOTE: Number of female parents: ",nPar2
-          write(STDOUT,"(a,i9,a)") "NOTE: Number of        parents: ",nPar," (defined)"
+          DumC=Int2Char(nPar1)
+          write(STDOUT,"(2a)") "NOTE: Number of   male parents: ",trim(adjustl(DumC))
+          DumC=Int2Char(nPar2)
+          write(STDOUT,"(2a)") "NOTE: Number of female parents: ",trim(adjustl(DumC))
+          DumC=Int2Char(nPar)
+          write(STDOUT,"(3a)") "NOTE: Number of        parents: ",trim(adjustl(DumC))," (defined)"
           nPar=nPar1+nPar2
-          write(STDOUT,"(a,i9,a)") "NOTE: Number of        parents: ",nPar," (redefined)"
+          DumC=Int2Char(nPar)
+          write(STDOUT,"(3a)") "NOTE: Number of        parents: ",trim(adjustl(DumC))," (redefined)"
           write(STDOUT,"(a)") " "
         end if
         if ((nMat > nPar1) .and. (nMat > nPar2)) then
           write(STDOUT,"(a)") "NOTE: The number of matings is larger than the number of male and female parents! Was this really the intention?"
-          write(STDOUT,"(a,i9)") "NOTE: Number of        matings: ",nMat
-          write(STDOUT,"(a,i9)") "NOTE: Number of   male parents: ",nPar1
-          write(STDOUT,"(a,i9)") "NOTE: Number of female parents: ",nPar2
+          DumC=Int2Char(nMat)
+          write(STDOUT,"(2a)") "NOTE: Number of        matings: ",trim(adjustl(DumC))
+          DumC=Int2Char(nPar1)
+          write(STDOUT,"(2a)") "NOTE: Number of   male parents: ",trim(adjustl(DumC))
+          DumC=Int2Char(nPar2)
+          write(STDOUT,"(2a)") "NOTE: Number of female parents: ",trim(adjustl(DumC))
           write(STDOUT,"(a)") " "
         end if
       end if
@@ -268,9 +324,12 @@ module AlphaMateModule
           if (mod(nMat,nPar1) /= 0) then
             ! TODO: might consider handling this better at some point
             write(STDERR,"(a)") "ERROR: When contributions are equalized the number of matings needs to divide into the number of parents"
-            write(STDERR,"(a,i9)") "ERROR: Number of       matings: ",nMat
-            write(STDERR,"(a,i9)") "ERROR: Number of  male parents: ",nPar1
-            write(STDERR,"(a,i9)") "ERROR: Modulo (should be zero): ",mod(nMat,nPar1)
+            DumC=Int2Char(nMat)
+            write(STDERR,"(2a)") "ERROR: Number of       matings: ",trim(adjustl(DumC))
+            DumC=Int2Char(nPar1)
+            write(STDERR,"(2a)") "ERROR: Number of  male parents: ",trim(adjustl(DumC))
+            DumC=Int2Char(mod(nMat,nPar1))
+            write(STDERR,"(2a)") "ERROR: Modulo (should be zero): ",trim(adjustl(DumC))
             write(STDERR,"(a)") " "
             stop 1
           end if
@@ -293,9 +352,12 @@ module AlphaMateModule
           if (mod(nMat,nPar2) /= 0) then
             ! TODO: might consider handling this better at some point
             write(STDERR,"(a)") "ERROR: When contributions are equalized the number of matings needs to divide into the number of parents"
-            write(STDERR,"(a,i9)") "ERROR: Number of        matings: ",nMat
-            write(STDERR,"(a,i9)") "ERROR: Number of female parents: ",nPar2
-            write(STDERR,"(a,i9)") "ERROR: Modulo  (should be zero): ",mod(nMat,nPar2)
+            DumC=Int2Char(nMat)
+            write(STDERR,"(2a)") "ERROR: Number of        matings: ",trim(adjustl(DumC))
+            DumC=Int2Char(nPar2)
+            write(STDERR,"(2a)") "ERROR: Number of female parents: ",trim(adjustl(DumC))
+            DumC=Int2Char(mod(nMat,nPar2))
+            write(STDERR,"(2a)") "ERROR: Modulo  (should be zero): ",trim(adjustl(DumC))
             write(STDERR,"(a)") " "
             stop 1
           end if
@@ -325,8 +387,11 @@ module AlphaMateModule
           else
             backspace(UnitSpec)
             read(UnitSpec,*) DumC,DumC,LimitPar1Min,LimitPar1Max,LimitPar1Penalty
-            write(STDOUT,"(a,i9,a,i9,a,f9.5)") "LimitParentContributions: yes, min ",&
-              nint(LimitPar1Min),", max ",nint(LimitPar1Max),", penalty ",LimitPar1Penalty
+            DumC=Int2Char(nint(LimitPar1Min))
+            DumC2=Int2Char(nint(LimitPar1Max))
+            DumC3=Real2Char(LimitPar1Penalty)
+            write(STDOUT,"(6a)") "LimitParentContributions: yes, min ",&
+              trim(adjustl(DumC)),", max ",trim(adjustl(DumC2)),", penalty ",trim(adjustl(DumC3))
           end if
         else if (ToLower(trim(DumC)) == "no") then
           write(STDOUT,"(a)") "LimitParentContributions: no"
@@ -348,8 +413,11 @@ module AlphaMateModule
           else
             backspace(UnitSpec)
             read(UnitSpec,*) DumC,DumC,LimitPar1Min,LimitPar1Max,LimitPar1Penalty
-            write(STDOUT,"(a,i9,a,i9,a,f9.5)") "LimitMaleParentContributions: yes, min ",&
-              nint(LimitPar1Min),", max ",nint(LimitPar1Max),", penalty ",LimitPar1Penalty
+            DumC=Int2Char(nint(LimitPar1Min))
+            DumC2=Int2Char(nint(LimitPar1Max))
+            DumC3=Real2Char(LimitPar1Penalty)
+            write(STDOUT,"(6a)") "LimitMaleParentContributions: yes, min ",&
+              trim(adjustl(DumC)),", max ",trim(adjustl(DumC)),", penalty ",trim(adjustl(DumC3))
           end if
         else if (ToLower(trim(DumC)) == "no") then
           write(STDOUT,"(a)") "LimitMaleParentContributions: no"
@@ -374,8 +442,11 @@ module AlphaMateModule
           else
             backspace(UnitSpec)
             read(UnitSpec,*) DumC,DumC,LimitPar2Min,LimitPar2Max,LimitPar2Penalty
-            write(STDOUT,"(a,i9,a,i9,a,f9.5)") "LimitFemaleParentContributions: yes, min ",&
-              nint(LimitPar2Min),", max ",nint(LimitPar2Max),", penalty ",LimitPar2Penalty
+            DumC=Int2Char(nint(LimitPar2Min))
+            DumC2=Int2Char(nint(LimitPar2Max))
+            DumC3=Real2Char(LimitPar2Penalty)
+            write(STDOUT,"(6a)") "LimitFemaleParentContributions: yes, min ",&
+              trim(adjustl(DumC)),", max ",trim(adjustl(DumC)),", penalty ",trim(adjustl(DumC3))
           end if
         else if (ToLower(trim(DumC)) == "no") then
           write(STDOUT,"(a)") "LimitFemaleParentContributions: no"
@@ -400,7 +471,8 @@ module AlphaMateModule
         SelfingAllowed=.false.
         backspace(UnitSpec)
         read(UnitSpec,*) DumC,DumC,SelfingPenalty
-        write(STDOUT,"(a,f9.5)") "AllowSelfing: no, penalty ",SelfingPenalty
+        DumC=Real2Char(SelfingPenalty)
+        write(STDOUT,"(2a)") "AllowSelfing: no, penalty ",trim(adjustl(DumC))
       else
         write(STDERR,"(a)") "ERROR: AllowSelfing must be: Yes or No!"
         write(STDERR,"(a)") " "
@@ -411,12 +483,13 @@ module AlphaMateModule
       read(UnitSpec,*) DumC,DumC
       if (ToLower(trim(DumC)) == "unknown") then
         InferPopInbOld=.true.
-        write(STDOUT,"(a,a)") "OldCoancestry: unknown"
+        write(STDOUT,"(a)") "OldCoancestry: unknown"
       else
         InferPopInbOld=.false.
         backspace(UnitSpec)
         read(UnitSpec,*) DumC,PopInbOld
-        write(STDOUT,"(a,f9.5)") "OldCoancestry: ",PopInbOld
+        DumC=Real2Char(PopInbOld)
+        write(STDOUT,"(2a)") "OldCoancestry: ",trim(adjustl(DumC))
       end if
 
       ! TargetedRateOfPopulationInbreeding
@@ -430,11 +503,14 @@ module AlphaMateModule
         write(STDERR,"(a)") " "
         stop 1
       end if
-      write(STDOUT,"(a,f9.5,a,f9.5,a)") "TargetedRateOfPopulationInbreeding: ",RatePopInbTarget,", penalty ",PopInbPenalty, ", mode "//DumC
+      DumC2=Real2Char(RatePopInbTarget)!,fmt="(f8.5)")
+      DumC3=Real2Char(PopInbPenalty)
+      write(STDOUT,"(6a)") "TargetedRateOfPopulationInbreeding: ",trim(adjustl(DumC2)),", penalty ",trim(adjustl(DumC3)), ", mode "//trim(adjustl(DumC))
 
       ! IndividualInbreedingPenalty
       read(UnitSpec,*) DumC,IndInbPenalty
-      write(STDOUT,"(a,f9.5)") "IndividualInbreedingPenalty: ",IndInbPenalty
+      DumC=Real2Char(IndInbPenalty)
+      write(STDOUT,"(2a)") "IndividualInbreedingPenalty: ",trim(adjustl(DumC))
 
       ! EvaluateFrontier
       read(UnitSpec,*) DumC,DumC
@@ -448,7 +524,8 @@ module AlphaMateModule
         allocate(RatePopInbFrontier(nFrontierSteps))
         backspace(UnitSpec)
         read(UnitSpec,*) DumC,DumC,nFrontierSteps,RatePopInbFrontier(:)
-        write(STDOUT,"(a,i9)") "EvaluateFrontier: yes, #steps: ",nFrontierSteps
+        DumC=Int2Char(nFrontierSteps)
+        write(STDOUT,"(2a)") "EvaluateFrontier: yes, #steps: ",trim(adjustl(DumC))
       else
         write(STDERR,"(a)") "ERROR: EvaluateFrontier must be: Yes or No!"
         write(STDERR,"(a)") " "
@@ -471,7 +548,8 @@ module AlphaMateModule
         read(UnitSpec,*) DumC,DumI
         call SetSeed(Seed=DumI,SeedFile=SeedFile,Out=Seed)
       end if
-      write(STDOUT,"(a,i)") "Seed: ",Seed
+      DumC=Int2Char(Seed)
+      write(STDOUT,"(2a)") "Seed: ",trim(adjustl(DumC))
       write(STDOUT,"(a)") " "
 
       close(UnitSpec)
@@ -535,21 +613,26 @@ module AlphaMateModule
           end do
         end do
         close(UnitGender)
-        write(STDOUT,"(a)") "NOTE: The following number of male and female individuals found in the data:"
-        write(STDOUT,"(a,i)") "NOTE: Number of   males:",nMal
-        write(STDOUT,"(a,i)") "NOTE: Number of females:",nFem
+        DumC=Int2Char(nMal)
+        write(STDOUT,"(2a)") "Number of   males in data: ",trim(adjustl(DumC))
+        DumC=Int2Char(nFem)
+        write(STDOUT,"(2a)") "Number of females in data: ",trim(adjustl(DumC))
         write(STDOUT,"(a)") " "
         if (nPar1 > nMat) then
-          write(STDERR,"(a)") "ERROR: The number of male parents can not be larger than the number of males:"
-          write(STDERR,"(a,i)") "ERROR: Number of male parents:",nPar1
-          write(STDERR,"(a,i)") "ERROR: Number of        males:",nMal
+          write(STDERR,"(a)") "ERROR: The number of male parents can not be larger than the number of males"
+          DumC=Int2Char(nPar1)
+          write(STDERR,"(2a)") "ERROR: Number of male parents: ",trim(adjustl(DumC))
+          DumC=Int2Char(nMal)
+          write(STDERR,"(2a)") "ERROR: Number of        males: ",trim(adjustl(DumC))
           write(STDERR,"(a)") " "
           stop 1
         end if
         if (nPar2 > nFem) then
-          write(STDERR,"(a)") "ERROR: The number of female parents can not be larger than the number of females:"
-          write(STDERR,"(a,i)") "ERROR: Number of female parents:",nPar2
-          write(STDERR,"(a,i)") "ERROR: Number of        females:",nFem
+          write(STDERR,"(a)") "ERROR: The number of female parents can not be larger than the number of females"
+          DumC=Int2Char(nPar2)
+          write(STDERR,"(2a)") "ERROR: Number of female parents: ",trim(adjustl(DumC))
+          DumC=Int2Char(nFem)
+          write(STDERR,"(2a)") "ERROR: Number of        females: ",trim(adjustl(DumC))
           write(STDERR,"(a)") " "
           stop 1
         end if
@@ -617,6 +700,8 @@ module AlphaMateModule
 
       real(real64) :: Tmp
 
+      character(len=100) :: DumC
+
       ! Old inbreeding
       if (InferPopInbOld) then
         PopInbOld=0.0d0
@@ -632,13 +717,17 @@ module AlphaMateModule
         PopInbOld=PopInbOld/dble(nInd)
       end if
 
-      ! New inbreeding
-      PopInbTarget=PopInbOld+RatePopInbTarget*(1.0d0-PopInbOld)
+      ! Targeted level of inbreeding
+      ! F_t = DeltaF + (1 - DeltaF) * F_t-1
+      PopInbTarget=RatePopInbTarget+(1.0d0-RatePopInbTarget)*PopInbOld
 
       ! Report
-      write(STDOUT,"(a,f9.5)") "Old coancestry: ",PopInbOld
-      write(STDOUT,"(a,f9.5)") "Targeted rate of 'population' inbreeding: ",RatePopInbTarget
-      write(STDOUT,"(a,f9.5)") "Targeted 'population' inbreeding: ",PopInbTarget
+      DumC=Real2Char(PopInbOld)!,fmt="(f8.5)")
+      write(STDOUT,"(2a)") "Old coancestry: ",trim(adjustl(DumC))
+      DumC=Real2Char(RatePopInbTarget)!,fmt="(f8.5)")
+      write(STDOUT,"(2a)") "Targeted rate of 'population' inbreeding: ",trim(adjustl(DumC))
+      DumC=Real2Char(PopInbTarget)!,fmt="(f8.5)")
+      write(STDOUT,"(2a)") "Targeted 'population' inbreeding: ",trim(adjustl(DumC))
       write(STDOUT,"(a)") " "
 
       open(newunit=UnitInbree,file="AlphaMateResults"//DASH//"ConstraintPopulationInbreeding.txt",status="unknown")
@@ -660,7 +749,7 @@ module AlphaMateModule
       real(real64) :: BvMean,BvStdDev,PopInbTargetHold,RatePopInbTargetHold,DumR(9)
       real(real64),allocatable :: InitEqual(:,:)
 
-      character(len=300) :: EvolAlgLogFile,EvolAlgLogFile2,DumC
+      character(len=300) :: EvolAlgLogFile,EvolAlgLogFile2,DumC,DumC2,DumC3,DumC4
 
       logical :: Success
 
@@ -676,7 +765,7 @@ module AlphaMateModule
       ! --- Optimise for minimum inbreeding ---
 
       if (ModeMin) then
-        write(STDOUT,"(a)") "Optimise for minimum inbreeding:"
+        write(STDOUT,"(a)") "Optimise for minimum inbreeding"
         write(STDOUT,"(a)") " "
 
         EvolAlgLogFile="AlphaMateResults"//DASH//"OptimisationLog1MinimumInbreeding.txt"
@@ -710,7 +799,7 @@ module AlphaMateModule
         call MrgRnk(nVec,Rank)
         do i=nInd,1,-1 ! MrgRnk ranks small to large
           j=Rank(i)
-          write(UnitContri,FMTCON) trim(IdC(j)),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),nVec(j)
+          write(UnitContri,FMTCON) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),nVec(j)
         end do
         close(UnitContri)
 
@@ -720,7 +809,7 @@ module AlphaMateModule
                                      "     Parent1",&
                                      "     Parent2"
         do i=1,nMat
-          write(UnitMating,FMTMAT) i,trim(IdC(Mate(1,i))),trim(IdC(Mate(2,i)))
+          write(UnitMating,FMTMAT) i,IdC(Mate(1,i)),IdC(Mate(2,i))
         end do
         close(UnitMating)
 
@@ -731,7 +820,8 @@ module AlphaMateModule
           write(STDOUT,"(a)") "NOTE:   recomputing the log file values and the targeted 'population' inbreeding."
           write(STDOUT,"(a)") " "
           PopInbOld=CritMin%PopInb
-          PopInbTarget=PopInbOld+RatePopInbTarget*(1.0d0-PopInbOld)
+          ! F_t = DeltaF + (1 - DeltaF) * F_t-1
+          PopInbTarget=RatePopInbTarget+(1.0d0-RatePopInbTarget)*PopInbOld
           CritMin%RatePopInb=0.0d0
 
           Success=SystemQQ(COPY//" "//EvolAlgLogFile//" "//EvolAlgLogFile2)
@@ -748,8 +838,9 @@ module AlphaMateModule
           call EvolAlgLogHeaderForAlphaMate(UnitLog)
           do i=2,nTmp
             read(UnitLog2,*) DumI,DumR(:)
-            ! RatePopInb=(F(t)-F(min))/(1-F(min))
-            DumR(7)=(DumR(6)-CritMin%PopInb)/(1.0d0-CritMin%PopInb)
+            ! F_t = DeltaF + (1 - DeltaF) * F_t-1
+            ! DeltaF = (F_t - F_t-1) / (1 - F_t-1)
+            DumR(7)=(DumR(6)-PopInbOld)/(1.0d0-PopInbOld)
             write(STDOUT, FMTLOGSTDOUT) DumI,DumR(:)
             write(UnitLog,FMTLOGUNIT)   DumI,DumR(:)
           end do
@@ -757,9 +848,12 @@ module AlphaMateModule
           close(UnitLog)
           close(UnitLog2)
 
-          write(STDOUT,"(a,f9.5)") "Old coancestry: ",PopInbOld
-          write(STDOUT,"(a,f9.5)") "Targeted rate of 'population' inbreeding: ",RatePopInbTarget
-          write(STDOUT,"(a,f9.5)") "Targeted 'population' inbreeding:",PopInbTarget
+          DumC=Real2Char(PopInbOld)!,fmt="(f8.5)")
+          write(STDOUT,"(2a)") "Old coancestry: ",trim(adjustl(DumC))
+          DumC=Real2Char(RatePopInbTarget)!,fmt="(f8.5)")
+          write(STDOUT,"(2a)") "Targeted rate of 'population' inbreeding: ",trim(adjustl(DumC))
+          DumC=Real2Char(PopInbTarget)!,fmt="(f8.5)")
+          write(STDOUT,"(2a)") "Targeted 'population' inbreeding: ",trim(adjustl(DumC))
           write(STDOUT,"(a)") " "
 
         end if
@@ -783,7 +877,7 @@ module AlphaMateModule
       ! --- Optimise for maximum gain with constraint on inbreeding ---
 
       if (ModeOpt) then
-        write(STDOUT,"(a)") "Optimise for maximum gain with constraint on inbreeding:"
+        write(STDOUT,"(a)") "Optimise for maximum gain with constraint on inbreeding"
         write(STDOUT,"(a)") " "
 
         EvolAlgLogFile="AlphaMateResults"//DASH//"OptimisationLog2OptimumGain.txt"
@@ -812,7 +906,7 @@ module AlphaMateModule
         call MrgRnk(nVec,Rank)
         do i=nInd,1,-1 ! MrgRnk ranks small to large
           j=Rank(i)
-          write(UnitContri,FMTCON) trim(IdC(j)),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),nVec(j)
+          write(UnitContri,FMTCON) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),nVec(j)
         end do
         close(UnitContri)
 
@@ -822,7 +916,7 @@ module AlphaMateModule
                                      "     Parent1",&
                                      "     Parent2"
         do i=1,nMat
-          write(UnitMating,FMTMAT) i,trim(IdC(Mate(1,i))),trim(IdC(Mate(2,i)))
+          write(UnitMating,FMTMAT) i,IdC(Mate(1,i)),IdC(Mate(2,i))
         end do
         close(UnitMating)
       end if
@@ -830,7 +924,7 @@ module AlphaMateModule
       ! --- Evaluate the full frontier ---
 
       if (EvaluateFrontier) then
-        write(STDOUT,"(a)") "Evaluate the full frontier (this might take quite some time!):"
+        write(STDOUT,"(a)") "Evaluate the full frontier (this might take some time!)"
         write(STDOUT,"(a)") " "
 
         PopInbPenaltyBellow=.true. ! we want to target certain rates of inbreeding
@@ -838,6 +932,8 @@ module AlphaMateModule
         open(newunit=UnitFrontier,file="AlphaMateResults"//DASH//"Frontier.txt",status="unknown")
         !                               1234567890123456789012
         write(UnitFrontier,FMTFROHEAD) "        Step",&
+                                       "             Objective",&
+                                       "             Penalties",&
                                        "                  Gain",&
                                        "             GainStand",&
                                        "            PopInbreed",&
@@ -847,11 +943,11 @@ module AlphaMateModule
         j=0
         if (ModeMin) then
           j=j+1
-          write(UnitFrontier,FMTFRO) j,CritMin%Value,CritMin%Gain,CritMin%GainStand,CritMin%PopInb,CritMin%RatePopInb,CritMin%PopInb2,CritMin%IndInb
+          write(UnitFrontier,FMTFRO) j,CritMin%Value,CritMin%Penalty,CritMin%Gain,CritMin%GainStand,CritMin%PopInb,CritMin%RatePopInb,CritMin%PopInb2,CritMin%IndInb
         end if
         if (ModeOpt) then
           j=j+1
-          write(UnitFrontier,FMTFRO) j,CritOpt%Value,CritOpt%Gain,CritOpt%GainStand,CritOpt%PopInb,CritOpt%RatePopInb,CritMin%PopInb2,CritOpt%IndInb
+          write(UnitFrontier,FMTFRO) j,CritOpt%Value,CritOpt%Penalty,CritOpt%Gain,CritOpt%GainStand,CritOpt%PopInb,CritOpt%RatePopInb,CritMin%PopInb2,CritOpt%IndInb
         end if
 
         ! Hold old results
@@ -861,9 +957,15 @@ module AlphaMateModule
         ! Evaluate
         do i=1,nFrontierSteps
           RatePopInbTarget=RatePopInbFrontier(i)
-          PopInbTarget=PopInbOld+RatePopInbTarget*(1.0d0-PopInbOld)
-          write(STDOUT,"(a,i3,a,i3,a,f8.5,a,f8.5,a)") "Step ",i," out of ",nFrontierSteps, " for the rate of inbreeding of ",RatePopInbTarget,&
-                                                      " (=pop. inbreed. of ",PopInbTarget,")"
+          ! F_t = DeltaF + (1 - DeltaF) * F_t-1
+          PopInbTarget=RatePopInbTarget+(1.0d0-RatePopInbTarget)*PopInbOld
+          DumC=Int2Char(i)
+          DumC2=Int2Char(nFrontierSteps)
+          DumC3=Real2Char(RatePopInbTarget)
+          DumC4=Real2Char(PopInbTarget)
+          write(STDOUT,"(9a)") "Step ",trim(adjustl(DumC))," out of ",trim(adjustl(DumC2)),&
+                               " for the rate of inbreeding of ",trim(adjustl(DumC3)),&
+                               " (=pop. inbreed. of ",trim(adjustl(DumC4)),")"
           write(STDOUT,"(a)") ""
           EvolAlgLogFile="AlphaMateResults"//DASH//"OptimisationLog"//Int2Char(j+i)//".txt"
           if (GenderMatters) then
@@ -879,9 +981,10 @@ module AlphaMateModule
                          CalcCriterion=FixSolMateAndCalcCrit,&
                          LogHeader=EvolAlgLogHeaderForAlphaMate,Log=EvolAlgLogForAlphaMate,&
                          BestCriterion=Crit)
-          write(UnitFrontier,FMTFRO) j+i,Crit%Value,Crit%Gain,Crit%GainStand,Crit%PopInb,Crit%RatePopInb,Crit%PopInb2,Crit%IndInb
+          write(UnitFrontier,FMTFRO) j+i,Crit%Value,Crit%Penalty,Crit%Gain,Crit%GainStand,Crit%PopInb,Crit%RatePopInb,Crit%PopInb2,Crit%IndInb
           if ((RatePopInbTarget-Crit%RatePopInb) > 0.01d0) then
-            write(STDOUT,"(a,f8.5)") "NOTE: Could not achieve the rate of 'population' inbreeding of ",RatePopInbTarget
+            DumC=Real2Char(RatePopInbTarget)
+            write(STDOUT,"(2a)") "NOTE: Could not achieve the rate of 'population' inbreeding of ",trim(adjustl(DumC))
             write(STDOUT,"(a)") "NOTE: Stopping the frontier evaluation."
             write(STDOUT,"(a)") ""
             exit
@@ -1269,6 +1372,8 @@ module AlphaMateModule
       ! print*,xVec,TmpVec,PopInb
       ! stop 1
 
+      ! F_t = DeltaF + (1 - DeltaF) * F_t-1
+      ! DeltaF = (F_t - F_t-1) / (1 - F_t-1)
       Criterion%RatePopInb=(Criterion%PopInb-PopInbOld)/(1.0d0-PopInbOld)
 
       if (ToLower(trim(CritType)) == "min") then
@@ -1389,12 +1494,15 @@ program AlphaMate
   use ISO_Fortran_Env, STDIN=>input_unit,STDOUT=>output_unit,STDERR=>error_unit
   use IFPort,only : SystemQQ
   use AlphaMateModule
+  use AlphaSuiteModule, only : Int2Char
 
   implicit none
 
   real(real32) :: Start,Finish
 
   logical :: Success
+
+  character(len=100) :: DumC
 
   call cpu_time(Start)
   call AlphaMateTitles
@@ -1417,7 +1525,8 @@ program AlphaMate
   call AlphaMateSearch
   call cpu_time(Finish)
 
-  write(STDOUT,"(a,f20.4,a)") "Time duration of AlphaMate: ",Finish-Start," seconds"
+  DumC=Int2Char(nint(Finish-Start))
+  write(STDOUT,"(3a)") "Time duration of AlphaMate: ",trim(adjustl(DumC))," seconds"
   write(STDOUT,"(a)") " "
 end program
 
