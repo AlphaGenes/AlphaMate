@@ -38,8 +38,8 @@ if (length(LogFiles) > 0) {
   ## Get the data
   Dat <- vector(mode="list", length=length(LogFiles))
   for (LogFile in LogFiles) {
-    ## LogFile <- "OptimisationLog1MinimumInbreeding.txt"
-    ## LogFile <- "OptimisationLog2OptimumGain.txt"
+    ## LogFile <- "OptimisationLogMinimumInbreeding.txt"
+    ## LogFile <- "OptimisationLogOptimumGain.txt"
     LogFileCount <- LogFileCount+1
     Dat[[LogFileCount]] <- read.table(file=LogFile, header=TRUE)
     #Dat[[LogFileCount]] <- Dat[[LogFileCount]][order(Dat[[LogFileCount]]$RatePopInb), ]
@@ -50,17 +50,17 @@ if (length(LogFiles) > 0) {
       xlim <- range(c(xlim, Dat[[LogFileCount]]$RatePopInb))
     }
   }
-  
+
   ## Plot the data
   LogFileCount <- 0
   for (LogFile in LogFiles) {
-    ## LogFile <- "OptimisationLog1MinimumInbreeding.txt"
-    ## LogFile <- "OptimisationLog2OptimumGain.txt"
+    ## LogFile <- "OptimisationLogMinimumInbreeding.txt"
+    ## LogFile <- "OptimisationLogOptimumGain.txt"
     LogFileCount <- LogFileCount + 1
-    
-    if (LogFile == "OptimisationLog1MinimumInbreeding.txt") {
+
+    if (LogFile == "OptimisationLogMinimumInbreeding.txt") {
       Col <- ColRoslinBlue
-    } else if (LogFile == "OptimisationLog2OptimumGain.txt") {
+    } else if (LogFile == "OptimisationLogOptimumGain.txt") {
       Col <- ColRoslinViolet
     } else {
       Col <- ColRoslinGray
@@ -76,14 +76,14 @@ if (length(LogFiles) > 0) {
       points(y=Dat[[LogFileCount]]$GainStand, x=Dat[[LogFileCount]]$RatePopInb, type="o",
              pch=21, lwd=0.5, ylim=ylim, xlim=xlim, col=Col, bg=Col, cex=0.5*Ratio)
     }
-    if (LogFile == "OptimisationLog1MinimumInbreeding.txt") {
+    if (LogFile == "OptimisationLogMinimumInbreeding.txt") {
       DeltaF <- axis(side=1)
       CoefF <- Dat[[LogFileCount]][nrow(Dat[[LogFileCount]]), "PopInbreed"]
       CoefF <- DeltaF*(1-CoefF) + CoefF
       axis(side=3, at=DeltaF, labels=round(CoefF,digits=3))
       mtext(side=3, text="Coef. of inbreeding", line=2.5)
     }
-    if (LogFile %in% c("OptimisationLog1MinimumInbreeding.txt", "OptimisationLog2OptimumGain.txt")) {
+    if (LogFile %in% c("OptimisationLogMinimumInbreeding.txt", "OptimisationLogOptimumGain.txt")) {
       abline(h=Dat[[LogFileCount]][Test, ]$GainStand,  lwd=1, lty=2, col=Col)
       abline(v=Dat[[LogFileCount]][Test, ]$RatePopInb, lwd=1, lty=2, col=Col)
     }

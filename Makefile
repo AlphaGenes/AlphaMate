@@ -3,6 +3,7 @@ NAME:=AlphaMate
 VERSION:= $(shell git rev-parse --short HEAD)
 SUBVERSION:=0
 PROGRAM:=$(NAME)$(VERSION).$(SUBVERSION)
+ALPHAHOUSEDIR:=../AlphaHouse/
 
 # Set the default compiler to iFort
 FC:=ifort
@@ -49,7 +50,10 @@ else
 	endif
 endif
 
-MODS := $(SRCDIR)AlphaSuiteMod.f90 $(SRCDIR)OrderPackMod.f90 $(SRCDIR)AlphaEvolveMod.f90
+MODS := $(ALPHAHOUSEDIR)AlphahouseMod.f90 \
+	$(ALPHAHOUSEDIR)AlphaStatMod.f90 \
+	$(ALPHAHOUSEDIR)AlphaEvolveMod.f90 \
+	$(ALPHAHOUSEDIR)OrderPackMod.f90 \
 
 # Compile everything
 all: directories $(TARGETDIR)$(NAME)$(exe)
@@ -58,8 +62,8 @@ eddie: directories Makefile $(MODS) $(SRCDIR)$(NAME).f90
 	$(FC) $(MODS) $(SRCDIR)$(NAME).f90 $(EDDIEFLAGS) -o $(TARGETDIR)$(NAME)$(exe)
 
 directories:
-	$(MAKEDIR)  $(TARGETDIR)
-	$(MAKEDIR)  $(BUILDDIR)
+	$(MAKEDIR) $(TARGETDIR)
+	$(MAKEDIR) $(BUILDDIR)
 
 # Compilation options for debugging
 # With warnings about not used variables
