@@ -15,8 +15,8 @@ LimitMaleParentContributions       ,No,1,20,0.01
 LimitFemaleParentContributions     ,No,1,1,0.01
 AllowSelfing                       ,No,0.1
 PAGE                               ,No
-PAGEMales                          ,No
-PAGEFemales                        ,No
+PAGEMales                          ,Yes,5,0
+PAGEFemales                        ,No,0,0
 OldCoancestry                      ,Unknown 0.6965578362500001
 TargetedRateOfPopulationInbreeding ,0.01,0.5,AboveAndBellow
 IndividualInbreedingPenalty        ,0 0.01

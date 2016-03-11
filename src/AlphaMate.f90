@@ -49,17 +49,20 @@ module AlphaMateModule
   integer(int32) :: nInd,nMat,nPar,nPotPar1,nPotPar2,nMal,nFem,nPar1,nPar2,nFrontierSteps
   integer(int32) :: EvolAlgNSol,EvolAlgNGen,EvolAlgNGenBurnIn,EvolAlgNGenStop,EvolAlgNGenPrint
   integer(int32) :: PAGEPar1Max,PAGEPar2Max
-  integer(int32),allocatable :: Gender(:),IdPotPar1(:),IdPotPar2(:),nVecPar1(:),nVecPar2(:),nVec(:),Mate(:,:)
+  integer(int32),allocatable :: Gender(:),IdPotPar1(:),IdPotPar2(:)
+  integer(int32),allocatable :: nVecPar1(:),nVecPar2(:),nVec(:),Mate(:,:)
 
   real(real64) :: LimitPar1Min,LimitPar1Max,LimitPar2Min,LimitPar2Max
   real(real64) :: EvolAlgStopTol,EvolAlgCRBurnIn,EvolAlgCRLate,EvolAlgFBase,EvolAlgFHigh1,EvolAlgFHigh2
   real(real64) :: PopInbOld,PopInbTarget,RatePopInbTarget,GainMinStand
   real(real64) :: PopInbPenalty,IndInbPenalty,SelfingPenalty,LimitPar1Penalty,LimitPar2Penalty
-  real(real64),allocatable :: Bv(:),BvStand(:),RelMtx(:,:),RatePopInbFrontier(:),xVec(:)
+  real(real64) :: PAGEPar1Cost,PAGEPar2Cost
+  real(real64),allocatable :: Bv(:),BvStand(:),BvPAGE(:),BvPAGEStand(:)
+  real(real64),allocatable :: RelMtx(:,:),RatePopInbFrontier(:),xVec(:)
 
   logical :: ModeMin,ModeOpt,GenderMatters,EqualizePar1,EqualizePar2
   logical :: SelfingAllowed,PopInbPenaltyBellow,InferPopInbOld,EvaluateFrontier
-  logical :: PAGEPar1,PAGEPar2
+  logical :: PAGE,PAGEPar1,PAGEPar2
 
   character(len=100),allocatable :: IdC(:)
   CHARACTER(len=100),PARAMETER :: FMTREAL2CHAR="(f11.5)"
@@ -139,7 +142,7 @@ module AlphaMateModule
       integer(int32) :: UnitSpec,UnitRelMtx,UnitBv,UnitGender
       integer(int32),allocatable :: Order(:)
 
-      real(real64) :: BvTmp
+      real(real64) :: BvTmp,BvTmp2
 
       logical :: Success
 
@@ -482,6 +485,93 @@ module AlphaMateModule
         stop 1
       end if
 
+      ! PAGE
+      read(UnitSpec,*) DumC,DumC
+      if (.not.GenderMatters) then
+        if      (ToLower(trim(DumC)) == "yes") then
+          backspace(UnitSpec)
+          read(UnitSpec,*) DumC,DumC,PAGEPar1Max,PAGEPar1Cost
+          DumC=Int2Char(nint(PAGEPar1Max))
+          DumC2=Real2Char(PAGEPar1Cost,fmt=FMTREAL2CHAR)
+          if (PAGEPar1Max <= nPar) then
+            write(STDOUT,"(4a)") "PAGE: yes, individuals ",trim(adjustl(DumC)),", cost ",trim(adjustl(DumC2))
+          else
+            write(STDERR,"(a)") "ERROR: The max number of individuals to edit must not be greater than the total number of parents!"
+            DumC=Int2Char(nPar)
+            write(STDERR,"(2a)") "ERROR: Number of             parents: ",trim(adjustl(DumC))
+            DumC=Int2Char(PAGEPar1Max)
+            write(STDERR,"(2a)") "ERROR: Number of individuals to edit: ",trim(adjustl(DumC))
+            write(STDERR,"(a)") " "
+          end if
+        else if (ToLower(trim(DumC)) == "no") then
+          write(STDOUT,"(a)") "PAGE: no"
+        else
+          write(STDERR,"(a)") "ERROR: PAGE must be: Yes or No!"
+          write(STDERR,"(a)") " "
+          stop 1
+        end if
+      end if
+
+      ! PAGEMales
+      read(UnitSpec,*) DumC,DumC
+      if (GenderMatters) then
+        if      (ToLower(trim(DumC)) == "yes") then
+          backspace(UnitSpec)
+          read(UnitSpec,*) DumC,DumC,PAGEPar1Max,PAGEPar1Cost
+          DumC=Int2Char(nint(PAGEPar1Max))
+          DumC2=Real2Char(PAGEPar1Cost,fmt=FMTREAL2CHAR)
+          if (PAGEPar1Max <= nPar1) then
+            write(STDOUT,"(4a)") "PAGE: yes, individuals ",trim(adjustl(DumC)),", cost ",trim(adjustl(DumC2))
+          else
+            write(STDERR,"(a)") "ERROR: The max number of male individuals to edit must not be greater than the total number of male parents!"
+            DumC=Int2Char(nPar1)
+            write(STDERR,"(2a)") "ERROR: Number of male             parents: ",trim(adjustl(DumC))
+            DumC=Int2Char(PAGEPar1Max)
+            write(STDERR,"(2a)") "ERROR: Number of male individuals to edit: ",trim(adjustl(DumC))
+            write(STDERR,"(a)") " "
+          end if
+        else if (ToLower(trim(DumC)) == "no") then
+          write(STDOUT,"(a)") "PAGEMales: no"
+        else
+          write(STDERR,"(a)") "ERROR: PAGEMales must be: Yes or No!"
+          write(STDERR,"(a)") " "
+          stop 1
+        end if
+      end if
+
+      ! PAGEFemales
+      read(UnitSpec,*) DumC,DumC
+      if (GenderMatters) then
+        if      (ToLower(trim(DumC)) == "yes") then
+          backspace(UnitSpec)
+          read(UnitSpec,*) DumC,DumC,PAGEPar2Max,PAGEPar2Cost
+          DumC=Int2Char(nint(PAGEPar2Max))
+          DumC2=Real2Char(PAGEPar2Cost,fmt=FMTREAL2CHAR)
+          if (PAGEPar2Max <= nPar2) then
+            write(STDOUT,"(4a)") "PAGE: yes, individuals ",trim(adjustl(DumC)),", cost ",trim(adjustl(DumC2))
+          else
+            write(STDERR,"(a)") "ERROR: The max number of female individuals to edit must not be greater than the total number of female parents!"
+            DumC=Int2Char(nPar2)
+            write(STDERR,"(2a)") "ERROR: Number of female             parents: ",trim(adjustl(DumC))
+            DumC=Int2Char(PAGEPar2Max)
+            write(STDERR,"(2a)") "ERROR: Number of female individuals to edit: ",trim(adjustl(DumC))
+            write(STDERR,"(a)") " "
+          end if
+        else if (ToLower(trim(DumC)) == "no") then
+          write(STDOUT,"(a)") "PAGEFemales: no"
+        else
+          write(STDERR,"(a)") "ERROR: PAGEFemales must be: Yes or No!"
+          write(STDERR,"(a)") " "
+          stop 1
+        end if
+      end if
+
+      if (PAGEPar1 .or. PAGEPar2) then
+        PAGE=.true.
+      else
+        PAGE=.false.
+      end if
+
       ! OldCoancestry
       read(UnitSpec,*) DumC,DumC
       if (ToLower(trim(DumC)) == "unknown") then
@@ -559,6 +649,10 @@ module AlphaMateModule
 
       allocate(Bv(nInd))
       allocate(BvStand(nInd))
+      if (PAGE) then
+        allocate(BvPAGE(nInd))
+        allocate(BvPAGEStand(nInd))
+      end if
       allocate(RelMtx(nInd,nInd))
       allocate(IdC(nInd))
       allocate(Gender(nInd))
@@ -577,10 +671,17 @@ module AlphaMateModule
       close(UnitRelMtx)
 
       do i=1,nInd
-        read(UnitBv,*) IdCTmp,BvTmp
+        if (PAGE) then
+          read(UnitBv,*) IdCTmp,BvTmp
+        else
+          read(UnitBv,*) IdCTmp,BvTmp,BvTmp2
+        end if
         do j=1,nInd
           if (trim(IdCTmp) == trim(IdC(j))) then
             Bv(j)=BvTmp
+            if (PAGE) then
+              BvPAGE(j)=BvTmp2
+            end if
             exit
           end if
         end do
@@ -649,6 +750,9 @@ module AlphaMateModule
       call RandomOrder(Order,nInd)
       IdC(:)=IdC(Order)
       Bv(:)=Bv(Order)
+      if (PAGE) then
+        BvPAGE(:)=BvPAGE(Order)
+      end if
       Gender(:)=Gender(Order)
       RelMtx(:,:)=RelMtx(Order,Order)
       deallocate(Order)
@@ -749,7 +853,8 @@ module AlphaMateModule
       integer(int32) :: i,j,k,l,nTmp,DumI,Rank(nInd)
       integer(int32) :: UnitInbree,UnitMating,UnitContri,UnitLog,UnitLog2,UnitFrontier
 
-      real(real64) :: BvMean,BvStdDev,PopInbTargetHold,RatePopInbTargetHold,DumR(9)
+      real(real64) :: BvMean,BvStdDev
+      real(real64) :: PopInbTargetHold,RatePopInbTargetHold,DumR(9)
       real(real64),allocatable :: InitEqual(:,:)
 
       character(len=1000) :: EvolAlgLogFile,EvolAlgLogFile2
@@ -765,6 +870,13 @@ module AlphaMateModule
       BvStand(:)=Bv(:)-BvMean
       BvStdDev=sqrt(sum(BvStand(:)*BvStand(:))/dble(nInd))
       BvStand(:)=(Bv(:)-BvMean)/BvStdDev
+      if (PAGE) then
+        ! must have the same scaling!!!!
+        BvPAGEStand(:)=(BvPAGE(:)-BvMean)/BvStdDev
+        ! only the PAGE bit of Bv
+        BvPAGE(:)=BvPAGE(:)-Bv(:)
+        BvPAGEStand(:)=BvPAGEStand(:)-BvStand(:)
+      end if
 
       ! --- Optimise for minimum inbreeding ---
 
@@ -775,9 +887,12 @@ module AlphaMateModule
         EvolAlgLogFile="AlphaMateResults"//DASH//"OptimisationLog1MinimumInbreeding.txt"
         EvolAlgLogFile2="AlphaMateResults"//DASH//"OptimisationLog1MinimumInbreedingInitial.txt"
         if (GenderMatters) then
-          nTmp=nPotPar1+nPotPar2+nMat ! TODO: add PAGE dimension
+          nTmp=nPotPar1+nPotPar2+nMat
         else
-          nTmp=nPotPar1+nMat          ! TODO: add PAGE dimension
+          nTmp=nPotPar1+nMat
+        end if
+        if (PAGE) then
+          nTmp=nTmp+nInd
         end if
         allocate(InitEqual(nTmp,1))
         InitEqual(:,1)=1.0d0 ! A solution that would give equal contribution for everybody
@@ -886,9 +1001,12 @@ module AlphaMateModule
 
         EvolAlgLogFile="AlphaMateResults"//DASH//"OptimisationLog2OptimumGain.txt"
         if (GenderMatters) then
-          nTmp=nPotPar1+nPotPar2+nMat ! TODO: add PAGE dimension
+          nTmp=nPotPar1+nPotPar2+nMat
         else
-          nTmp=nPotPar1+nMat          ! TODO: add PAGE dimension
+          nTmp=nPotPar1+nMat
+        end if
+        if (PAGE) then
+          nTmp=nTmp+nInd
         end if
         call EvolAlgDE(nParam=nTmp,nSol=EvolAlgNSol,nGen=EvolAlgNGen,nGenBurnIn=EvolAlgNGenBurnIn,&
                        nGenStop=EvolAlgNGenStop,StopTolerance=EvolAlgStopTol,&
@@ -973,9 +1091,12 @@ module AlphaMateModule
           write(STDOUT,"(a)") ""
           EvolAlgLogFile="AlphaMateResults"//DASH//"OptimisationLog"//Int2Char(l+k)//".txt"
           if (GenderMatters) then
-            nTmp=nPotPar1+nPotPar2+nMat ! TODO: add PAGE dimension
+            nTmp=nPotPar1+nPotPar2+nMat
           else
-            nTmp=nPotPar1+nMat          ! TODO: add PAGE dimension
+            nTmp=nPotPar1+nMat
+          end if
+          if (PAGE) then
+            nTmp=nTmp+nInd
           end if
           call EvolAlgDE(nParam=nTmp,nSol=EvolAlgNSol,nGen=EvolAlgNGen,nGenBurnIn=EvolAlgNGenBurnIn,&
                          nGenStop=EvolAlgNGenStop,StopTolerance=EvolAlgStopTol,&
@@ -1353,6 +1474,18 @@ module AlphaMateModule
       end if
 
       xVec(:)=dble(nVec(:))/(dble(2*nMat))
+
+      ! --- PAGE ---
+
+      if (PAGE) then
+        if (.not.GenderMatters) then
+          call MrgRnk(Sol((nPotPar1+nMat+1):(nPotPar1+nMat+nInd)),RankSol(1:nInd))
+        else
+          call MrgRnk(Sol((nPotPar1+nPotPar2+nMat+1):(nPotPar1+nPotPar2+nMat+nInd)),RankSol(1:nInd))
+        end if
+        RankSol(1:nInd)=RankSol(nInd:1:-1) ! MrgRnk ranks small to large
+        ! TODO
+      end if
 
       ! --- Genetic gain ---
 
