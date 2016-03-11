@@ -300,6 +300,9 @@ module AlphaEvolveModule
 
       ! --- The winner ---
 
+      ! Re-evaluate the winner to fill any potential global objects!!!
+      ! (if CalcCriterion does not include any global objects, then this would not be needed)
+      call CalcCriterion(NewChrom(:,BestSol),CritType,BestCriterion)
       call Log(Unit,Gen,AcceptRate,BestCriterion)
       write(STDOUT,"(a)") " "
       close(Unit)
