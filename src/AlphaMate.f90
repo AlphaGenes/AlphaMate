@@ -1,4 +1,3 @@
-! TODO: PAGE
 ! TODO: generic way to add reward or penalty on animal or mate basis?
 !       - to handle costs
 !       - to handle variance of crosses
@@ -51,12 +50,12 @@ module AlphaMateMod
   integer(int32) :: EvolAlgNSol,EvolAlgNGen,EvolAlgNGenBurnIn,EvolAlgNGenStop,EvolAlgNGenPrint
   integer(int32) :: PAGEPar1Max,PAGEPar2Max
   integer(int32),allocatable :: Gender(:),IdPotPar1(:),IdPotPar2(:)
-  integer(int32),allocatable :: nVecPar1(:),nVecPar2(:),nVec(:),Mate(:,:)
+  integer(int32),allocatable :: nVecPar1(:),nVecPar2(:),nVec(:),MateAlloc(:,:)
 
   real(real64) :: LimitPar1Min,LimitPar1Max,LimitPar2Min,LimitPar2Max
   real(real64) :: EvolAlgStopTol,EvolAlgCRBurnIn,EvolAlgCRLate,EvolAlgFBase,EvolAlgFHigh1,EvolAlgFHigh2
   real(real64) :: PopInbOld,PopInbTarget,RatePopInbTarget,GainMinStand
-  real(real64) :: PopInbPenalty,IndInbPenalty,SelfingPenalty,LimitPar1Penalty,LimitPar2Penalty
+  real(real64) :: PopInbPenalty,PrgInbPenalty,SelfingPenalty,LimitPar1Penalty,LimitPar2Penalty
   real(real64) :: PAGEPar1Cost,PAGEPar2Cost
   real(real64),allocatable :: Bv(:),BvStand(:),BvPAGE(:),BvPAGEStand(:)
   real(real64),allocatable :: RelMtx(:,:),RatePopInbFrontier(:),xVec(:),GeneEdit(:)
@@ -67,18 +66,18 @@ module AlphaMateMod
 
   character(len=100),allocatable :: IdC(:)
   CHARACTER(len=100),PARAMETER :: FMTREAL2CHAR="(f11.5)"
-  CHARACTER(len=100),PARAMETER :: FMTLOGHEADERSTDOUT="(12a12)"
-  CHARACTER(len=100),PARAMETER :: FMTLOGSTDOUT="(i12,11(1x,f11.5))"
+  CHARACTER(len=100),PARAMETER :: FMTLOGHEADERSTDOUT="(11a12)"
+  CHARACTER(len=100),PARAMETER :: FMTLOGSTDOUT="(i12,10(1x,f11.5))"
   CHARACTER(len=100),PARAMETER :: FMTLOGHEADERUNIT="(12a,11a22)"
   CHARACTER(len=100),PARAMETER :: FMTLOGUNIT="(i12,11(1x,es21.14))"
-  CHARACTER(len=100),PARAMETER :: FMTCONHEAD="(6a12)"
-  CHARACTER(len=100),PARAMETER :: FMTCONHEADEDIT="(7a12)"
-  CHARACTER(len=100),PARAMETER :: FMTCON="(a11,1x,i11,3(1x,f11.5),1x,i11)"
-  CHARACTER(len=100),PARAMETER :: FMTCONEDIT="(a11,1x,i11,3(1x,f11.5),2(1x,i11))"
+  CHARACTER(len=100),PARAMETER :: FMTINDHEAD="(6a12)"
+  CHARACTER(len=100),PARAMETER :: FMTINDHEADEDIT="(8a12)"
+  CHARACTER(len=100),PARAMETER :: FMTIND="(a12,1x,i11,3(1x,f11.5),1x,i11)"
+  CHARACTER(len=100),PARAMETER :: FMTINDEDIT="(a12,1x,i11,3(1x,f11.5),2(1x,i11),1x,f11.5)"
   CHARACTER(len=100),PARAMETER :: FMTMATHEAD="(3a12)"
   CHARACTER(len=100),PARAMETER :: FMTMAT="(i12,2(1x,a11))"
-  CHARACTER(len=100),PARAMETER :: FMTFROHEAD="(a12,8a22)"
-  CHARACTER(len=100),PARAMETER :: FMTFRO="(a12,8(1x,es21.14))"
+  CHARACTER(len=100),PARAMETER :: FMTFROHEAD="(a12,7a22)"
+  CHARACTER(len=100),PARAMETER :: FMTFRO="(a12,7(1x,es21.14))"
 
   private
   public :: AlphaMateTitles,ReadSpecAndDataForAlphaMate,SetInbreedingParameters
@@ -131,7 +130,7 @@ module AlphaMateMod
       write(STDOUT,"(a15,a)")     " ","Software for optimizing contributions to the next generation"
       write(STDOUT,"(a)") ""
       write(STDOUT,"(a35,a)")     " ","No Liability"
-      write(STDOUT,"(a25,a)")     " ","Bugs to John.Hickey@roslin.ed.ac.uk"
+      write(STDOUT,"(a25,a)")     " ","Bugs to Gregor.Gorjanc@roslin.ed.ac.uk"
       write(STDOUT,"(a)") ""
     end subroutine
 
@@ -495,12 +494,13 @@ module AlphaMateMod
       read(UnitSpec,*) DumC,DumC
       if (.not.GenderMatters) then
         if      (ToLower(trim(DumC)) == "yes") then
+          PAGEPar1=.true.
           backspace(UnitSpec)
           read(UnitSpec,*) DumC,DumC,PAGEPar1Max,PAGEPar1Cost
           DumC=Int2Char(PAGEPar1Max)
           DumC2=Real2Char(PAGEPar1Cost,fmt=FMTREAL2CHAR)
           if (PAGEPar1Max <= nPar) then
-            write(STDOUT,"(4a)") "PAGE: yes, individuals ",trim(adjustl(DumC)),", cost ",trim(adjustl(DumC2))
+            write(STDOUT,"(4a)") "PAGE: yes, no. of individuals ",trim(adjustl(DumC)),", cost ",trim(adjustl(DumC2))
           else
             write(STDERR,"(a)") "ERROR: The max number of individuals to edit must not be greater than the total number of parents!"
             DumC=Int2Char(nPar)
@@ -510,6 +510,7 @@ module AlphaMateMod
             write(STDERR,"(a)") " "
           end if
         else if (ToLower(trim(DumC)) == "no") then
+          PAGEPar1=.false.
           write(STDOUT,"(a)") "PAGE: no"
         else
           write(STDERR,"(a)") "ERROR: PAGE must be: Yes or No!"
@@ -522,12 +523,13 @@ module AlphaMateMod
       read(UnitSpec,*) DumC,DumC
       if (GenderMatters) then
         if      (ToLower(trim(DumC)) == "yes") then
+          PAGEPar1=.true.
           backspace(UnitSpec)
           read(UnitSpec,*) DumC,DumC,PAGEPar1Max,PAGEPar1Cost
           DumC=Int2Char(PAGEPar1Max)
           DumC2=Real2Char(PAGEPar1Cost,fmt=FMTREAL2CHAR)
           if (PAGEPar1Max <= nPar1) then
-            write(STDOUT,"(4a)") "PAGE: yes, individuals ",trim(adjustl(DumC)),", cost ",trim(adjustl(DumC2))
+            write(STDOUT,"(4a)") "PAGEMales: yes, no. of individuals ",trim(adjustl(DumC)),", cost ",trim(adjustl(DumC2))
           else
             write(STDERR,"(a)") "ERROR: The max number of male individuals to edit must not be greater than the total number of male parents!"
             DumC=Int2Char(nPar1)
@@ -537,6 +539,7 @@ module AlphaMateMod
             write(STDERR,"(a)") " "
           end if
         else if (ToLower(trim(DumC)) == "no") then
+          PAGEPar1=.false.
           write(STDOUT,"(a)") "PAGEMales: no"
         else
           write(STDERR,"(a)") "ERROR: PAGEMales must be: Yes or No!"
@@ -549,12 +552,13 @@ module AlphaMateMod
       read(UnitSpec,*) DumC,DumC
       if (GenderMatters) then
         if      (ToLower(trim(DumC)) == "yes") then
+          PAGEPar2=.false.
           backspace(UnitSpec)
           read(UnitSpec,*) DumC,DumC,PAGEPar2Max,PAGEPar2Cost
           DumC=Int2Char(PAGEPar2Max)
           DumC2=Real2Char(PAGEPar2Cost,fmt=FMTREAL2CHAR)
           if (PAGEPar2Max <= nPar2) then
-            write(STDOUT,"(4a)") "PAGE: yes, individuals ",trim(adjustl(DumC)),", cost ",trim(adjustl(DumC2))
+            write(STDOUT,"(4a)") "PAGEFemales: yes, no. of individuals ",trim(adjustl(DumC)),", cost ",trim(adjustl(DumC2))
           else
             write(STDERR,"(a)") "ERROR: The max number of female individuals to edit must not be greater than the total number of female parents!"
             DumC=Int2Char(nPar2)
@@ -564,6 +568,7 @@ module AlphaMateMod
             write(STDERR,"(a)") " "
           end if
         else if (ToLower(trim(DumC)) == "no") then
+          PAGEPar2=.false.
           write(STDOUT,"(a)") "PAGEFemales: no"
         else
           write(STDERR,"(a)") "ERROR: PAGEFemales must be: Yes or No!"
@@ -606,10 +611,10 @@ module AlphaMateMod
       DumC3=Real2Char(PopInbPenalty,fmt=FMTREAL2CHAR)
       write(STDOUT,"(6a)") "TargetedRateOfPopulationInbreeding: ",trim(adjustl(DumC2)),", penalty ",trim(adjustl(DumC3)), ", mode "//trim(adjustl(DumC))
 
-      ! IndividualInbreedingPenalty
-      read(UnitSpec,*) DumC,IndInbPenalty
-      DumC=Real2Char(IndInbPenalty,fmt=FMTREAL2CHAR)
-      write(STDOUT,"(2a)") "IndividualInbreedingPenalty: ",trim(adjustl(DumC))
+      ! ProgenyInbreedingPenalty
+      read(UnitSpec,*) DumC,PrgInbPenalty
+      DumC=Real2Char(PrgInbPenalty,fmt=FMTREAL2CHAR)
+      write(STDOUT,"(2a)") "ProgenyInbreedingPenalty: ",trim(adjustl(DumC))
 
       ! EvaluateFrontier
       read(UnitSpec,*) DumC,DumC
@@ -665,7 +670,7 @@ module AlphaMateMod
       allocate(Gender(nInd))
       allocate(xVec(nInd))
       allocate(nVec(nInd))
-      allocate(Mate(2,nMat))
+      allocate(MateAlloc(2,nMat))
 
       write(STDOUT,"(a)") "--- Data ---"
       write(STDOUT,"(a)") " "
@@ -815,8 +820,10 @@ module AlphaMateMod
       call RandomOrder(Order,nInd)
       IdC(:)=IdC(Order)
       Bv(:)=Bv(Order)
+      BvStand(:)=BvStand(Order)
       if (PAGE) then
         BvPAGE(:)=BvPAGE(Order)
+        BvPAGEStand(:)=BvPAGEStand(Order)
       end if
       Gender(:)=Gender(Order)
       RelMtx(:,:)=RelMtx(Order,Order)
@@ -897,9 +904,9 @@ module AlphaMateMod
       DumC=Real2Char(PopInbOld,fmt=FMTREAL2CHAR)
       write(STDOUT,"(2a)") "Old coancestry: ",trim(adjustl(DumC))
       DumC=Real2Char(RatePopInbTarget,fmt=FMTREAL2CHAR)
-      write(STDOUT,"(2a)") "Targeted rate of 'population' inbreeding: ",trim(adjustl(DumC))
+      write(STDOUT,"(2a)") "Targeted rate of population inbreeding: ",trim(adjustl(DumC))
       DumC=Real2Char(PopInbTarget,fmt=FMTREAL2CHAR)
-      write(STDOUT,"(2a)") "Targeted 'population' inbreeding: ",trim(adjustl(DumC))
+      write(STDOUT,"(2a)") "Targeted population inbreeding: ",trim(adjustl(DumC))
       write(STDOUT,"(a)") " "
 
       open(newunit=UnitInbree,file="AlphaMateResults"//DASH//"ConstraintPopulationInbreeding.txt",status="unknown")
@@ -918,7 +925,7 @@ module AlphaMateMod
       integer(int32) :: i,j,k,nTmp,DumI,Rank(nInd)
       integer(int32) :: UnitInbree,UnitMating,UnitContri,UnitLog,UnitLog2,UnitFrontier
 
-      real(real64) :: PopInbTargetHold,RatePopInbTargetHold,DumR(9)
+      real(real64) :: PopInbTargetHold,RatePopInbTargetHold,DumR(8)
       real(real64),allocatable :: InitEqual(:,:)
 
       character(len=1000) :: EvolAlgLogFile,EvolAlgLogFile2
@@ -944,8 +951,8 @@ module AlphaMateMod
         if (PAGE) then
           nTmp=nTmp+nInd
         end if
-        allocate(InitEqual(nTmp,1))
-        InitEqual(:,1)=1.0d0 ! A solution that would give equal contribution for everybody
+        allocate(InitEqual(nTmp,nint(real(EvolAlgNSol*0.1))))
+        InitEqual(:,:)=1.0d0 ! A couple of solutions that would give equal contribution and the rest for everybody
         call EvolAlgDE(nParam=nTmp,nSol=EvolAlgNSol,Init=InitEqual,nGen=EvolAlgNGen,nGenBurnIn=EvolAlgNGenBurnIn,&
                        nGenStop=EvolAlgNGenStop,StopTolerance=EvolAlgStopTol,&
                        nGenPrint=EvolAlgNGenPrint,File=EvolAlgLogFile,CritType="Min",&
@@ -961,7 +968,7 @@ module AlphaMateMod
         call MrgRnk(nVec,Rank)
         !                             1234567890123456789012
         if (.not.PAGE) then
-          write(UnitContri,FMTCONHEAD) "          Id",&
+          write(UnitContri,FMTINDHEAD) "          Id",&
                                        "      Gender",&
                                        "       Merit",&
                                        " AvgCoancest",&
@@ -969,20 +976,21 @@ module AlphaMateMod
                                        "    nMatings"
           do i=nInd,1,-1 ! MrgRnk ranks small to large
             j=Rank(i)
-            write(UnitContri,FMTCON) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),nVec(j)
+            write(UnitContri,FMTIND) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),nVec(j)
           end do
         else
           !                                 1234567890123456789012
-          write(UnitContri,FMTCONHEADEDIT) "          Id",&
+          write(UnitContri,FMTINDHEADEDIT) "          Id",&
                                            "      Gender",&
                                            "       Merit",&
                                            " AvgCoancest",&
                                            "  Contribute",&
                                            "    nMatings",&
-                                           "    GeneEdit"
+                                           "    GeneEdit",&
+                                           " EditedMerit"
           do i=nInd,1,-1 ! MrgRnk ranks small to large
             j=Rank(i)
-            write(UnitContri,FMTCONEDIT) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),nVec(j),GeneEdit(j)
+            write(UnitContri,FMTINDEDIT) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),nVec(j),0,Bv(j)
           end do
         end if
         close(UnitContri)
@@ -993,7 +1001,7 @@ module AlphaMateMod
                                      "     Parent1",&
                                      "     Parent2"
         do i=1,nMat
-          write(UnitMating,FMTMAT) i,IdC(Mate(1,i)),IdC(Mate(2,i))
+          write(UnitMating,FMTMAT) i,IdC(MateAlloc(1,i)),IdC(MateAlloc(2,i))
         end do
         close(UnitMating)
 
@@ -1001,7 +1009,7 @@ module AlphaMateMod
 
           write(STDOUT,"(a)") "NOTE: Old coancestry is higher than the minimum group coancestry (x'Ax/2) under no selection."
           write(STDOUT,"(a)") "NOTE: Resetting the old coancestry to the minimum group coancestry under no selection and"
-          write(STDOUT,"(a)") "NOTE:   recomputing the log file values and the targeted 'population' inbreeding."
+          write(STDOUT,"(a)") "NOTE:   recomputing the log file values and the targeted population inbreeding."
           write(STDOUT,"(a)") " "
           PopInbOld=CritMin%PopInb
           ! F_t = DeltaF + (1 - DeltaF) * F_t-1
@@ -1035,15 +1043,15 @@ module AlphaMateMod
           DumC=Real2Char(PopInbOld,fmt=FMTREAL2CHAR)
           write(STDOUT,"(2a)") "Old coancestry: ",trim(adjustl(DumC))
           DumC=Real2Char(RatePopInbTarget,fmt=FMTREAL2CHAR)
-          write(STDOUT,"(2a)") "Targeted rate of 'population' inbreeding: ",trim(adjustl(DumC))
+          write(STDOUT,"(2a)") "Targeted rate of population inbreeding: ",trim(adjustl(DumC))
           DumC=Real2Char(PopInbTarget,fmt=FMTREAL2CHAR)
-          write(STDOUT,"(2a)") "Targeted 'population' inbreeding: ",trim(adjustl(DumC))
+          write(STDOUT,"(2a)") "Targeted population inbreeding: ",trim(adjustl(DumC))
           write(STDOUT,"(a)") " "
 
         end if
 
         if (PopInbTarget < CritMin%PopInb) then
-          write(STDERR,"(a)") "ERROR: Targeted 'population' inbreeding is lower than the group coancestry (x'Ax/2) under no selection."
+          write(STDERR,"(a)") "ERROR: Targeted population inbreeding is lower than the group coancestry (x'Ax/2) under no selection."
           write(STDERR,"(a)") "ERROR: Can not optimise!"
           write(STDERR,"(a)") " "
           stop 1
@@ -1086,7 +1094,7 @@ module AlphaMateMod
         call MrgRnk(nVec,Rank)
         !                             1234567890123456789012
         if (.not.PAGE) then
-          write(UnitContri,FMTCONHEAD) "          Id",&
+          write(UnitContri,FMTINDHEAD) "          Id",&
                                        "      Gender",&
                                        "       Merit",&
                                        " AvgCoancest",&
@@ -1094,20 +1102,21 @@ module AlphaMateMod
                                        "    nMatings"
           do i=nInd,1,-1 ! MrgRnk ranks small to large
             j=Rank(i)
-            write(UnitContri,FMTCON) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),nVec(j)
+            write(UnitContri,FMTIND) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),nVec(j)
           end do
         else
           !                                 1234567890123456789012
-          write(UnitContri,FMTCONHEADEDIT) "          Id",&
+          write(UnitContri,FMTINDHEADEDIT) "          Id",&
                                            "      Gender",&
                                            "       Merit",&
                                            " AvgCoancest",&
                                            "  Contribute",&
                                            "    nMatings",&
-                                           "    GeneEdit"
+                                           "    GeneEdit",&
+                                           " EditedMerit"
           do i=nInd,1,-1 ! MrgRnk ranks small to large
             j=Rank(i)
-            write(UnitContri,FMTCONEDIT) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),nVec(j),GeneEdit(j)
+            write(UnitContri,FMTINDEDIT) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),nVec(j),nint(GeneEdit(j)),Bv(j)+GeneEdit(j)*BvPAGE(j)
           end do
         end if
         close(UnitContri)
@@ -1118,7 +1127,7 @@ module AlphaMateMod
                                      "     Parent1",&
                                      "     Parent2"
         do i=1,nMat
-          write(UnitMating,FMTMAT) i,IdC(Mate(1,i)),IdC(Mate(2,i))
+          write(UnitMating,FMTMAT) i,IdC(MateAlloc(1,i)),IdC(MateAlloc(2,i))
         end do
         close(UnitMating)
       end if
@@ -1140,15 +1149,14 @@ module AlphaMateMod
                                        "             GainStand",&
                                        "            PopInbreed",&
                                        "            RatePopInb",&
-                                       "            PopInbree2",&
-                                       "            IndInbreed"
+                                       "            PrgInbreed"
         if (ModeMin) then
           DumC="Min"
-          write(UnitFrontier,FMTFRO) adjustl(DumC),CritMin%Value,CritMin%Penalty,CritMin%Gain,CritMin%GainStand,CritMin%PopInb,CritMin%RatePopInb,CritMin%PopInb2,CritMin%IndInb
+          write(UnitFrontier,FMTFRO) adjustl(DumC),CritMin%Value,CritMin%Penalty,CritMin%Gain,CritMin%GainStand,CritMin%PopInb,CritMin%RatePopInb,CritMin%PrgInb
         end if
         if (ModeOpt) then
           DumC="Opt"
-          write(UnitFrontier,FMTFRO) adjustl(DumC),CritOpt%Value,CritOpt%Penalty,CritOpt%Gain,CritOpt%GainStand,CritOpt%PopInb,CritOpt%RatePopInb,CritMin%PopInb2,CritOpt%IndInb
+          write(UnitFrontier,FMTFRO) adjustl(DumC),CritOpt%Value,CritOpt%Penalty,CritOpt%Gain,CritOpt%GainStand,CritOpt%PopInb,CritOpt%RatePopInb,CritOpt%PrgInb
         end if
 
         ! Hold old results
@@ -1165,7 +1173,7 @@ module AlphaMateMod
           DumC3=Real2Char(RatePopInbTarget,fmt=FMTREAL2CHAR)
           DumC4=Real2Char(PopInbTarget,fmt=FMTREAL2CHAR)
           write(STDOUT,"(9a)") "Step ",trim(adjustl(DumC))," out of ",trim(adjustl(DumC2)),&
-                               " for the rate of inbreeding of ",trim(adjustl(DumC3)),&
+                               " for the rate of population inbreeding of ",trim(adjustl(DumC3)),&
                                " (=pop. inbreed. of ",trim(adjustl(DumC4)),")"
           write(STDOUT,"(a)") ""
           EvolAlgLogFile="AlphaMateResults"//DASH//"OptimisationLogFrontier"//Int2Char(k)//".txt"
@@ -1186,21 +1194,37 @@ module AlphaMateMod
                          LogHeader=EvolAlgLogHeaderForAlphaMate,Log=EvolAlgLogForAlphaMate,&
                          BestCriterion=Crit)
           DumC="Frontier"//Int2Char(k)
-          write(UnitFrontier,FMTFRO) adjustl(DumC),Crit%Value,Crit%Penalty,Crit%Gain,Crit%GainStand,Crit%PopInb,Crit%RatePopInb,Crit%PopInb2,Crit%IndInb
+          write(UnitFrontier,FMTFRO) adjustl(DumC),Crit%Value,Crit%Penalty,Crit%Gain,Crit%GainStand,Crit%PopInb,Crit%RatePopInb,Crit%PrgInb
 
           open(newunit=UnitContri,file="AlphaMateResults"//DASH//"IndividualResultsFrontier"//Int2Char(k)//".txt",status="unknown")
-          !                             1234567890123456789012
-          write(UnitContri,FMTCONHEAD) "          Id",&
-                                       "      Gender",&
-                                       "       Merit",&
-                                       " AvgCoancest",&
-                                       "  Contribute",&
-                                       "    nMatings"
           call MrgRnk(nVec,Rank)
-          do i=nInd,1,-1 ! MrgRnk ranks small to large
-            j=Rank(i)
-            write(UnitContri,FMTCON) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),nVec(j)
-          end do
+          !                             1234567890123456789012
+          if (.not.PAGE) then
+            write(UnitContri,FMTINDHEAD) "          Id",&
+                                         "      Gender",&
+                                         "       Merit",&
+                                         " AvgCoancest",&
+                                         "  Contribute",&
+                                         "    nMatings"
+            do i=nInd,1,-1 ! MrgRnk ranks small to large
+              j=Rank(i)
+              write(UnitContri,FMTIND) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),nVec(j)
+            end do
+          else
+            !                                 1234567890123456789012
+            write(UnitContri,FMTINDHEADEDIT) "          Id",&
+                                             "      Gender",&
+                                             "       Merit",&
+                                             " AvgCoancest",&
+                                             "  Contribute",&
+                                             "    nMatings",&
+                                             "    GeneEdit",&
+                                             " EditedMerit"
+            do i=nInd,1,-1 ! MrgRnk ranks small to large
+              j=Rank(i)
+              write(UnitContri,FMTINDEDIT) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),nVec(j),nint(GeneEdit(j)),Bv(j)+GeneEdit(j)*BvPAGE(j)
+            end do
+          end if
           close(UnitContri)
 
           open(newunit=UnitMating,file="AlphaMateResults"//DASH//"MatingResultsFrontier"//Int2Char(k)//".txt",status="unknown")
@@ -1209,13 +1233,13 @@ module AlphaMateMod
                                        "     Parent1",&
                                        "     Parent2"
           do i=1,nMat
-            write(UnitMating,FMTMAT) i,IdC(Mate(1,i)),IdC(Mate(2,i))
+            write(UnitMating,FMTMAT) i,IdC(MateAlloc(1,i)),IdC(MateAlloc(2,i))
           end do
           close(UnitMating)
 
           if ((RatePopInbTarget-Crit%RatePopInb) > 0.01d0) then
             DumC=Real2Char(RatePopInbTarget,fmt=FMTREAL2CHAR)
-            write(STDOUT,"(2a)") "NOTE: Could not achieve the rate of 'population' inbreeding of ",trim(adjustl(DumC))
+            write(STDOUT,"(2a)") "NOTE: Could not achieve the rate of population inbreeding of ",trim(adjustl(DumC))
             write(STDOUT,"(a)") "NOTE: Stopping the frontier evaluation."
             write(STDOUT,"(a)") ""
             exit
@@ -1238,7 +1262,7 @@ module AlphaMateMod
       integer(int32),intent(in) :: LogUnit
       ! With ifort this way of formating the code was requied to get desired layout
       ! in STDOUT and in the file. Odd.
-      write(STDOUT,FMTLOGHEADERSTDOUT) "Step","AcceptRate","Criterion","Penalties","Gain","GainStand","PopInbreed","RatePopInb","PopInbree2","IndInbreed"
+      write(STDOUT,FMTLOGHEADERSTDOUT) "Step","AcceptRate","Criterion","Penalties","Gain","GainStand","PopInbreed","RatePopInb","PrgInbreed"
       !                                 1234567890123456789012
       write(LogUnit,FMTLOGHEADERUNIT)  "        Step",&
                                        "            AcceptRate",&
@@ -1248,8 +1272,7 @@ module AlphaMateMod
                                        "             GainStand",&
                                        "            PopInbreed",&
                                        "            RatePopInb",&
-                                       "            PopInbree2",&
-                                       "            IndInbreed"
+                                       "            PrgInbreed"
     end subroutine
 
     !###########################################################################
@@ -1260,8 +1283,8 @@ module AlphaMateMod
       integer(int32),intent(in)   :: Gen
       real(real64),intent(in)     :: AcceptRate
       type(EvolveCrit),intent(in) :: Criterion
-      write(STDOUT, FMTLOGSTDOUT) Gen,AcceptRate,Criterion%Value,Criterion%Penalty,Criterion%Gain,Criterion%GainStand,Criterion%PopInb,Criterion%RatePopInb,Criterion%PopInb2,Criterion%IndInb
-      write(LogUnit,FMTLOGUNIT)   Gen,AcceptRate,Criterion%Value,Criterion%Penalty,Criterion%Gain,Criterion%GainStand,Criterion%PopInb,Criterion%RatePopInb,Criterion%PopInb2,Criterion%IndInb
+      write(STDOUT, FMTLOGSTDOUT) Gen,AcceptRate,Criterion%Value,Criterion%Penalty,Criterion%Gain,Criterion%GainStand,Criterion%PopInb,Criterion%RatePopInb,Criterion%PrgInb
+      write(LogUnit,FMTLOGUNIT)   Gen,AcceptRate,Criterion%Value,Criterion%Penalty,Criterion%Gain,Criterion%GainStand,Criterion%PopInb,Criterion%RatePopInb,Criterion%PrgInb
     end subroutine
 
     !###########################################################################
@@ -1280,8 +1303,7 @@ module AlphaMateMod
       This%GainStand=0.0d0
       This%PopInb=0.0d0
       This%RatePopInb=0.0d0
-      This%PopInb2=0.0d0
-      This%IndInb=0.0d0
+      This%PrgInb=0.0d0
     end subroutine
 
     !###########################################################################
@@ -1297,7 +1319,7 @@ module AlphaMateMod
 
       ! Other
       integer(int32) :: i,j,k,l,g,nCumMat,RankSol(nInd),SolInt(nInd),MatPar2(nMat)
-      integer(int32) :: TmpMin,TmpMax
+      integer(int32) :: TmpMin,TmpMax,TmpI
 
       real(real64) :: TmpVec(nInd,1),TmpR!,RanNum
 
@@ -1426,12 +1448,21 @@ module AlphaMateMod
         ! ... nMat still not reached?
         do while (nCumMat < nMat*g)
           ! ... add more contributions
-          do i=nPar1,1,-1 ! to low ranked individuals (to avoid local optima)
+          do i=nPar1,1,-1 ! to bottom ranked selected individuals (to avoid local optima)
             j=RankSol(i)
             Sol(j)=Sol(j)+1.0d0
             ! ... accumulate and check if we reached nMat
             nCumMat=nCumMat+1
             if (nCumMat >= nMat*g) then
+              ! To cater for real vs. integer issues
+              TmpI=sum(nint(Sol(RankSol(1:nPar1))))
+              if (TmpI /= nMat*g) then
+                if (TmpI > nMat*g) then
+                  Sol(j)=dble(nint(Sol(j))-1)
+                else
+                  Sol(j)=dble(nint(Sol(j))+1)
+                end if
+              end if
               exit
             end if
           end do
@@ -1515,12 +1546,21 @@ module AlphaMateMod
           ! ... nMat still not reached?
           do while (nCumMat < nMat)
             ! ... add more contributions
-            do i=nPar2,1,-1 ! to low ranked individuals (to avoid local optima)
+            do i=nPar2,1,-1 ! to bottom ranked selected individuals (to avoid local optima)
               j=nPotPar1+RankSol(i)
               Sol(j)=Sol(j)+1.0d0
               ! ... accumulate and check if we reached nMat
               nCumMat=nCumMat+1
               if (nCumMat == nMat) then
+                ! To cater for real vs. integer issues
+                TmpI=sum(nint(Sol(nPotPar1+RankSol(1:nPar2))))
+                if (TmpI /= nMat) then
+                  if (TmpI > nMat) then
+                    Sol(j)=dble(nint(Sol(j))-1)
+                  else
+                    Sol(j)=dble(nint(Sol(j))+1)
+                  end if
+                end if
                 exit
               end if
             end do
@@ -1618,21 +1658,6 @@ module AlphaMateMod
         stop 1
       endif
 
-      ! TODO: Should group coancestry account for self-coancestries or not (the code
-      !       bellow does not include them), but then should we account for coancestries
-      !       between say males (and equally between females) - we will never mate males
-      !       with males etc.
-      ! Perhaps useful if we do not allow selfing. How does this work with theory of mate allocations?
-      !
-      ! ! xA
-      do i=1,nInd
-          TmpVec(i,1)=dot_product(xVec,RelMtx(:,i))
-          TmpVec(i,1)=TmpVec(i,1)-xVec(i)*RelMtx(i,i) ! remove self-coancestry 1+Fi
-          ! TmpVec(i,1)=TmpVec(i,1)-xVec(i)*1.0d0       ! remove self-coancestry just the 1
-      end do
-      ! xAx
-      Criterion%PopInb2=0.5d0*dot_product(TmpVec(:,1),xVec)
-
       ! Matrix multiplication with symmetric matrix using BLAS routine
       ! (it was ~5x slower than the above with 1.000 individuals, might be
       !  benefical with larger cases so kept in commented.)
@@ -1703,16 +1728,16 @@ module AlphaMateMod
 
       ! Pair the contributions
       k=nMat ! MrgRnk ranks small to large
-      Mate(:,:)=0
+      MateAlloc(:,:)=0
       if (GenderMatters .or. SelfingAllowed) then
         ! When GenderMatters selfing can not happen (we have two distinct sets of parents,
         ! unless the user adds individuals of one sex in both sets) and when SelfingAllowed
         ! we do not need to care about it - faster code
         do i=1,nPotPar1
           do j=1,nVecPar1(i)
-            ! print*,k,i,j
-            Mate(1,k)=IdPotPar1(i)
-            Mate(2,k)=MatPar2(k)
+            !if (k<2) print*,k,i,j,nVecPar1(i),nMat,sum(nVecPar1(:))
+            MateAlloc(1,k)=IdPotPar1(i)
+            MateAlloc(2,k)=MatPar2(k)
             k=k-1
           end do
         end do
@@ -1721,7 +1746,7 @@ module AlphaMateMod
         ! and when .not. SelfingAllowed we do need to care about it - slower code
         do i=1,nPotPar1
           do j=1,nVecPar1(i)
-            Mate(1,k)=IdPotPar1(i)
+            MateAlloc(1,k)=IdPotPar1(i)
             if (MatPar2(k) == IdPotPar1(i)) then
               ! Try to avoid selfing by swapping the MatPar2 and Rank elements
               do l=k,1,-1
@@ -1736,23 +1761,23 @@ module AlphaMateMod
                 Criterion%Penalty=Criterion%Penalty+SelfingPenalty
               end if
             end if
-            Mate(2,k)=MatPar2(k)
+            MateAlloc(2,k)=MatPar2(k)
             k=k-1
           end do
         end do
       end if
 
-      ! --- Individual (=progeny) inbreeding ---
+      ! --- Progeny inbreeding ---
 
       TmpR=0.0d0
       do i=1,nMat
         ! Try to speed-up retrieval by targeting lower triangle
-        TmpMin=minval([Mate(1,i),Mate(2,i)])
-        TmpMax=maxval([Mate(1,i),Mate(2,i)])
+        TmpMin=minval([MateAlloc(1,i),MateAlloc(2,i)])
+        TmpMax=maxval([MateAlloc(1,i),MateAlloc(2,i)])
         TmpR=TmpR+0.5d0*RelMtx(TmpMax,TmpMin)
       end do
-      Criterion%IndInb=TmpR/dble(nMat)
-      TmpR=IndInbPenalty*Criterion%IndInb
+      Criterion%PrgInb=TmpR/dble(nMat)
+      TmpR=PrgInbPenalty*Criterion%PrgInb
       Criterion%Value=Criterion%Value-TmpR
       Criterion%Penalty=Criterion%Penalty+TmpR
     end subroutine
