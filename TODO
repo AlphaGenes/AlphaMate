@@ -1,6 +1,16 @@
-1. PAGE
-2. Generic way of adding rewards/penalties
-   - individual level
-   - pair/mating level
-3. MOET, JIVET, ... any other reproductive technoquies?
-4. Any other biotechnologies?
+
+* Generic way of adding rewards/penalties
+  - individual level
+  - pair/mating level (progeny dominance, cross variance, missing data on some pairs
+    should have "zero" weight?)
+  - None option for bv file
+
+* MOET, JIVET, ... any other reproductive technoquies?
+
+* Any other biotechnologies?
+
+* Costs
+
+* Update/finalise manual
+
+* Stop optimisation and restart?

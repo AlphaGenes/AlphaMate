@@ -1,12 +1,3 @@
-! TODO: generic way to add reward or penalty on animal or mate basis?
-!       - to handle costs
-!       - to handle variance of crosses
-!       - etc?
-! TODO: variance within generated crosses - another file with some values per
-!       each possible mating or perhaps just matings that one would consider
-! TODO: Manual
-! TODO: An option to read the latest state and start optimisation from thereonwards
-!       with potentially changed parameters?
 
 #ifdef BINARY
 #define BINFILE ,form="unformatted"
