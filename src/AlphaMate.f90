@@ -51,7 +51,7 @@ module AlphaMateMod
   real(real64),allocatable :: Bv(:),BvStand(:),BvPAGE(:),BvPAGEStand(:)
   real(real64),allocatable :: RelMtx(:,:),RatePopInbFrontier(:),xVec(:),GeneEdit(:)
 
-  logical :: ModeMin,ModeOpt,GenderMatters,EqualizePar1,EqualizePar2
+  logical :: ModeMin,ModeOpt,BvAvailable,GenderMatters,EqualizePar1,EqualizePar2
   logical :: SelfingAllowed,PopInbPenaltyBellow,InferPopInbOld,EvaluateFrontier
   logical :: PAGE,PAGEPar1,PAGEPar2
 
@@ -183,18 +183,21 @@ module AlphaMateMod
       ! RelationshipMatrixFile
       read(UnitSpec,*) DumC,RelMtxFile
       write(STDOUT,"(2a)") "RelationshipMatrixFile: ",trim(RelMtxFile)
+      nInd=CountLines(RelMtxFile)
 
       ! BreedingValueFile
       read(UnitSpec,*) DumC,BvFile
-      write(STDOUT,"(2a)") "BreedingValueFile: ",trim(BvFile)
-
-      nInd=CountLines(RelMtxFile)
-      nIndTmp=CountLines(BvFile)
-
-      if (nIndTmp /= nInd) then
-        write(STDERR,"(a)") "ERROR: Number of individuals in Ebv file and Relationship Matrix file is not the same!"
-        write(STDERR,"(a)") " "
-        stop 1
+      if (ToLower(trim(BvFile)) /= "none") then
+        BvAvailable=.true.
+        write(STDOUT,"(2a)") "BreedingValueFile: ",trim(BvFile)
+        nIndTmp=CountLines(BvFile)
+        if (nIndTmp /= nInd) then
+          write(STDERR,"(a)") "ERROR: Number of individuals in Ebv file and Relationship Matrix file is not the same!"
+          write(STDERR,"(a)") " "
+          stop 1
+        end if
+      else
+        BvAvailable=.false.
       end if
 
       ! GenderFile
@@ -202,6 +205,12 @@ module AlphaMateMod
       if (ToLower(trim(GenderFile)) /= "none") then
         GenderMatters=.true.
         write(STDOUT,"(2a)") "GenderFile: ",trim(GenderFile)
+        nIndTmp=CountLines(GenderFile)
+        if (nIndTmp /= nInd) then
+          write(STDERR,"(a)") "ERROR: Number of individuals in Gender file and Relationship Matrix file is not the same!"
+          write(STDERR,"(a)") " "
+          stop 1
+        end if
       else
         GenderMatters=.false.
       end if
@@ -486,6 +495,11 @@ module AlphaMateMod
       if (.not.GenderMatters) then
         if      (ToLower(trim(DumC)) == "yes") then
           PAGEPar1=.true.
+          if (.not.BvAvailable) then
+            write(STDERR,"(a)") "ERROR: No breeding values file available!"
+            write(STDERR,"(a)") " "
+            stop 1
+          end if
           backspace(UnitSpec)
           read(UnitSpec,*) DumC,DumC,PAGEPar1Max,PAGEPar1Cost
           DumC=Int2Char(PAGEPar1Max)
@@ -515,6 +529,11 @@ module AlphaMateMod
       if (GenderMatters) then
         if      (ToLower(trim(DumC)) == "yes") then
           PAGEPar1=.true.
+          if (.not.BvAvailable) then
+            write(STDERR,"(a)") "ERROR: No breeding values file available!"
+            write(STDERR,"(a)") " "
+            stop 1
+          end if
           backspace(UnitSpec)
           read(UnitSpec,*) DumC,DumC,PAGEPar1Max,PAGEPar1Cost
           DumC=Int2Char(PAGEPar1Max)
@@ -544,6 +563,11 @@ module AlphaMateMod
       if (GenderMatters) then
         if      (ToLower(trim(DumC)) == "yes") then
           PAGEPar2=.false.
+          if (.not.BvAvailable) then
+            write(STDERR,"(a)") "ERROR: No breeding values file available!"
+            write(STDERR,"(a)") " "
+            stop 1
+          end if
           backspace(UnitSpec)
           read(UnitSpec,*) DumC,DumC,PAGEPar2Max,PAGEPar2Cost
           DumC=Int2Char(PAGEPar2Max)
@@ -698,46 +722,29 @@ module AlphaMateMod
 
       ! --- Breeding values ---
 
-      open(newunit=UnitBv,file=trim(BvFile),status="old")
-      do i=1,nInd
-        if (.not.PAGE) then
-          read(UnitBv,*) IdCTmp,BvTmp
-        else
-          read(UnitBv,*) IdCTmp,BvTmp,BvTmp2
-        end if
-        do j=1,nInd
-          if (trim(IdCTmp) == trim(IdC(j))) then
-            Bv(j)=BvTmp
-            if (PAGE) then
-              BvPAGE(j)=BvTmp2
-            end if
-            exit
+      if (BvAvailable) then
+        open(newunit=UnitBv,file=trim(BvFile),status="old")
+        do i=1,nInd
+          if (.not.PAGE) then
+            read(UnitBv,*) IdCTmp,BvTmp
+          else
+            read(UnitBv,*) IdCTmp,BvTmp,BvTmp2
           end if
+          do j=1,nInd
+            if (trim(IdCTmp) == trim(IdC(j))) then
+              Bv(j)=BvTmp
+              if (PAGE) then
+                BvPAGE(j)=BvTmp2
+              end if
+              exit
+            end if
+          end do
         end do
-      end do
-      close(UnitBv)
+        close(UnitBv)
 
-      BvDescStat=CalcDescStat(Bv)
-      BvStand(:)=(Bv(:)-BvDescStat%Mean)/BvDescStat%SD
-      write(STDOUT,"(a)") "Breeding values"
-      DumC=Real2Char(BvDescStat%Mean,fmt=FMTREAL2CHAR)
-      write(STDOUT,"(2a)") "  - average: ",trim(adjustl(DumC))
-      DumC=Real2Char(BvDescStat%SD,fmt=FMTREAL2CHAR)
-      write(STDOUT,"(2a)") "  - st.dev.: ",trim(adjustl(DumC))
-      DumC=Real2Char(BvDescStat%Min,fmt=FMTREAL2CHAR)
-      write(STDOUT,"(2a)") "  - minimum: ",trim(adjustl(DumC))
-      DumC=Real2Char(BvDescStat%Max,fmt=FMTREAL2CHAR)
-      write(STDOUT,"(2a)") "  - maximum: ",trim(adjustl(DumC))
-      write(STDOUT,"(a)") " "
-
-      if (PAGE) then
-        ! must have the same scaling!!!!
-        BvPAGEStand(:)=(BvPAGE(:)-BvDescStat%Mean)/BvDescStat%SD
-        ! only the PAGE bit of Bv
-        BvPAGE(:)=BvPAGE(:)-Bv(:)
-        BvPAGEStand(:)=BvPAGEStand(:)-BvStand(:)
-        BvDescStat=CalcDescStat(BvPAGE)
-        write(STDOUT,"(a)") "Gene edit increments"
+        BvDescStat=CalcDescStat(Bv)
+        BvStand(:)=(Bv(:)-BvDescStat%Mean)/BvDescStat%SD
+        write(STDOUT,"(a)") "Breeding values"
         DumC=Real2Char(BvDescStat%Mean,fmt=FMTREAL2CHAR)
         write(STDOUT,"(2a)") "  - average: ",trim(adjustl(DumC))
         DumC=Real2Char(BvDescStat%SD,fmt=FMTREAL2CHAR)
@@ -747,6 +754,28 @@ module AlphaMateMod
         DumC=Real2Char(BvDescStat%Max,fmt=FMTREAL2CHAR)
         write(STDOUT,"(2a)") "  - maximum: ",trim(adjustl(DumC))
         write(STDOUT,"(a)") " "
+
+        if (PAGE) then
+          ! must have the same scaling!!!!
+          BvPAGEStand(:)=(BvPAGE(:)-BvDescStat%Mean)/BvDescStat%SD
+          ! only the PAGE bit of Bv
+          BvPAGE(:)=BvPAGE(:)-Bv(:)
+          BvPAGEStand(:)=BvPAGEStand(:)-BvStand(:)
+          BvDescStat=CalcDescStat(BvPAGE)
+          write(STDOUT,"(a)") "Gene edit increments"
+          DumC=Real2Char(BvDescStat%Mean,fmt=FMTREAL2CHAR)
+          write(STDOUT,"(2a)") "  - average: ",trim(adjustl(DumC))
+          DumC=Real2Char(BvDescStat%SD,fmt=FMTREAL2CHAR)
+          write(STDOUT,"(2a)") "  - st.dev.: ",trim(adjustl(DumC))
+          DumC=Real2Char(BvDescStat%Min,fmt=FMTREAL2CHAR)
+          write(STDOUT,"(2a)") "  - minimum: ",trim(adjustl(DumC))
+          DumC=Real2Char(BvDescStat%Max,fmt=FMTREAL2CHAR)
+          write(STDOUT,"(2a)") "  - maximum: ",trim(adjustl(DumC))
+          write(STDOUT,"(a)") " "
+        end if
+      else
+        Bv(:)=0
+        BvStand(:)=0
       end if
 
       ! --- Gender ---
