@@ -188,8 +188,8 @@ module AlphaMateMod
       read(UnitSpec,*) DumC,BvFile
       write(STDOUT,"(2a)") "BreedingValueFile: ",trim(BvFile)
 
-      call CountLines(RelMtxFile,nInd)
-      call CountLines(BvFile,nIndTmp)
+      nInd=CountLines(RelMtxFile)
+      nIndTmp=CountLines(BvFile)
 
       if (nIndTmp /= nInd) then
         write(STDERR,"(a)") "ERROR: Number of individuals in Ebv file and Relationship Matrix file is not the same!"
@@ -674,7 +674,7 @@ module AlphaMateMod
       end do
       close(UnitRelMtx)
 
-      call CalcDescStatSymMatrix(RelMtx,RelDescStat)
+      RelDescStat=CalcDescStatSymMatrix(RelMtx)
       write(STDOUT,"(a)") "Relationships"
       write(STDOUT,"(a)") "  - self-relationships (diagonal)"
       DumC=Real2Char(RelDescStat%Diag%Mean,fmt=FMTREAL2CHAR)
@@ -717,7 +717,7 @@ module AlphaMateMod
       end do
       close(UnitBv)
 
-      call CalcDescStat(Bv,BvDescStat)
+      BvDescStat=CalcDescStat(Bv)
       BvStand(:)=(Bv(:)-BvDescStat%Mean)/BvDescStat%SD
       write(STDOUT,"(a)") "Breeding values"
       DumC=Real2Char(BvDescStat%Mean,fmt=FMTREAL2CHAR)
@@ -736,7 +736,7 @@ module AlphaMateMod
         ! only the PAGE bit of Bv
         BvPAGE(:)=BvPAGE(:)-Bv(:)
         BvPAGEStand(:)=BvPAGEStand(:)-BvStand(:)
-        call CalcDescStat(BvPAGE,BvDescStat)
+        BvDescStat=CalcDescStat(BvPAGE)
         write(STDOUT,"(a)") "Gene edit increments"
         DumC=Real2Char(BvDescStat%Mean,fmt=FMTREAL2CHAR)
         write(STDOUT,"(2a)") "  - average: ",trim(adjustl(DumC))
@@ -808,7 +808,7 @@ module AlphaMateMod
       ! To avoid having good animals together - better for cross-overs in Evolutionary algorithms
 
       allocate(Order(nInd))
-      call RandomOrder(Order,nInd)
+      Order=RandomOrder(nInd)
       IdC(:)=IdC(Order)
       Bv(:)=Bv(Order)
       BvStand(:)=BvStand(Order)
@@ -956,7 +956,7 @@ module AlphaMateMod
         GainMinStand=CritMin%GainStand
 
         open(newunit=UnitContri,file="AlphaMateResults"//DASH//"IndividualResultsMinimumInbreeding.txt",status="unknown")
-        call MrgRnk(nVec,Rank)
+        Rank=MrgRnk(nVec)
         !                             1234567890123456789012
         if (.not.PAGE) then
           write(UnitContri,FMTINDHEAD) "          Id",&
@@ -1016,7 +1016,7 @@ module AlphaMateMod
 
           open(newunit=UnitLog,file=trim(EvolAlgLogFile),status="unknown")
           open(newunit=UnitLog2,file=trim(EvolAlgLogFile2),status="unknown")
-          call CountLines(EvolAlgLogFile2,nTmp)
+          nTmp=CountLines(EvolAlgLogFile2)
           read(UnitLog2,*) DumC
           call EvolAlgLogHeaderForAlphaMate(UnitLog)
           do i=2,nTmp
@@ -1082,7 +1082,7 @@ module AlphaMateMod
                        BestCriterion=CritOpt)
 
         open(newunit=UnitContri,file="AlphaMateResults"//DASH//"IndividualResultsOptimumGain.txt",status="unknown")
-        call MrgRnk(nVec,Rank)
+        Rank=MrgRnk(nVec)
         !                             1234567890123456789012
         if (.not.PAGE) then
           write(UnitContri,FMTINDHEAD) "          Id",&
@@ -1188,7 +1188,7 @@ module AlphaMateMod
           write(UnitFrontier,FMTFRO) adjustl(DumC),Crit%Value,Crit%Penalty,Crit%Gain,Crit%GainStand,Crit%PopInb,Crit%RatePopInb,Crit%PrgInb
 
           open(newunit=UnitContri,file="AlphaMateResults"//DASH//"IndividualResultsFrontier"//Int2Char(k)//".txt",status="unknown")
-          call MrgRnk(nVec,Rank)
+          Rank=MrgRnk(nVec)
           !                             1234567890123456789012
           if (.not.PAGE) then
             write(UnitContri,FMTINDHEAD) "          Id",&
@@ -1366,7 +1366,7 @@ module AlphaMateMod
       end if
       ! ... find ranks to find the top values
       if (.not.(EqualizePar1 .and. (nPar1 == nPotPar1))) then
-        call MrgRnk(Sol(1:nPotPar1),RankSol(1:nPotPar1))
+        RankSol(1:nPotPar1)=MrgRnk(Sol(1:nPotPar1))
         RankSol(1:nPotPar1)=RankSol(nPotPar1:1:-1) ! MrgRnk ranks small to large
       end if
       ! ... handle cases with equalized contributions
@@ -1464,7 +1464,7 @@ module AlphaMateMod
       if (GenderMatters) then
         ! ... find ranks to find the top values
         if (.not.(EqualizePar2 .and. (nPar2 == nPotPar2))) then
-          call MrgRnk(Sol((nPotPar1+1):(nPotPar1+nPotPar2)),RankSol(1:nPotPar2))
+          RankSol(1:nPotPar2)=MrgRnk(Sol((nPotPar1+1):(nPotPar1+nPotPar2)))
           RankSol(1:nPotPar2)=RankSol(nPotPar2:1:-1) ! MrgRnk ranks small to large
         end if
         ! ... handle cases with equalized contributions
@@ -1603,15 +1603,15 @@ module AlphaMateMod
       if (PAGE) then
         GeneEdit(:)=0.0d0
         if (.not.GenderMatters) then
-          call MrgRnk(Sol((nPotPar1+nMat+1):(nPotPar1+nMat+nInd)),RankSol(1:nInd))
+          RankSol(1:nInd)=MrgRnk(Sol((nPotPar1+nMat+1):(nPotPar1+nMat+nInd)))
           GeneEdit(RankSol(nInd:(nInd-PAGEPar1Max+1):-1))=1.0d0 ! MrgRnk ranks small to large
         else
           if (PAGEPar1) then
-            call MrgRnk(Sol((nPotPar1+nPotPar2+nMat+1):(nPotPar1+nPotPar2+nMat+nPotPar1)),RankSol(1:nPotPar1))
+            RankSol(1:nPotPar1)=MrgRnk(Sol((nPotPar1+nPotPar2+nMat+1):(nPotPar1+nPotPar2+nMat+nPotPar1)))
             GeneEdit(IdPotPar1(RankSol(nPotPar1:(nPotPar1-PAGEPar1Max+1):-1)))=1.0d0 ! MrgRnk ranks small to large
           end if
           if (PAGEPar2) then
-            call MrgRnk(Sol((nPotPar1+nPotPar2+nMat+nPotPar1+1):(nPotPar1+nPotPar2+nMat+nPotPar1+nPotPar2)),RankSol(1:nPotPar2))
+            RankSol(1:nPotPar2)=MrgRnk(Sol((nPotPar1+nPotPar2+nMat+nPotPar1+1):(nPotPar1+nPotPar2+nMat+nPotPar1+nPotPar2)))
             GeneEdit(IdPotPar2(RankSol(nPotPar2:(nPotPar2-PAGEPar2Max+1):-1)))=1.0d0 ! MrgRnk ranks small to large
           end if
         end if
@@ -1694,7 +1694,7 @@ module AlphaMateMod
           end do
         end do
         ! Reorder parent2 contributions according to the rank of matings
-        call MrgRnk(Sol((nPotPar1+nPotPar2+1):(nPotPar1+nPotPar2+nMat)),RankSol(1:nMat))
+        RankSol(1:nMat)=MrgRnk(Sol((nPotPar1+nPotPar2+1):(nPotPar1+nPotPar2+nMat)))
         MatPar2(:)=MatPar2(RankSol(1:nMat))
       else
         ! Distribute one half of contributions into matings
@@ -1713,7 +1713,7 @@ module AlphaMateMod
           end do
         end do
         ! Reorder one half of contributions according to the rank of matings
-        call MrgRnk(Sol((nPotPar1+1):(nPotPar1+nMat)),RankSol(1:nMat))
+        RankSol(1:nMat)=MrgRnk(Sol((nPotPar1+1):(nPotPar1+nMat)))
         MatPar2(:)=MatPar2(RankSol(1:nMat))
       end if
 
