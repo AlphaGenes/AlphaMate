@@ -1328,15 +1328,16 @@ module AlphaMateMod
 
     !###########################################################################
 
-! TODO: make this a function
-    subroutine FixSolEtcMateAndCalcCrit(Sol,CritType,Criterion)
+    function FixSolEtcMateAndCalcCrit(Sol,CritType) result(Criterion)
 
       implicit none
 
       ! Arguments
       real(real64),intent(inout)   :: Sol(:)    ! Solution
       character(len=*),intent(in)  :: CritType  ! Type of criterion (Min,Opt)
-      type(EvolveCrit),intent(out) :: Criterion ! Criterion of the solution
+
+      ! Result
+      type(EvolveCrit)             :: Criterion ! Criterion of the solution
 
       ! Other
       integer(int32) :: i,j,k,l,g,nCumMat,RankSol(nInd),SolInt(nInd),MatPar2(nMat)
@@ -1804,7 +1805,9 @@ module AlphaMateMod
       TmpR=PrgInbPenalty*Criterion%PrgInb
       Criterion%Value=Criterion%Value-TmpR
       Criterion%Penalty=Criterion%Penalty+TmpR
-    end subroutine
+
+      return
+    end function
 
     !###########################################################################
 end module
