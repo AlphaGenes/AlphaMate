@@ -1306,11 +1306,10 @@ module AlphaMateMod
 
     !###########################################################################
 
-! TODO: make this a function
 ! TODO: push this as a method into the extended type
-    subroutine InitialiseAlphaMateCrit(This)
+    function InitialiseAlphaMateCrit() result(This)
       implicit none
-      type(EvolveCrit),intent(out) :: This
+      type(EvolveCrit) :: This
       This%Value=0.0d0
       This%Penalty=0.0d0
       This%Gain=0.0d0
@@ -1319,7 +1318,8 @@ module AlphaMateMod
       This%RatePopInb=0.0d0
       This%PrgInb=0.0d0
       allocate(This%MatingPlan(2,nMat))
-    end subroutine
+      This%MatingPlan(:,:)=0
+    end function
 
     !###########################################################################
 
@@ -1340,7 +1340,7 @@ module AlphaMateMod
       real(real64) :: TmpVec(nInd,1),TmpR!,RanNum
 
       ! Criterion base
-      call InitialiseAlphaMateCrit(Criterion)
+      Criterion=InitialiseAlphaMateCrit()
 
       ! The solution (based on the mate selection driver) has:
       ! - nInd individual contributions
@@ -1742,9 +1742,8 @@ module AlphaMateMod
         MatPar2(:)=MatPar2(RankSol(1:nMat))
       end if
 
-      ! Pair the contributions
+      ! Pair the contributions (=Mating plan)
       k=nMat ! MrgRnk ranks small to large
-      Criterion%MatingPlan(:,:)=0
       if (GenderMatters .or. SelfingAllowed) then
         ! When GenderMatters selfing can not happen (we have two distinct sets of parents,
         ! unless the user adds individuals of one sex in both sets) and when SelfingAllowed
