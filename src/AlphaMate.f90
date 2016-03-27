@@ -45,7 +45,7 @@ module AlphaMateMod
 
   real(real64) :: LimitPar1Min,LimitPar1Max,LimitPar2Min,LimitPar2Max
   real(real64) :: EvolAlgStopTol,EvolAlgCRBurnIn,EvolAlgCRLate,EvolAlgFBase,EvolAlgFHigh1,EvolAlgFHigh2
-  real(real64) :: PopInbOld,PopInbTarget,RatePopInbTarget,GainMinStand
+  real(real64) :: PopInbOld,PopInbTarget,RatePopInbTarget
   real(real64) :: PopInbPenalty,PrgInbPenalty,SelfingPenalty,LimitPar1Penalty,LimitPar2Penalty
   real(real64) :: PAGEPar1Cost,PAGEPar2Cost
   real(real64),allocatable :: Bv(:),BvStand(:),BvPAGE(:),BvPAGEStand(:)
@@ -982,7 +982,6 @@ module AlphaMateMod
                        LogHeader=EvolAlgLogHeaderForAlphaMate,Log=EvolAlgLogForAlphaMate,&
                        BestCriterion=CritMin)
         deallocate(InitEqual)
-        GainMinStand=CritMin%GainStand
 
         open(newunit=UnitContri,file="AlphaMateResults"//DASH//"IndividualResultsMinimumInbreeding.txt",status="unknown")
         Rank=MrgRnk(nVec)
@@ -1082,8 +1081,6 @@ module AlphaMateMod
         write(UnitInbree,"(a,f)") "Targeted_rate_of_population_inbreeding_redefined, ",RatePopInbTarget
         write(UnitInbree,"(a,f)") "Targeted_population_inbreeding_redefined, ",PopInbTarget
         close(UnitInbree)
-      else
-        GainMinStand=0.0d0
       end if
 
       ! --- Optimise for maximum gain with constraint on inbreeding ---
@@ -1657,7 +1654,7 @@ module AlphaMateMod
         ! TODO: how do we handle costs?
       end if
 
-      TmpR=Criterion%GainStand!-GainMinStand ! TODO: do we need this difference to the gain under minimum inbreeding?
+      TmpR=Criterion%GainStand
       if (ToLower(trim(CritType)) == "min") then
         Criterion%Value=Criterion%Value
       else
