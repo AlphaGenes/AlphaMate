@@ -41,7 +41,7 @@ module AlphaMateMod
   integer(int32) :: EvolAlgNSol,EvolAlgNGen,EvolAlgNGenBurnIn,EvolAlgNGenStop,EvolAlgNGenPrint
   integer(int32) :: PAGEPar1Max,PAGEPar2Max
   integer(int32),allocatable :: Gender(:),IdPotPar1(:),IdPotPar2(:)
-  integer(int32),allocatable :: nVecPar1(:),nVecPar2(:),nVec(:),MateAlloc(:,:)
+  integer(int32),allocatable :: nVecPar1(:),nVecPar2(:),nVec(:)
 
   real(real64) :: LimitPar1Min,LimitPar1Max,LimitPar2Min,LimitPar2Max
   real(real64) :: EvolAlgStopTol,EvolAlgCRBurnIn,EvolAlgCRLate,EvolAlgFBase,EvolAlgFHigh1,EvolAlgFHigh2
@@ -49,7 +49,7 @@ module AlphaMateMod
   real(real64) :: PopInbPenalty,PrgInbPenalty,SelfingPenalty,LimitPar1Penalty,LimitPar2Penalty
   real(real64) :: PAGEPar1Cost,PAGEPar2Cost
   real(real64),allocatable :: Bv(:),BvStand(:),BvPAGE(:),BvPAGEStand(:)
-  real(real64),allocatable :: RelMtx(:,:),RatePopInbFrontier(:),xVec(:),GeneEdit(:)
+  real(real64),allocatable :: RelMtx(:,:),RatePopInbFrontier(:),xVec(:),GenomeEdit(:)
 
   logical :: ModeMin,ModeOpt,BvAvailable,GenderMatters,EqualizePar1,EqualizePar2
   logical :: SelfingAllowed,PopInbPenaltyBellow,InferPopInbOld,EvaluateFrontier
@@ -678,14 +678,13 @@ module AlphaMateMod
       if (PAGE) then
         allocate(BvPAGE(nInd))
         allocate(BvPAGEStand(nInd))
-        allocate(GeneEdit(nInd))
+        allocate(GenomeEdit(nInd))
       end if
       allocate(RelMtx(nInd,nInd))
       allocate(IdC(nInd))
       allocate(Gender(nInd))
       allocate(xVec(nInd))
       allocate(nVec(nInd))
-      allocate(MateAlloc(2,nMat))
 
       write(STDOUT,"(a)") "--- Data ---"
       write(STDOUT,"(a)") " "
@@ -1005,7 +1004,7 @@ module AlphaMateMod
                                            " AvgCoancest",&
                                            "  Contribute",&
                                            "    nMatings",&
-                                           "    GeneEdit",&
+                                           "  GenomeEdit",&
                                            " EditedMerit"
           do i=nInd,1,-1 ! MrgRnk ranks small to large
             j=Rank(i)
@@ -1020,7 +1019,7 @@ module AlphaMateMod
                                      "     Parent1",&
                                      "     Parent2"
         do i=1,nMat
-          write(UnitMating,FMTMAT) i,IdC(MateAlloc(1,i)),IdC(MateAlloc(2,i))
+          write(UnitMating,FMTMAT) i,IdC(CritMin%MatingPlan(1,i)),IdC(CritMin%MatingPlan(2,i))
         end do
         close(UnitMating)
 
@@ -1107,6 +1106,7 @@ module AlphaMateMod
                        LogHeader=EvolAlgLogHeaderForAlphaMate,Log=EvolAlgLogForAlphaMate,&
                        BestCriterion=CritOpt)
 
+        ! TODO: should we have constant output no matter which options are switched on?
         open(newunit=UnitContri,file="AlphaMateResults"//DASH//"IndividualResultsOptimumGain.txt",status="unknown")
         Rank=MrgRnk(nVec)
         !                             1234567890123456789012
@@ -1129,11 +1129,11 @@ module AlphaMateMod
                                            " AvgCoancest",&
                                            "  Contribute",&
                                            "    nMatings",&
-                                           "    GeneEdit",&
+                                           "  GenomeEdit",&
                                            " EditedMerit"
           do i=nInd,1,-1 ! MrgRnk ranks small to large
             j=Rank(i)
-            write(UnitContri,FMTINDEDIT) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),nVec(j),nint(GeneEdit(j)),Bv(j)+GeneEdit(j)*BvPAGE(j)
+            write(UnitContri,FMTINDEDIT) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),nVec(j),nint(GenomeEdit(j)),Bv(j)+GenomeEdit(j)*BvPAGE(j)
           end do
         end if
         close(UnitContri)
@@ -1144,7 +1144,7 @@ module AlphaMateMod
                                      "     Parent1",&
                                      "     Parent2"
         do i=1,nMat
-          write(UnitMating,FMTMAT) i,IdC(MateAlloc(1,i)),IdC(MateAlloc(2,i))
+          write(UnitMating,FMTMAT) i,IdC(CritOpt%MatingPlan(1,i)),IdC(CritOpt%MatingPlan(2,i))
         end do
         close(UnitMating)
       end if
@@ -1235,11 +1235,11 @@ module AlphaMateMod
                                              " AvgCoancest",&
                                              "  Contribute",&
                                              "    nMatings",&
-                                             "    GeneEdit",&
+                                             "  GenomeEdit",&
                                              " EditedMerit"
             do i=nInd,1,-1 ! MrgRnk ranks small to large
               j=Rank(i)
-              write(UnitContri,FMTINDEDIT) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),nVec(j),nint(GeneEdit(j)),Bv(j)+GeneEdit(j)*BvPAGE(j)
+              write(UnitContri,FMTINDEDIT) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),nVec(j),nint(GenomeEdit(j)),Bv(j)+GenomeEdit(j)*BvPAGE(j)
             end do
           end if
           close(UnitContri)
@@ -1250,7 +1250,7 @@ module AlphaMateMod
                                        "     Parent1",&
                                        "     Parent2"
           do i=1,nMat
-            write(UnitMating,FMTMAT) i,IdC(MateAlloc(1,i)),IdC(MateAlloc(2,i))
+            write(UnitMating,FMTMAT) i,IdC(Crit%MatingPlan(1,i)),IdC(Crit%MatingPlan(2,i))
           end do
           close(UnitMating)
 
@@ -1306,25 +1306,24 @@ module AlphaMateMod
 
     !###########################################################################
 
-    subroutine InitialiseAlphaMateCrit(This,Value)
+! TODO: make this a function
+! TODO: push this as a method into the extended type
+    subroutine InitialiseAlphaMateCrit(This)
       implicit none
-      type(EvolveCrit),intent(out)     :: This
-      real(real64),intent(in),optional :: Value
-      if (present(Value)) then
-        This%Value=Value
-      else
-        This%Value=0.0d0
-      end if
+      type(EvolveCrit),intent(out) :: This
+      This%Value=0.0d0
       This%Penalty=0.0d0
       This%Gain=0.0d0
       This%GainStand=0.0d0
       This%PopInb=0.0d0
       This%RatePopInb=0.0d0
       This%PrgInb=0.0d0
+      allocate(This%MatingPlan(2,nMat))
     end subroutine
 
     !###########################################################################
 
+! TODO: make this a function
     subroutine FixSolEtcMateAndCalcCrit(Sol,CritType,Criterion)
 
       implicit none
@@ -1627,18 +1626,18 @@ module AlphaMateMod
       ! --- PAGE ---
 
       if (PAGE) then
-        GeneEdit(:)=0.0d0
+        GenomeEdit(:)=0.0d0
         if (.not.GenderMatters) then
           RankSol(1:nInd)=MrgRnk(Sol((nPotPar1+nMat+1):(nPotPar1+nMat+nInd)))
-          GeneEdit(RankSol(nInd:(nInd-PAGEPar1Max+1):-1))=1.0d0 ! MrgRnk ranks small to large
+          GenomeEdit(RankSol(nInd:(nInd-PAGEPar1Max+1):-1))=1.0d0 ! MrgRnk ranks small to large
         else
           if (PAGEPar1) then
             RankSol(1:nPotPar1)=MrgRnk(Sol((nPotPar1+nPotPar2+nMat+1):(nPotPar1+nPotPar2+nMat+nPotPar1)))
-            GeneEdit(IdPotPar1(RankSol(nPotPar1:(nPotPar1-PAGEPar1Max+1):-1)))=1.0d0 ! MrgRnk ranks small to large
+            GenomeEdit(IdPotPar1(RankSol(nPotPar1:(nPotPar1-PAGEPar1Max+1):-1)))=1.0d0 ! MrgRnk ranks small to large
           end if
           if (PAGEPar2) then
             RankSol(1:nPotPar2)=MrgRnk(Sol((nPotPar1+nPotPar2+nMat+nPotPar1+1):(nPotPar1+nPotPar2+nMat+nPotPar1+nPotPar2)))
-            GeneEdit(IdPotPar2(RankSol(nPotPar2:(nPotPar2-PAGEPar2Max+1):-1)))=1.0d0 ! MrgRnk ranks small to large
+            GenomeEdit(IdPotPar2(RankSol(nPotPar2:(nPotPar2-PAGEPar2Max+1):-1)))=1.0d0 ! MrgRnk ranks small to large
           end if
         end if
       end if
@@ -1649,8 +1648,8 @@ module AlphaMateMod
       Criterion%GainStand=dot_product(xVec,BvStand)
 
       if (PAGE) then
-        Criterion%Gain=Criterion%Gain+dot_product(xVec,BvPAGE(:)*GeneEdit(:))
-        Criterion%GainStand=Criterion%GainStand+dot_product(xVec,BvPAGEStand(:)*GeneEdit(:))
+        Criterion%Gain=Criterion%Gain+dot_product(xVec,BvPAGE(:)*GenomeEdit(:))
+        Criterion%GainStand=Criterion%GainStand+dot_product(xVec,BvPAGEStand(:)*GenomeEdit(:))
         ! TODO: how do we handle costs?
       end if
 
@@ -1745,7 +1744,7 @@ module AlphaMateMod
 
       ! Pair the contributions
       k=nMat ! MrgRnk ranks small to large
-      MateAlloc(:,:)=0
+      Criterion%MatingPlan(:,:)=0
       if (GenderMatters .or. SelfingAllowed) then
         ! When GenderMatters selfing can not happen (we have two distinct sets of parents,
         ! unless the user adds individuals of one sex in both sets) and when SelfingAllowed
@@ -1753,8 +1752,8 @@ module AlphaMateMod
         do i=1,nPotPar1
           do j=1,nVecPar1(i)
             !if (k<2) print*,k,i,j,nVecPar1(i),nMat,sum(nVecPar1(:))
-            MateAlloc(1,k)=IdPotPar1(i)
-            MateAlloc(2,k)=MatPar2(k)
+            Criterion%MatingPlan(1,k)=IdPotPar1(i)
+            Criterion%MatingPlan(2,k)=MatPar2(k)
             k=k-1
           end do
         end do
@@ -1763,7 +1762,7 @@ module AlphaMateMod
         ! and when .not. SelfingAllowed we do need to care about it - slower code
         do i=1,nPotPar1
           do j=1,nVecPar1(i)
-            MateAlloc(1,k)=IdPotPar1(i)
+            Criterion%MatingPlan(1,k)=IdPotPar1(i)
             if (MatPar2(k) == IdPotPar1(i)) then
               ! Try to avoid selfing by swapping the MatPar2 and Rank elements
               do l=k,1,-1
@@ -1778,7 +1777,7 @@ module AlphaMateMod
                 Criterion%Penalty=Criterion%Penalty+SelfingPenalty
               end if
             end if
-            MateAlloc(2,k)=MatPar2(k)
+            Criterion%MatingPlan(2,k)=MatPar2(k)
             k=k-1
           end do
         end do
@@ -1789,8 +1788,8 @@ module AlphaMateMod
       TmpR=0.0d0
       do i=1,nMat
         ! Try to speed-up retrieval by targeting lower triangle
-        TmpMin=minval([MateAlloc(1,i),MateAlloc(2,i)])
-        TmpMax=maxval([MateAlloc(1,i),MateAlloc(2,i)])
+        TmpMin=minval([Criterion%MatingPlan(1,i),Criterion%MatingPlan(2,i)])
+        TmpMax=maxval([Criterion%MatingPlan(1,i),Criterion%MatingPlan(2,i)])
         TmpR=TmpR+0.5d0*RelMtx(TmpMax,TmpMin)
       end do
       Criterion%PrgInb=TmpR/dble(nMat)
