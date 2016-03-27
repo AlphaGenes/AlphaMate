@@ -41,7 +41,6 @@ module AlphaMateMod
   integer(int32) :: EvolAlgNSol,EvolAlgNGen,EvolAlgNGenBurnIn,EvolAlgNGenStop,EvolAlgNGenPrint
   integer(int32) :: PAGEPar1Max,PAGEPar2Max
   integer(int32),allocatable :: Gender(:),IdPotPar1(:),IdPotPar2(:)
-  integer(int32),allocatable :: nVecPar1(:),nVecPar2(:)
 
   real(real64) :: LimitPar1Min,LimitPar1Max,LimitPar2Min,LimitPar2Max
   real(real64) :: EvolAlgStopTol,EvolAlgCRBurnIn,EvolAlgCRLate,EvolAlgFBase,EvolAlgFHigh1,EvolAlgFHigh2
@@ -852,7 +851,6 @@ module AlphaMateMod
       if (.not.GenderMatters) then
         nPotPar1=nInd
         allocate(IdPotPar1(nPotPar1))
-        allocate(nVecPar1(nPotPar1))
         do i=1,nInd
           IdPotPar1(i)=i
         end do
@@ -861,8 +859,6 @@ module AlphaMateMod
         nPotPar2=nFem
         allocate(IdPotPar1(nPotPar1))
         allocate(IdPotPar2(nPotPar2))
-        allocate(nVecPar1(nPotPar1))
-        allocate(nVecPar2(nPotPar2))
         jMal=0
         jFem=0
         do i=1,nInd
@@ -1336,11 +1332,16 @@ module AlphaMateMod
 
       ! Other
       integer(int32) :: i,j,k,l,g,nCumMat,RankSol(nInd),SolInt(nInd),MatPar2(nMat)
-      integer(int32) :: TmpMin,TmpMax,TmpI
+      integer(int32) :: nVecPar1(nPotPar1),TmpMin,TmpMax,TmpI
+      integer(int32),allocatable :: nVecPar2(:)
 
       real(real64) :: TmpVec(nInd,1),TmpR!,RanNum
 
-      ! Criterion base
+      if (GenderMatters) then
+        allocate(nVecPar2(nPotPar2))
+      end if
+
+      ! Criterion
       Criterion=InitialiseAlphaMateCrit()
 
       ! The solution (based on the mate selection driver) has:
