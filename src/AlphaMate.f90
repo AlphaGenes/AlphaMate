@@ -41,7 +41,7 @@ module AlphaMateMod
   integer(int32) :: EvolAlgNSol,EvolAlgNGen,EvolAlgNGenBurnIn,EvolAlgNGenStop,EvolAlgNGenPrint
   integer(int32) :: PAGEPar1Max,PAGEPar2Max
   integer(int32),allocatable :: Gender(:),IdPotPar1(:),IdPotPar2(:)
-  integer(int32),allocatable :: nVecPar1(:),nVecPar2(:),nVec(:)
+  integer(int32),allocatable :: nVecPar1(:),nVecPar2(:)
 
   real(real64) :: LimitPar1Min,LimitPar1Max,LimitPar2Min,LimitPar2Max
   real(real64) :: EvolAlgStopTol,EvolAlgCRBurnIn,EvolAlgCRLate,EvolAlgFBase,EvolAlgFHigh1,EvolAlgFHigh2
@@ -684,7 +684,6 @@ module AlphaMateMod
       allocate(IdC(nInd))
       allocate(Gender(nInd))
       allocate(xVec(nInd))
-      allocate(nVec(nInd))
 
       write(STDOUT,"(a)") "--- Data ---"
       write(STDOUT,"(a)") " "
@@ -983,7 +982,7 @@ module AlphaMateMod
         deallocate(InitEqual)
 
         open(newunit=UnitContri,file="AlphaMateResults"//DASH//"IndividualResultsMinimumInbreeding.txt",status="unknown")
-        Rank=MrgRnk(nVec)
+        Rank=MrgRnk(CritMin%nVec)
         !                             1234567890123456789012
         if (.not.PAGE) then
           write(UnitContri,FMTINDHEAD) "          Id",&
@@ -994,7 +993,7 @@ module AlphaMateMod
                                        "    nMatings"
           do i=nInd,1,-1 ! MrgRnk ranks small to large
             j=Rank(i)
-            write(UnitContri,FMTIND) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),nVec(j)
+            write(UnitContri,FMTIND) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),CritMin%nVec(j)
           end do
         else
           !                                 1234567890123456789012
@@ -1008,7 +1007,7 @@ module AlphaMateMod
                                            " EditedMerit"
           do i=nInd,1,-1 ! MrgRnk ranks small to large
             j=Rank(i)
-            write(UnitContri,FMTINDEDIT) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),nVec(j),0,Bv(j)
+            write(UnitContri,FMTINDEDIT) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),CritMin%nVec(j),0,Bv(j)
           end do
         end if
         close(UnitContri)
@@ -1108,7 +1107,7 @@ module AlphaMateMod
 
         ! TODO: should we have constant output no matter which options are switched on?
         open(newunit=UnitContri,file="AlphaMateResults"//DASH//"IndividualResultsOptimumGain.txt",status="unknown")
-        Rank=MrgRnk(nVec)
+        Rank=MrgRnk(CritOpt%nVec)
         !                             1234567890123456789012
         if (.not.PAGE) then
           write(UnitContri,FMTINDHEAD) "          Id",&
@@ -1119,7 +1118,7 @@ module AlphaMateMod
                                        "    nMatings"
           do i=nInd,1,-1 ! MrgRnk ranks small to large
             j=Rank(i)
-            write(UnitContri,FMTIND) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),nVec(j)
+            write(UnitContri,FMTIND) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),CritOpt%nVec(j)
           end do
         else
           !                                 1234567890123456789012
@@ -1133,7 +1132,7 @@ module AlphaMateMod
                                            " EditedMerit"
           do i=nInd,1,-1 ! MrgRnk ranks small to large
             j=Rank(i)
-            write(UnitContri,FMTINDEDIT) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),nVec(j),nint(GenomeEdit(j)),Bv(j)+GenomeEdit(j)*BvPAGE(j)
+            write(UnitContri,FMTINDEDIT) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),CritOpt%nVec(j),nint(GenomeEdit(j)),Bv(j)+GenomeEdit(j)*BvPAGE(j)
           end do
         end if
         close(UnitContri)
@@ -1214,7 +1213,7 @@ module AlphaMateMod
           write(UnitFrontier,FMTFRO) adjustl(DumC),Crit%Value,Crit%Penalty,Crit%Gain,Crit%GainStand,Crit%PopInb,Crit%RatePopInb,Crit%PrgInb
 
           open(newunit=UnitContri,file="AlphaMateResults"//DASH//"IndividualResultsFrontier"//Int2Char(k)//".txt",status="unknown")
-          Rank=MrgRnk(nVec)
+          Rank=MrgRnk(Crit%nVec)
           !                             1234567890123456789012
           if (.not.PAGE) then
             write(UnitContri,FMTINDHEAD) "          Id",&
@@ -1225,7 +1224,7 @@ module AlphaMateMod
                                          "    nMatings"
             do i=nInd,1,-1 ! MrgRnk ranks small to large
               j=Rank(i)
-              write(UnitContri,FMTIND) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),nVec(j)
+              write(UnitContri,FMTIND) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),Crit%nVec(j)
             end do
           else
             !                                 1234567890123456789012
@@ -1239,7 +1238,7 @@ module AlphaMateMod
                                              " EditedMerit"
             do i=nInd,1,-1 ! MrgRnk ranks small to large
               j=Rank(i)
-              write(UnitContri,FMTINDEDIT) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),nVec(j),nint(GenomeEdit(j)),Bv(j)+GenomeEdit(j)*BvPAGE(j)
+              write(UnitContri,FMTINDEDIT) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),Crit%nVec(j),nint(GenomeEdit(j)),Bv(j)+GenomeEdit(j)*BvPAGE(j)
             end do
           end if
           close(UnitContri)
@@ -1317,6 +1316,8 @@ module AlphaMateMod
       This%PopInb=0.0d0
       This%RatePopInb=0.0d0
       This%PrgInb=0.0d0
+      allocate(This%nVec(nInd))
+      This%nVec(:)=0
       allocate(This%MatingPlan(2,nMat))
       This%MatingPlan(:,:)=0
     end function
@@ -1600,9 +1601,9 @@ module AlphaMateMod
       ! ... map internal to external order
       nVecPar1(:)=SolInt(1:nPotPar1)
       if (.not.GenderMatters) then
-        nVec(:)=nVecPar1(:)
+        Criterion%nVec(:)=nVecPar1(:)
       else
-        nVec(IdPotPar1)=nVecPar1(:)
+        Criterion%nVec(IdPotPar1)=nVecPar1(:)
       end if
 
       ! "Parent2"
@@ -1618,10 +1619,10 @@ module AlphaMateMod
         end do
         ! ... map internal to external order
         nVecPar2(:)=SolInt(1:nPotPar2)
-        nVec(IdPotPar2)=nVecPar2(:)
+        Criterion%nVec(IdPotPar2)=nVecPar2(:)
       end if
 
-      xVec(:)=dble(nVec(:))/(dble(2*nMat))
+      xVec(:)=dble(Criterion%nVec(:))/(dble(2*nMat))
 
       ! --- PAGE ---
 
