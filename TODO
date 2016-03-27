@@ -3,7 +3,6 @@
   - individual level
   - pair/mating level (progeny dominance, cross variance, missing data on some pairs
     should have "zero" weight?)
-  - None option for bv file
 
 * MOET, JIVET, ... any other reproductive technoquies?
 
@@ -13,4 +12,10 @@
 
 * Update/finalise manual
 
+* Parallelize differential evolution algorithm?
+  - for this to happen we would have to convert criterion subroutine into a
+    function, i.e., there would be no global variables. NOTE: memory usage will multiply
+    with the number of processors!!!
+
 * Stop optimisation and restart?
+  - checkpointing trick (catch kill command, save current state, and stop)
