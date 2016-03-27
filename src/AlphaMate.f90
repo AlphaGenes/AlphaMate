@@ -48,7 +48,7 @@ module AlphaMateMod
   real(real64) :: PopInbPenalty,PrgInbPenalty,SelfingPenalty,LimitPar1Penalty,LimitPar2Penalty
   real(real64) :: PAGEPar1Cost,PAGEPar2Cost
   real(real64),allocatable :: Bv(:),BvStand(:),BvPAGE(:),BvPAGEStand(:)
-  real(real64),allocatable :: RelMtx(:,:),RatePopInbFrontier(:),xVec(:),GenomeEdit(:)
+  real(real64),allocatable :: RelMtx(:,:),RatePopInbFrontier(:),GenomeEdit(:)
 
   logical :: ModeMin,ModeOpt,BvAvailable,GenderMatters,EqualizePar1,EqualizePar2
   logical :: SelfingAllowed,PopInbPenaltyBellow,InferPopInbOld,EvaluateFrontier
@@ -682,7 +682,6 @@ module AlphaMateMod
       allocate(RelMtx(nInd,nInd))
       allocate(IdC(nInd))
       allocate(Gender(nInd))
-      allocate(xVec(nInd))
 
       write(STDOUT,"(a)") "--- Data ---"
       write(STDOUT,"(a)") " "
@@ -989,7 +988,8 @@ module AlphaMateMod
                                        "    nMatings"
           do i=nInd,1,-1 ! MrgRnk ranks small to large
             j=Rank(i)
-            write(UnitContri,FMTIND) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),CritMin%nVec(j)
+            write(UnitContri,FMTIND) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),&
+                                     CritMin%xVec(j),CritMin%nVec(j)
           end do
         else
           !                                 1234567890123456789012
@@ -1003,7 +1003,8 @@ module AlphaMateMod
                                            " EditedMerit"
           do i=nInd,1,-1 ! MrgRnk ranks small to large
             j=Rank(i)
-            write(UnitContri,FMTINDEDIT) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),CritMin%nVec(j),0,Bv(j)
+            write(UnitContri,FMTINDEDIT) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),&
+                                         CritMin%xVec(j),CritMin%nVec(j),0,Bv(j)
           end do
         end if
         close(UnitContri)
@@ -1114,7 +1115,8 @@ module AlphaMateMod
                                        "    nMatings"
           do i=nInd,1,-1 ! MrgRnk ranks small to large
             j=Rank(i)
-            write(UnitContri,FMTIND) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),CritOpt%nVec(j)
+            write(UnitContri,FMTIND) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),&
+                                     CritOpt%xVec(j),CritOpt%nVec(j)
           end do
         else
           !                                 1234567890123456789012
@@ -1128,7 +1130,8 @@ module AlphaMateMod
                                            " EditedMerit"
           do i=nInd,1,-1 ! MrgRnk ranks small to large
             j=Rank(i)
-            write(UnitContri,FMTINDEDIT) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),CritOpt%nVec(j),nint(GenomeEdit(j)),Bv(j)+GenomeEdit(j)*BvPAGE(j)
+            write(UnitContri,FMTINDEDIT) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),&
+                                         CritOpt%xVec(j),CritOpt%nVec(j),nint(GenomeEdit(j)),Bv(j)+GenomeEdit(j)*BvPAGE(j)
           end do
         end if
         close(UnitContri)
@@ -1220,7 +1223,8 @@ module AlphaMateMod
                                          "    nMatings"
             do i=nInd,1,-1 ! MrgRnk ranks small to large
               j=Rank(i)
-              write(UnitContri,FMTIND) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),Crit%nVec(j)
+              write(UnitContri,FMTIND) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),&
+                                       Crit%xVec(j),Crit%nVec(j)
             end do
           else
             !                                 1234567890123456789012
@@ -1234,7 +1238,8 @@ module AlphaMateMod
                                              " EditedMerit"
             do i=nInd,1,-1 ! MrgRnk ranks small to large
               j=Rank(i)
-              write(UnitContri,FMTINDEDIT) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),xVec(j),Crit%nVec(j),nint(GenomeEdit(j)),Bv(j)+GenomeEdit(j)*BvPAGE(j)
+              write(UnitContri,FMTINDEDIT) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),&
+                                           Crit%xVec(j),Crit%nVec(j),nint(GenomeEdit(j)),Bv(j)+GenomeEdit(j)*BvPAGE(j)
             end do
           end if
           close(UnitContri)
@@ -1314,6 +1319,8 @@ module AlphaMateMod
       This%PrgInb=0.0d0
       allocate(This%nVec(nInd))
       This%nVec(:)=0
+      allocate(This%xVec(nInd))
+      This%xVec(:)=0.0d0
       allocate(This%MatingPlan(2,nMat))
       This%MatingPlan(:,:)=0
     end function
@@ -1623,7 +1630,7 @@ module AlphaMateMod
         Criterion%nVec(IdPotPar2)=nVecPar2(:)
       end if
 
-      xVec(:)=dble(Criterion%nVec(:))/(dble(2*nMat))
+      Criterion%xVec(:)=dble(Criterion%nVec(:))/(dble(2*nMat))
 
       ! --- PAGE ---
 
@@ -1646,12 +1653,12 @@ module AlphaMateMod
 
       ! --- Genetic gain ---
 
-      Criterion%Gain=dot_product(xVec,Bv)
-      Criterion%GainStand=dot_product(xVec,BvStand)
+      Criterion%Gain=dot_product(Criterion%xVec,Bv)
+      Criterion%GainStand=dot_product(Criterion%xVec,BvStand)
 
       if (PAGE) then
-        Criterion%Gain=Criterion%Gain+dot_product(xVec,BvPAGE(:)*GenomeEdit(:))
-        Criterion%GainStand=Criterion%GainStand+dot_product(xVec,BvPAGEStand(:)*GenomeEdit(:))
+        Criterion%Gain=Criterion%Gain+dot_product(Criterion%xVec,BvPAGE(:)*GenomeEdit(:))
+        Criterion%GainStand=Criterion%GainStand+dot_product(Criterion%xVec,BvPAGEStand(:)*GenomeEdit(:))
         ! TODO: how do we handle costs?
       end if
 
@@ -1666,10 +1673,10 @@ module AlphaMateMod
 
       ! xA
       do i=1,nInd
-        TmpVec(i,1)=dot_product(xVec,RelMtx(:,i))
+        TmpVec(i,1)=dot_product(Criterion%xVec,RelMtx(:,i))
       end do
       ! xAx
-      Criterion%PopInb=0.5d0*dot_product(TmpVec(:,1),xVec)
+      Criterion%PopInb=0.5d0*dot_product(TmpVec(:,1),Criterion%xVec)
       if (Criterion%PopInb < 0.0d0) then
         write(STDERR,"(a)") "ERROR: negative inbreeding examples have not been tested yet! Stopping."
         write(STDERR,"(a)") " "
@@ -1681,11 +1688,11 @@ module AlphaMateMod
       !  benefical with larger cases so kept in commented.)
       ! http://www.netlib.org/lapack/explore-html/d1/d54/group__double__blas__level3.html#ga253c8edb8b21d1b5b1783725c2a6b692
       ! Ax
-      ! call dsymm(side="l",uplo="l",m=nInd,n=1,alpha=1.0d0,A=RelMtx,lda=nInd,b=xVec,ldb=nInd,beta=0,c=TmpVec,ldc=nInd)
-      ! call dsymm(     "l",     "l",  nInd,  1,      1.0d0,  RelMtx,    nInd,  xVec,    nInd,     0,  TmpVec,    nInd)
+      ! call dsymm(side="l",uplo="l",m=nInd,n=1,alpha=1.0d0,A=RelMtx,lda=nInd,b=Criterion%xVec,ldb=nInd,beta=0,c=TmpVec,ldc=nInd)
+      ! call dsymm(     "l",     "l",  nInd,  1,      1.0d0,  RelMtx,    nInd,  Criterion%xVec,    nInd,     0,  TmpVec,    nInd)
       ! xAx
-      ! PopInb=0.5d0*dot_product(xVec,TmpVec(:,1))
-      ! print*,xVec,TmpVec,PopInb
+      ! PopInb=0.5d0*dot_product(Criterion%xVec,TmpVec(:,1))
+      ! print*,Criterion%xVec,TmpVec,PopInb
       ! stop 1
 
       ! F_t = DeltaF + (1 - DeltaF) * F_t-1
