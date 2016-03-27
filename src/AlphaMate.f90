@@ -774,8 +774,8 @@ module AlphaMateMod
           write(STDOUT,"(a)") " "
         end if
       else
-        Bv(:)=0
-        BvStand(:)=0
+        Bv(:)=0.0d0
+        BvStand(:)=0.0d0
       end if
 
       ! --- Gender ---
