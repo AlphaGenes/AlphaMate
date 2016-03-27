@@ -48,7 +48,7 @@ module AlphaMateMod
   real(real64) :: PopInbPenalty,PrgInbPenalty,SelfingPenalty,LimitPar1Penalty,LimitPar2Penalty
   real(real64) :: PAGEPar1Cost,PAGEPar2Cost
   real(real64),allocatable :: Bv(:),BvStand(:),BvPAGE(:),BvPAGEStand(:)
-  real(real64),allocatable :: RelMtx(:,:),RatePopInbFrontier(:),GenomeEdit(:)
+  real(real64),allocatable :: RelMtx(:,:),RatePopInbFrontier(:)
 
   logical :: ModeMin,ModeOpt,BvAvailable,GenderMatters,EqualizePar1,EqualizePar2
   logical :: SelfingAllowed,PopInbPenaltyBellow,InferPopInbOld,EvaluateFrontier
@@ -677,7 +677,6 @@ module AlphaMateMod
       if (PAGE) then
         allocate(BvPAGE(nInd))
         allocate(BvPAGEStand(nInd))
-        allocate(GenomeEdit(nInd))
       end if
       allocate(RelMtx(nInd,nInd))
       allocate(IdC(nInd))
@@ -1131,7 +1130,7 @@ module AlphaMateMod
           do i=nInd,1,-1 ! MrgRnk ranks small to large
             j=Rank(i)
             write(UnitContri,FMTINDEDIT) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),&
-                                         CritOpt%xVec(j),CritOpt%nVec(j),nint(GenomeEdit(j)),Bv(j)+GenomeEdit(j)*BvPAGE(j)
+                                         CritOpt%xVec(j),CritOpt%nVec(j),nint(CritOpt%GenomeEdit(j)),Bv(j)+CritOpt%GenomeEdit(j)*BvPAGE(j)
           end do
         end if
         close(UnitContri)
@@ -1239,7 +1238,7 @@ module AlphaMateMod
             do i=nInd,1,-1 ! MrgRnk ranks small to large
               j=Rank(i)
               write(UnitContri,FMTINDEDIT) IdC(j),Gender(j),Bv(j),0.5d0*sum(RelMtx(:,j))/dble(nInd),&
-                                           Crit%xVec(j),Crit%nVec(j),nint(GenomeEdit(j)),Bv(j)+GenomeEdit(j)*BvPAGE(j)
+                                           Crit%xVec(j),Crit%nVec(j),nint(Crit%GenomeEdit(j)),Bv(j)+Crit%GenomeEdit(j)*BvPAGE(j)
             end do
           end if
           close(UnitContri)
@@ -1323,6 +1322,8 @@ module AlphaMateMod
       This%xVec(:)=0.0d0
       allocate(This%MatingPlan(2,nMat))
       This%MatingPlan(:,:)=0
+      allocate(This%GenomeEdit(nInd))
+      This%GenomeEdit(:)=0.0d0
     end function
 
     !###########################################################################
@@ -1635,18 +1636,17 @@ module AlphaMateMod
       ! --- PAGE ---
 
       if (PAGE) then
-        GenomeEdit(:)=0.0d0
         if (.not.GenderMatters) then
           RankSol(1:nInd)=MrgRnk(Sol((nPotPar1+nMat+1):(nPotPar1+nMat+nInd)))
-          GenomeEdit(RankSol(nInd:(nInd-PAGEPar1Max+1):-1))=1.0d0 ! MrgRnk ranks small to large
+          Criterion%GenomeEdit(RankSol(nInd:(nInd-PAGEPar1Max+1):-1))=1.0d0 ! MrgRnk ranks small to large
         else
           if (PAGEPar1) then
             RankSol(1:nPotPar1)=MrgRnk(Sol((nPotPar1+nPotPar2+nMat+1):(nPotPar1+nPotPar2+nMat+nPotPar1)))
-            GenomeEdit(IdPotPar1(RankSol(nPotPar1:(nPotPar1-PAGEPar1Max+1):-1)))=1.0d0 ! MrgRnk ranks small to large
+            Criterion%GenomeEdit(IdPotPar1(RankSol(nPotPar1:(nPotPar1-PAGEPar1Max+1):-1)))=1.0d0 ! MrgRnk ranks small to large
           end if
           if (PAGEPar2) then
             RankSol(1:nPotPar2)=MrgRnk(Sol((nPotPar1+nPotPar2+nMat+nPotPar1+1):(nPotPar1+nPotPar2+nMat+nPotPar1+nPotPar2)))
-            GenomeEdit(IdPotPar2(RankSol(nPotPar2:(nPotPar2-PAGEPar2Max+1):-1)))=1.0d0 ! MrgRnk ranks small to large
+            Criterion%GenomeEdit(IdPotPar2(RankSol(nPotPar2:(nPotPar2-PAGEPar2Max+1):-1)))=1.0d0 ! MrgRnk ranks small to large
           end if
         end if
       end if
@@ -1657,8 +1657,8 @@ module AlphaMateMod
       Criterion%GainStand=dot_product(Criterion%xVec,BvStand)
 
       if (PAGE) then
-        Criterion%Gain=Criterion%Gain+dot_product(Criterion%xVec,BvPAGE(:)*GenomeEdit(:))
-        Criterion%GainStand=Criterion%GainStand+dot_product(Criterion%xVec,BvPAGEStand(:)*GenomeEdit(:))
+        Criterion%Gain=Criterion%Gain+dot_product(Criterion%xVec,BvPAGE(:)*Criterion%GenomeEdit(:))
+        Criterion%GainStand=Criterion%GainStand+dot_product(Criterion%xVec,BvPAGEStand(:)*Criterion%GenomeEdit(:))
         ! TODO: how do we handle costs?
       end if
 
