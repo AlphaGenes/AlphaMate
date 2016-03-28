@@ -36,12 +36,11 @@ else
 	MKLROOT := /opt/intel/mkl
 	# On Eddie
 	# MKLROOT:=/exports/applications/apps/intel/ClusterStudio2013/mkl
-	MKLLIB := -L$(MKLROOT)/lib -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -openmp -lpthread -lm
+	MKLLIB := -L$(MKLROOT)/lib -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -lpthread -lm
 	MKLINC := -I$(MKLROOT)/include
 	exe :=
-	FFLAGS:= $(FFLAGS) -mkl -static-intel -fpp -openmp-link=static -module $(BUILDDIR) -D $(OSFLAG)
+	FFLAGS := $(FFLAGS) -fpp -mkl -openmp -static-intel -openmp-link=static -module $(BUILDDIR) -D $(OSFLAG) $(MKLINC) $(MKLLIB)
 	uname := $(shell uname)
-	EDDIEFLAGS := $(FFLAGS)
 	MAKEDIR := @mkdir -p
 	DEL := rm -rf
 	# Linux only
@@ -57,9 +56,6 @@ MODS := $(ALPHAHOUSEDIR)AlphahouseMod.f90 \
 
 # Compile everything
 all: directories $(TARGETDIR)$(NAME)$(exe)
-
-eddie: directories Makefile $(MODS) $(SRCDIR)$(NAME).f90
-	$(FC) $(MODS) $(SRCDIR)$(NAME).f90 $(EDDIEFLAGS) -o $(TARGETDIR)$(NAME)$(exe)
 
 directories:
 	$(MAKEDIR) $(TARGETDIR)
@@ -85,6 +81,7 @@ web: all
 binary: FFLAGS := $(FFLAGS) -D "BINARY"
 
 binary: all
+
 # Compile
 $(TARGETDIR)$(NAME)$(exe): Makefile $(MODS) $(SRCDIR)$(NAME).f90
 	@echo "Compiling $(NAME)..."
