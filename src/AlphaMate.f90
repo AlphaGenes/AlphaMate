@@ -625,7 +625,7 @@ module AlphaMateMod
       DumC3 = Real2Char(PopInbPenalty, fmt=FMTREAL2CHAR)
       write(STDOUT, "(6a)") "TargetedRateOfPopulationInbreeding: ", trim(adjustl(DumC2)), ", penalty ", trim(adjustl(DumC3)), ", mode "//trim(adjustl(DumC))
 
-      ! ProgenyInbreedingPenalty
+      ! ProgenyInbreedingPenalty (=inbreeding of a mating)
       read(UnitSpec, *) DumC, PrgInbPenalty
       DumC = Real2Char(PrgInbPenalty, fmt=FMTREAL2CHAR)
       write(STDOUT, "(2a)") "ProgenyInbreedingPenalty: ", trim(adjustl(DumC))
@@ -757,7 +757,7 @@ module AlphaMateMod
           BvPAGE(:) = BvPAGE(:) - Bv(:)
           BvPAGEStand(:) = BvPAGEStand(:) - BvStand(:)
           BvDescStat = CalcDescStat(BvPAGE)
-          write(STDOUT, "(a)") "Gene edit increments"
+          write(STDOUT, "(a)") "Genome editing increments"
           DumC = Real2Char(BvDescStat%Mean, fmt=FMTREAL2CHAR)
           write(STDOUT, "(2a)") "  - average: ", trim(adjustl(DumC))
           DumC = Real2Char(BvDescStat%SD, fmt=FMTREAL2CHAR)
@@ -908,7 +908,7 @@ module AlphaMateMod
         PopInbOld = PopInbOld / dble(nInd)
       end if
 
-      ! Targeted level of inbreeding
+      ! Targeted future population inbreeding
       ! F_t = DeltaF + (1 - DeltaF) * F_t-1
       PopInbTarget = RatePopInbTarget + (1.0d0 - RatePopInbTarget) * PopInbOld
 
@@ -918,13 +918,13 @@ module AlphaMateMod
       DumC = Real2Char(RatePopInbTarget, fmt=FMTREAL2CHAR)
       write(STDOUT, "(2a)") "Targeted rate of population inbreeding: ", trim(adjustl(DumC))
       DumC = Real2Char(PopInbTarget, fmt=FMTREAL2CHAR)
-      write(STDOUT, "(2a)") "Targeted population inbreeding: ", trim(adjustl(DumC))
+      write(STDOUT, "(2a)") "Targeted future population inbreeding: ", trim(adjustl(DumC))
       write(STDOUT, "(a)") " "
 
       open(newunit=UnitInbree, file="AlphaMateResults"//DASH//"ConstraintPopulationInbreeding.txt", status="unknown")
       write(UnitInbree, "(a, f)") "Old_coancestry_defined, ", PopInbOld
       write(UnitInbree, "(a, f)") "Targeted_rate_of_population_inbreeding_defined, ", RatePopInbTarget
-      write(UnitInbree, "(a, f)") "Targeted_population_inbreeding_defined, ", PopInbTarget
+      write(UnitInbree, "(a, f)") "Targeted_future_population_inbreeding_defined, ", PopInbTarget
       close(UnitInbree)
     end subroutine
 
@@ -1025,7 +1025,7 @@ module AlphaMateMod
 
           write(STDOUT, "(a)") "NOTE: Old coancestry is higher than the minimum group coancestry (x'Ax/2) under no selection."
           write(STDOUT, "(a)") "NOTE: Resetting the old coancestry to the minimum group coancestry under no selection and"
-          write(STDOUT, "(a)") "NOTE:   recomputing the log file values and the targeted population inbreeding."
+          write(STDOUT, "(a)") "NOTE:   recomputing the log values and the targeted future population inbreeding."
           write(STDOUT, "(a)") " "
           PopInbOld = CritMin%PopInb
           ! F_t = DeltaF + (1 - DeltaF) * F_t-1
@@ -1061,13 +1061,14 @@ module AlphaMateMod
           DumC = Real2Char(RatePopInbTarget, fmt=FMTREAL2CHAR)
           write(STDOUT, "(2a)") "Targeted rate of population inbreeding: ", trim(adjustl(DumC))
           DumC = Real2Char(PopInbTarget, fmt=FMTREAL2CHAR)
-          write(STDOUT, "(2a)") "Targeted population inbreeding: ", trim(adjustl(DumC))
+          write(STDOUT, "(2a)") "Targeted future population inbreeding: ", trim(adjustl(DumC))
           write(STDOUT, "(a)") " "
 
         end if
 
+! TODO: can we still do something here?
         if (PopInbTarget < CritMin%PopInb) then
-          write(STDERR, "(a)") "ERROR: Targeted population inbreeding is lower than the group coancestry (x'Ax/2) under no selection."
+          write(STDERR, "(a)") "ERROR: Targeted future population inbreeding is lower than the group coancestry (x'Ax/2) under no selection."
           write(STDERR, "(a)") "ERROR: Can not optimise!"
           write(STDERR, "(a)") " "
           stop 1
@@ -1076,7 +1077,7 @@ module AlphaMateMod
         open(newunit=UnitInbree, file="AlphaMateResults"//DASH//"ConstraintPopulationInbreeding.txt", status="old")
         write(UnitInbree, "(a, f)") "Old_coancestry_redefined, ", PopInbOld
         write(UnitInbree, "(a, f)") "Targeted_rate_of_population_inbreeding_redefined, ", RatePopInbTarget
-        write(UnitInbree, "(a, f)") "Targeted_population_inbreeding_redefined, ", PopInbTarget
+        write(UnitInbree, "(a, f)") "Targeted_future_population_inbreeding_redefined, ", PopInbTarget
         close(UnitInbree)
       end if
 
@@ -1343,7 +1344,7 @@ module AlphaMateMod
       character(len=*), intent(in)  :: CritType  ! Type of criterion (Min, Opt)
 
       ! Result
-      type(EvolveCrit)             :: Criterion ! Criterion of the solution
+      type(EvolveCrit)              :: Criterion ! Criterion of the solution
 
       ! Other
       integer(int32) :: i, j, k, l, g, nCumMat, RankSol(nInd), SolInt(nInd), MatPar2(nMat)
@@ -1603,7 +1604,7 @@ module AlphaMateMod
         end if
       end if
 
-      ! --- Genetic contributions (nVec) ---
+      ! --- Genetic contributions (nVec & xVec) ---
 
       nVecPar1(:) = 0
 
@@ -1659,71 +1660,6 @@ module AlphaMateMod
           end if
         end if
       end if
-
-      ! --- Genetic gain ---
-
-      Criterion%Gain = dot_product(Criterion%xVec, Bv)
-      Criterion%GainStand = dot_product(Criterion%xVec, BvStand)
-
-      if (PAGE) then
-        Criterion%Gain = Criterion%Gain + dot_product(Criterion%xVec, BvPAGE(:) * Criterion%GenomeEdit(:))
-        Criterion%GainStand = Criterion%GainStand + dot_product(Criterion%xVec, BvPAGEStand(:) * Criterion%GenomeEdit(:))
-        ! TODO: how do we handle costs?
-      end if
-
-      TmpR = Criterion%GainStand
-      if (ToLower(trim(CritType)) == "min") then
-        Criterion%Value = Criterion%Value
-      else
-        Criterion%Value = Criterion%Value + TmpR
-      end if
-
-      ! --- Future population inbreeding (=selected group coancestry) ---
-
-      ! xA
-      do i = 1, nInd
-        TmpVec(i,1) = dot_product(Criterion%xVec, RelMtx(:,i))
-      end do
-      ! xAx
-      Criterion%PopInb = 0.5d0 * dot_product(TmpVec(:,1), Criterion%xVec)
-      if (Criterion%PopInb < 0.0d0) then
-        write(STDERR, "(a)") "ERROR: negative inbreeding examples have not been tested yet! Stopping."
-        write(STDERR, "(a)") " "
-        stop 1
-      endif
-
-      ! Matrix multiplication with symmetric matrix using BLAS routine
-      ! (it was ~5x slower than the above with 1.000 individuals, might be
-      !  benefical with larger cases so kept in commented.)
-      ! http://www.netlib.org/lapack/explore-html/d1/d54/group__double__blas__level3.html#ga253c8edb8b21d1b5b1783725c2a6b692
-      ! Ax
-      ! call dsymm(side="l", uplo="l", m=nInd, n=1, alpha=1.0d0, A=RelMtx, lda=nInd, b=Criterion%xVec, ldb=nInd, beta=0, c=TmpVec, ldc=nInd)
-      ! call dsymm(     "l",      "l",   nInd,   1,       1.0d0,   RelMtx,     nInd,   Criterion%xVec,     nInd,      0,   TmpVec,     nInd)
-      ! xAx
-      ! PopInb=0.5d0 * dot_product(Criterion%xVec, TmpVec(:,1))
-      ! print*, Criterion%xVec, TmpVec, PopInb
-      ! stop 1
-
-      ! F_t = DeltaF + (1 - DeltaF) * F_t-1
-      ! DeltaF = (F_t - F_t-1) / (1 - F_t-1)
-      Criterion%RatePopInb = (Criterion%PopInb - PopInbOld) / (1.0d0 - PopInbOld)
-
-      if (ToLower(trim(CritType)) == "min") then
-        Criterion%Value = Criterion%Value - Criterion%PopInb
-      else
-        TmpR = Criterion%RatePopInb / RatePopInbTarget
-        if (TmpR > 1.0d0) then
-          TmpR = PopInbPenalty * abs(1.0d0 -       TmpR)
-        else
-          if (PopInbPenaltyBellow) then
-            TmpR = PopInbPenalty * abs(1.0d0 - 1.0d0 / TmpR)
-          else
-            TmpR = 0.0d0
-          end if
-        end if
-        Criterion%Value = Criterion%Value - TmpR
-        Criterion%Penalty = Criterion%Penalty + TmpR
-      endif
 
       ! --- Mate allocation ---
 
@@ -1800,7 +1736,69 @@ module AlphaMateMod
         end do
       end if
 
-      ! --- Progeny inbreeding ---
+      ! --- Genetic gain ---
+
+      Criterion%Gain      = dot_product(Criterion%xVec, Bv)
+      Criterion%GainStand = dot_product(Criterion%xVec, BvStand)
+
+      if (PAGE) then
+        Criterion%Gain      = Criterion%Gain      + dot_product(Criterion%xVec, BvPAGE(:)      * Criterion%GenomeEdit(:))
+        Criterion%GainStand = Criterion%GainStand + dot_product(Criterion%xVec, BvPAGEStand(:) * Criterion%GenomeEdit(:))
+! TODO: how do we handle costs?
+      end if
+
+      if (ToLower(trim(CritType)) == "opt") then
+        Criterion%Value = Criterion%Value + Criterion%GainStand
+      end if
+
+      ! --- Selected group coancestry (=future population inbreeding) ---
+
+      ! xA
+      do i = 1, nInd
+        TmpVec(i,1) = dot_product(Criterion%xVec, RelMtx(:,i))
+      end do
+      ! xAx
+      Criterion%PopInb = 0.5d0 * dot_product(TmpVec(:,1), Criterion%xVec)
+      if (Criterion%PopInb < 0.0d0) then
+        write(STDERR, "(a)") "ERROR: negative inbreeding examples have not been tested yet! Stopping."
+        write(STDERR, "(a)") " "
+        stop 1
+      end if
+
+      ! Matrix multiplication with symmetric matrix using BLAS routine
+      ! (it was ~5x slower than the above with 1.000 individuals, might be
+      !  benefical with larger cases so kept in commented.)
+      ! http://www.netlib.org/lapack/explore-html/d1/d54/group__double__blas__level3.html#ga253c8edb8b21d1b5b1783725c2a6b692
+      ! Ax
+      ! call dsymm(side="l", uplo="l", m=nInd, n=1, alpha=1.0d0, A=RelMtx, lda=nInd, b=Criterion%xVec, ldb=nInd, beta=0, c=TmpVec, ldc=nInd)
+      ! call dsymm(     "l",      "l",   nInd,   1,       1.0d0,   RelMtx,     nInd,   Criterion%xVec,     nInd,      0,   TmpVec,     nInd)
+      ! xAx
+      ! PopInb=0.5d0 * dot_product(Criterion%xVec, TmpVec(:,1))
+      ! print*, Criterion%xVec, TmpVec, PopInb
+      ! stop 1
+
+      ! F_t = DeltaF + (1 - DeltaF) * F_t-1
+      ! DeltaF = (F_t - F_t-1) / (1 - F_t-1)
+      Criterion%RatePopInb = (Criterion%PopInb - PopInbOld) / (1.0d0 - PopInbOld)
+
+      if (ToLower(trim(CritType)) == "min") then
+        Criterion%Value = Criterion%Value - Criterion%PopInb
+      else
+        TmpR = Criterion%RatePopInb / RatePopInbTarget
+        if (TmpR > 1.0d0) then
+          TmpR = PopInbPenalty * abs(1.0d0 -           TmpR)
+        else
+          if (PopInbPenaltyBellow) then
+            TmpR = PopInbPenalty * abs(1.0d0 - 1.0d0 / TmpR)
+          else
+            TmpR = 0.0d0
+          end if
+        end if
+        Criterion%Value = Criterion%Value - TmpR
+        Criterion%Penalty = Criterion%Penalty + TmpR
+      end if
+
+      ! --- Progeny inbreeding (=inbreeding of a mating) ---
 
       TmpR = 0.0d0
       do i = 1, nMat
