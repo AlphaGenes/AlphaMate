@@ -976,7 +976,7 @@ module AlphaMateMod
         deallocate(InitEqual)
 
         open(newunit=UnitContri,file="AlphaMateResults"//DASH//"IndividualResultsMinimumInbreeding.txt",status="unknown")
-        Rank=MrgRnk(CritMin%nVec)
+        Rank=MrgRnk(CritMin%nVec+BvStand/100.0d0)
         !                             1234567890123456789012
         if (.not.PAGE) then
           write(UnitContri,FMTINDHEAD) "          Id",&
@@ -1103,7 +1103,7 @@ module AlphaMateMod
 
         ! TODO: should we have constant output no matter which options are switched on?
         open(newunit=UnitContri,file="AlphaMateResults"//DASH//"IndividualResultsOptimumGain.txt",status="unknown")
-        Rank=MrgRnk(CritOpt%nVec)
+        Rank=MrgRnk(CritOpt%nVec+BvStand/100.0d0)
         !                             1234567890123456789012
         if (.not.PAGE) then
           write(UnitContri,FMTINDHEAD) "          Id",&
@@ -1211,7 +1211,7 @@ module AlphaMateMod
           write(UnitFrontier,FMTFRO) adjustl(DumC),Crit%Value,Crit%Penalty,Crit%Gain,Crit%GainStand,Crit%PopInb,Crit%RatePopInb,Crit%PrgInb
 
           open(newunit=UnitContri,file="AlphaMateResults"//DASH//"IndividualResultsFrontier"//Int2Char(k)//".txt",status="unknown")
-          Rank=MrgRnk(Crit%nVec)
+          Rank=MrgRnk(Crit%nVec+BvStand/100.0d0)
           !                             1234567890123456789012
           if (.not.PAGE) then
             write(UnitContri,FMTINDHEAD) "          Id",&
@@ -1375,6 +1375,8 @@ module AlphaMateMod
       ! Sol2%MateRank
       ! Sol2%EditPar1
       ! Sol2%EditPar2
+      !       and then at the end combine it back. Since I modify some elements
+      !       it would have to be put back.
 
       ! --- Parse the mate selection driver (=Is the solution valid?) ---
 
