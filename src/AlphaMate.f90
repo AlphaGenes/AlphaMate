@@ -58,23 +58,36 @@ module AlphaMateMod
 
   character(len=100), allocatable :: IdC(:)
   CHARACTER(len=100), PARAMETER :: FMTREAL2CHAR = "(f11.5)"
-  CHARACTER(len=100), PARAMETER :: FMTLOGHEADERSTDOUT = "(11a12)"
-  CHARACTER(len=100), PARAMETER :: FMTLOGSTDOUT = "(i12, 10(1x, f11.5))"
-  CHARACTER(len=100), PARAMETER :: FMTLOGHEADERUNIT = "(12a, 11a22)"
-  CHARACTER(len=100), PARAMETER :: FMTLOGUNIT = "(i12, 11(1x, es21.14))"
-  CHARACTER(len=100), PARAMETER :: FMTINDHEAD = "(6a12)"
-  CHARACTER(len=100), PARAMETER :: FMTINDHEADEDIT = "(8a12)"
-  CHARACTER(len=100), PARAMETER :: FMTIND = "(a12, 1x, i11, 3(1x, f11.5), 1x, i11)"
-  CHARACTER(len=100), PARAMETER :: FMTINDEDIT = "(a12, 1x, i11, 3(1x, f11.5), 2(1x, i11), 1x, f11.5)"
-  CHARACTER(len=100), PARAMETER :: FMTMATHEAD = "(3a12)"
-  CHARACTER(len=100), PARAMETER :: FMTMAT = "(i12, 2(1x, a11))"
-  CHARACTER(len=100), PARAMETER :: FMTFROHEAD = "(a12, 7a22)"
-  CHARACTER(len=100), PARAMETER :: FMTFRO = "(a12, 7(1x, es21.14))"
+
+  CHARACTER(len=100), PARAMETER  :: FMTLOGSTDOUTHEADA = "("
+  CHARACTER(len=100), PARAMETER  :: FMTLOGSTDOUTHEADB = "a12)"
+  CHARACTER(len=100)             :: FMTLOGSTDOUTHEAD
+  CHARACTER(len=100), PARAMETER  :: FMTLOGSTDOUTA = "(i12, "
+  CHARACTER(len=100), PARAMETER  :: FMTLOGSTDOUTB = "(1x, f11.5))"
+  CHARACTER(len=100)             :: FMTLOGSTDOUT
+  CHARACTER(len=12), ALLOCATABLE :: COLNAMELOGSTDOUT(:)
+
+  CHARACTER(len=100), PARAMETER  :: FMTLOGUNITHEADA = "("
+  CHARACTER(len=100), PARAMETER  :: FMTLOGUNITHEADB = "a22)"
+  CHARACTER(len=100)             :: FMTLOGUNITHEAD
+  CHARACTER(len=100), PARAMETER  :: FMTLOGUNITA = "(i22, "
+  CHARACTER(len=100), PARAMETER  :: FMTLOGUNITB = "(1x, es21.14))"
+  CHARACTER(len=100)             :: FMTLOGUNIT
+  CHARACTER(len=22), ALLOCATABLE :: COLNAMELOGUNIT(:)
+
+  CHARACTER(len=100), PARAMETER  :: FMTINDHEAD = "(6a12)"
+  CHARACTER(len=100), PARAMETER  :: FMTINDHEADEDIT = "(8a12)"
+  CHARACTER(len=100), PARAMETER  :: FMTIND = "(a12, 1x, i11, 3(1x, f11.5), 1x, i11)"
+  CHARACTER(len=100), PARAMETER  :: FMTINDEDIT = "(a12, 1x, i11, 3(1x, f11.5), 2(1x, i11), 1x, f11.5)"
+  CHARACTER(len=100), PARAMETER  :: FMTMATHEAD = "(3a12)"
+  CHARACTER(len=100), PARAMETER  :: FMTMAT = "(i12, 2(1x, a11))"
+  CHARACTER(len=100), PARAMETER  :: FMTFROHEAD = "(a12, 7a22)"
+  CHARACTER(len=100), PARAMETER  :: FMTFRO = "(a12, 7(1x, es21.14))"
 
   private
-  public :: AlphaMateTitles, ReadSpecAndDataForAlphaMate, SetInbreedingParameters
-  public :: AlphaMateSearch, EvolAlgLogHeaderForAlphaMate, EvolAlgLogForAlphaMate
-  public :: FixSolEtcMateAndCalcCrit
+  public :: AlphaMateTitles, ReadSpecAndDataForAlphaMate, ConstructColNamesAndFormats
+  public :: SetInbreedingParameters, AlphaMateSearch, EvolAlgLogHeadForAlphaMate
+  public :: EvolAlgLogForAlphaMate, FixSolEtcMateAndCalcCrit
 
   contains
 
@@ -625,6 +638,7 @@ module AlphaMateMod
       ! --- GenericIndividualValuesFile ---
       ! --- GenericIndividualValuesCoef ---
 
+      nGenericIndVal = 0
       read(SpecUnit, *) DumC, GenericIndValFile
       if (ToLower(trim(GenericIndValFile)) == "none") then
         GenericIndValAvailable = .false.
@@ -642,6 +656,7 @@ module AlphaMateMod
       ! --- GenericMatingValuesFile ---
       ! --- GenericMatingValuesPenalty ---
 
+      nGenericMatVal = 0
       read(SpecUnit, *) DumC, GenericMatValFile
       if (ToLower(trim(GenericMatValFile)) == "none") then
         GenericMatValAvailable = .false.
@@ -745,7 +760,7 @@ module AlphaMateMod
         write(STDOUT, "(a)") " "
 
         if (PAGE) then
-          ! must have the same scaling!!!!
+          ! must have the same scaling as breeding values!!!!
           BreedValPAGEStand(:) = (BreedValPAGE(:) - ValDescStat%Mean) / ValDescStat%SD
           ! only the PAGE bit of BreedVal
           BreedValPAGE(:) = BreedValPAGE(:) - BreedVal(:)
@@ -803,7 +818,7 @@ module AlphaMateMod
           write(STDERR, "(a)") "ERROR: Some individuals have unknown gender!"
           do i = 1, nInd
             if (Gender(i) == 0) then
-              write(STDERR, "(a)") "ERROR: individual "//IdC(i)
+              write(STDERR, "(a)") "ERROR: Individual: "//trim(IdC(i))
             end if
           end do
           write(STDERR, "(a)") " "
@@ -844,6 +859,15 @@ module AlphaMateMod
       if (nMat > nPosMat) then
         write(STDOUT, "(a)") "NOTE: The number of matings is larger than the number of all possible matings!"
         write(STDOUT, "(a)") "NOTE: Number of all possible matings: "//trim(Int2Char(nPosMat))
+        if (GenderMatters) then
+          write(STDOUT, "(a)") "NOTE: = no. of males * no. of females"
+        else
+          if (SelfingAllowed) then
+            write(STDOUT, "(a)") "NOTE: = no. of individuals * no. of individuals / 2 + individuals / 2"
+          else
+            write(STDOUT, "(a)") "NOTE: = no. of individuals * no. of individuals / 2 - individuals / 2"
+          end if
+        end if
         write(STDOUT, "(a)") "NOTE: Number of              matings: "//trim(Int2Char(nMat))
         write(STDOUT, "(a)") " "
       end if
@@ -863,7 +887,7 @@ module AlphaMateMod
         allocate(GenericIndValTmp(nGenericIndVal))
         allocate(GenericIndValTest(nGenericIndVal))
         allocate(GenericIndVal(nInd, nGenericIndVal))
-        GenericIndVal(:,:) = -1234567890.0d0
+        GenericIndVal(:,:) = -999.9d0
         open(newunit=GenericIndValUnit, file=GenericIndValFile, status="unknown")
         do i = 1, nInd
           read(GenericIndValUnit, *) IdCTmp, GenericIndValTmp(:)
@@ -874,13 +898,18 @@ module AlphaMateMod
             end if
           end do
         end do
-        if (any(GenericIndVal(:,:) == -1234567890.0d0)) then
-          write(STDOUT, "(a)") "NOTE: Some individuals have missing/unknown Generic Individual Values. These values will be set to zero!"
+        if (any(GenericIndVal(:,:) == -999.9d0)) then
+          write(STDOUT, "(a)") "NOTE: Some individuals have missing/unknown Generic Individual Values (-999.9d0). These values will be set to zero!"
           do i = 1, nInd
-            GenericIndValTest(:) = (GenericIndVal(i,:) == -1234567890.0d0)
+            GenericIndValTest(:) = (GenericIndVal(i,:) == -999.9d0)
             if (any(GenericIndValTest(:))) then
-              write(STDOUT, "("//Int2Char(1+nGenericIndVal)//"a)") "ERROR: individual "//IdC(i)//" values ", (Real2Char(GenericIndVal(i,j), fmt=FMTREAL2CHAR), j = 1, nGenericIndVal)
-              GenericIndVal(i,GenericIndValTest(:)) = 0.0d0
+              write(STDOUT, "("//Int2Char(1+nGenericIndVal)//"a)") "NOTE: Individual: "//trim(IdC(i))//&
+                ", Generic Individual Values: ", (Real2Char(GenericIndVal(i,j), fmt=FMTREAL2CHAR), j = 1, nGenericIndVal)
+              do j = 1, nGenericIndVal
+                if (GenericIndValTest(j)) then
+                  GenericIndVal(i,j) = 0.0d0
+                end if
+              end do
             end if
           end do
           write(STDOUT, "(a)") " "
@@ -894,8 +923,8 @@ module AlphaMateMod
           write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(ValDescStat%SD,   fmt=FMTREAL2CHAR))
           write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(ValDescStat%Min,  fmt=FMTREAL2CHAR))
           write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(ValDescStat%Max,  fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") " "
         end do
+        write(STDOUT, "(a)") " "
       end if
 
       ! --- Generic mating values ---
@@ -1022,7 +1051,7 @@ module AlphaMateMod
       integer(int32) :: i, j, k, nTmp, DumI, Rank(nInd)
       integer(int32) :: UnitInbree, UnitMating, UnitContri, UnitLog, UnitLog2, UnitFrontier
 
-      real(real64) :: PopInbTargetHold, RatePopInbTargetHold, DumR(8)
+      real(real64) :: PopInbTargetHold, RatePopInbTargetHold, DumR(8+nGenericIndVal+nGenericMatVal)
       real(real64), allocatable :: InitEqual(:,:)
 
       character(len=1000) :: EvolAlgLogFile, EvolAlgLogFile2
@@ -1058,7 +1087,7 @@ module AlphaMateMod
                        CRBurnIn=EvolAlgCRBurnIn, CRLate=EvolAlgCRLate, &
                        FBase=EvolAlgFBase, FHigh1=EvolAlgFHigh1, FHigh2=EvolAlgFHigh2, &
                        CalcCriterion=FixSolEtcMateAndCalcCrit, &
-                       LogHeader=EvolAlgLogHeaderForAlphaMate, Log=EvolAlgLogForAlphaMate, &
+                       LogHead=EvolAlgLogHeadForAlphaMate, Log=EvolAlgLogForAlphaMate, &
                        BestCriterion=CritMin)
 
         deallocate(InitEqual)
@@ -1131,7 +1160,7 @@ module AlphaMateMod
           open(newunit=UnitLog2, file=trim(EvolAlgLogFile2), status="unknown")
           nTmp = CountLines(EvolAlgLogFile2)
           read(UnitLog2, *) DumC
-          call EvolAlgLogHeaderForAlphaMate(UnitLog)
+          call EvolAlgLogHeadForAlphaMate(UnitLog)
           do i = 2, nTmp
             read(UnitLog2, *) DumI, DumR(:)
             ! F_t = DeltaF + (1 - DeltaF) * F_t-1
@@ -1189,7 +1218,7 @@ module AlphaMateMod
                        CRBurnIn=EvolAlgCRBurnIn, CRLate=EvolAlgCRLate, &
                        FBase=EvolAlgFBase, FHigh1=EvolAlgFHigh1, FHigh2=EvolAlgFHigh2, &
                        CalcCriterion=FixSolEtcMateAndCalcCrit, &
-                       LogHeader=EvolAlgLogHeaderForAlphaMate, Log=EvolAlgLogForAlphaMate, &
+                       LogHead=EvolAlgLogHeadForAlphaMate, Log=EvolAlgLogForAlphaMate, &
                        BestCriterion=CritOpt)
 
         ! TODO: should we have constant output no matter which options are switched on?
@@ -1296,7 +1325,7 @@ module AlphaMateMod
                          CRBurnIn=EvolAlgCRBurnIn, CRLate=EvolAlgCRLate, &
                          FBase=EvolAlgFBase, FHigh1=EvolAlgFHigh1, FHigh2=EvolAlgFHigh2, &
                          CalcCriterion=FixSolEtcMateAndCalcCrit, &
-                         LogHeader=EvolAlgLogHeaderForAlphaMate, Log=EvolAlgLogForAlphaMate, &
+                         LogHead=EvolAlgLogHeadForAlphaMate, Log=EvolAlgLogForAlphaMate, &
                          BestCriterion=Crit)
 
           DumC = "Frontier"//Int2Char(k)
@@ -1367,22 +1396,63 @@ module AlphaMateMod
 
     !###########################################################################
 
-    subroutine EvolAlgLogHeaderForAlphaMate(LogUnit)
+    subroutine ConstructColNamesAndFormats()
       implicit none
-      integer(int32), intent(in) :: LogUnit
-      ! With ifort this way of formating the code was requied to get desired layout
-      ! in STDOUT and in the file. Odd.
-      write(STDOUT, FMTLOGHEADERSTDOUT) "Step", "AcceptRate", "Criterion", "Penalties", "Gain", "GainStand", "PopInbreed", "RatePopInb", "PrgInbreed"
-      !                                  1234567890123456789012
-      write(LogUnit, FMTLOGHEADERUNIT)  "        Step", &
-                                        "            AcceptRate", &
-                                        "             Criterion", &
-                                        "             Penalties", &
-                                        "                  Gain", &
-                                        "             GainStand", &
-                                        "            PopInbreed", &
-                                        "            RatePopInb", &
-                                        "            PrgInbreed"
+      integer(int32) :: nCol, nColTmp, i
+
+      ! --- Optimisation log ---
+
+      nCol = 9
+      if (GenericIndValAvailable) then
+        nCol = nCol + nGenericIndVal
+      end if
+      if (GenericMatValAvailable) then
+        nCol = nCol + nGenericMatVal
+      end if
+      allocate(COLNAMELOGUNIT(nCol))
+      allocate(COLNAMELOGSTDOUT(nCol))
+      !                    1234567890123456789012
+      COLNAMELOGUNIT(1) = "                  Step"
+      COLNAMELOGUNIT(2) = "            AcceptRate"
+      COLNAMELOGUNIT(3) = "             Criterion"
+      COLNAMELOGUNIT(4) = "             Penalties"
+      COLNAMELOGUNIT(5) = "                  Gain"
+      COLNAMELOGUNIT(6) = "             GainStand"
+      COLNAMELOGUNIT(7) = "            PopInbreed"
+      COLNAMELOGUNIT(8) = "            RatePopInb"
+      COLNAMELOGUNIT(9) = "            PrgInbreed"
+      nColTmp = 9
+      if (GenericIndValAvailable) then
+        do i = 1, nGenericIndVal
+          nColTmp = nColTmp + 1
+          COLNAMELOGUNIT(nColTmp) = "GenIndVal"//Int2Char(i)
+          COLNAMELOGUNIT(nColTmp) = adjustr(COLNAMELOGUNIT(nColTmp))
+        end do
+      end if
+      if (GenericMatValAvailable) then
+        do i = 1, nGenericMatVal
+          nColTmp = nColTmp + 1
+          COLNAMELOGUNIT(nColTmp) = "GenMatVal"//Int2Char(i)
+          COLNAMELOGUNIT(nColTmp) = adjustr(COLNAMELOGUNIT(nColTmp))
+        end do
+      end if
+      do i = 1, nCol
+        COLNAMELOGSTDOUT(i) = COLNAMELOGUNIT(i)(13:22)
+        COLNAMELOGSTDOUT(i) = adjustr(COLNAMELOGSTDOUT(i))
+      end do
+      FMTLOGSTDOUTHEAD = trim(FMTLOGSTDOUTHEADA)//trim(Int2Char(nCol))  //trim(FMTLOGSTDOUTHEADB)
+      FMTLOGSTDOUT     = trim(FMTLOGSTDOUTA)    //trim(Int2Char(nCol-1))//trim(FMTLOGSTDOUTB)
+      FMTLOGUNITHEAD   = trim(FMTLOGUNITHEADA)  //trim(Int2Char(nCol)  )//trim(FMTLOGUNITHEADB)
+      FMTLOGUNIT       = trim(FMTLOGUNITA)      //trim(Int2Char(nCol-1))//trim(FMTLOGUNITB)
+    end subroutine
+
+    !###########################################################################
+
+    subroutine EvolAlgLogHeadForAlphaMate(LogUnit)
+      implicit none
+      integer(int32), intent(in)     :: LogUnit
+      write(STDOUT, FMTLOGSTDOUTHEAD) COLNAMELOGSTDOUT(:)
+      write(LogUnit,  FMTLOGUNITHEAD) COLNAMELOGUNIT(:)
     end subroutine
 
     !###########################################################################
@@ -1393,8 +1463,8 @@ module AlphaMateMod
       integer(int32), intent(in)   :: Gen
       real(real64), intent(in)     :: AcceptRate
       type(EvolveCrit), intent(in) :: Criterion
-      write(STDOUT,  FMTLOGSTDOUT) Gen, AcceptRate, Criterion%Value, Criterion%Penalty, Criterion%Gain, Criterion%GainStand, Criterion%PopInb, Criterion%RatePopInb, Criterion%PrgInb
-      write(LogUnit, FMTLOGUNIT)   Gen, AcceptRate, Criterion%Value, Criterion%Penalty, Criterion%Gain, Criterion%GainStand, Criterion%PopInb, Criterion%RatePopInb, Criterion%PrgInb
+      write(STDOUT,  FMTLOGSTDOUT) Gen, AcceptRate, Criterion%Value, Criterion%Penalty, Criterion%Gain, Criterion%GainStand, Criterion%PopInb, Criterion%RatePopInb, Criterion%PrgInb, Criterion%GenericIndVal, Criterion%GenericMatVal
+      write(LogUnit, FMTLOGUNIT)   Gen, AcceptRate, Criterion%Value, Criterion%Penalty, Criterion%Gain, Criterion%GainStand, Criterion%PopInb, Criterion%RatePopInb, Criterion%PrgInb, Criterion%GenericIndVal, Criterion%GenericMatVal
     end subroutine
 
     !###########################################################################
@@ -1410,14 +1480,30 @@ module AlphaMateMod
       This%PopInb = 0.0d0
       This%RatePopInb = 0.0d0
       This%PrgInb = 0.0d0
+      if (GenericIndValAvailable) then
+        allocate(This%GenericIndVal(nGenericIndVal))
+        This%GenericIndVal(:) = 0
+      else
+        allocate(This%GenericIndVal(0))
+      end if
+      if (GenericMatValAvailable) then
+        allocate(This%GenericMatVal(nGenericMatVal))
+        This%GenericMatVal(:) = 0
+      else
+        allocate(This%GenericMatVal(0))
+      end if
       allocate(This%nVec(nInd))
       This%nVec(:) = 0
       allocate(This%xVec(nInd))
       This%xVec(:) = 0.0d0
       allocate(This%MatingPlan(2, nMat))
       This%MatingPlan(:,:) = 0
-      allocate(This%GenomeEdit(nInd))
-      This%GenomeEdit(:) = 0.0d0
+      if (PAGE) then
+        allocate(This%GenomeEdit(nInd))
+        This%GenomeEdit(:) = 0.0d0
+      else
+        allocate(This%GenomeEdit(0))
+      end if
     end function
 
     !###########################################################################
@@ -1825,17 +1911,16 @@ module AlphaMateMod
 
       ! --- Genetic gain ---
 
-      Criterion%Gain      = dot_product(Criterion%xVec, BreedVal)
-      Criterion%GainStand = dot_product(Criterion%xVec, BreedValStand)
-
-      if (PAGE) then
-        Criterion%Gain      = Criterion%Gain      + dot_product(Criterion%xVec, BreedValPAGE(:)      * Criterion%GenomeEdit(:))
-        Criterion%GainStand = Criterion%GainStand + dot_product(Criterion%xVec, BreedValPAGEStand(:) * Criterion%GenomeEdit(:))
-! TODO: how do we handle costs?
-      end if
-
-      if (ToLower(trim(CritType)) == "opt") then
-        Criterion%Value = Criterion%Value + Criterion%GainStand
+      if (BreedValAvailable) then
+        Criterion%Gain      = dot_product(Criterion%xVec, BreedVal)
+        Criterion%GainStand = dot_product(Criterion%xVec, BreedValStand)
+        if (PAGE) then
+          Criterion%Gain      = Criterion%Gain      + dot_product(Criterion%xVec, BreedValPAGE(:)      * Criterion%GenomeEdit(:))
+          Criterion%GainStand = Criterion%GainStand + dot_product(Criterion%xVec, BreedValPAGEStand(:) * Criterion%GenomeEdit(:))
+        end if
+        if (ToLower(trim(CritType)) == "opt") then
+          Criterion%Value = Criterion%Value + Criterion%GainStand
+        end if
       end if
 
       ! --- Selected group coancestry (=future population inbreeding) ---
@@ -1899,6 +1984,18 @@ module AlphaMateMod
       Criterion%Value = Criterion%Value - TmpR
       Criterion%Penalty = Criterion%Penalty + TmpR
 
+      ! --- Generic individual values ---
+
+      if (GenericIndValAvailable) then
+        do j = 1, nGenericIndVal
+          TmpR = dot_product(Criterion%xVec, GenericIndVal(:,j))
+          Criterion%GenericIndVal(j) = TmpR
+          Criterion%Value = Criterion%Value + GenericIndValCoef(j) * TmpR
+        end do
+      end if
+
+! TODO: how should we handle costs?
+
       return
     end function
 
@@ -1937,6 +2034,7 @@ program AlphaMate
   end if
 
   call ReadSpecAndDataForAlphaMate
+  call ConstructColNamesAndFormats
   call SetInbreedingParameters
   call AlphaMateSearch
   call cpu_time(Finish)
