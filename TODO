@@ -4,7 +4,13 @@
   - pair/mating level (progeny dominance, cross variance, missing data on some pairs
     should have "zero" weight?)
 
+* Input pedigree and/or genotype data to simplify creation of:
+  - relationships
+  - dominance in progeny
+  - variance among progeny
+
 * MOET, JIVET, ... any other reproductive technoquies?
+  - are these not covered with lifting the limit constraints on females?
 
 * Any other biotechnologies?
 
@@ -13,9 +19,9 @@
 * Update/finalise manual
 
 * Parallelize differential evolution algorithm?
-  - for this to happen we would have to convert criterion subroutine into a
-    function, i.e., there would be no global variables. NOTE: memory usage will multiply
-    with the number of processors!!!
+  - code in AlphaMate ready for this
+  - need to figure out how to handle OMP flags and RNG in AlphaEvolve
 
 * Stop optimisation and restart?
-  - checkpointing trick (catch kill command, save current state, and stop)
+  - checkpointing trick (catch kill command, save current state, and stop, enable
+    restart from the saved state)
