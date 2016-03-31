@@ -31,29 +31,29 @@ module AlphaMateMod
   use ISO_Fortran_Env, STDIN => input_unit, STDOUT => output_unit, STDERR => error_unit
   use IFPort, only : SystemQQ
   use OrderPackMod, only : MrgRnk
-  use AlphaHouseMod, only : CountLines, Int2Char, Real2Char, RandomOrder, SetSeed, ToLower
-  use AlphaStatMod, only : CalcDescStat, DescStatD, CalcDescStatSymMatrix, DescStatMatrixD
+  use AlphaHouseMod, only : CountLines, Int2Char, Real2Char, RandomOrder, SetSeed, ToLower, FindLoc
+  use AlphaStatMod, only : CalcDescStat, DescStatD, CalcDescStatMatrix, CalcDescStatSymMatrix, CalcDescStatLowTriMatrix, DescStatMatrixD
   use AlphaEvolveMod, only : EvolAlgDE, EvolveCrit
 
   implicit none
 
-  integer(int32) :: nInd, nMat, nPosMat, nPar, nPotPar1, nPotPar2, nMal, nFem, nPar1, nPar2, nFrontierSteps
+  integer(int32) :: nInd, nMat, nPotMat, nPar, nPotPar1, nPotPar2, nMal, nFem, nPar1, nPar2, nFrontierSteps
   integer(int32) :: EvolAlgNSol, EvolAlgNGen, EvolAlgNGenBurnIn, EvolAlgNGenStop, EvolAlgNGenPrint
   integer(int32) :: PAGEPar1Max, PAGEPar2Max, nGenericIndVal, nGenericMatVal
-  integer(int32), allocatable :: Gender(:), IdPotPar1(:), IdPotPar2(:)
+  integer(int32), allocatable :: Gender(:), IdPotPar1(:), IdPotPar2(:), IdPotParSeq(:)
 
   real(real64) :: LimitPar1Min, LimitPar1Max, LimitPar2Min, LimitPar2Max
   real(real64) :: EvolAlgStopTol, EvolAlgCRBurnIn, EvolAlgCRLate, EvolAlgFBase, EvolAlgFHigh1, EvolAlgFHigh2
   real(real64) :: PopInbOld, PopInbTarget, RatePopInbTarget
-  real(real64) :: PopInbPenalty, PrgInbPenalty, SelfingPenalty, LimitPar1Penalty, LimitPar2Penalty
-  real(real64), allocatable :: GenericIndValCoef(:), GenericMatValCoef(:)
+  real(real64) :: PopInbWeight, PrgInbWeight, SelfingWeight, LimitPar1Weight, LimitPar2Weight
+  real(real64), allocatable :: GenericIndValWeight(:), GenericMatValWeight(:)
   real(real64) :: PAGEPar1Cost, PAGEPar2Cost
   real(real64), allocatable :: BreedVal(:), BreedValStand(:), BreedValPAGE(:), BreedValPAGEStand(:)
   real(real64), allocatable :: RatePopInbFrontier(:), GenericIndValTmp(:), GenericMatValTmp(:)
   real(real64), allocatable :: RelMtx(:,:), GenericIndVal(:,:), GenericMatVal(:,:,:)
 
   logical :: ModeMin, ModeOpt, BreedValAvailable, GenderMatters, EqualizePar1, EqualizePar2
-  logical :: SelfingAllowed, PopInbPenaltyBellow, InferPopInbOld, EvaluateFrontier
+  logical :: SelfingAllowed, PopInbWeightBellow, InferPopInbOld, EvaluateFrontier
   logical :: PAGE, PAGEPar1, PAGEPar2, GenericIndValAvailable, GenericMatValAvailable
 
   character(len=100), allocatable :: IdC(:)
@@ -111,6 +111,7 @@ module AlphaMateMod
     !       F-ST is (subtotal-to-total=ancient/old) inbreeding at recent base relative to ancient/old base
     !
     ! F_t = DeltaF + (1 - DeltaF) * F_t-1
+    !     = DeltaF * (1 - F_t-1)  + F_t-1
     !
     ! where F_t is (total) inbreeding in generation t
     !       DeltaF is recent/new inbreeding after generation t-1 (=rate of inbreeding)
@@ -145,7 +146,7 @@ module AlphaMateMod
 
       implicit none
 
-      integer(int32) :: i, j, DumI, jMal, jFem, nIndTmp, GenderTmp, Seed
+      integer(int32) :: i, j, k, l, m, DumI, jMal, jFem, nIndTmp, GenderTmp, Seed
       integer(int32) :: SpecUnit, RelMtxUnit, BreedValUnit, GenderUnit
       integer(int32) :: GenericIndValUnit, GenericMatValUnit
       integer(int32), allocatable :: Order(:)
@@ -153,13 +154,12 @@ module AlphaMateMod
       real(real64) :: BreedValTmp, BreedValTmp2
 
       logical :: Success
-      logical, allocatable :: GenericIndValTest(:), GenericMatValTest(:)
 
       character(len=1000) :: RelMtxFile, BreedValFile, GenderFile, SeedFile
       character(len=1000) :: GenericIndValFile, GenericMatValFile
-      character(len=100) :: DumC, IdCTmp
+      character(len=100) :: DumC, IdCTmp, IdCTmp2
 
-      type(DescStatD) :: ValDescStat
+      type(DescStatD) :: VecDescStat
       type(DescStatMatrixD) :: MtxDescStat
 
       write(STDOUT, "(a)") "--- Specifications ---"
@@ -365,7 +365,7 @@ module AlphaMateMod
       read(SpecUnit, *) DumC, DumC
       LimitPar1Min = 1.0d0
       LimitPar1Max = huge(LimitPar1Max) - 1.0d0
-      LimitPar1Penalty = 0.0d0
+      LimitPar1Weight = 0.0d0
       if (.not.GenderMatters) then
         if      (ToLower(trim(DumC)) == "yes") then
           if (EqualizePar1) then
@@ -374,9 +374,9 @@ module AlphaMateMod
             write(STDOUT, "(a)") " "
           else
             backspace(SpecUnit)
-            read(SpecUnit, *) DumC, DumC, LimitPar1Min, LimitPar1Max, LimitPar1Penalty
+            read(SpecUnit, *) DumC, DumC, LimitPar1Min, LimitPar1Max, LimitPar1Weight
             write(STDOUT, "(a)") "LimitParentContributions: yes, min "//trim(Int2Char(nint(LimitPar1Min)))//", max "//&
-              trim(Int2Char(nint(LimitPar1Max)))//", penalty "//trim(Real2Char(LimitPar1Penalty, fmt=FMTREAL2CHAR))
+              trim(Int2Char(nint(LimitPar1Max)))//", weight "//trim(Real2Char(LimitPar1Weight, fmt=FMTREAL2CHAR))
           end if
         else if (ToLower(trim(DumC)) == "no") then
           !write(STDOUT, "(a)") "LimitParentContributions: no"
@@ -398,9 +398,9 @@ module AlphaMateMod
             write(STDOUT, "(a)") " "
           else
             backspace(SpecUnit)
-            read(SpecUnit, *) DumC, DumC, LimitPar1Min, LimitPar1Max, LimitPar1Penalty
+            read(SpecUnit, *) DumC, DumC, LimitPar1Min, LimitPar1Max, LimitPar1Weight
             write(STDOUT, "(a)") "LimitMaleParentContributions: yes, min "//trim(Int2Char(nint(LimitPar1Min)))//", max "//&
-              trim(Int2Char(nint(LimitPar1Max)))//", penalty "//trim(Real2Char(LimitPar1Penalty, fmt=FMTREAL2CHAR))
+              trim(Int2Char(nint(LimitPar1Max)))//", weight "//trim(Real2Char(LimitPar1Weight, fmt=FMTREAL2CHAR))
           end if
         else if (ToLower(trim(DumC)) == "no") then
           !write(STDOUT, "(a)") "LimitMaleParentContributions: no"
@@ -416,7 +416,7 @@ module AlphaMateMod
       read(SpecUnit, *) DumC, DumC
       LimitPar2Min = 1.0d0
       LimitPar2Max = huge(LimitPar2Max) - 1.0d0
-      LimitPar2Penalty = 0.0d0
+      LimitPar2Weight = 0.0d0
       if (GenderMatters) then
         if      (ToLower(trim(DumC)) == "yes") then
           if (EqualizePar2) then
@@ -425,9 +425,9 @@ module AlphaMateMod
             write(STDOUT, "(a)") " "
           else
             backspace(SpecUnit)
-            read(SpecUnit, *) DumC, DumC, LimitPar2Min, LimitPar2Max, LimitPar2Penalty
+            read(SpecUnit, *) DumC, DumC, LimitPar2Min, LimitPar2Max, LimitPar2Weight
             write(STDOUT, "(a)") "LimitFemaleParentContributions: yes, min "//trim(Int2Char(nint(LimitPar2Min)))//", max "//&
-              trim(Int2Char(nint(LimitPar2Max)))//", penalty "//trim(Real2Char(LimitPar2Penalty, fmt=FMTREAL2CHAR))
+              trim(Int2Char(nint(LimitPar2Max)))//", weight "//trim(Real2Char(LimitPar2Weight, fmt=FMTREAL2CHAR))
           end if
         else if (ToLower(trim(DumC)) == "no") then
           !write(STDOUT, "(a)") "LimitFemaleParentContributions: no"
@@ -453,8 +453,8 @@ module AlphaMateMod
         SelfingAllowed = .false.
         if (.not.GenderMatters) then
           backspace(SpecUnit)
-          read(SpecUnit, *) DumC, DumC, SelfingPenalty
-          write(STDOUT, "(a)") "AllowSelfing: no, penalty "//trim(Real2Char(SelfingPenalty, fmt=FMTREAL2CHAR))
+          read(SpecUnit, *) DumC, DumC, SelfingWeight
+          write(STDOUT, "(a)") "AllowSelfing: no, weight "//trim(Real2Char(SelfingWeight, fmt=FMTREAL2CHAR))
         end if
       else
         write(STDERR, "(a)") "ERROR: AllowSelfing must be: Yes or No!"
@@ -576,23 +576,23 @@ module AlphaMateMod
 
       ! --- TargetedRateOfPopulationInbreeding ---
 
-      read(SpecUnit, *) DumC, RatePopInbTarget, PopInbPenalty, DumC
+      read(SpecUnit, *) DumC, RatePopInbTarget, PopInbWeight, DumC
       if      (ToLower(trim(DumC)) == "above") then
-        PopInbPenaltyBellow = .false.
+        PopInbWeightBellow = .false.
       else if (ToLower(trim(DumC)) == "aboveandbellow") then
-        PopInbPenaltyBellow = .true.
+        PopInbWeightBellow = .true.
       else
-        write(STDERR, "(a)") "ERROR: PopInbPenaltyMode must be: Above or AboveAndBellow!"
+        write(STDERR, "(a)") "ERROR: PopInbWeightMode must be: Above or AboveAndBellow!"
         write(STDERR, "(a)") " "
         stop 1
       end if
       write(STDOUT, "(a)") "TargetedRateOfPopulationInbreeding: "//trim(Real2Char(RatePopInbTarget, fmt=FMTREAL2CHAR))//&
-        ", penalty "//trim(Real2Char(PopInbPenalty, fmt=FMTREAL2CHAR))//", mode "//trim(DumC)
+        ", weight "//trim(Real2Char(PopInbWeight, fmt=FMTREAL2CHAR))//", mode "//trim(DumC)
 
-      ! --- ProgenyInbreedingPenalty (=inbreeding of a mating) ---
+      ! --- ProgenyInbreedingWeight (=inbreeding of a mating) ---
 
-      read(SpecUnit, *) DumC, PrgInbPenalty
-      write(STDOUT, "(a)") "ProgenyInbreedingPenalty: "//trim(Real2Char(PrgInbPenalty, fmt=FMTREAL2CHAR))
+      read(SpecUnit, *) DumC, PrgInbWeight
+      write(STDOUT, "(a)") "ProgenyInbreedingWeight: "//trim(Real2Char(PrgInbWeight, fmt=FMTREAL2CHAR))
 
       ! --- EvaluateFrontier ---
 
@@ -636,7 +636,7 @@ module AlphaMateMod
       write(STDOUT, "(a)") "Seed: "//trim(Int2Char(Seed))
 
       ! --- GenericIndividualValuesFile ---
-      ! --- GenericIndividualValuesCoef ---
+      ! --- GenericIndividualValuesWeight ---
 
       nGenericIndVal = 0
       read(SpecUnit, *) DumC, GenericIndValFile
@@ -647,14 +647,14 @@ module AlphaMateMod
         GenericIndValAvailable = .true.
         backspace(SpecUnit)
         read(SpecUnit, *) DumC, GenericIndValFile, nGenericIndVal
-        allocate(GenericIndValCoef(nGenericIndVal))
-        read(SpecUnit, *) DumC, GenericIndValCoef(:)
+        allocate(GenericIndValWeight(nGenericIndVal))
+        read(SpecUnit, *) DumC, GenericIndValWeight(:)
         write(STDOUT, "("//Int2Char(1 + nGenericIndVal)//"a)") "GenericIndividualValuesFile: "//trim(GenericIndValFile)//&
-          ", coefficients: ", (trim(Real2Char(GenericIndValCoef(i), fmt=FMTREAL2CHAR)), i = 1, nGenericIndVal)
+          ", weight(s): ", (trim(Real2Char(GenericIndValWeight(i), fmt=FMTREAL2CHAR)), i = 1, nGenericIndVal)
       end if
 
       ! --- GenericMatingValuesFile ---
-      ! --- GenericMatingValuesPenalty ---
+      ! --- GenericMatingValuesWeight ---
 
       nGenericMatVal = 0
       read(SpecUnit, *) DumC, GenericMatValFile
@@ -665,10 +665,10 @@ module AlphaMateMod
         GenericMatValAvailable = .true.
         backspace(SpecUnit)
         read(SpecUnit, *) DumC, GenericMatValFile, nGenericMatVal
-        allocate(GenericMatValCoef(nGenericMatVal))
-        read(SpecUnit, *) DumC, GenericMatValCoef(:)
+        allocate(GenericMatValWeight(nGenericMatVal))
+        read(SpecUnit, *) DumC, GenericMatValWeight(:)
         write(STDOUT, "("//Int2Char(1 + nGenericMatVal)//"a)") "GenericMatingValuesFile: "//trim(GenericMatValFile)//&
-          ", coefficients: ", (trim(Real2Char(GenericMatValCoef(i), fmt=FMTREAL2CHAR)), i = 1, nGenericMatVal)
+          ", weight(s): ", (trim(Real2Char(GenericMatValWeight(i), fmt=FMTREAL2CHAR)), i = 1, nGenericMatVal)
       end if
 
       write(STDOUT, "(a)") " "
@@ -688,7 +688,6 @@ module AlphaMateMod
         write(STDERR, "(a)") "ERROR: The Relationship Matrix file has less rows than there are defined number of individuals!"
         write(STDERR, "(a)") "ERROR: Number of defined individuals:                  "//trim(Int2Char(nInd))
         write(STDERR, "(a)") "ERROR: Number of rows in the relationship matrix file: "//trim(Int2Char(nIndTmp))
-
         write(STDERR, "(a)") " "
       end if
       open(newunit=RelMtxUnit, file=trim(RelMtxFile), status="old")
@@ -709,6 +708,19 @@ module AlphaMateMod
       write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(MtxDescStat%OffDiag%Min,  fmt=FMTREAL2CHAR))
       write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(MtxDescStat%OffDiag%Max,  fmt=FMTREAL2CHAR))
       write(STDOUT, "(a)") " "
+
+      ! --- Shuffle the data ---
+
+      ! To avoid having good animals together - better for Evolutionary algorithm
+      ! This is done upfront for Id and RelMtx only. Then all the data is read and mapped to this order
+      ! TODO: is it worth it?
+      ! TODO: does this scale well with large data sets?
+
+      allocate(Order(nInd))
+      Order = RandomOrder(nInd)
+      IdC(:) = IdC(Order)
+      RelMtx(:,:) = RelMtx(Order, Order)
+      deallocate(Order)
 
       ! --- Breeding values ---
 
@@ -734,43 +746,44 @@ module AlphaMateMod
         end if
         open(newunit=BreedValUnit, file=trim(BreedValFile), status="old")
         do i = 1, nInd
-          if (.not.PAGE) then
-            read(BreedValUnit, *) IdCTmp, BreedValTmp
-          else
+          if (PAGE) then
             read(BreedValUnit, *) IdCTmp, BreedValTmp, BreedValTmp2
+          else
+            read(BreedValUnit, *) IdCTmp, BreedValTmp
           end if
-          do j = 1, nInd
-            if (trim(IdCTmp) == trim(IdC(j))) then
-              BreedVal(j) = BreedValTmp
-              if (PAGE) then
-                BreedValPAGE(j) = BreedValTmp2
-              end if
-              exit
-            end if
-          end do
+          j = FindLoc(IdCTmp, IdC)
+          if (j == 0) then
+            write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the Breeding Value file not present in the Relationship Matrix File!"
+            write(STDERR, "(a)") " "
+            stop 1
+          end if
+          BreedVal(j) = BreedValTmp
+          if (PAGE) then
+            BreedValPAGE(j) = BreedValTmp2
+          end if
         end do
         close(BreedValUnit)
 
-        ValDescStat = CalcDescStat(BreedVal)
-        BreedValStand(:) = (BreedVal(:) - ValDescStat%Mean) / ValDescStat%SD
-        write(STDOUT, "(a)") "  - average: "//trim(Real2Char(ValDescStat%Mean, fmt=FMTREAL2CHAR))
-        write(STDOUT, "(a)") "  - st.dev.: "//trim(Real2Char(ValDescStat%SD,   fmt=FMTREAL2CHAR))
-        write(STDOUT, "(a)") "  - minimum: "//trim(Real2Char(ValDescStat%Min,  fmt=FMTREAL2CHAR))
-        write(STDOUT, "(a)") "  - maximum: "//trim(Real2Char(ValDescStat%Max,  fmt=FMTREAL2CHAR))
+        VecDescStat = CalcDescStat(BreedVal)
+        BreedValStand(:) = (BreedVal(:) - VecDescStat%Mean) / VecDescStat%SD
+        write(STDOUT, "(a)") "  - average: "//trim(Real2Char(VecDescStat%Mean, fmt=FMTREAL2CHAR))
+        write(STDOUT, "(a)") "  - st.dev.: "//trim(Real2Char(VecDescStat%SD,   fmt=FMTREAL2CHAR))
+        write(STDOUT, "(a)") "  - minimum: "//trim(Real2Char(VecDescStat%Min,  fmt=FMTREAL2CHAR))
+        write(STDOUT, "(a)") "  - maximum: "//trim(Real2Char(VecDescStat%Max,  fmt=FMTREAL2CHAR))
         write(STDOUT, "(a)") " "
 
         if (PAGE) then
           ! must have the same scaling as breeding values!!!!
-          BreedValPAGEStand(:) = (BreedValPAGE(:) - ValDescStat%Mean) / ValDescStat%SD
+          BreedValPAGEStand(:) = (BreedValPAGE(:) - VecDescStat%Mean) / VecDescStat%SD
           ! only the PAGE bit of BreedVal
           BreedValPAGE(:) = BreedValPAGE(:) - BreedVal(:)
           BreedValPAGEStand(:) = BreedValPAGEStand(:) - BreedValStand(:)
-          ValDescStat = CalcDescStat(BreedValPAGE)
+          VecDescStat = CalcDescStat(BreedValPAGE)
           write(STDOUT, "(a)") "Genome editing increments"
-          write(STDOUT, "(a)") "  - average: "//trim(Real2Char(ValDescStat%Mean, fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") "  - st.dev.: "//trim(Real2Char(ValDescStat%SD,   fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") "  - minimum: "//trim(Real2Char(ValDescStat%Min,  fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") "  - maximum: "//trim(Real2Char(ValDescStat%Max,  fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "  - average: "//trim(Real2Char(VecDescStat%Mean, fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "  - st.dev.: "//trim(Real2Char(VecDescStat%SD,   fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "  - minimum: "//trim(Real2Char(VecDescStat%Min,  fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "  - maximum: "//trim(Real2Char(VecDescStat%Max,  fmt=FMTREAL2CHAR))
           write(STDOUT, "(a)") " "
         end if
       end if
@@ -784,7 +797,7 @@ module AlphaMateMod
         write(STDOUT, "(a)") "Gender"
         nIndTmp = CountLines(GenderFile)
         if (nIndTmp /= nInd) then
-          write(STDERR, "(a)") "ERROR: Number of individuals in the Gender file and the  file is not the same!"
+          write(STDERR, "(a)") "ERROR: Number of individuals in the Gender file and the Relationship Matrix file is not the same!"
           write(STDERR, "(a)") "ERROR: Number of individuals in the Relationship Matrix file: "//trim(Int2Char(nInd))
           write(STDERR, "(a)") "ERROR: Number of individuals in the Gender file:              "//trim(Int2Char(nIndTmp))
           write(STDERR, "(a)") " "
@@ -803,32 +816,24 @@ module AlphaMateMod
             nFem = nFem + 1
           else
             write(STDERR, "(a)") "ERROR: Gender code must be either 1 for male individuals or 2 for female individuals!"
-            write(STDERR, "(a, i6, a, i3)") "ERROR: ", i, IdCTmp, GenderTmp
+            write(STDERR, "(a)") "ERROR: "//trim(Int2Char(i))//" "//trim(IdCTmp)//" "//trim(Int2Char(GenderTmp))
             write(STDERR, "(a)") " "
             stop 1
           end if
-          do j = 1, nInd
-            if (trim(IdCTmp) == trim(IdC(j))) then
-              Gender(j) = GenderTmp
-              exit
-            end if
-          end do
+          j = FindLoc(IdCTmp, IdC)
+          if (j == 0) then
+            write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the Gender file not present in the Relationship Matrix File!"
+            write(STDERR, "(a)") " "
+            stop 1
+          end if
+          Gender(j) = GenderTmp
         end do
-        if (any(Gender(:) == 0)) then
-          write(STDERR, "(a)") "ERROR: Some individuals have unknown gender!"
-          do i = 1, nInd
-            if (Gender(i) == 0) then
-              write(STDERR, "(a)") "ERROR: Individual: "//trim(IdC(i))
-            end if
-          end do
-          write(STDERR, "(a)") " "
-          stop 1
-        end if
         close(GenderUnit)
 
         write(STDOUT, "(a)") "  - number of   males in data: "//trim(Int2Char(nMal))
         write(STDOUT, "(a)") "  - number of females in data: "//trim(Int2Char(nFem))
         write(STDOUT, "(a)") " "
+
         if (nPar1 > nMat) then
           write(STDERR, "(a)") "ERROR: The number of male parents can not be larger than the number of males"
           write(STDERR, "(a)") "ERROR: Number of male parents: "//trim(Int2Char(nPar1))
@@ -845,28 +850,73 @@ module AlphaMateMod
         end if
       end if
 
-      ! Number of possible matings
-      if (GenderMatters) then
-        nPosMat = nMal * nFem
+      ! --- Define potential parents ---
+
+      if (.not.GenderMatters) then
+        nPotPar1 = nInd
+        nPotPar2 = nInd
+        allocate(IdPotPar1(nPotPar1))
+        do i = 1, nInd
+          IdPotPar1(i) = i
+        end do
       else
-        nPosMat = float(nInd * nInd) / 2.0
-        if (SelfingAllowed) then
-          nPosMat = nint(nPosMat + float(nInd) / 2.0)
-        else
-          nPosMat = nint(nPosMat - float(nInd) / 2.0)
+        nPotPar1 = nMal
+        nPotPar2 = nFem
+        allocate(IdPotPar1(nPotPar1))
+        allocate(IdPotPar2(nPotPar2))
+        allocate(IdPotParSeq(nInd))
+        jMal = 0
+        jFem = 0
+        do i = 1, nInd
+          if (Gender(i) == 1) then
+            jMal = jMal + 1
+            IdPotPar1(jMal) = i
+            IdPotParSeq(i) = jMal
+          else
+            jFem = jFem + 1
+            IdPotPar2(jFem) = i
+            IdPotParSeq(i) = jFem
+          end if
+        end do
+        if (nPar1 > nPotPar1) then
+          nPar1 = nPotPar1
+          write(STDOUT, "(a)") "NOTE: The number of male parents reduced to the number of male individuals!"
+          write(STDOUT, "(a)") " "
+        end if
+        if (nPar2 > nPotPar2) then
+          nPar2 = nPotPar2
+          write(STDOUT, "(a)") "NOTE: The number of female parents reduced to the number of female individuals!"
+          write(STDOUT, "(a)") " "
         end if
       end if
-      if (nMat > nPosMat) then
-        write(STDOUT, "(a)") "NOTE: The number of matings is larger than the number of all possible matings!"
-        write(STDOUT, "(a)") "NOTE: Number of all possible matings: "//trim(Int2Char(nPosMat))
+
+      ! --- Number of all potential matings ---
+
+      if (GenderMatters) then
+        nPotMat = nPotPar1 * nPotPar2
+      else
+        nPotMat = real(nPotPar1 * nPotPar1) / 2.0
+        if (SelfingAllowed) then
+          nPotMat = nint(real(nPotMat) + real(nPotPar1) / 2.0)
+        else
+          nPotMat = nint(real(nPotMat) - real(nPotPar1) / 2.0)
+        end if
+      end if
+      if (nMat > nPotMat) then
+        write(STDOUT, "(a)") "NOTE: The number of matings is larger than the number of all potential matings!"
+        write(STDOUT, "(a)") "NOTE: Number of all potential matings: "//trim(Int2Char(nPotMat))
         if (GenderMatters) then
-          write(STDOUT, "(a)") "NOTE: = no. of males * no. of females"
+          write(STDOUT, "(a)") "NOTE: = all males with all females"
+          write(STDOUT, "(a)") "NOTE: = no. of males ("//trim(Int2Char(nPotPar1))//") * no. of females ("//trim(Int2Char(nPotPar2))//")"
         else
           if (SelfingAllowed) then
+            write(STDOUT, "(a)") "NOTE: = half-diallel including selfing"
             write(STDOUT, "(a)") "NOTE: = no. of individuals * no. of individuals / 2 + individuals / 2"
           else
+            write(STDOUT, "(a)") "NOTE: = half-diallel excluding selfing"
             write(STDOUT, "(a)") "NOTE: = no. of individuals * no. of individuals / 2 - individuals / 2"
           end if
+          write(STDOUT, "(a)") "NOTE:   (no. of individuals = "//trim(Int2Char(nPotPar1))//")"
         end if
         write(STDOUT, "(a)") "NOTE: Number of              matings: "//trim(Int2Char(nMat))
         write(STDOUT, "(a)") " "
@@ -884,45 +934,29 @@ module AlphaMateMod
           write(STDERR, "(a)") " "
           stop 1
         end if
-        allocate(GenericIndValTmp(nGenericIndVal))
-        allocate(GenericIndValTest(nGenericIndVal))
         allocate(GenericIndVal(nInd, nGenericIndVal))
-        GenericIndVal(:,:) = -999.9d0
+        allocate(GenericIndValTmp(nGenericIndVal))
+        GenericIndVal(:,:) = 0.0d0
         open(newunit=GenericIndValUnit, file=GenericIndValFile, status="unknown")
         do i = 1, nInd
           read(GenericIndValUnit, *) IdCTmp, GenericIndValTmp(:)
-          do j = 1, nInd
-            if (trim(IdCTmp) == trim(IdC(j))) then
-              GenericIndVal(j,:) = GenericIndValTmp(:)
-              exit
-            end if
-          end do
+          j = FindLoc(IdCTmp, IdC)
+          if (j == 0) then
+            write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the Generic Individual Values file not present in the Relationship Matrix File!"
+            write(STDERR, "(a)") " "
+            stop 1
+          end if
+          GenericIndVal(j,:) = GenericIndValTmp(:)
         end do
-        if (any(GenericIndVal(:,:) == -999.9d0)) then
-          write(STDOUT, "(a)") "NOTE: Some individuals have missing/unknown Generic Individual Values (-999.9d0). These values will be set to zero!"
-          do i = 1, nInd
-            GenericIndValTest(:) = (GenericIndVal(i,:) == -999.9d0)
-            if (any(GenericIndValTest(:))) then
-              write(STDOUT, "("//Int2Char(1+nGenericIndVal)//"a)") "NOTE: Individual: "//trim(IdC(i))//&
-                ", Generic Individual Values: ", (Real2Char(GenericIndVal(i,j), fmt=FMTREAL2CHAR), j = 1, nGenericIndVal)
-              do j = 1, nGenericIndVal
-                if (GenericIndValTest(j)) then
-                  GenericIndVal(i,j) = 0.0d0
-                end if
-              end do
-            end if
-          end do
-          write(STDOUT, "(a)") " "
-        end if
         close(GenericIndValUnit)
 
         do j = 1, nGenericIndVal
-          write(STDOUT, "(a)") "  - column "//Int2Char(j)
-          ValDescStat = CalcDescStat(GenericIndVal(:,j))
-          write(STDOUT, "(a)") "    - average: "//trim(Real2Char(ValDescStat%Mean, fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(ValDescStat%SD,   fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(ValDescStat%Min,  fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(ValDescStat%Max,  fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "  - column "//trim(Int2Char(j))
+          VecDescStat = CalcDescStat(GenericIndVal(:,j))
+          write(STDOUT, "(a)") "    - average: "//trim(Real2Char(VecDescStat%Mean, fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(VecDescStat%SD,   fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(VecDescStat%Min,  fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(VecDescStat%Max,  fmt=FMTREAL2CHAR))
         end do
         write(STDOUT, "(a)") " "
       end if
@@ -932,70 +966,82 @@ module AlphaMateMod
       if (GenericMatValAvailable) then
         write(STDOUT, "(a)") "Generic mating values"
         DumI = CountLines(GenericMatValFile)
-        if (DumI /= nPosMat) then
-          write(STDERR, "(a)") "ERROR: Number of matings in the Generic Mating Values file and the number of possible matings is not the same!"
-          write(STDERR, "(a)") "ERROR: Number of all possible matings:                          "//trim(Int2Char(nPosMat))
+        if (DumI /= nPotMat) then
+          write(STDERR, "(a)") "ERROR: Number of matings in the Generic Mating Values file and the number of all potential matings is not the same!"
+          write(STDERR, "(a)") "ERROR: Number of all potential matings:                         "//trim(Int2Char(nPotMat))
           write(STDERR, "(a)") "ERROR: Number of individuals in the Generic Mating Values file: "//trim(Int2Char(DumI))
           write(STDERR, "(a)") " "
           stop 1
         end if
-        !allocate(GenericMatVal(nPosMat, nGenericMatVal))
-      end if
-
-      ! --- Shuffle the data ---
-
-      ! To avoid having good animals together - better for Evolutionary algorithm
-
-      allocate(Order(nInd))
-      Order = RandomOrder(nInd)
-      IdC(:) = IdC(Order)
-      Gender(:) = Gender(Order)
-      RelMtx(:,:) = RelMtx(Order, Order)
-      BreedVal(:) = BreedVal(Order)
-      BreedValStand(:) = BreedValStand(Order)
-      if (PAGE) then
-        BreedValPAGE(:) = BreedValPAGE(Order)
-        BreedValPAGEStand(:) = BreedValPAGEStand(Order)
-      end if
-      if (GenericIndValAvailable) then
-        GenericIndVal(:,:) = GenericIndVal(Order,:)
-      end if
-      deallocate(Order)
-
-      ! --- Define potential parents ---
-
-      if (.not.GenderMatters) then
-        nPotPar1 = nInd
-        allocate(IdPotPar1(nPotPar1))
-        do i = 1, nInd
-          IdPotPar1(i) = i
-        end do
-      else
-        nPotPar1 = nMal
-        nPotPar2 = nFem
-        allocate(IdPotPar1(nPotPar1))
-        allocate(IdPotPar2(nPotPar2))
-        jMal = 0
-        jFem = 0
-        do i = 1, nInd
-          if (Gender(i) == 1) then
-            jMal = jMal + 1
-            IdPotPar1(jMal) = i
+        allocate(GenericMatVal(nPotPar1, nPotPar2, nGenericMatVal))
+        allocate(GenericMatValTmp(nGenericMatVal))
+        GenericMatVal(:,:,:) = 0.0d0
+        open(newunit=GenericMatValUnit, file=GenericMatValFile, status="unknown")
+        do i = 1, nPotMat
+          read(GenericMatValUnit, *) IdCTmp, IdCTmp2, GenericMatValTmp(:)
+          j = FindLoc(IdCTmp, IdC)
+          if (j == 0) then
+            write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the Generic Mating Values file not present in the Relationship Matrix File!"
+            write(STDERR, "(a)") " "
+            stop 1
+          end if
+          k = FindLoc(IdCTmp2, IdC)
+          if (k == 0) then
+            write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp2)//" from the Generic Mating Values file not present in the Relationship Matrix File!"
+            write(STDERR, "(a)") " "
+            stop 1
+          end if
+          if (GenderMatters) then
+            l = FindLoc(j, IdPotPar1)
+            if (l == 0) then
+              write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the first column in the Generic Mating Values file should be a male!"
+              write(STDERR, "(a)") "ERROR: Generic Mating Values file (line "//trim(Int2Char(i))//"): "//trim(IdCTmp)//" "//trim(IdCTmp2)
+              write(STDERR, "(a)") " "
+              stop 1
+            end if
+            m = FindLoc(k, IdPotPar2)
+            if (l == 0) then
+              write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp2)//" from the second column in the Generic Mating Values file should be a female!"
+              write(STDERR, "(a)") "ERROR: Generic Mating Values file (line "//trim(Int2Char(i))//"): "//trim(IdCTmp)//" "//trim(IdCTmp2)
+              write(STDERR, "(a)") " "
+              stop 1
+            end if
+            ! fill full-matrix
+            ! - l and m tell respectively the position within IdPotPar1 and IdPotPar2
+            ! - values in IdPotPar1 and IdPotPar2 are "joint" Id of males and females
+            ! - values in IdPotParSeq are separate Id of males and females (need these to find matching row and column)
+            GenericMatVal(IdPotParSeq(IdPotPar1(l)), IdPotParSeq(IdPotPar2(m)), :) = GenericMatValTmp(:)
           else
-            jFem = jFem + 1
-            IdPotPar2(jFem) = i
+            ! fill lower-triangle (half-diallel)
+            GenericMatVal(maxval([j,k]), minval([j,k]),:) = GenericMatValTmp(:)
           end if
         end do
-        if (nPar1 > nPotPar1) then
-          nPar1 = nPotPar1
-          write(STDOUT, "(a)") "NOTE: The number of male parents reduced to the number of male individuals!"
-          write(STDOUT, "(a)") " "
-        end if
-        if (nPar2 > nPotPar2) then
-          nPar2 = nPotPar2
-          write(STDOUT, "(a)") "NOTE: The number of female parents reduced to the number of female individuals!"
-          write(STDOUT, "(a)") " "
-        end if
+        close(GenericMatValUnit)
+
+        do k = 1, nGenericMatVal
+          write(STDOUT, "(a)") "  - column "//trim(Int2Char(k))
+          if (GenderMatters) then
+            MtxDescStat = CalcDescStatMatrix(GenericMatVal(:,:,k))
+            write(STDOUT, "(a)") "    - average: "//trim(Real2Char(MtxDescStat%All%Mean, fmt=FMTREAL2CHAR))
+            write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(MtxDescStat%All%SD,   fmt=FMTREAL2CHAR))
+            write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(MtxDescStat%All%Min,  fmt=FMTREAL2CHAR))
+            write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(MtxDescStat%All%Max,  fmt=FMTREAL2CHAR))
+          else
+            if (SelfingAllowed) then
+              MtxDescStat = CalcDescStatLowTriMatrix(GenericMatVal(:,:,k))
+              write(STDOUT, "(a)") "    - average: "//trim(Real2Char(MtxDescStat%All%Mean, fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(MtxDescStat%All%SD,   fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(MtxDescStat%All%Min,  fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(MtxDescStat%All%Max,  fmt=FMTREAL2CHAR))
+            end if
+              MtxDescStat = CalcDescStatLowTriMatrix(GenericMatVal(:,:,k), Diag=.false.)
+              write(STDOUT, "(a)") "    - average: "//trim(Real2Char(MtxDescStat%OffDiag%Mean, fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(MtxDescStat%OffDiag%SD,   fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(MtxDescStat%OffDiag%Min,  fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(MtxDescStat%OffDiag%Max,  fmt=FMTREAL2CHAR))
+          end if
+        end do
+        write(STDOUT, "(a)") " "
       end if
     end subroutine
 
@@ -1149,9 +1195,9 @@ module AlphaMateMod
           PopInbTarget = RatePopInbTarget + (1.0d0 - RatePopInbTarget) * PopInbOld
           CritMin%RatePopInb = 0.0d0
 
-          Success = SystemQQ(COPY//" "//EvolAlgLogFile//" "//EvolAlgLogFile2)
+          Success = SystemQQ(COPY//" "//trim(EvolAlgLogFile)//" "//trim(EvolAlgLogFile2))
           if (.not.Success) then
-            write(STDERR, "(a)") "ERROR: Failed to make a backup of the "//EvolAlgLogFile//" file in the output folder!"
+            write(STDERR, "(a)") "ERROR: Failed to make a backup of the "//trim(EvolAlgLogFile)//" file in the output folder!"
             write(STDERR, "(a)") " "
             stop 1
           end if
@@ -1181,10 +1227,10 @@ module AlphaMateMod
 
         end if
 
-! TODO: can we still do something here?
+        ! TODO: can we still do something here?
         if (PopInbTarget < CritMin%PopInb) then
           write(STDERR, "(a)") "ERROR: Targeted future population inbreeding is lower than the group coancestry (x'Ax/2) under no selection."
-          write(STDERR, "(a)") "ERROR: Can not optimise!"
+          write(STDERR, "(a)") "ERROR: Can not optimise! Contact the authors."
           write(STDERR, "(a)") " "
           stop 1
         end if
@@ -1275,7 +1321,7 @@ module AlphaMateMod
         write(STDOUT, "(a)") "--- Evaluate the full frontier (this might take some time!) ---"
         write(STDOUT, "(a)") " "
 
-        PopInbPenaltyBellow = .true. ! we want to target certain rates of inbreeding
+        PopInbWeightBellow = .true. ! we want to target certain rates of inbreeding
 
         open(newunit=UnitFrontier, file="AlphaMateResults"//DASH//"Frontier.txt", status="unknown")
         !                                1234567890123456789012
@@ -1309,7 +1355,7 @@ module AlphaMateMod
                                " for the rate of population inbreeding of "//trim(Real2Char(RatePopInbTarget, fmt=FMTREAL2CHAR))//&
                                " (=future pop. inbreed. of "//trim(Real2Char(PopInbTarget, fmt=FMTREAL2CHAR))//")"
           write(STDOUT, "(a)") ""
-          EvolAlgLogFile = "AlphaMateResults"//DASH//"OptimisationLogFrontier"//Int2Char(k)//".txt"
+          EvolAlgLogFile = "AlphaMateResults"//DASH//"OptimisationLogFrontier"//trim(Int2Char(k))//".txt"
           if (GenderMatters) then
             nTmp = nPotPar1 + nPotPar2 + nMat
           else
@@ -1328,10 +1374,10 @@ module AlphaMateMod
                          LogHead=EvolAlgLogHeadForAlphaMate, Log=EvolAlgLogForAlphaMate, &
                          BestCriterion=Crit)
 
-          DumC = "Frontier"//Int2Char(k)
+          DumC = "Frontier"//trim(Int2Char(k))
           write(UnitFrontier, FMTFRO) adjustl(DumC), Crit%Value, Crit%Penalty, Crit%Gain, Crit%GainStand, Crit%PopInb, Crit%RatePopInb, Crit%PrgInb
 
-          open(newunit=UnitContri, file="AlphaMateResults"//DASH//"IndividualResultsFrontier"//Int2Char(k)//".txt", status="unknown")
+          open(newunit=UnitContri, file="AlphaMateResults"//DASH//"IndividualResultsFrontier"//trim(Int2Char(k))//".txt", status="unknown")
           Rank = MrgRnk(Crit%nVec + BreedValStand / 100.0d0)
           !                                1234567890123456789012
           if (.not.PAGE) then
@@ -1367,7 +1413,7 @@ module AlphaMateMod
           end if
           close(UnitContri)
 
-          open(newunit=UnitMating, file="AlphaMateResults"//DASH//"MatingResultsFrontier"//Int2Char(k)//".txt", status="unknown")
+          open(newunit=UnitMating, file="AlphaMateResults"//DASH//"MatingResultsFrontier"//trim(Int2Char(k))//".txt", status="unknown")
           !                              1234567890123456789012
           write(UnitMating, FMTMATHEAD) "      Mating", &
                                         "     Parent1", &
@@ -1425,14 +1471,14 @@ module AlphaMateMod
       if (GenericIndValAvailable) then
         do i = 1, nGenericIndVal
           nColTmp = nColTmp + 1
-          COLNAMELOGUNIT(nColTmp) = "GenIndVal"//Int2Char(i)
+          COLNAMELOGUNIT(nColTmp) = "GenIndVal"//trim(Int2Char(i))
           COLNAMELOGUNIT(nColTmp) = adjustr(COLNAMELOGUNIT(nColTmp))
         end do
       end if
       if (GenericMatValAvailable) then
         do i = 1, nGenericMatVal
           nColTmp = nColTmp + 1
-          COLNAMELOGUNIT(nColTmp) = "GenMatVal"//Int2Char(i)
+          COLNAMELOGUNIT(nColTmp) = "GenMatVal"//trim(Int2Char(i))
           COLNAMELOGUNIT(nColTmp) = adjustr(COLNAMELOGUNIT(nColTmp))
         end do
       end if
@@ -1482,16 +1528,17 @@ module AlphaMateMod
       This%PrgInb = 0.0d0
       if (GenericIndValAvailable) then
         allocate(This%GenericIndVal(nGenericIndVal))
-        This%GenericIndVal(:) = 0
+        This%GenericIndVal(:) = 0.0d0
       else
         allocate(This%GenericIndVal(0))
       end if
       if (GenericMatValAvailable) then
         allocate(This%GenericMatVal(nGenericMatVal))
-        This%GenericMatVal(:) = 0
+        This%GenericMatVal(:) = 0.0d0
       else
         allocate(This%GenericMatVal(0))
       end if
+      This%Cost = 0.0d0
       allocate(This%nVec(nInd))
       This%nVec(:) = 0
       allocate(This%xVec(nInd))
@@ -1521,14 +1568,9 @@ module AlphaMateMod
 
       ! Other
       integer(int32) :: i, j, k, l, g, nCumMat, RankSol(nInd), SolInt(nInd), MatPar2(nMat)
-      integer(int32) :: nVecPar1(nPotPar1), TmpMin, TmpMax, TmpI
-      integer(int32), allocatable :: nVecPar2(:)
+      integer(int32) :: nVecPar1(nPotPar1), nVecPar2(nPotPar2), TmpMin, TmpMax, TmpI
 
       real(real64) :: TmpVec(nInd,1), TmpR!, RanNum
-
-      if (GenderMatters) then
-        allocate(nVecPar2(nPotPar2))
-      end if
 
       ! Criterion
       Criterion = InitialiseAlphaMateCrit()
@@ -1536,7 +1578,7 @@ module AlphaMateMod
       ! The solution (based on the mate selection driver) has:
       ! - nInd individual contributions
       !   - nPotPar1 individual contributions for "parent1" (males   when GenderMatters, all ind when .not. GenderMatters)
-      !   - nPotPar2 individual contributions for "parent2" (females when GenderMatters, present only when GenderMatters)
+      !   - nPotPar2 individual contributions for "parent2" (females when GenderMatters, meaningful only when GenderMatters)
       ! - nMat     rankings of parent1 1:nMat matings to pair with 1:nPotPar2 "parent2" (see bellow)
       ! - nInd edit indicators
       !   - nPotPar1 edit indicators for "parent1" (males   when GenderMatters, all ind when .not. GenderMatters)
@@ -1620,9 +1662,11 @@ module AlphaMateMod
             if (nCumMat > nMat * g) then
               Sol(j) = Sol(j) - dble(nCumMat - nMat * g)
               if (nint(Sol(j)) < LimitPar1Min) then
-                TmpR = LimitPar1Penalty * (LimitPar1Min - nint(Sol(j)))
-                Criterion%Value = Criterion%Value - TmpR
-                Criterion%Penalty = Criterion%Penalty + TmpR
+                TmpR = LimitPar1Weight * (LimitPar1Min - nint(Sol(j)))
+                Criterion%Value = Criterion%Value + TmpR
+                if (LimitPar1Weight < 0.0d0) then
+                  Criterion%Penalty = Criterion%Penalty + abs(TmpR)
+                end if
               end if
               nCumMat = nMat * g
             end if
@@ -1718,9 +1762,11 @@ module AlphaMateMod
               if (nCumMat > nMat) then
                 Sol(j) = Sol(j) - dble(nCumMat - nMat)
                 if (nint(Sol(j)) < LimitPar2Min) then
-                  TmpR = LimitPar2Penalty * (LimitPar2Min - nint(Sol(j)))
-                  Criterion%Value = Criterion%Value - TmpR
-                  Criterion%Penalty = Criterion%Penalty + TmpR
+                  TmpR = LimitPar2Weight * (LimitPar2Min - nint(Sol(j)))
+                  Criterion%Value = Criterion%Value + TmpR
+                  if (LimitPar2Weight < 0.0d0) then
+                    Criterion%Penalty = Criterion%Penalty + abs(TmpR)
+                  end if
                 end if
                 nCumMat = nMat
               end if
@@ -1836,6 +1882,9 @@ module AlphaMateMod
 
       ! --- Mate allocation ---
 
+! TODO: problem when .not. GenderMatters
+print *, "In-5"
+
       if (GenderMatters) then
         ! Distribute parent2 (=female) contributions into matings
         k = 0
@@ -1899,8 +1948,10 @@ module AlphaMateMod
                 end if
               end do
               if (l < 1) then ! Above loop ran out without finding a swap
-                Criterion%Value = Criterion%Value - SelfingPenalty
-                Criterion%Penalty = Criterion%Penalty + SelfingPenalty
+                Criterion%Value = Criterion%Value + SelfingWeight
+                if (SelfingWeight < 0.0d0) then
+                  Criterion%Penalty = Criterion%Penalty + abs(SelfingWeight)
+                end if
               end if
             end if
             Criterion%MatingPlan(2,k) = MatPar2(k)
@@ -1910,6 +1961,7 @@ module AlphaMateMod
       end if
 
       ! --- Genetic gain ---
+print *, "In-4"
 
       if (BreedValAvailable) then
         Criterion%Gain      = dot_product(Criterion%xVec, BreedVal)
@@ -1923,6 +1975,20 @@ module AlphaMateMod
         end if
       end if
 
+      ! --- Generic individual values ---
+
+      if (GenericIndValAvailable) then
+        do j = 1, nGenericIndVal
+          TmpR = dot_product(Criterion%xVec, GenericIndVal(:,j))
+          Criterion%GenericIndVal(j) = TmpR
+          TmpR = GenericIndValWeight(j) * Criterion%GenericIndVal(j)
+          Criterion%Value = Criterion%Value + TmpR
+          if (GenericIndValWeight(j) < 0.0) then
+            Criterion%Penalty = Criterion%Penalty + abs(TmpR)
+          end if
+        end do
+      end if
+
       ! --- Selected group coancestry (=future population inbreeding) ---
 
       ! xA
@@ -1932,7 +1998,8 @@ module AlphaMateMod
       ! xAx
       Criterion%PopInb = 0.5d0 * dot_product(TmpVec(:,1), Criterion%xVec)
       if (Criterion%PopInb < 0.0d0) then
-        write(STDERR, "(a)") "ERROR: negative inbreeding examples have not been tested yet! Stopping."
+        write(STDERR, "(a)") "ERROR: Negative inbreeding cases have not been well tested! Stopping."
+        write(STDERR, "(a)") "ERROR: Contact the authors."
         write(STDERR, "(a)") " "
         stop 1
       end if
@@ -1945,7 +2012,7 @@ module AlphaMateMod
       ! call dsymm(side="l", uplo="l", m=nInd, n=1, alpha=1.0d0, A=RelMtx, lda=nInd, b=Criterion%xVec, ldb=nInd, beta=0, c=TmpVec, ldc=nInd)
       ! call dsymm(     "l",      "l",   nInd,   1,       1.0d0,   RelMtx,     nInd,   Criterion%xVec,     nInd,      0,   TmpVec,     nInd)
       ! xAx
-      ! PopInb=0.5d0 * dot_product(Criterion%xVec, TmpVec(:,1))
+      ! PopInb = 0.5d0 * dot_product(Criterion%xVec, TmpVec(:,1))
       ! print*, Criterion%xVec, TmpVec, PopInb
       ! stop 1
 
@@ -1953,48 +2020,72 @@ module AlphaMateMod
       ! DeltaF = (F_t - F_t-1) / (1 - F_t-1)
       Criterion%RatePopInb = (Criterion%PopInb - PopInbOld) / (1.0d0 - PopInbOld)
 
-      if (ToLower(trim(CritType)) == "min") then
-        Criterion%Value = Criterion%Value - Criterion%PopInb
-      else
+! TODO: clean this up
+      ! if (ToLower(trim(CritType)) == "min") then
+      !   Criterion%Value = Criterion%Value - Criterion%PopInb
+      ! else
         TmpR = Criterion%RatePopInb / RatePopInbTarget
         if (TmpR > 1.0d0) then
-          TmpR = PopInbPenalty * abs(1.0d0 - TmpR)
+          TmpR = PopInbWeight * abs(1.0d0 - TmpR)
         else
-          if (PopInbPenaltyBellow) then
-            TmpR = PopInbPenalty * abs(1.0d0 - 1.0d0 / TmpR)
+          if (PopInbWeightBellow) then
+            TmpR = PopInbWeight * abs(1.0d0 - 1.0d0 / TmpR)
           else
             TmpR = 0.0d0
           end if
         end if
-        Criterion%Value = Criterion%Value - TmpR
-        Criterion%Penalty = Criterion%Penalty + TmpR
-      end if
+        Criterion%Value = Criterion%Value + TmpR
+        if (PopInbWeight < 0.0d0) then
+          Criterion%Penalty = Criterion%Penalty + abs(TmpR)
+        end if
+      ! end if
 
       ! --- Progeny inbreeding (=inbreeding of a mating) ---
 
       TmpR = 0.0d0
-      do i = 1, nMat
-        ! Try to speed-up retrieval by targeting lower triangle
-        TmpMin = minval([Criterion%MatingPlan(1,i), Criterion%MatingPlan(2,i)])
-        TmpMax = maxval([Criterion%MatingPlan(1,i), Criterion%MatingPlan(2,i)])
+      do j = 1, nMat
+        ! Lower triangle
+        TmpMax = maxval(Criterion%MatingPlan(:,j))
+        TmpMin = minval(Criterion%MatingPlan(:,j))
         TmpR = TmpR + 0.5d0 * RelMtx(TmpMax, TmpMin)
       end do
       Criterion%PrgInb = TmpR / dble(nMat)
-      TmpR = PrgInbPenalty * Criterion%PrgInb
-      Criterion%Value = Criterion%Value - TmpR
-      Criterion%Penalty = Criterion%Penalty + TmpR
+      TmpR = PrgInbWeight * Criterion%PrgInb
+      Criterion%Value = Criterion%Value + TmpR
+      if (PrgInbWeight < 0.0d0) then
+        Criterion%Penalty = Criterion%Penalty + abs(TmpR)
+      end if
 
-      ! --- Generic individual values ---
+      ! --- Generic mating values ---
+print *, "In"
 
-      if (GenericIndValAvailable) then
-        do j = 1, nGenericIndVal
-          TmpR = dot_product(Criterion%xVec, GenericIndVal(:,j))
-          Criterion%GenericIndVal(j) = TmpR
-          Criterion%Value = Criterion%Value + GenericIndValCoef(j) * TmpR
+      if (GenericMatValAvailable) then
+        print *, "In"
+        do k = 1, nGenericMatVal
+          TmpR = 0.0d0
+          if (GenderMatters) then
+            do j = 1, nMat
+              TmpR = TmpR + GenericMatVal(IdPotParSeq(Criterion%MatingPlan(1,j)), &
+                                          IdPotParSeq(Criterion%MatingPlan(2,j)), k)
+            end do
+          else
+            do j = 1, nMat
+              print *, k, j
+              TmpMax = maxval(Criterion%MatingPlan(:,j))
+              TmpMin = minval(Criterion%MatingPlan(:,j))
+              TmpR = TmpR + GenericMatVal(TmpMax, TmpMin, k)
+            end do
+          end if
+          Criterion%GenericMatVal(k) = TmpR / dble(nMat)
+          TmpR = GenericMatValWeight(k) * Criterion%GenericMatVal(k)
+          Criterion%Value = Criterion%Value + TmpR
+          if (GenericMatValWeight(k) < 0.0) then
+            Criterion%Penalty = Criterion%Penalty + abs(TmpR)
+          end if
         end do
       end if
 
-! TODO: how should we handle costs?
+      ! TODO: how should we handle costs?
 
       return
     end function

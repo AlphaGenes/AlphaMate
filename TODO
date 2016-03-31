@@ -1,27 +1,30 @@
+* Sort mating plan by contributions
 
-* Generic way of adding rewards/penalties
+* Generic way of adding costs (similar as with the generic individual/mating values)
   - individual level
-  - pair/mating level (progeny dominance, cross variance, missing data on some pairs
-    should have "zero" weight?)
+  - mating level
 
 * Input pedigree and/or genotype data to simplify creation of:
   - relationships
   - dominance in progeny
   - variance among progeny
 
-* MOET, JIVET, ... any other reproductive technoquies?
+* MOET, JIVET, ... any other reproductive technologies?
   - are these not covered with lifting the limit constraints on females?
 
 * Any other biotechnologies?
-
-* Costs
 
 * Update/finalise manual
 
 * Parallelize differential evolution algorithm?
   - code in AlphaMate ready for this
   - need to figure out how to handle OMP flags and RNG in AlphaEvolve
+    (http://tamupostdoc.blogspot.co.uk/2009/12/random-number-generator-in-openmp.html,
+     http://www.cmiss.org/openCMISS/wiki/RandomNumberGenerationWithOpenMP,
+     https://github.com/robertpincus/i3rc-monte-carlo-model)
+  - is it worth it?
 
 * Stop optimisation and restart?
   - checkpointing trick (catch kill command, save current state, and stop, enable
     restart from the saved state)
+  - is it worth it?
