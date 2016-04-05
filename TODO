@@ -1,8 +1,12 @@
+* Give warning if some coef. are positive, such as the one for inbreeding
+
 * Sort mating plan by contributions
 
 * Generic way of adding costs (similar as with the generic individual/mating values)
   - individual level
   - mating level
+
+          Criterion%Cost      = sum(Criterion%GenomeEdit(:)) * PAGEPar1Cost
 
 * Input pedigree and/or genotype data to simplify creation of:
   - relationships

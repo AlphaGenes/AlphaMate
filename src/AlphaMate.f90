@@ -33,7 +33,7 @@ module AlphaMateMod
   use OrderPackMod, only : MrgRnk
   use AlphaHouseMod, only : CountLines, Int2Char, Real2Char, RandomOrder, SetSeed, ToLower, FindLoc
   use AlphaStatMod, only : CalcDescStat, DescStatD, CalcDescStatMatrix, CalcDescStatSymMatrix, CalcDescStatLowTriMatrix, DescStatMatrixD
-  use AlphaEvolveMod, only : EvolAlgDE, EvolveCrit
+  use AlphaEvolveMod, only : EvolveCrit, DifferentialEvolution, RandomSearch
 
   implicit none
 
@@ -132,7 +132,7 @@ module AlphaMateMod
       write(STDOUT, "(a30, a, a30)") " ", "*     AlphaMate      *", " "
       write(STDOUT, "(a30, a, a30)") " ", "*                    *", " "
       write(STDOUT, "(a30, a, a30)") " ", "**********************"
-      write(STDOUT, "(a30, a, a30)") " ", "VERSION:"//TOSTRING(VERS), " "
+      write(STDOUT, "(a30, a, a30)") " ", "Version:"//TOSTRING(VERS), " "
       write(STDOUT, "(a15, a)")      " ", "Software for optimizing contributions to the next generation"
       write(STDOUT, "(a)") " "
       write(STDOUT, "(a35, a)")      " ", "No Liability"
@@ -1127,14 +1127,11 @@ module AlphaMateMod
         allocate(InitEqual(nTmp, nint(real(EvolAlgNSol * 0.1))))
         InitEqual(:,:) = 1.0d0 ! A couple of solutions that would give equal contribution and the rest for everybody
 
-        call EvolAlgDE(nParam=nTmp, nSol=EvolAlgNSol, Init=InitEqual, nGen=EvolAlgNGen, nGenBurnIn=EvolAlgNGenBurnIn, &
-                       nGenStop=EvolAlgNGenStop, StopTolerance=EvolAlgStopTol, &
-                       nGenPrint=EvolAlgNGenPrint, File=EvolAlgLogFile, CritType="Min", &
-                       CRBurnIn=EvolAlgCRBurnIn, CRLate=EvolAlgCRLate, &
-                       FBase=EvolAlgFBase, FHigh1=EvolAlgFHigh1, FHigh2=EvolAlgFHigh2, &
-                       CalcCriterion=FixSolEtcMateAndCalcCrit, &
-                       LogHead=EvolAlgLogHeadForAlphaMate, Log=EvolAlgLogForAlphaMate, &
-                       BestCriterion=CritMin)
+        call DifferentialEvolution(nParam=nTmp, nSol=EvolAlgNSol, Init=InitEqual, nGen=EvolAlgNGen, nGenBurnIn=EvolAlgNGenBurnIn, &
+           nGenStop=EvolAlgNGenStop, StopTolerance=EvolAlgStopTol, nGenPrint=EvolAlgNGenPrint, File=EvolAlgLogFile, CritType="Min", &
+           CRBurnIn=EvolAlgCRBurnIn, CRLate=EvolAlgCRLate, FBase=EvolAlgFBase, FHigh1=EvolAlgFHigh1, FHigh2=EvolAlgFHigh2, &
+           CalcCriterion=FixSolEtcMateAndCalcCrit, LogHead=EvolAlgLogHeadForAlphaMate, Log=EvolAlgLogForAlphaMate, &
+           BestCriterion=CritMin)
 
         deallocate(InitEqual)
 
@@ -1258,14 +1255,11 @@ module AlphaMateMod
           nTmp = nTmp + nInd
         end if
 
-        call EvolAlgDE(nParam=nTmp, nSol=EvolAlgNSol, nGen=EvolAlgNGen, nGenBurnIn=EvolAlgNGenBurnIn, &
-                       nGenStop=EvolAlgNGenStop, StopTolerance=EvolAlgStopTol, &
-                       nGenPrint=EvolAlgNGenPrint, File=EvolAlgLogFile, CritType="Opt", &
-                       CRBurnIn=EvolAlgCRBurnIn, CRLate=EvolAlgCRLate, &
-                       FBase=EvolAlgFBase, FHigh1=EvolAlgFHigh1, FHigh2=EvolAlgFHigh2, &
-                       CalcCriterion=FixSolEtcMateAndCalcCrit, &
-                       LogHead=EvolAlgLogHeadForAlphaMate, Log=EvolAlgLogForAlphaMate, &
-                       BestCriterion=CritOpt)
+        call DifferentialEvolution(nParam=nTmp, nSol=EvolAlgNSol, nGen=EvolAlgNGen, nGenBurnIn=EvolAlgNGenBurnIn, &
+          nGenStop=EvolAlgNGenStop, StopTolerance=EvolAlgStopTol, nGenPrint=EvolAlgNGenPrint, File=EvolAlgLogFile, CritType="Opt", &
+          CRBurnIn=EvolAlgCRBurnIn, CRLate=EvolAlgCRLate, FBase=EvolAlgFBase, FHigh1=EvolAlgFHigh1, FHigh2=EvolAlgFHigh2, &
+          CalcCriterion=FixSolEtcMateAndCalcCrit, LogHead=EvolAlgLogHeadForAlphaMate, Log=EvolAlgLogForAlphaMate, &
+          BestCriterion=CritOpt)
 
         ! TODO: should we have constant output no matter which options are switched on?
         open(newunit=UnitContri, file="AlphaMateResults"//DASH//"IndividualResultsOptimumGain.txt", status="unknown")
@@ -1365,14 +1359,11 @@ module AlphaMateMod
             nTmp = nTmp + nInd
           end if
 
-          call EvolAlgDE(nParam=nTmp, nSol=EvolAlgNSol, nGen=EvolAlgNGen, nGenBurnIn=EvolAlgNGenBurnIn, &
-                         nGenStop=EvolAlgNGenStop, StopTolerance=EvolAlgStopTol, &
-                         nGenPrint=EvolAlgNGenPrint, File=EvolAlgLogFile, CritType="Opt", &
-                         CRBurnIn=EvolAlgCRBurnIn, CRLate=EvolAlgCRLate, &
-                         FBase=EvolAlgFBase, FHigh1=EvolAlgFHigh1, FHigh2=EvolAlgFHigh2, &
-                         CalcCriterion=FixSolEtcMateAndCalcCrit, &
-                         LogHead=EvolAlgLogHeadForAlphaMate, Log=EvolAlgLogForAlphaMate, &
-                         BestCriterion=Crit)
+          call DifferentialEvolution(nParam=nTmp, nSol=EvolAlgNSol, nGen=EvolAlgNGen, nGenBurnIn=EvolAlgNGenBurnIn, &
+            nGenStop=EvolAlgNGenStop, StopTolerance=EvolAlgStopTol, nGenPrint=EvolAlgNGenPrint, File=EvolAlgLogFile, CritType="Opt", &
+            CRBurnIn=EvolAlgCRBurnIn, CRLate=EvolAlgCRLate, FBase=EvolAlgFBase, FHigh1=EvolAlgFHigh1, FHigh2=EvolAlgFHigh2, &
+            CalcCriterion=FixSolEtcMateAndCalcCrit, LogHead=EvolAlgLogHeadForAlphaMate, Log=EvolAlgLogForAlphaMate, &
+            BestCriterion=Crit)
 
           DumC = "Frontier"//trim(Int2Char(k))
           write(UnitFrontier, FMTFRO) adjustl(DumC), Crit%Value, Crit%Penalty, Crit%Gain, Crit%GainStand, Crit%PopInb, Crit%RatePopInb, Crit%PrgInb

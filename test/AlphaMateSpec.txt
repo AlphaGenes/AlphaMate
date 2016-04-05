@@ -1,7 +1,7 @@
 Mode                               ,MinThenOpt Opt
 RelationshipMatrixFile             ,RelMat.txt
 BreedingValueFile                  ,Ebv.txt None
-GenderFile                         ,None Gender.txt
+GenderFile                         ,Gender.txt None
 NumberOfIndividuals                ,200
 NumberOfMatings                    ,50
 NumberOfParents                    ,60
@@ -26,5 +26,5 @@ EvolutionaryAlgorithmParameters    ,0.4,0.2,0.1,1.0,4.0
 Seed                               ,19791123 None
 GenericIndividualValuesFile        ,None Ebv.txt,2
 GenericIndividualValuesWeight      ,1.00,1.00
-GenericMatingValuesFile            ,MatingValNoSelfing.txt,1 MatingValGender.txt,1 None
+GenericMatingValuesFile            ,None MatingValNoSelfing.txt,1 MatingValGender.txt,1 None
 GenericMatingValuesWeight          ,1,2
