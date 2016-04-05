@@ -1570,7 +1570,7 @@ module AlphaMateMod
       integer(int32) :: i, j, k, l, g, nCumMat, RankSol(nInd), SolInt(nInd), MatPar2(nMat)
       integer(int32) :: nVecPar1(nPotPar1), nVecPar2(nPotPar2), TmpMin, TmpMax, TmpI
 
-      real(real64) :: TmpVec(nInd,1), TmpR!, RanNum
+      real(real64) :: TmpVec(nInd,1), TmpR, RanNum
 
       ! Criterion
       Criterion = InitialiseAlphaMateCrit()
@@ -1882,9 +1882,7 @@ module AlphaMateMod
 
       ! --- Mate allocation ---
 
-! TODO: problem when .not. GenderMatters
-print *, "In-5"
-
+      MatPar2(:) = 0
       if (GenderMatters) then
         ! Distribute parent2 (=female) contributions into matings
         k = 0
@@ -1903,6 +1901,12 @@ print *, "In-5"
         do while (k < nMat)
           do i = 1, nPotPar1 ! need to loop whole nVecPar1 as some entries are zero
             l = nVecPar1(i) / 2
+            if (mod(nVecPar1(i), 2) == 1) then
+              call random_number(RanNum)
+              if (RanNum > 0.5) then
+                l = l + 1
+              end if
+            end if
             do j = 1, l
               if (k == nMat) then
                 exit
@@ -1921,7 +1925,7 @@ print *, "In-5"
       ! Pair the contributions (=Mating plan)
       k = nMat ! MrgRnk ranks small to large
       if (GenderMatters .or. SelfingAllowed) then
-        ! When GenderMatters selfing can not happen (we have two distinct sets of parents,
+        ! When gender matters selfing can not happen (we have two distinct sets of parents,
         ! unless the user adds individuals of one sex in both sets) and when SelfingAllowed
         ! we do not need to care about it - faster code
         do i = 1, nPotPar1
@@ -1933,8 +1937,8 @@ print *, "In-5"
           end do
         end do
       else
-        ! When .not. GenderMatters selfing can happen (we have one set of parents)
-        ! and when .not. SelfingAllowed we do need to care about it - slower code
+        ! When gender does not matter, selfing can happen (we have one set of parents)
+        ! and when selfing is not allowed we need to avoid it - slower code
         do i = 1, nPotPar1
           do j = 1, nVecPar1(i)
             Criterion%MatingPlan(1,k) = IdPotPar1(i)
@@ -1961,7 +1965,6 @@ print *, "In-5"
       end if
 
       ! --- Genetic gain ---
-print *, "In-4"
 
       if (BreedValAvailable) then
         Criterion%Gain      = dot_product(Criterion%xVec, BreedVal)
@@ -2057,10 +2060,8 @@ print *, "In-4"
       end if
 
       ! --- Generic mating values ---
-print *, "In"
 
       if (GenericMatValAvailable) then
-        print *, "In"
         do k = 1, nGenericMatVal
           TmpR = 0.0d0
           if (GenderMatters) then
@@ -2070,7 +2071,6 @@ print *, "In"
             end do
           else
             do j = 1, nMat
-              print *, k, j
               TmpMax = maxval(Criterion%MatingPlan(:,j))
               TmpMin = minval(Criterion%MatingPlan(:,j))
               TmpR = TmpR + GenericMatVal(TmpMax, TmpMin, k)
