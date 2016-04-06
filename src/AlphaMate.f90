@@ -38,7 +38,7 @@ module AlphaMateMod
   implicit none
 
   integer(int32) :: nInd, nMat, nPotMat, nPar, nPotPar1, nPotPar2, nMal, nFem, nPar1, nPar2, nFrontierSteps
-  integer(int32) :: EvolAlgNSol, EvolAlgNGen, EvolAlgNGenBurnIn, EvolAlgNGenStop, EvolAlgNGenPrint
+  integer(int32) :: EvolAlgNSol, EvolAlgNGen, EvolAlgNGenBurnIn, EvolAlgNGenStop, EvolAlgNGenPrint, RanAlgStricter
   integer(int32) :: PAGEPar1Max, PAGEPar2Max, nGenericIndVal, nGenericMatVal
   integer(int32), allocatable :: Gender(:), IdPotPar1(:), IdPotPar2(:), IdPotParSeq(:)
 
@@ -52,7 +52,7 @@ module AlphaMateMod
   real(real64), allocatable :: RatePopInbFrontier(:), GenericIndValTmp(:), GenericMatValTmp(:)
   real(real64), allocatable :: RelMtx(:,:), GenericIndVal(:,:), GenericMatVal(:,:,:)
 
-  logical :: ModeMin, ModeOpt, BreedValAvailable, GenderMatters, EqualizePar1, EqualizePar2
+  logical :: ModeMin, ModeRan, ModeOpt, BreedValAvailable, GenderMatters, EqualizePar1, EqualizePar2
   logical :: SelfingAllowed, PopInbWeightBellow, InferPopInbOld, EvaluateFrontier
   logical :: PAGE, PAGEPar1, PAGEPar2, GenericIndValAvailable, GenericMatValAvailable
 
@@ -177,21 +177,22 @@ module AlphaMateMod
 
       ! --- Mode ---
 
+      ModeMin = .false.
+      ModeRan = .false.
+      ModeOpt = .false.
+
       read(SpecUnit, *) DumC, DumC
-      if      (ToLower(trim(DumC)) == "minthenopt") then
+      if      (index(ToLower(trim(DumC)), "min") > 0) then
         ModeMin = .true.
-        ModeOpt = .true.
-        write(STDOUT, "(a)") "Mode: MinThenOpt"
-      else if (ToLower(trim(DumC)) == "min") then
-        ModeMin = .true.
-        ModeOpt = .false.
         write(STDOUT, "(a)") "Mode: Min"
-      else if (ToLower(trim(DumC)) == "opt") then
-        ModeMin = .false.
+      else if (index(ToLower(trim(DumC)), "ran") > 0) then
+        ModeRan = .true.
+        write(STDOUT, "(a)") "Mode: Ran"
+      else if (index(ToLower(trim(DumC)), "opt") > 0) then
         ModeOpt = .true.
         write(STDOUT, "(a)") "Mode: Opt"
       else
-        write(STDERR, "(a)") "ERROR: Mode must be: Min, Opt, or MinThenOpt!"
+        write(STDERR, "(a)") "ERROR: Mode must be: Min, Ran, Opt, or a combination of the three, e.g., MinOpt, RanOpt, ...!"
         write(STDERR, "(a)") " "
         stop 1
       end if
@@ -620,7 +621,12 @@ module AlphaMateMod
       read(SpecUnit, *) DumC, EvolAlgNSol, EvolAlgNGen, EvolAlgNGenBurnIn, EvolAlgNGenStop, EvolAlgStopTol, EvolAlgNGenPrint
 
       ! --- EvolutionaryAlgorithmParameters ---
+
       read(SpecUnit, *) DumC, EvolAlgCRBurnIn, EvolAlgCRLate, EvolAlgFBase, EvolAlgFHigh1, EvolAlgFHigh2
+
+      ! --- RandomSearchIterationsStricter ---
+
+      read(SpecUnit, *) DumC, RanAlgStricter
 
       ! --- Seed ---
 
@@ -1094,18 +1100,26 @@ module AlphaMateMod
 
       implicit none
 
-      integer(int32) :: i, j, k, nTmp, DumI, Rank(nInd)
+      integer(int32) :: nParam, i, j, k, nTmp, DumI, Rank(nInd)
       integer(int32) :: UnitInbree, UnitMating, UnitContri, UnitLog, UnitLog2, UnitFrontier
 
       real(real64) :: PopInbTargetHold, RatePopInbTargetHold, DumR(8+nGenericIndVal+nGenericMatVal)
       real(real64), allocatable :: InitEqual(:,:)
 
-      character(len=1000) :: EvolAlgLogFile, EvolAlgLogFile2
+      character(len=1000) :: LogFile, LogFile2
       character(len=100) :: DumC
 
-      logical :: Success
+      logical :: PAGEHolder, Success
 
-      type(EvolveCrit) :: CritMin, CritOpt, Crit
+      type(EvolveCrit) :: CritMin, CritRan, CritOpt, Crit
+
+      ! --- Number of parameters to optimise (baseline) ---
+
+      if (GenderMatters) then
+        nParam = nPotPar1 + nPotPar2 + nMat
+      else
+        nParam = nPotPar1 + nMat
+      end if
 
       ! --- Optimise for minimum inbreeding ---
 
@@ -1113,28 +1127,30 @@ module AlphaMateMod
         write(STDOUT, "(a)") "--- Optimise for minimum inbreeding --- "
         write(STDOUT, "(a)") " "
 
-        EvolAlgLogFile = "AlphaMateResults"//DASH//"OptimisationLogMinimumInbreeding.txt"
-        EvolAlgLogFile2 = "AlphaMateResults"//DASH//"OptimisationLogMinimumInbreedingInitial.txt"
-        if (GenderMatters) then
-          nTmp = nPotPar1 + nPotPar2 + nMat
-        else
-          nTmp = nPotPar1 + nMat
-        end if
+        LogFile = "AlphaMateResults"//DASH//"OptimisationLogMinimumInbreeding.txt"
+        LogFile2 = "AlphaMateResults"//DASH//"OptimisationLogMinimumInbreedingInitial.txt"
+
+        allocate(InitEqual(nParam, nint(real(EvolAlgNSol * 0.1))))
+        InitEqual(:,:) = 1.0d0 ! A couple of solutions that would give equal contributions for everybody
+
         if (PAGE) then
-          nTmp = nTmp + nInd
+          PAGEHolder = .true.
+          PAGE = .false.
         end if
 
-        allocate(InitEqual(nTmp, nint(real(EvolAlgNSol * 0.1))))
-        InitEqual(:,:) = 1.0d0 ! A couple of solutions that would give equal contribution and the rest for everybody
-
-        call DifferentialEvolution(nParam=nTmp, nSol=EvolAlgNSol, Init=InitEqual, nGen=EvolAlgNGen, nGenBurnIn=EvolAlgNGenBurnIn, &
-           nGenStop=EvolAlgNGenStop, StopTolerance=EvolAlgStopTol, nGenPrint=EvolAlgNGenPrint, File=EvolAlgLogFile, CritType="Min", &
+        call DifferentialEvolution(nParam=nParam, nSol=EvolAlgNSol, Init=InitEqual, nGen=EvolAlgNGen, nGenBurnIn=EvolAlgNGenBurnIn, &
+           nGenStop=EvolAlgNGenStop, StopTolerance=EvolAlgStopTol, nGenPrint=EvolAlgNGenPrint, File=LogFile, CritType="min", &
            CRBurnIn=EvolAlgCRBurnIn, CRLate=EvolAlgCRLate, FBase=EvolAlgFBase, FHigh1=EvolAlgFHigh1, FHigh2=EvolAlgFHigh2, &
            CalcCriterion=FixSolEtcMateAndCalcCrit, LogHead=EvolAlgLogHeadForAlphaMate, Log=EvolAlgLogForAlphaMate, &
            BestCriterion=CritMin)
 
+        if (PAGEHolder) then
+          PAGE = .true.
+        end if
+
         deallocate(InitEqual)
 
+        ! TODO: are not these printouts the same everywhere?
         open(newunit=UnitContri, file="AlphaMateResults"//DASH//"IndividualResultsMinimumInbreeding.txt", status="unknown")
         Rank = MrgRnk(CritMin%nVec + BreedValStand / 100.0d0)
         !                                1234567890123456789012
@@ -1183,6 +1199,7 @@ module AlphaMateMod
 
         if (PopInbOld > CritMin%PopInb) then
 
+          ! TODO: this is only really needed when Opt is run too!!!!!
           write(STDOUT, "(a)") "NOTE: Old coancestry is higher than the minimum group coancestry (x'Ax/2) under no selection."
           write(STDOUT, "(a)") "NOTE: Resetting the old coancestry to the minimum group coancestry under no selection and"
           write(STDOUT, "(a)") "NOTE:   recomputing the log values and the targeted future population inbreeding."
@@ -1192,16 +1209,16 @@ module AlphaMateMod
           PopInbTarget = RatePopInbTarget + (1.0d0 - RatePopInbTarget) * PopInbOld
           CritMin%RatePopInb = 0.0d0
 
-          Success = SystemQQ(COPY//" "//trim(EvolAlgLogFile)//" "//trim(EvolAlgLogFile2))
+          Success = SystemQQ(COPY//" "//trim(LogFile)//" "//trim(LogFile2))
           if (.not.Success) then
-            write(STDERR, "(a)") "ERROR: Failed to make a backup of the "//trim(EvolAlgLogFile)//" file in the output folder!"
+            write(STDERR, "(a)") "ERROR: Failed to make a backup of the "//trim(LogFile)//" file in the output folder!"
             write(STDERR, "(a)") " "
             stop 1
           end if
 
-          open(newunit=UnitLog, file=trim(EvolAlgLogFile), status="unknown")
-          open(newunit=UnitLog2, file=trim(EvolAlgLogFile2), status="unknown")
-          nTmp = CountLines(EvolAlgLogFile2)
+          open(newunit=UnitLog, file=trim(LogFile), status="unknown")
+          open(newunit=UnitLog2, file=trim(LogFile2), status="unknown")
+          nTmp = CountLines(LogFile2)
           read(UnitLog2, *) DumC
           call EvolAlgLogHeadForAlphaMate(UnitLog)
           do i = 2, nTmp
@@ -1239,24 +1256,153 @@ module AlphaMateMod
         close(UnitInbree)
       end if
 
+      ! --- Optimise for baseline inbreeding under random mating ---
+
+      if (ModeRan) then
+        write(STDOUT, "(a)") "--- Optimise for baseline inbreeding under random mating --- "
+        write(STDOUT, "(a)") " "
+
+        LogFile = "AlphaMateResults"//DASH//"OptimisationLogBaselineInbreeding.txt"
+        LogFile2 = "AlphaMateResults"//DASH//"OptimisationLogBaselineInbreedingInitial.txt"
+
+        allocate(InitEqual(nParam, nint(real(EvolAlgNSol * 0.1))))
+        InitEqual(:,:) = 1.0d0 ! A couple of solutions that would give equal contributions for everybody
+
+        if (PAGE) then
+          PAGEHolder = .true.
+          PAGE = .false.
+        end if
+
+        call RandomSearch(nParam=nParam, Init=InitEqual, nSamp=EvolAlgNSol*EvolAlgNGen*RanAlgStricter, nSampStop=EvolAlgNGenStop*RanAlgStricter, &
+          StopTolerance=EvolAlgStopTol/real(RanAlgStricter), nSampPrint=EvolAlgNGenPrint, File=LogFile, CritType="ran", &
+          CalcCriterion=FixSolEtcMateAndCalcCrit, LogHead=EvolAlgLogHeadForAlphaMate, Log=EvolAlgLogForAlphaMate, BestCriterion=CritRan)
+
+        if (PAGEHolder) then
+          PAGE = .true.
+        end if
+
+        deallocate(InitEqual)
+
+        ! TODO: are not these printouts the same everywhere?
+        open(newunit=UnitContri, file="AlphaMateResults"//DASH//"IndividualResultsBaselineInbreeding.txt", status="unknown")
+        Rank = MrgRnk(CritRan%nVec + BreedValStand / 100.0d0)
+        !                                1234567890123456789012
+        if (.not.PAGE) then
+          write(UnitContri, FMTINDHEAD) "          Id", &
+                                        "      Gender", &
+                                        "       Merit", &
+                                        " AvgCoancest", &
+                                        "  Contribute", &
+                                        "    nMatings"
+          do i = nInd, 1, -1 ! MrgRnk ranks small to large
+            j = Rank(i)
+            write(UnitContri, FMTIND) IdC(j), Gender(j), BreedVal(j), &
+                                      0.5d0 * sum(RelMtx(:,j)) / dble(nInd), &
+                                      CritRan%xVec(j), CritRan%nVec(j)
+          end do
+        else
+          !                                  1234567890123456789012
+          write(UnitContri, FMTINDHEADEDIT) "          Id", &
+                                            "      Gender", &
+                                            "       Merit", &
+                                            " AvgCoancest", &
+                                            "  Contribute", &
+                                            "    nMatings", &
+                                            "  GenomeEdit", &
+                                            " EditedMerit"
+          do i = nInd, 1, -1 ! MrgRnk ranks small to large
+            j = Rank(i)
+            write(UnitContri, FMTINDEDIT) IdC(j), Gender(j), BreedVal(j), &
+                                          0.5d0 * sum(RelMtx(:,j)) / dble(nInd), &
+                                          CritRan%xVec(j), CritRan%nVec(j), &
+                                          0, BreedVal(j)
+          end do
+        end if
+        close(UnitContri)
+
+        open(newunit=UnitMating, file="AlphaMateResults"//DASH//"MatingResultsBaselineInbreeding.txt", status="unknown")
+        !                              1234567890123456789012
+        write(UnitMating, FMTMATHEAD) "      Mating", &
+                                      "     Parent1", &
+                                      "     Parent2"
+        do i = 1, nMat
+          write(UnitMating, FMTMAT) i, IdC(CritRan%MatingPlan(1,i)), IdC(CritRan%MatingPlan(2,i))
+        end do
+        close(UnitMating)
+
+        if (PopInbOld > CritRan%PopInb) then
+
+          ! TODO: this is only really needed when Opt is run too!!!!!
+          write(STDOUT, "(a)") "NOTE: Old coancestry is higher than the minimum group coancestry (x'Ax/2) under no selection."
+          write(STDOUT, "(a)") "NOTE: Resetting the old coancestry to the minimum group coancestry under no selection and"
+          write(STDOUT, "(a)") "NOTE:   recomputing the log values and the targeted future population inbreeding."
+          write(STDOUT, "(a)") " "
+          PopInbOld = CritRan%PopInb
+          ! F_t = DeltaF + (1 - DeltaF) * F_t-1
+          PopInbTarget = RatePopInbTarget + (1.0d0 - RatePopInbTarget) * PopInbOld
+          CritRan%RatePopInb = 0.0d0
+
+          Success = SystemQQ(COPY//" "//trim(LogFile)//" "//trim(LogFile2))
+          if (.not.Success) then
+            write(STDERR, "(a)") "ERROR: Failed to make a backup of the "//trim(LogFile)//" file in the output folder!"
+            write(STDERR, "(a)") " "
+            stop 1
+          end if
+
+          open(newunit=UnitLog, file=trim(LogFile), status="unknown")
+          open(newunit=UnitLog2, file=trim(LogFile2), status="unknown")
+          nTmp = CountLines(LogFile2)
+          read(UnitLog2, *) DumC
+          call EvolAlgLogHeadForAlphaMate(UnitLog)
+          do i = 2, nTmp
+            read(UnitLog2, *) DumI, DumR(:)
+            ! F_t = DeltaF + (1 - DeltaF) * F_t-1
+            ! DeltaF = (F_t - F_t-1) / (1 - F_t-1)
+            DumR(7) = (DumR(6) - PopInbOld) / (1.0d0 - PopInbOld)
+            write(STDOUT,  FMTLOGSTDOUT) DumI, DumR(:)
+            write(UnitLog, FMTLOGUNIT)   DumI, DumR(:)
+          end do
+          write(STDOUT, "(a)") " "
+          close(UnitLog)
+          close(UnitLog2)
+
+          write(STDOUT, "(a)") "Coancestry/Inbreeding (redefined)"
+          write(STDOUT, "(a)") "  - old coancestry:                         "//trim(Real2Char(PopInbOld,        fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "  - targeted rate of population inbreeding: "//trim(Real2Char(RatePopInbTarget, fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "  - targeted future population inbreeding:  "//trim(Real2Char(PopInbTarget,     fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") " "
+
+        end if
+
+        ! TODO: can we still do something here?
+        if (PopInbTarget < CritRan%PopInb) then
+          write(STDERR, "(a)") "ERROR: Targeted future population inbreeding is lower than the group coancestry (x'Ax/2) under no selection."
+          write(STDERR, "(a)") "ERROR: Can not optimise! Contact the authors."
+          write(STDERR, "(a)") " "
+          stop 1
+        end if
+
+        open(newunit=UnitInbree, file="AlphaMateResults"//DASH//"ConstraintPopulationInbreeding.txt", status="old")
+        write(UnitInbree, "(a, f)") "Old_coancestry_redefined, ", PopInbOld
+        write(UnitInbree, "(a, f)") "Targeted_rate_of_population_inbreeding_redefined, ", RatePopInbTarget
+        write(UnitInbree, "(a, f)") "Targeted_future_population_inbreeding_redefined, ", PopInbTarget
+        close(UnitInbree)
+      end if
+
       ! --- Optimise for maximum gain with constraint on inbreeding ---
 
       if (ModeOpt) then
         write(STDOUT, "(a)") "--- Optimise for maximum gain with constraint on inbreeding ---"
         write(STDOUT, "(a)") " "
 
-        EvolAlgLogFile = "AlphaMateResults"//DASH//"OptimisationLogOptimumGain.txt"
-        if (GenderMatters) then
-          nTmp = nPotPar1 + nPotPar2 + nMat
-        else
-          nTmp = nPotPar1 + nMat
-        end if
+        LogFile = "AlphaMateResults"//DASH//"OptimisationLogOptimumGain.txt"
+
         if (PAGE) then
-          nTmp = nTmp + nInd
+          nParam = nParam + nInd
         end if
 
-        call DifferentialEvolution(nParam=nTmp, nSol=EvolAlgNSol, nGen=EvolAlgNGen, nGenBurnIn=EvolAlgNGenBurnIn, &
-          nGenStop=EvolAlgNGenStop, StopTolerance=EvolAlgStopTol, nGenPrint=EvolAlgNGenPrint, File=EvolAlgLogFile, CritType="Opt", &
+        call DifferentialEvolution(nParam=nParam, nSol=EvolAlgNSol, nGen=EvolAlgNGen, nGenBurnIn=EvolAlgNGenBurnIn, &
+          nGenStop=EvolAlgNGenStop, StopTolerance=EvolAlgStopTol, nGenPrint=EvolAlgNGenPrint, File=LogFile, CritType="opt", &
           CRBurnIn=EvolAlgCRBurnIn, CRLate=EvolAlgCRLate, FBase=EvolAlgFBase, FHigh1=EvolAlgFHigh1, FHigh2=EvolAlgFHigh2, &
           CalcCriterion=FixSolEtcMateAndCalcCrit, LogHead=EvolAlgLogHeadForAlphaMate, Log=EvolAlgLogForAlphaMate, &
           BestCriterion=CritOpt)
@@ -1327,9 +1473,14 @@ module AlphaMateMod
                                         "            PopInbreed", &
                                         "            RatePopInb", &
                                         "            PrgInbreed"
+        ! TODO: add the generic stuff from the log?
         if (ModeMin) then
           DumC = "Min"
           write(UnitFrontier, FMTFRO) adjustl(DumC), CritMin%Value, CritMin%Penalty, CritMin%Gain, CritMin%GainStand, CritMin%PopInb, CritMin%RatePopInb, CritMin%PrgInb
+        end if
+        if (ModeMin) then
+          DumC = "Ran"
+          write(UnitFrontier, FMTFRO) adjustl(DumC), CritRan%Value, CritRan%Penalty, CritRan%Gain, CritRan%GainStand, CritRan%PopInb, CritRan%RatePopInb, CritRan%PrgInb
         end if
         if (ModeOpt) then
           DumC = "Opt"
@@ -1349,7 +1500,7 @@ module AlphaMateMod
                                " for the rate of population inbreeding of "//trim(Real2Char(RatePopInbTarget, fmt=FMTREAL2CHAR))//&
                                " (=future pop. inbreed. of "//trim(Real2Char(PopInbTarget, fmt=FMTREAL2CHAR))//")"
           write(STDOUT, "(a)") ""
-          EvolAlgLogFile = "AlphaMateResults"//DASH//"OptimisationLogFrontier"//trim(Int2Char(k))//".txt"
+          LogFile = "AlphaMateResults"//DASH//"OptimisationLogFrontier"//trim(Int2Char(k))//".txt"
           if (GenderMatters) then
             nTmp = nPotPar1 + nPotPar2 + nMat
           else
@@ -1360,7 +1511,7 @@ module AlphaMateMod
           end if
 
           call DifferentialEvolution(nParam=nTmp, nSol=EvolAlgNSol, nGen=EvolAlgNGen, nGenBurnIn=EvolAlgNGenBurnIn, &
-            nGenStop=EvolAlgNGenStop, StopTolerance=EvolAlgStopTol, nGenPrint=EvolAlgNGenPrint, File=EvolAlgLogFile, CritType="Opt", &
+            nGenStop=EvolAlgNGenStop, StopTolerance=EvolAlgStopTol, nGenPrint=EvolAlgNGenPrint, File=LogFile, CritType="opt", &
             CRBurnIn=EvolAlgCRBurnIn, CRLate=EvolAlgCRLate, FBase=EvolAlgFBase, FHigh1=EvolAlgFHigh1, FHigh2=EvolAlgFHigh2, &
             CalcCriterion=FixSolEtcMateAndCalcCrit, LogHead=EvolAlgLogHeadForAlphaMate, Log=EvolAlgLogForAlphaMate, &
             BestCriterion=Crit)
@@ -1552,7 +1703,7 @@ module AlphaMateMod
 
       ! Arguments
       real(real64), intent(inout)   :: Sol(:)    ! Solution
-      character(len=*), intent(in)  :: CritType  ! Type of criterion (Min, Opt)
+      character(len=*), intent(in)  :: CritType  ! Type of criterion (Min, Ran, Opt)
 
       ! Result
       type(EvolveCrit)              :: Criterion ! Criterion of the solution
@@ -1964,7 +2115,7 @@ module AlphaMateMod
           Criterion%Gain      = Criterion%Gain      + dot_product(Criterion%xVec, BreedValPAGE(:)      * Criterion%GenomeEdit(:))
           Criterion%GainStand = Criterion%GainStand + dot_product(Criterion%xVec, BreedValPAGEStand(:) * Criterion%GenomeEdit(:))
         end if
-        if (ToLower(trim(CritType)) == "opt") then
+        if (CritType == "opt") then
           Criterion%Value = Criterion%Value + Criterion%GainStand
         end if
       end if
@@ -2014,10 +2165,11 @@ module AlphaMateMod
       ! DeltaF = (F_t - F_t-1) / (1 - F_t-1)
       Criterion%RatePopInb = (Criterion%PopInb - PopInbOld) / (1.0d0 - PopInbOld)
 
-! TODO: clean this up
-      ! if (ToLower(trim(CritType)) == "min") then
-      !   Criterion%Value = Criterion%Value - Criterion%PopInb
-      ! else
+      if      (CritType == "min" .or. CritType == "ran") then
+        Criterion%Value = Criterion%Value - Criterion%PopInb
+      else if (CritType == "opt") then
+        ! We know the targeted inbreeding so we can work with relative values,
+        ! which makes the PopInbWeight generic for ~any scenario.
         TmpR = Criterion%RatePopInb / RatePopInbTarget
         if (TmpR > 1.0d0) then
           TmpR = PopInbWeight * abs(1.0d0 - TmpR)
@@ -2032,7 +2184,11 @@ module AlphaMateMod
         if (PopInbWeight < 0.0d0) then
           Criterion%Penalty = Criterion%Penalty + abs(TmpR)
         end if
-      ! end if
+      else
+        write(STDERR, "(a)") "ERROR: Wrong CritType!!!"
+        write(STDERR, "(a)") " "
+        stop 1
+      end if
 
       ! --- Progeny inbreeding (=inbreeding of a mating) ---
 

@@ -73,7 +73,7 @@ AlphamateSpec.txt (mandatory)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 An example of *AlphaMateSpec.txt* is shown in `Figure 1`_. Text to the left of the comma should not be changed. The program is controlled by changing the input right of the first comma::
 
-    Mode                                    ,MinThenOpt
+    Mode                                    ,RanOpt
     RelationshipMatrixFile                  ,RelMat.txt
     BreedingValueFile                       ,Ebv.txt
     GenderFile                              ,Gender.txt
@@ -101,9 +101,11 @@ An example of *AlphaMateSpec.txt* is shown in `Figure 1`_. Text to the left of t
 
 **Figure 1**. Example of AlphaMateSpec.txt
 
-**Mode** specifies the mode of running AlphaMate.
-* When mode is ``Min``, the program optimises contributions that would give minimum possible inbreeding. Once the solution is found, the specified level of old coancestry (see **OldCoancestry**) is corroborated.
+**Mode** specifies the mode of running AlphaMate. TODO!!!!
+* When mode is ``Min``, the program optimises contributions that would give minimum possible inbreeding.
+* When mode is ``Ran``, the program optimises contributions that would give "baseline" inbreeding under random mating. Once the solution is found, the specified level of old coancestry (see **OldCoancestry**) is corroborated.
 * When mode is ``Opt``, the program optimises contributions that would give maximum genetic gain under **TargetedRateOfPopulationInbreeding**.
+* ???
 * When mode is ``MinThenOpt``, the program runs first the ``Min`` mode and then the ``Opt`` mode. The ``MinThenOpt`` mode requires the least amount of information from the user and should be the default mode if you are new to AlphaMate.
 
 **RelationshipMatrixFile** specifies the file holding a relationship matrix. The first column must be individual identification and the subsequent columns are relationship coefficients. Relationship coefficients need to be "proper" - they should reflect probability of sharing genetic material that is identical, either by descent or by state. The relationship matrix can be built from either pedigree or genotype information. We suggest our AlphaAGH program for this task. When using genotype data, make sure to use the Nejati-Javaremi version of relationship matrix and no addition to the diagonal elements of the matrix. This is required to have proper connections between relationship and inbreeding coefficients and the rate of inbreeding within the AlphaMate.
