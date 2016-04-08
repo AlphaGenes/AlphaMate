@@ -33,9 +33,50 @@ module AlphaMateMod
   use OrderPackMod, only : MrgRnk
   use AlphaHouseMod, only : CountLines, Int2Char, Real2Char, RandomOrder, SetSeed, ToLower, FindLoc
   use AlphaStatMod, only : CalcDescStat, DescStatD, CalcDescStatMatrix, CalcDescStatSymMatrix, CalcDescStatLowTriMatrix, DescStatMatrixD
-  use AlphaEvolveMod, only : EvolveCrit, DifferentialEvolution, RandomSearch
+  use AlphaEvolveMod, only : AlphaEvolveSol, DifferentialEvolution, RandomSearch
 
   implicit none
+
+  type, extends(AlphaEvolveSol) :: AlphaMateSol
+    real(real64)                :: Penalty
+    real(real64)                :: Gain
+    real(real64)                :: GainStand
+    real(real64)                :: PopInb
+    real(real64)                :: RatePopInb
+    real(real64)                :: PrgInb
+    real(real64), allocatable   :: GenericIndVal(:)
+    real(real64), allocatable   :: GenericMatVal(:)
+    real(real64)                :: Cost
+    integer(int32), allocatable :: nVec(:)
+    real(real64), allocatable   :: xVec(:)
+    integer(int32), allocatable :: MatingPlan(:,:)
+    real(real64), allocatable   :: GenomeEdit(:)
+    contains
+      procedure         :: Initialise    => InitialiseAlphaMateSol
+      procedure         :: Assign        => AssignAlphaMateSol
+      procedure         :: UpdateMean    => UpdateMeanAlphaMateSol
+      procedure         :: CalcCriterion => FixSolEtcMateAndCalcCrit
+      procedure, nopass :: LogHead       => LogHeadAlphaMateSol
+      procedure         :: Log           => LogAlphaMateSol
+
+      ! procedure         :: InitialiseAlphaMateSol
+      ! generic, public   :: Initialise    => InitialiseAlphaMateSol
+
+      ! procedure         :: AssignAlphaMateSol
+      ! generic, public   :: Assignment(=) => AssignAlphaMateSol
+
+      ! procedure         :: UpdateMeanAlphaMateSol
+      ! generic, public   :: UpdateMean    => UpdateMeanAlphaMateSol
+
+      ! procedure         :: FixSolEtcMateAndCalcCrit
+      ! generic, public   :: CalcCriterion => FixSolEtcMateAndCalcCrit
+
+      ! procedure, nopass :: LogHeadAlphaMateSol
+      ! generic, public   :: LogHead       => LogHeadAlphaMateSol
+
+      ! procedure         :: LogAlphaMateSol
+      ! generic, public   :: Log           => LogAlphaMateSol
+  end type
 
   integer(int32) :: nInd, nMat, nPotMat, nPar, nPotPar1, nPotPar2, nMal, nFem, nPar1, nPar2, nFrontierSteps
   integer(int32) :: EvolAlgNSol, EvolAlgNGen, EvolAlgNGenBurnIn, EvolAlgNGenStop, EvolAlgNGenPrint, RanAlgStricter
@@ -86,8 +127,7 @@ module AlphaMateMod
 
   private
   public :: AlphaMateTitles, ReadSpecAndDataForAlphaMate, ConstructColNamesAndFormats
-  public :: SetInbreedingParameters, AlphaMateSearch, EvolAlgLogHeadForAlphaMate
-  public :: EvolAlgLogForAlphaMate, FixSolEtcMateAndCalcCrit
+  public :: SetInbreedingParameters, AlphaMateSearch
 
   contains
 
@@ -1111,7 +1151,7 @@ module AlphaMateMod
 
       logical :: PAGEHolder, Success
 
-      type(EvolveCrit) :: CritMin, CritRan, CritOpt, Crit
+      type(AlphaMateSol) :: SolMin, SolRan, SolOpt, Sol
 
       ! --- Number of parameters to optimise (baseline) ---
 
@@ -1141,8 +1181,7 @@ module AlphaMateMod
         call DifferentialEvolution(nParam=nParam, nSol=EvolAlgNSol, Init=InitEqual, nGen=EvolAlgNGen, nGenBurnIn=EvolAlgNGenBurnIn, &
            nGenStop=EvolAlgNGenStop, StopTolerance=EvolAlgStopTol, nGenPrint=EvolAlgNGenPrint, File=LogFile, CritType="min", &
            CRBurnIn=EvolAlgCRBurnIn, CRLate=EvolAlgCRLate, FBase=EvolAlgFBase, FHigh1=EvolAlgFHigh1, FHigh2=EvolAlgFHigh2, &
-           CalcCriterion=FixSolEtcMateAndCalcCrit, LogHead=EvolAlgLogHeadForAlphaMate, Log=EvolAlgLogForAlphaMate, &
-           BestCriterion=CritMin)
+           BestSol=SolMin)
 
         if (PAGEHolder) then
           PAGE = .true.
@@ -1152,7 +1191,7 @@ module AlphaMateMod
 
         ! TODO: are not these printouts the same everywhere?
         open(newunit=UnitContri, file="AlphaMateResults"//DASH//"IndividualResultsMinimumInbreeding.txt", status="unknown")
-        Rank = MrgRnk(CritMin%nVec + BreedValStand / 100.0d0)
+        Rank = MrgRnk(SolMin%nVec + BreedValStand / 100.0d0)
         !                                1234567890123456789012
         if (.not.PAGE) then
           write(UnitContri, FMTINDHEAD) "          Id", &
@@ -1165,7 +1204,7 @@ module AlphaMateMod
             j = Rank(i)
             write(UnitContri, FMTIND) IdC(j), Gender(j), BreedVal(j), &
                                       0.5d0 * sum(RelMtx(:,j)) / dble(nInd), &
-                                      CritMin%xVec(j), CritMin%nVec(j)
+                                      SolMin%xVec(j), SolMin%nVec(j)
           end do
         else
           !                                  1234567890123456789012
@@ -1181,7 +1220,7 @@ module AlphaMateMod
             j = Rank(i)
             write(UnitContri, FMTINDEDIT) IdC(j), Gender(j), BreedVal(j), &
                                           0.5d0 * sum(RelMtx(:,j)) / dble(nInd), &
-                                          CritMin%xVec(j), CritMin%nVec(j), &
+                                          SolMin%xVec(j), SolMin%nVec(j), &
                                           0, BreedVal(j)
           end do
         end if
@@ -1193,21 +1232,21 @@ module AlphaMateMod
                                       "     Parent1", &
                                       "     Parent2"
         do i = 1, nMat
-          write(UnitMating, FMTMAT) i, IdC(CritMin%MatingPlan(1,i)), IdC(CritMin%MatingPlan(2,i))
+          write(UnitMating, FMTMAT) i, IdC(SolMin%MatingPlan(1,i)), IdC(SolMin%MatingPlan(2,i))
         end do
         close(UnitMating)
 
-        if (PopInbOld > CritMin%PopInb) then
+        if (PopInbOld > SolMin%PopInb) then
 
           ! TODO: this is only really needed when Opt is run too!!!!!
           write(STDOUT, "(a)") "NOTE: Old coancestry is higher than the minimum group coancestry (x'Ax/2) under no selection."
           write(STDOUT, "(a)") "NOTE: Resetting the old coancestry to the minimum group coancestry under no selection and"
           write(STDOUT, "(a)") "NOTE:   recomputing the log values and the targeted future population inbreeding."
           write(STDOUT, "(a)") " "
-          PopInbOld = CritMin%PopInb
+          PopInbOld = SolMin%PopInb
           ! F_t = DeltaF + (1 - DeltaF) * F_t-1
           PopInbTarget = RatePopInbTarget + (1.0d0 - RatePopInbTarget) * PopInbOld
-          CritMin%RatePopInb = 0.0d0
+          SolMin%RatePopInb = 0.0d0
 
           Success = SystemQQ(COPY//" "//trim(LogFile)//" "//trim(LogFile2))
           if (.not.Success) then
@@ -1220,7 +1259,7 @@ module AlphaMateMod
           open(newunit=UnitLog2, file=trim(LogFile2), status="unknown")
           nTmp = CountLines(LogFile2)
           read(UnitLog2, *) DumC
-          call EvolAlgLogHeadForAlphaMate(UnitLog)
+          call SolMin%LogHead(UnitLog)
           do i = 2, nTmp
             read(UnitLog2, *) DumI, DumR(:)
             ! F_t = DeltaF + (1 - DeltaF) * F_t-1
@@ -1242,7 +1281,7 @@ module AlphaMateMod
         end if
 
         ! TODO: can we still do something here?
-        if (PopInbTarget < CritMin%PopInb) then
+        if (PopInbTarget < SolMin%PopInb) then
           write(STDERR, "(a)") "ERROR: Targeted future population inbreeding is lower than the group coancestry (x'Ax/2) under no selection."
           write(STDERR, "(a)") "ERROR: Can not optimise! Contact the authors."
           write(STDERR, "(a)") " "
@@ -1273,9 +1312,8 @@ module AlphaMateMod
           PAGE = .false.
         end if
 
-        call RandomSearch(nParam=nParam, Init=InitEqual, nSamp=EvolAlgNSol*EvolAlgNGen*RanAlgStricter, nSampStop=EvolAlgNGenStop*RanAlgStricter, &
-          StopTolerance=EvolAlgStopTol/real(RanAlgStricter), nSampPrint=EvolAlgNGenPrint, File=LogFile, CritType="ran", &
-          CalcCriterion=FixSolEtcMateAndCalcCrit, LogHead=EvolAlgLogHeadForAlphaMate, Log=EvolAlgLogForAlphaMate, BestCriterion=CritRan)
+        call RandomSearch(Mode="avg", nParam=nParam, Init=InitEqual, nSamp=EvolAlgNSol*EvolAlgNGen*RanAlgStricter, nSampStop=EvolAlgNGenStop*RanAlgStricter, &
+          StopTolerance=EvolAlgStopTol/real(RanAlgStricter), nSampPrint=EvolAlgNGenPrint, File=LogFile, CritType="ran", BestSol=SolRan)
 
         if (PAGEHolder) then
           PAGE = .true.
@@ -1285,7 +1323,7 @@ module AlphaMateMod
 
         ! TODO: are not these printouts the same everywhere?
         open(newunit=UnitContri, file="AlphaMateResults"//DASH//"IndividualResultsBaselineInbreeding.txt", status="unknown")
-        Rank = MrgRnk(CritRan%nVec + BreedValStand / 100.0d0)
+        Rank = MrgRnk(SolRan%nVec + BreedValStand / 100.0d0)
         !                                1234567890123456789012
         if (.not.PAGE) then
           write(UnitContri, FMTINDHEAD) "          Id", &
@@ -1298,7 +1336,7 @@ module AlphaMateMod
             j = Rank(i)
             write(UnitContri, FMTIND) IdC(j), Gender(j), BreedVal(j), &
                                       0.5d0 * sum(RelMtx(:,j)) / dble(nInd), &
-                                      CritRan%xVec(j), CritRan%nVec(j)
+                                      SolRan%xVec(j), SolRan%nVec(j)
           end do
         else
           !                                  1234567890123456789012
@@ -1314,7 +1352,7 @@ module AlphaMateMod
             j = Rank(i)
             write(UnitContri, FMTINDEDIT) IdC(j), Gender(j), BreedVal(j), &
                                           0.5d0 * sum(RelMtx(:,j)) / dble(nInd), &
-                                          CritRan%xVec(j), CritRan%nVec(j), &
+                                          SolRan%xVec(j), SolRan%nVec(j), &
                                           0, BreedVal(j)
           end do
         end if
@@ -1326,21 +1364,21 @@ module AlphaMateMod
                                       "     Parent1", &
                                       "     Parent2"
         do i = 1, nMat
-          write(UnitMating, FMTMAT) i, IdC(CritRan%MatingPlan(1,i)), IdC(CritRan%MatingPlan(2,i))
+          write(UnitMating, FMTMAT) i, IdC(SolRan%MatingPlan(1,i)), IdC(SolRan%MatingPlan(2,i))
         end do
         close(UnitMating)
 
-        if (PopInbOld > CritRan%PopInb) then
+        if (PopInbOld > SolRan%PopInb) then
 
           ! TODO: this is only really needed when Opt is run too!!!!!
           write(STDOUT, "(a)") "NOTE: Old coancestry is higher than the minimum group coancestry (x'Ax/2) under no selection."
           write(STDOUT, "(a)") "NOTE: Resetting the old coancestry to the minimum group coancestry under no selection and"
           write(STDOUT, "(a)") "NOTE:   recomputing the log values and the targeted future population inbreeding."
           write(STDOUT, "(a)") " "
-          PopInbOld = CritRan%PopInb
+          PopInbOld = SolRan%PopInb
           ! F_t = DeltaF + (1 - DeltaF) * F_t-1
           PopInbTarget = RatePopInbTarget + (1.0d0 - RatePopInbTarget) * PopInbOld
-          CritRan%RatePopInb = 0.0d0
+          SolRan%RatePopInb = 0.0d0
 
           Success = SystemQQ(COPY//" "//trim(LogFile)//" "//trim(LogFile2))
           if (.not.Success) then
@@ -1353,7 +1391,7 @@ module AlphaMateMod
           open(newunit=UnitLog2, file=trim(LogFile2), status="unknown")
           nTmp = CountLines(LogFile2)
           read(UnitLog2, *) DumC
-          call EvolAlgLogHeadForAlphaMate(UnitLog)
+          call SolRan%LogHead(UnitLog)
           do i = 2, nTmp
             read(UnitLog2, *) DumI, DumR(:)
             ! F_t = DeltaF + (1 - DeltaF) * F_t-1
@@ -1375,7 +1413,7 @@ module AlphaMateMod
         end if
 
         ! TODO: can we still do something here?
-        if (PopInbTarget < CritRan%PopInb) then
+        if (PopInbTarget < SolRan%PopInb) then
           write(STDERR, "(a)") "ERROR: Targeted future population inbreeding is lower than the group coancestry (x'Ax/2) under no selection."
           write(STDERR, "(a)") "ERROR: Can not optimise! Contact the authors."
           write(STDERR, "(a)") " "
@@ -1404,12 +1442,11 @@ module AlphaMateMod
         call DifferentialEvolution(nParam=nParam, nSol=EvolAlgNSol, nGen=EvolAlgNGen, nGenBurnIn=EvolAlgNGenBurnIn, &
           nGenStop=EvolAlgNGenStop, StopTolerance=EvolAlgStopTol, nGenPrint=EvolAlgNGenPrint, File=LogFile, CritType="opt", &
           CRBurnIn=EvolAlgCRBurnIn, CRLate=EvolAlgCRLate, FBase=EvolAlgFBase, FHigh1=EvolAlgFHigh1, FHigh2=EvolAlgFHigh2, &
-          CalcCriterion=FixSolEtcMateAndCalcCrit, LogHead=EvolAlgLogHeadForAlphaMate, Log=EvolAlgLogForAlphaMate, &
-          BestCriterion=CritOpt)
+          BestSol=SolOpt)
 
         ! TODO: should we have constant output no matter which options are switched on?
         open(newunit=UnitContri, file="AlphaMateResults"//DASH//"IndividualResultsOptimumGain.txt", status="unknown")
-        Rank = MrgRnk(CritOpt%nVec + BreedValStand / 100.0d0)
+        Rank = MrgRnk(SolOpt%nVec + BreedValStand / 100.0d0)
         !                                1234567890123456789012
         if (.not.PAGE) then
           write(UnitContri, FMTINDHEAD) "          Id", &
@@ -1422,7 +1459,7 @@ module AlphaMateMod
             j = Rank(i)
             write(UnitContri, FMTIND) IdC(j), Gender(j), BreedVal(j), &
                                       0.5d0 * sum(RelMtx(:,j)) / dble(nInd), &
-                                      CritOpt%xVec(j), CritOpt%nVec(j)
+                                      SolOpt%xVec(j), SolOpt%nVec(j)
           end do
         else
           !                                  1234567890123456789012
@@ -1438,8 +1475,8 @@ module AlphaMateMod
             j = Rank(i)
             write(UnitContri, FMTINDEDIT) IdC(j), Gender(j), BreedVal(j), &
                                           0.5d0 * sum(RelMtx(:,j)) / dble(nInd), &
-                                          CritOpt%xVec(j), CritOpt%nVec(j), &
-                                          nint(CritOpt%GenomeEdit(j)), BreedVal(j) + CritOpt%GenomeEdit(j) * BreedValPAGE(j)
+                                          SolOpt%xVec(j), SolOpt%nVec(j), &
+                                          nint(SolOpt%GenomeEdit(j)), BreedVal(j) + SolOpt%GenomeEdit(j) * BreedValPAGE(j)
           end do
         end if
         close(UnitContri)
@@ -1450,7 +1487,7 @@ module AlphaMateMod
                                       "     Parent1", &
                                       "     Parent2"
         do i = 1, nMat
-          write(UnitMating, FMTMAT) i, IdC(CritOpt%MatingPlan(1,i)), IdC(CritOpt%MatingPlan(2,i))
+          write(UnitMating, FMTMAT) i, IdC(SolOpt%MatingPlan(1,i)), IdC(SolOpt%MatingPlan(2,i))
         end do
         close(UnitMating)
       end if
@@ -1466,7 +1503,7 @@ module AlphaMateMod
         open(newunit=UnitFrontier, file="AlphaMateResults"//DASH//"Frontier.txt", status="unknown")
         !                                1234567890123456789012
         write(UnitFrontier, FMTFROHEAD) "        Step", &
-                                        "             Objective", &
+                                        "             Criterion", &
                                         "             Penalties", &
                                         "                  Gain", &
                                         "             GainStand", &
@@ -1476,15 +1513,15 @@ module AlphaMateMod
         ! TODO: add the generic stuff from the log?
         if (ModeMin) then
           DumC = "Min"
-          write(UnitFrontier, FMTFRO) adjustl(DumC), CritMin%Value, CritMin%Penalty, CritMin%Gain, CritMin%GainStand, CritMin%PopInb, CritMin%RatePopInb, CritMin%PrgInb
+          write(UnitFrontier, FMTFRO) adjustl(DumC), SolMin%Criterion, SolMin%Penalty, SolMin%Gain, SolMin%GainStand, SolMin%PopInb, SolMin%RatePopInb, SolMin%PrgInb
         end if
         if (ModeMin) then
           DumC = "Ran"
-          write(UnitFrontier, FMTFRO) adjustl(DumC), CritRan%Value, CritRan%Penalty, CritRan%Gain, CritRan%GainStand, CritRan%PopInb, CritRan%RatePopInb, CritRan%PrgInb
+          write(UnitFrontier, FMTFRO) adjustl(DumC), SolRan%Criterion, SolRan%Penalty, SolRan%Gain, SolRan%GainStand, SolRan%PopInb, SolRan%RatePopInb, SolRan%PrgInb
         end if
         if (ModeOpt) then
           DumC = "Opt"
-          write(UnitFrontier, FMTFRO) adjustl(DumC), CritOpt%Value, CritOpt%Penalty, CritOpt%Gain, CritOpt%GainStand, CritOpt%PopInb, CritOpt%RatePopInb, CritOpt%PrgInb
+          write(UnitFrontier, FMTFRO) adjustl(DumC), SolOpt%Criterion, SolOpt%Penalty, SolOpt%Gain, SolOpt%GainStand, SolOpt%PopInb, SolOpt%RatePopInb, SolOpt%PrgInb
         end if
 
         ! Hold old results
@@ -1513,14 +1550,13 @@ module AlphaMateMod
           call DifferentialEvolution(nParam=nTmp, nSol=EvolAlgNSol, nGen=EvolAlgNGen, nGenBurnIn=EvolAlgNGenBurnIn, &
             nGenStop=EvolAlgNGenStop, StopTolerance=EvolAlgStopTol, nGenPrint=EvolAlgNGenPrint, File=LogFile, CritType="opt", &
             CRBurnIn=EvolAlgCRBurnIn, CRLate=EvolAlgCRLate, FBase=EvolAlgFBase, FHigh1=EvolAlgFHigh1, FHigh2=EvolAlgFHigh2, &
-            CalcCriterion=FixSolEtcMateAndCalcCrit, LogHead=EvolAlgLogHeadForAlphaMate, Log=EvolAlgLogForAlphaMate, &
-            BestCriterion=Crit)
+            BestSol=Sol)
 
           DumC = "Frontier"//trim(Int2Char(k))
-          write(UnitFrontier, FMTFRO) adjustl(DumC), Crit%Value, Crit%Penalty, Crit%Gain, Crit%GainStand, Crit%PopInb, Crit%RatePopInb, Crit%PrgInb
+          write(UnitFrontier, FMTFRO) adjustl(DumC), Sol%Criterion, Sol%Penalty, Sol%Gain, Sol%GainStand, Sol%PopInb, Sol%RatePopInb, Sol%PrgInb
 
           open(newunit=UnitContri, file="AlphaMateResults"//DASH//"IndividualResultsFrontier"//trim(Int2Char(k))//".txt", status="unknown")
-          Rank = MrgRnk(Crit%nVec + BreedValStand / 100.0d0)
+          Rank = MrgRnk(Sol%nVec + BreedValStand / 100.0d0)
           !                                1234567890123456789012
           if (.not.PAGE) then
             write(UnitContri, FMTINDHEAD) "          Id", &
@@ -1533,7 +1569,7 @@ module AlphaMateMod
               j = Rank(i)
               write(UnitContri, FMTIND) IdC(j), Gender(j), BreedVal(j), &
                                         0.5d0 * sum(RelMtx(:,j)) / dble(nInd), &
-                                        Crit%xVec(j), Crit%nVec(j)
+                                        Sol%xVec(j), Sol%nVec(j)
             end do
           else
             !                                  1234567890123456789012
@@ -1549,8 +1585,8 @@ module AlphaMateMod
               j = Rank(i)
               write(UnitContri, FMTINDEDIT) IdC(j), Gender(j), BreedVal(j), &
                                             0.5d0 * sum(RelMtx(:,j)) / dble(nInd), &
-                                            Crit%xVec(j), Crit%nVec(j), &
-                                            nint(Crit%GenomeEdit(j)), BreedVal(j) + Crit%GenomeEdit(j) * BreedValPAGE(j)
+                                            Sol%xVec(j), Sol%nVec(j), &
+                                            nint(Sol%GenomeEdit(j)), BreedVal(j) + Sol%GenomeEdit(j) * BreedValPAGE(j)
             end do
           end if
           close(UnitContri)
@@ -1561,11 +1597,11 @@ module AlphaMateMod
                                         "     Parent1", &
                                         "     Parent2"
           do i = 1, nMat
-            write(UnitMating, FMTMAT) i, IdC(Crit%MatingPlan(1,i)), IdC(Crit%MatingPlan(2,i))
+            write(UnitMating, FMTMAT) i, IdC(Sol%MatingPlan(1,i)), IdC(Sol%MatingPlan(2,i))
           end do
           close(UnitMating)
 
-          if ((RatePopInbTarget - Crit%RatePopInb) > 0.01d0) then
+          if ((RatePopInbTarget - Sol%RatePopInb) > 0.01d0) then
             write(STDOUT, "(a)") "NOTE: Could not achieve the rate of population inbreeding of "//trim(Real2Char(RatePopInbTarget, fmt=FMTREAL2CHAR))
             write(STDOUT, "(a)") "NOTE: Stopping the frontier evaluation."
             write(STDOUT, "(a)") ""
@@ -1636,32 +1672,14 @@ module AlphaMateMod
 
     !###########################################################################
 
-    subroutine EvolAlgLogHeadForAlphaMate(LogUnit)
+    subroutine InitialiseAlphaMateSol(This)
       implicit none
-      integer(int32), intent(in)     :: LogUnit
-      write(STDOUT, FMTLOGSTDOUTHEAD) COLNAMELOGSTDOUT(:)
-      write(LogUnit,  FMTLOGUNITHEAD) COLNAMELOGUNIT(:)
-    end subroutine
 
-    !###########################################################################
+      ! Argument
+      class(AlphaMateSol), intent(out) :: This
 
-    subroutine EvolAlgLogForAlphaMate(LogUnit, Gen, AcceptRate, Criterion)
-      implicit none
-      integer(int32), intent(in)   :: LogUnit
-      integer(int32), intent(in)   :: Gen
-      real(real64), intent(in)     :: AcceptRate
-      type(EvolveCrit), intent(in) :: Criterion
-      write(STDOUT,  FMTLOGSTDOUT) Gen, AcceptRate, Criterion%Value, Criterion%Penalty, Criterion%Gain, Criterion%GainStand, Criterion%PopInb, Criterion%RatePopInb, Criterion%PrgInb, Criterion%GenericIndVal, Criterion%GenericMatVal
-      write(LogUnit, FMTLOGUNIT)   Gen, AcceptRate, Criterion%Value, Criterion%Penalty, Criterion%Gain, Criterion%GainStand, Criterion%PopInb, Criterion%RatePopInb, Criterion%PrgInb, Criterion%GenericIndVal, Criterion%GenericMatVal
-    end subroutine
-
-    !###########################################################################
-
-! TODO: push this as a method into the extended type
-    function InitialiseAlphaMateCrit() result(This)
-      implicit none
-      type(EvolveCrit) :: This
-      This%Value = 0.0d0
+      ! Initialisation
+      This%Criterion = 0.0d0
       This%Penalty = 0.0d0
       This%Gain = 0.0d0
       This%GainStand = 0.0d0
@@ -1693,29 +1711,134 @@ module AlphaMateMod
       else
         allocate(This%GenomeEdit(0))
       end if
-    end function
+    end subroutine
 
     !###########################################################################
 
-    function FixSolEtcMateAndCalcCrit(Sol, CritType) result(Criterion)
+    subroutine AssignAlphaMateSol(Out, In)
+      implicit none
+
+      ! Arguments
+      class(AlphaMateSol), intent(out)   :: Out
+      class(AlphaEvolveSol), intent(in)  :: In
+
+      ! Assignments
+      ! (Need to go via the select type stuff as all but the first arguments must
+      !  be the same as in the base class/type)
+      select type (In)
+        class is (AlphaMateSol)
+          Out%Criterion       = In%Criterion
+          Out%Penalty         = In%Penalty
+          Out%Gain            = In%Gain
+          Out%GainStand       = In%GainStand
+          Out%PopInb          = In%PopInb
+          Out%RatePopInb      = In%RatePopInb
+          Out%PrgInb          = In%PrgInb
+          if (allocated(In%GenericIndVal)) then
+            allocate(Out%GenericIndVal(size(In%GenericIndVal)))
+            Out%GenericIndVal = In%GenericIndVal
+          end if
+          if (allocated(In%GenericMatVal)) then
+            allocate(Out%GenericMatVal(size(In%GenericMatVal)))
+            Out%GenericMatVal = In%GenericMatVal
+          end if
+          Out%Cost            = In%Cost
+          if (allocated(In%nVec)) then
+            allocate(Out%nVec(size(In%nVec)))
+            Out%nVec          = In%nVec
+          end if
+          if (allocated(In%xVec)) then
+            allocate(Out%xVec(size(In%xVec)))
+            Out%xVec          = In%xVec
+          end if
+          if (allocated(In%MatingPlan)) then
+            allocate(Out%MatingPlan(size(In%MatingPlan, dim=1), size(In%MatingPlan, dim=2)))
+            Out%MatingPlan    = In%MatingPlan
+          end if
+          if (allocated(In%GenomeEdit)) then
+            allocate(Out%GenomeEdit(size(In%GenomeEdit)))
+            Out%GenomeEdit    = In%GenomeEdit
+          end if
+        class default
+          write(STDERR, "(a)") "ERROR: Both Out and In must be of the AlphaMateSol class for AlphaMate!"
+          write(STDERR, "(a)") " "
+          stop 1
+      end select
+    end subroutine
+
+    !###########################################################################
+
+    subroutine UpdateMeanAlphaMateSol(This, Add, n)
+      implicit none
+
+      ! Arguments
+      class(AlphaMateSol), intent(inout) :: This
+      class(AlphaEvolveSol), intent(in)  :: Add
+      integer(int32), intent(in)         :: n
+
+      ! Other
+      real(real64) :: nR, kR
+
+      ! Updates
+      nR = dble(n)
+      kR = (nR - 1.0d0) / nR
+
+      ! (Need to go via the select type stuff as all but the first arguments must
+      !  be the same as in the base class/type)
+      select type (Add)
+        class is (AlphaMateSol)
+          This%Criterion       = This%Criterion     * kR + Add%Criterion     / nR
+          This%Penalty         = This%Penalty       * kR + Add%Penalty       / nR
+          This%Gain            = This%Gain          * kR + Add%Gain          / nR
+          This%GainStand       = This%GainStand     * kR + Add%GainStand     / nR
+          This%PopInb          = This%PopInb        * kR + Add%PopInb        / nR
+          This%RatePopInb      = This%RatePopInb    * kR + Add%RatePopInb    / nR
+          This%PrgInb          = This%PrgInb        * kR + Add%PrgInb        / nR
+          if (allocated(This%GenericIndVal)) then
+            This%GenericIndVal = This%GenericIndVal * kR + Add%GenericIndVal / nR
+          end if
+          if (allocated(This%GenericMatVal)) then
+            This%GenericMatVal = This%GenericMatVal * kR + Add%GenericMatVal / nR
+          end if
+          This%Cost            = This%Cost          * kR + Add%Cost          / nR
+          if (allocated(This%nVec)) then
+            This%nVec          = This%nVec          * kR + Add%nVec          / nR
+          end if
+          if (allocated(This%xVec)) then
+            This%xVec          = This%xVec          * kR + Add%xVec          / nR
+          end if
+          if (allocated(This%MatingPlan)) then
+            This%MatingPlan    = This%MatingPlan    * kR + Add%MatingPlan    / nR
+          end if
+          if (allocated(This%GenomeEdit)) then
+            This%GenomeEdit    = This%GenomeEdit    * kR + Add%GenomeEdit    / nR
+          end if
+        class default
+          write(STDERR, "(a)") "ERROR: Both This and Add must be of the AlphaMateSol class for AlphaMate!"
+          write(STDERR, "(a)") " "
+          stop 1
+      end select
+    end subroutine
+
+    !###########################################################################
+
+    subroutine FixSolEtcMateAndCalcCrit(This, Chrom, CritType)
 
       implicit none
 
       ! Arguments
-      real(real64), intent(inout)   :: Sol(:)    ! Solution
-      character(len=*), intent(in)  :: CritType  ! Type of criterion (Min, Ran, Opt)
-
-      ! Result
-      type(EvolveCrit)              :: Criterion ! Criterion of the solution
+      class(AlphaMateSol)          :: This      ! Solution
+      real(real64), intent(inout)  :: Chrom(:)  ! Internal representation of the solution
+      character(len=*), intent(in) :: CritType  ! Type of criterion (Min, Ran, Opt)
 
       ! Other
-      integer(int32) :: i, j, k, l, g, nCumMat, RankSol(nInd), SolInt(nInd), MatPar2(nMat)
+      integer(int32) :: i, j, k, l, g, nCumMat, Rank(nInd), ChromInt(nInd), MatPar2(nMat)
       integer(int32) :: nVecPar1(nPotPar1), nVecPar2(nPotPar2), TmpMin, TmpMax, TmpI
 
       real(real64) :: TmpVec(nInd,1), TmpR, RanNum
 
-      ! Criterion
-      Criterion = InitialiseAlphaMateCrit()
+      ! Initialize the solution
+      call This%Initialise()
 
       ! The solution (based on the mate selection driver) has:
       ! - nInd individual contributions
@@ -1726,19 +1849,19 @@ module AlphaMateMod
       !   - nPotPar1 edit indicators for "parent1" (males   when GenderMatters, all ind when .not. GenderMatters)
       !   - nPotPar2 edit indicators for "parent2" (females when GenderMatters, present only when GenderMatters)
 
-      ! Say we have Sol=(|0,2,0,1|...|2.5,1.5,1.0|0,1,0,0|...) then we:
+      ! Say we have Chrom=(|0,2,0,1|...|2.5,1.5,1.0|0,1,0,0|...) then we:
       ! - mate male 2 with the first  available female (rank 2.5)
       ! - mate male 2 with the second available female (rank 1.5)
       ! - mate male 4 with the third  available female (rank 1.0)
       ! - edit male 2
 
-      ! TODO: consider spliting the Sol() vector internally into a type with
+      ! TODO: consider spliting the Chrom() vector internally into a type with
       !       separate vectors to simplify the code, e.g.,
-      ! Sol2%ContPar1
-      ! Sol2%ContPar2
-      ! Sol2%MateRank
-      ! Sol2%EditPar1
-      ! Sol2%EditPar2
+      ! Chrom2%ContPar1
+      ! Chrom2%ContPar2
+      ! Chrom2%MateRank
+      ! Chrom2%EditPar1
+      ! Chrom2%EditPar2
       !       and then at the end combine it back. Since I modify some elements
       !       it would have to be put back.
 
@@ -1768,46 +1891,46 @@ module AlphaMateMod
       end if
       ! ... find ranks to find the top values
       if (.not.(EqualizePar1 .and. (nPar1 == nPotPar1))) then
-        RankSol(1:nPotPar1) = MrgRnk(Sol(1:nPotPar1))
-        RankSol(1:nPotPar1) = RankSol(nPotPar1:1:-1) ! MrgRnk ranks small to large
+        Rank(1:nPotPar1) = MrgRnk(Chrom(1:nPotPar1))
+        Rank(1:nPotPar1) = Rank(nPotPar1:1:-1) ! MrgRnk ranks small to large
       end if
       ! ... handle cases with equalized contributions
       if (EqualizePar1) then
         if (nPar1 == nPotPar1) then
           ! ... set integers to all the values (no need for sorting here)
-          Sol(1:nPotPar1) = dble(nMat * g) / dble(nPar1)
+          Chrom(1:nPotPar1) = dble(nMat * g) / dble(nPar1)
         else
           ! ... set integers to the top values
-          Sol(RankSol(1:nPar1)) = dble(nMat * g) / dble(nPar1)
+          Chrom(Rank(1:nPar1)) = dble(nMat * g) / dble(nPar1)
           ! TODO: anything better to preserve the order of non contributing individuals? See below!
-          Sol(RankSol((nPar1+1):nPotPar1)) = 0.0d0
-          ! Sol(RankSol((nPar1+1):nPotPar1)) = -1.0d0
+          Chrom(Rank((nPar1+1):nPotPar1)) = 0.0d0
+          ! Chrom(Rank((nPar1+1):nPotPar1)) = -1.0d0
         end if
       else
         ! ... handle cases with unequal contributions
         ! ... work for the defined number or parents
         nCumMat = 0
         do i = 1, nPar1
-          j = RankSol(i)
+          j = Rank(i)
           ! ... these would have "zero" contributions and if we hit them then they need at least minimum contrib
-          if (Sol(j) < LimitPar1Min) then
-            Sol(j) = LimitPar1Min
+          if (Chrom(j) < LimitPar1Min) then
+            Chrom(j) = LimitPar1Min
           end if
           ! ... but not above max allowed
-          if (Sol(j) > LimitPar1Max) then
-            Sol(j) = LimitPar1Max
+          if (Chrom(j) > LimitPar1Max) then
+            Chrom(j) = LimitPar1Max
           end if
           ! ... accumulate and check if we reached nMat
-          nCumMat = nCumMat + nint(Sol(j)) ! internally real, externally integer
+          nCumMat = nCumMat + nint(Chrom(j)) ! internally real, externally integer
           if (nCumMat >= nMat * g) then
             ! ... there should be exactly nMat contributions
             if (nCumMat > nMat * g) then
-              Sol(j) = Sol(j) - dble(nCumMat - nMat * g)
-              if (nint(Sol(j)) < LimitPar1Min) then
-                TmpR = LimitPar1Weight * (LimitPar1Min - nint(Sol(j)))
-                Criterion%Value = Criterion%Value + TmpR
+              Chrom(j) = Chrom(j) - dble(nCumMat - nMat * g)
+              if (nint(Chrom(j)) < LimitPar1Min) then
+                TmpR = LimitPar1Weight * (LimitPar1Min - nint(Chrom(j)))
+                This%Criterion = This%Criterion + TmpR
                 if (LimitPar1Weight < 0.0d0) then
-                  Criterion%Penalty = Criterion%Penalty + abs(TmpR)
+                  This%Penalty = This%Penalty + abs(TmpR)
                 end if
               end if
               nCumMat = nMat * g
@@ -1822,40 +1945,40 @@ module AlphaMateMod
         ! ... the other individuals do not contribute
         if (i <= nPotPar1) then ! "=" to capture incremented i+1 on the do loop exit
           ! ... zero (the same for all ind so no order)
-          Sol(RankSol(i:nPotPar1)) = 0.0d0
+          Chrom(Rank(i:nPotPar1)) = 0.0d0
           ! ... negative (the same for all ind so no order)
-          ! Sol(RankSol(i:nPotPar1)) = -1.0d0
+          ! Chrom(Rank(i:nPotPar1)) = -1.0d0
           ! ... negative (variable with partially preserving order)
           !     Found faster convergence than with properly decreasing negative values?
           !     I guess it adds some more randomness, i.e., it causes suffling of individuals that just did not make it onto the mating list.
-          ! Sol(RankSol(i:nPotPar1)) = sign(Sol(RankSol(i:nPotPar1)), -1.0d0)
+          ! Chrom(Rank(i:nPotPar1)) = sign(Chrom(Rank(i:nPotPar1)), -1.0d0)
           ! ... negative and properly decreasing
-          ! TmpR = maxval(Sol(RankSol(i:nPotPar1)))
+          ! TmpR = maxval(Chrom(Rank(i:nPotPar1)))
           ! if (TmpR > 0.0d0) then
-          !     Sol(RankSol(i:nPotPar1)) = Sol(RankSol(i:nPotPar1)) - abs(TmpR)
+          !     Chrom(Rank(i:nPotPar1)) = Chrom(Rank(i:nPotPar1)) - abs(TmpR)
           ! end if
           ! ... negative (random so no order)
           ! do j = i, nPotPar1 ! TODO: really need this loop?
           !   call random_number(RanNum)
-          !   Sol(RankSol(j)) = -1.0d0 * RanNum
+          !   Chrom(Rank(j)) = -1.0d0 * RanNum
           ! end do
         end if
         ! ... nMat still not reached?
         do while (nCumMat < nMat * g)
           ! ... add more contributions
           do i = nPar1, 1, -1 ! to bottom ranked selected individuals (to avoid local optima)
-            j = RankSol(i)
-            Sol(j) = Sol(j) + 1.0d0
+            j = Rank(i)
+            Chrom(j) = Chrom(j) + 1.0d0
             ! ... accumulate and check if we reached nMat
             nCumMat = nCumMat + 1
             if (nCumMat >= nMat * g) then
               ! To cater for real vs. integer issues
-              TmpI = sum(nint(Sol(RankSol(1:nPar1))))
+              TmpI = sum(nint(Chrom(Rank(1:nPar1))))
               if (TmpI /= nMat * g) then
                 if (TmpI > nMat * g) then
-                  Sol(j) = dble(nint(Sol(j)) - 1)
+                  Chrom(j) = dble(nint(Chrom(j)) - 1)
                 else
-                  Sol(j) = dble(nint(Sol(j)) + 1)
+                  Chrom(j) = dble(nint(Chrom(j)) + 1)
                 end if
               end if
               exit
@@ -1868,46 +1991,46 @@ module AlphaMateMod
       if (GenderMatters) then
         ! ... find ranks to find the top values
         if (.not.(EqualizePar2 .and. (nPar2 == nPotPar2))) then
-          RankSol(1:nPotPar2) = MrgRnk(Sol((nPotPar1+1):(nPotPar1+nPotPar2)))
-          RankSol(1:nPotPar2) = RankSol(nPotPar2:1:-1) ! MrgRnk ranks small to large
+          Rank(1:nPotPar2) = MrgRnk(Chrom((nPotPar1+1):(nPotPar1+nPotPar2)))
+          Rank(1:nPotPar2) = Rank(nPotPar2:1:-1) ! MrgRnk ranks small to large
         end if
         ! ... handle cases with equalized contributions
         if (EqualizePar2) then
           if (nPar2 == nPotPar2) then
             ! ... set integers to all the values (no need for sorting here)
-            Sol((nPotPar1+1):(nPotPar1+nPotPar2)) = dble(nMat) / dble(nPar2)
+            Chrom((nPotPar1+1):(nPotPar1+nPotPar2)) = dble(nMat) / dble(nPar2)
           else
             ! ... set integers to the top values
-            Sol(nPotPar1+RankSol(1:nPar2)) = dble(nMat) / dble(nPar2)
+            Chrom(nPotPar1+Rank(1:nPar2)) = dble(nMat) / dble(nPar2)
             ! TODO: anything better to preserve the order of non contributing individuals? See below!
-            Sol(nPotPar1+RankSol((nPar2+1):nPotPar2)) = 0.0d0
-            ! Sol(nPotPar1+RankSol((nPar2+1):nPotPar2)) = -1.0d0
+            Chrom(nPotPar1+Rank((nPar2+1):nPotPar2)) = 0.0d0
+            ! Chrom(nPotPar1+Rank((nPar2+1):nPotPar2)) = -1.0d0
           end if
         else
           ! ... handle cases with unequal contributions
           ! ... work for the defined number or parents
           nCumMat = 0
           do i = 1, nPar2
-            j = nPotPar1 + RankSol(i)
+            j = nPotPar1 + Rank(i)
             ! ... these would have "zero" contributions and if we hit them then they need at least minimum contrib
-            if (Sol(j) < LimitPar2Min) then
-              Sol(j) = LimitPar2Min
+            if (Chrom(j) < LimitPar2Min) then
+              Chrom(j) = LimitPar2Min
             end if
             ! ... but not above max allowed
-            if (Sol(j) > LimitPar2Max) then
-              Sol(j) = LimitPar2Max
+            if (Chrom(j) > LimitPar2Max) then
+              Chrom(j) = LimitPar2Max
             end if
             ! ... accumulate and check if we reached nMat
-            nCumMat = nCumMat + nint(Sol(j)) ! internally real, externally integer
+            nCumMat = nCumMat + nint(Chrom(j)) ! internally real, externally integer
             if (nCumMat >= nMat) then
               ! ... there should be exactly nMat contributions
               if (nCumMat > nMat) then
-                Sol(j) = Sol(j) - dble(nCumMat - nMat)
-                if (nint(Sol(j)) < LimitPar2Min) then
-                  TmpR = LimitPar2Weight * (LimitPar2Min - nint(Sol(j)))
-                  Criterion%Value = Criterion%Value + TmpR
+                Chrom(j) = Chrom(j) - dble(nCumMat - nMat)
+                if (nint(Chrom(j)) < LimitPar2Min) then
+                  TmpR = LimitPar2Weight * (LimitPar2Min - nint(Chrom(j)))
+                  This%Criterion = This%Criterion + TmpR
                   if (LimitPar2Weight < 0.0d0) then
-                    Criterion%Penalty = Criterion%Penalty + abs(TmpR)
+                    This%Penalty = This%Penalty + abs(TmpR)
                   end if
                 end if
                 nCumMat = nMat
@@ -1922,40 +2045,40 @@ module AlphaMateMod
           ! ... the other individuals do not contribute
           if (i <= nPotPar2) then ! "="" to capture incremented i+1 on the do loop exit
             ! ... zero (the same for all ind so no order)
-            Sol(nPotPar1+(RankSol(i:nPotPar2))) = 0.0d0
+            Chrom(nPotPar1+(Rank(i:nPotPar2))) = 0.0d0
             ! ... negative (the same for all ind so no order)
-            ! Sol(nPotPar1+(RankSol(i:nPotPar2))) = -1.0d0
+            ! Chrom(nPotPar1+(Rank(i:nPotPar2))) = -1.0d0
             ! ... negative (variable with partially preserving order, i.e., ~large positives become ~large negatives)
             !     Found faster convergence than with properly decreasing negative values?
             !     I guess it adds some more randomness, i.e., it causes suffling of individuals that just did not make it onto the mating list.
-            ! Sol(nPotPar1+(RankSol(i:nPotPar2))) = sign(Sol(nPotPar1+(RankSol(i:nPotPar2))), -1.0d0)
+            ! Chrom(nPotPar1+(Rank(i:nPotPar2))) = sign(Chrom(nPotPar1+(Rank(i:nPotPar2))), -1.0d0)
             ! ... negative and properly decreasing
-            ! TmpR = maxval(Sol(nPotPar1+(RankSol(i:nPotPar2))))
+            ! TmpR = maxval(Chrom(nPotPar1+(Rank(i:nPotPar2))))
             ! if (TmpR > 0.0d0) then
-            !     Sol(nPotPar1+(RankSol(i:nPotPar2))) = Sol(nPotPar1+(RankSol(i:nPotPar2))) - abs(TmpR)
+            !     Chrom(nPotPar1+(Rank(i:nPotPar2))) = Chrom(nPotPar1+(Rank(i:nPotPar2))) - abs(TmpR)
             ! end if
             ! ... negative (random so no order)
             ! do j = i, nPotPar2 ! TODO: really need this loop?
             !   call random_number(RanNum)
-            !   Sol(nPotPar1+RankSol(j)) = -1.0d0 * RanNum
+            !   Chrom(nPotPar1+Rank(j)) = -1.0d0 * RanNum
             ! end do
           end if
           ! ... nMat still not reached?
           do while (nCumMat < nMat)
             ! ... add more contributions
             do i = nPar2, 1, -1 ! to bottom ranked selected individuals (to avoid local optima)
-              j = nPotPar1 + RankSol(i)
-              Sol(j) = Sol(j) + 1.0d0
+              j = nPotPar1 + Rank(i)
+              Chrom(j) = Chrom(j) + 1.0d0
               ! ... accumulate and check if we reached nMat
               nCumMat = nCumMat + 1
               if (nCumMat == nMat) then
                 ! To cater for real vs. integer issues
-                TmpI = sum(nint(Sol(nPotPar1+RankSol(1:nPar2))))
+                TmpI = sum(nint(Chrom(nPotPar1+Rank(1:nPar2))))
                 if (TmpI /= nMat) then
                   if (TmpI > nMat) then
-                    Sol(j) = dble(nint(Sol(j)) - 1)
+                    Chrom(j) = dble(nint(Chrom(j)) - 1)
                   else
-                    Sol(j) = dble(nint(Sol(j)) + 1)
+                    Chrom(j) = dble(nint(Chrom(j)) + 1)
                   end if
                 end if
                 exit
@@ -1971,53 +2094,53 @@ module AlphaMateMod
 
       ! "Parent1"
       ! ... get integer values
-      SolInt(1:nPotPar1) = nint(Sol(1:nPotPar1))
+      ChromInt(1:nPotPar1) = nint(Chrom(1:nPotPar1))
       ! ... remove negatives
       do i = 1, nPotPar1
-        if (SolInt(i) < 0) then
-          SolInt(i) = 0
+        if (ChromInt(i) < 0) then
+          ChromInt(i) = 0
         end if
       end do
       ! ... map internal to external order
-      nVecPar1(:) = SolInt(1:nPotPar1)
+      nVecPar1(:) = ChromInt(1:nPotPar1)
       if (.not.GenderMatters) then
-        Criterion%nVec(:) = nVecPar1(:)
+        This%nVec(:) = nVecPar1(:)
       else
-        Criterion%nVec(IdPotPar1) = nVecPar1(:)
+        This%nVec(IdPotPar1) = nVecPar1(:)
       end if
 
       ! "Parent2"
       if (GenderMatters) then
         nVecPar2(:) = 0
         ! ... get integer values
-        SolInt(1:nPotPar2) = nint(Sol((nPotPar1+1):(nPotPar1+nPotPar2)))
+        ChromInt(1:nPotPar2) = nint(Chrom((nPotPar1+1):(nPotPar1+nPotPar2)))
         ! ... remove negatives
         do i = 1, nPotPar2
-          if (SolInt(i) < 0) then
-            SolInt(i) = 0
+          if (ChromInt(i) < 0) then
+            ChromInt(i) = 0
           end if
         end do
         ! ... map internal to external order
-        nVecPar2(:) = SolInt(1:nPotPar2)
-        Criterion%nVec(IdPotPar2) = nVecPar2(:)
+        nVecPar2(:) = ChromInt(1:nPotPar2)
+        This%nVec(IdPotPar2) = nVecPar2(:)
       end if
 
-      Criterion%xVec(:) = dble(Criterion%nVec(:)) / (dble(2 * nMat))
+      This%xVec(:) = dble(This%nVec(:)) / (dble(2 * nMat))
 
       ! --- PAGE ---
 
       if (PAGE) then
         if (.not.GenderMatters) then
-          RankSol(1:nInd) = MrgRnk(Sol((nPotPar1+nMat+1):(nPotPar1+nMat+nInd)))
-          Criterion%GenomeEdit(RankSol(nInd:(nInd-PAGEPar1Max+1):-1)) = 1.0d0 ! MrgRnk ranks small to large
+          Rank(1:nInd) = MrgRnk(Chrom((nPotPar1+nMat+1):(nPotPar1+nMat+nInd)))
+          This%GenomeEdit(Rank(nInd:(nInd-PAGEPar1Max+1):-1)) = 1.0d0 ! MrgRnk ranks small to large
         else
           if (PAGEPar1) then
-            RankSol(1:nPotPar1) = MrgRnk(Sol((nPotPar1+nPotPar2+nMat+1):(nPotPar1+nPotPar2+nMat+nPotPar1)))
-            Criterion%GenomeEdit(IdPotPar1(RankSol(nPotPar1:(nPotPar1-PAGEPar1Max+1):-1))) = 1.0d0 ! MrgRnk ranks small to large
+            Rank(1:nPotPar1) = MrgRnk(Chrom((nPotPar1+nPotPar2+nMat+1):(nPotPar1+nPotPar2+nMat+nPotPar1)))
+            This%GenomeEdit(IdPotPar1(Rank(nPotPar1:(nPotPar1-PAGEPar1Max+1):-1))) = 1.0d0 ! MrgRnk ranks small to large
           end if
           if (PAGEPar2) then
-            RankSol(1:nPotPar2) = MrgRnk(Sol((nPotPar1+nPotPar2+nMat+nPotPar1+1):(nPotPar1+nPotPar2+nMat+nPotPar1+nPotPar2)))
-            Criterion%GenomeEdit(IdPotPar2(RankSol(nPotPar2:(nPotPar2-PAGEPar2Max+1):-1))) = 1.0d0 ! MrgRnk ranks small to large
+            Rank(1:nPotPar2) = MrgRnk(Chrom((nPotPar1+nPotPar2+nMat+nPotPar1+1):(nPotPar1+nPotPar2+nMat+nPotPar1+nPotPar2)))
+            This%GenomeEdit(IdPotPar2(Rank(nPotPar2:(nPotPar2-PAGEPar2Max+1):-1))) = 1.0d0 ! MrgRnk ranks small to large
           end if
         end if
       end if
@@ -2035,8 +2158,8 @@ module AlphaMateMod
           end do
         end do
         ! Reorder parent2 contributions according to the rank of matings
-        RankSol(1:nMat) = MrgRnk(Sol((nPotPar1+nPotPar2+1):(nPotPar1+nPotPar2+nMat)))
-        MatPar2(:) = MatPar2(RankSol(1:nMat))
+        Rank(1:nMat) = MrgRnk(Chrom((nPotPar1+nPotPar2+1):(nPotPar1+nPotPar2+nMat)))
+        MatPar2(:) = MatPar2(Rank(1:nMat))
       else
         ! Distribute one half of contributions into matings
         k = 0
@@ -2060,8 +2183,8 @@ module AlphaMateMod
           end do
         end do
         ! Reorder one half of contributions according to the rank of matings
-        RankSol(1:nMat) = MrgRnk(Sol((nPotPar1+1):(nPotPar1+nMat)))
-        MatPar2(:) = MatPar2(RankSol(1:nMat))
+        Rank(1:nMat) = MrgRnk(Chrom((nPotPar1+1):(nPotPar1+nMat)))
+        MatPar2(:) = MatPar2(Rank(1:nMat))
       end if
 
       ! Pair the contributions (=Mating plan)
@@ -2073,8 +2196,8 @@ module AlphaMateMod
         do i = 1, nPotPar1
           do j = 1, nVecPar1(i)
             !if (k<2) print*, k, i, j, nVecPar1(i), nMat, sum(nVecPar1(:))
-            Criterion%MatingPlan(1,k) = IdPotPar1(i)
-            Criterion%MatingPlan(2,k) = MatPar2(k)
+            This%MatingPlan(1,k) = IdPotPar1(i)
+            This%MatingPlan(2,k) = MatPar2(k)
             k = k - 1
           end do
         end do
@@ -2083,24 +2206,24 @@ module AlphaMateMod
         ! and when selfing is not allowed we need to avoid it - slower code
         do i = 1, nPotPar1
           do j = 1, nVecPar1(i)
-            Criterion%MatingPlan(1,k) = IdPotPar1(i)
+            This%MatingPlan(1,k) = IdPotPar1(i)
             if (MatPar2(k) == IdPotPar1(i)) then
               ! Try to avoid selfing by swapping the MatPar2 and Rank elements
               do l = k, 1, -1
                 if (MatPar2(l) /= IdPotPar1(i)) then
                   MatPar2([k,l]) = MatPar2([l,k])
-                  Sol(nPotPar1+RankSol([k,l])) = Sol(nPotPar1+RankSol([l,k]))
+                  Chrom(nPotPar1+Rank([k,l])) = Chrom(nPotPar1+Rank([l,k]))
                   exit
                 end if
               end do
               if (l < 1) then ! Above loop ran out without finding a swap
-                Criterion%Value = Criterion%Value + SelfingWeight
+                This%Criterion = This%Criterion + SelfingWeight
                 if (SelfingWeight < 0.0d0) then
-                  Criterion%Penalty = Criterion%Penalty + abs(SelfingWeight)
+                  This%Penalty = This%Penalty + abs(SelfingWeight)
                 end if
               end if
             end if
-            Criterion%MatingPlan(2,k) = MatPar2(k)
+            This%MatingPlan(2,k) = MatPar2(k)
             k = k - 1
           end do
         end do
@@ -2109,14 +2232,14 @@ module AlphaMateMod
       ! --- Genetic gain ---
 
       if (BreedValAvailable) then
-        Criterion%Gain      = dot_product(Criterion%xVec, BreedVal)
-        Criterion%GainStand = dot_product(Criterion%xVec, BreedValStand)
+        This%Gain      = dot_product(This%xVec, BreedVal)
+        This%GainStand = dot_product(This%xVec, BreedValStand)
         if (PAGE) then
-          Criterion%Gain      = Criterion%Gain      + dot_product(Criterion%xVec, BreedValPAGE(:)      * Criterion%GenomeEdit(:))
-          Criterion%GainStand = Criterion%GainStand + dot_product(Criterion%xVec, BreedValPAGEStand(:) * Criterion%GenomeEdit(:))
+          This%Gain      = This%Gain      + dot_product(This%xVec, BreedValPAGE(:)      * This%GenomeEdit(:))
+          This%GainStand = This%GainStand + dot_product(This%xVec, BreedValPAGEStand(:) * This%GenomeEdit(:))
         end if
         if (CritType == "opt") then
-          Criterion%Value = Criterion%Value + Criterion%GainStand
+          This%Criterion = This%Criterion + This%GainStand
         end if
       end if
 
@@ -2124,12 +2247,12 @@ module AlphaMateMod
 
       if (GenericIndValAvailable) then
         do j = 1, nGenericIndVal
-          TmpR = dot_product(Criterion%xVec, GenericIndVal(:,j))
-          Criterion%GenericIndVal(j) = TmpR
-          TmpR = GenericIndValWeight(j) * Criterion%GenericIndVal(j)
-          Criterion%Value = Criterion%Value + TmpR
+          TmpR = dot_product(This%xVec, GenericIndVal(:,j))
+          This%GenericIndVal(j) = TmpR
+          TmpR = GenericIndValWeight(j) * This%GenericIndVal(j)
+          This%Criterion = This%Criterion + TmpR
           if (GenericIndValWeight(j) < 0.0) then
-            Criterion%Penalty = Criterion%Penalty + abs(TmpR)
+            This%Penalty = This%Penalty + abs(TmpR)
           end if
         end do
       end if
@@ -2138,39 +2261,36 @@ module AlphaMateMod
 
       ! xA
       do i = 1, nInd
-        TmpVec(i,1) = dot_product(Criterion%xVec, RelMtx(:,i))
+        TmpVec(i,1) = dot_product(This%xVec, RelMtx(:,i))
       end do
+      ! TODO: consider using matmul instead of repeated dot_product?
+      ! TODO: consider using BLAS/LAPACK - perhaps non-symmetric is more optimised?
+      ! Matrix multiplication with a symmetric matrix using BLAS routine
+      ! (it was ~5x slower than the above with 1.000 individuals, might be benefical with larger cases)
+      ! http://www.netlib.org/lapack/explore-html/d1/d54/group__double__blas__level3.html#ga253c8edb8b21d1b5b1783725c2a6b692
+      ! call dsymm(side="l", uplo="l", m=nInd, n=1, alpha=1.0d0, A=RelMtx, lda=nInd, b=This%xVec, ldb=nInd, beta=0, c=TmpVec, ldc=nInd)
+      ! call dsymm(     "l",      "l",   nInd,   1,       1.0d0,   RelMtx,     nInd,   This%xVec,     nInd,      0,   TmpVec,     nInd)
+
       ! xAx
-      Criterion%PopInb = 0.5d0 * dot_product(TmpVec(:,1), Criterion%xVec)
-      if (Criterion%PopInb < 0.0d0) then
+      This%PopInb = 0.5d0 * dot_product(TmpVec(:,1), This%xVec)
+
+      if (This%PopInb < 0.0d0) then
         write(STDERR, "(a)") "ERROR: Negative inbreeding cases have not been well tested! Stopping."
         write(STDERR, "(a)") "ERROR: Contact the authors."
         write(STDERR, "(a)") " "
         stop 1
       end if
 
-      ! Matrix multiplication with symmetric matrix using BLAS routine
-      ! (it was ~5x slower than the above with 1.000 individuals, might be
-      !  benefical with larger cases so kept in commented.)
-      ! http://www.netlib.org/lapack/explore-html/d1/d54/group__double__blas__level3.html#ga253c8edb8b21d1b5b1783725c2a6b692
-      ! Ax
-      ! call dsymm(side="l", uplo="l", m=nInd, n=1, alpha=1.0d0, A=RelMtx, lda=nInd, b=Criterion%xVec, ldb=nInd, beta=0, c=TmpVec, ldc=nInd)
-      ! call dsymm(     "l",      "l",   nInd,   1,       1.0d0,   RelMtx,     nInd,   Criterion%xVec,     nInd,      0,   TmpVec,     nInd)
-      ! xAx
-      ! PopInb = 0.5d0 * dot_product(Criterion%xVec, TmpVec(:,1))
-      ! print*, Criterion%xVec, TmpVec, PopInb
-      ! stop 1
-
       ! F_t = DeltaF + (1 - DeltaF) * F_t-1
       ! DeltaF = (F_t - F_t-1) / (1 - F_t-1)
-      Criterion%RatePopInb = (Criterion%PopInb - PopInbOld) / (1.0d0 - PopInbOld)
+      This%RatePopInb = (This%PopInb - PopInbOld) / (1.0d0 - PopInbOld)
 
       if      (CritType == "min" .or. CritType == "ran") then
-        Criterion%Value = Criterion%Value - Criterion%PopInb
+        This%Criterion = This%Criterion - This%PopInb
       else if (CritType == "opt") then
         ! We know the targeted inbreeding so we can work with relative values,
         ! which makes the PopInbWeight generic for ~any scenario.
-        TmpR = Criterion%RatePopInb / RatePopInbTarget
+        TmpR = This%RatePopInb / RatePopInbTarget
         if (TmpR > 1.0d0) then
           TmpR = PopInbWeight * abs(1.0d0 - TmpR)
         else
@@ -2180,9 +2300,9 @@ module AlphaMateMod
             TmpR = 0.0d0
           end if
         end if
-        Criterion%Value = Criterion%Value + TmpR
+        This%Criterion = This%Criterion + TmpR
         if (PopInbWeight < 0.0d0) then
-          Criterion%Penalty = Criterion%Penalty + abs(TmpR)
+          This%Penalty = This%Penalty + abs(TmpR)
         end if
       else
         write(STDERR, "(a)") "ERROR: Wrong CritType!!!"
@@ -2195,15 +2315,15 @@ module AlphaMateMod
       TmpR = 0.0d0
       do j = 1, nMat
         ! Lower triangle
-        TmpMax = maxval(Criterion%MatingPlan(:,j))
-        TmpMin = minval(Criterion%MatingPlan(:,j))
+        TmpMax = maxval(This%MatingPlan(:,j))
+        TmpMin = minval(This%MatingPlan(:,j))
         TmpR = TmpR + 0.5d0 * RelMtx(TmpMax, TmpMin)
       end do
-      Criterion%PrgInb = TmpR / dble(nMat)
-      TmpR = PrgInbWeight * Criterion%PrgInb
-      Criterion%Value = Criterion%Value + TmpR
+      This%PrgInb = TmpR / dble(nMat)
+      TmpR = PrgInbWeight * This%PrgInb
+      This%Criterion = This%Criterion + TmpR
       if (PrgInbWeight < 0.0d0) then
-        Criterion%Penalty = Criterion%Penalty + abs(TmpR)
+        This%Penalty = This%Penalty + abs(TmpR)
       end if
 
       ! --- Generic mating values ---
@@ -2213,29 +2333,52 @@ module AlphaMateMod
           TmpR = 0.0d0
           if (GenderMatters) then
             do j = 1, nMat
-              TmpR = TmpR + GenericMatVal(IdPotParSeq(Criterion%MatingPlan(1,j)), &
-                                          IdPotParSeq(Criterion%MatingPlan(2,j)), k)
+              TmpR = TmpR + GenericMatVal(IdPotParSeq(This%MatingPlan(1,j)), &
+                                          IdPotParSeq(This%MatingPlan(2,j)), k)
             end do
           else
             do j = 1, nMat
-              TmpMax = maxval(Criterion%MatingPlan(:,j))
-              TmpMin = minval(Criterion%MatingPlan(:,j))
+              TmpMax = maxval(This%MatingPlan(:,j))
+              TmpMin = minval(This%MatingPlan(:,j))
               TmpR = TmpR + GenericMatVal(TmpMax, TmpMin, k)
             end do
           end if
-          Criterion%GenericMatVal(k) = TmpR / dble(nMat)
-          TmpR = GenericMatValWeight(k) * Criterion%GenericMatVal(k)
-          Criterion%Value = Criterion%Value + TmpR
+          This%GenericMatVal(k) = TmpR / dble(nMat)
+          TmpR = GenericMatValWeight(k) * This%GenericMatVal(k)
+          This%Criterion = This%Criterion + TmpR
           if (GenericMatValWeight(k) < 0.0) then
-            Criterion%Penalty = Criterion%Penalty + abs(TmpR)
+            This%Penalty = This%Penalty + abs(TmpR)
           end if
         end do
       end if
 
       ! TODO: how should we handle costs?
+    end subroutine
 
-      return
-    end function
+    !###########################################################################
+
+    subroutine LogHeadAlphaMateSol(LogUnit)
+      implicit none
+      integer(int32), intent(in), optional :: LogUnit
+      write(STDOUT, FMTLOGSTDOUTHEAD)   COLNAMELOGSTDOUT(:)
+      if (present(LogUnit)) then
+        write(LogUnit,  FMTLOGUNITHEAD) COLNAMELOGUNIT(:)
+      end if
+    end subroutine
+
+    !###########################################################################
+
+    subroutine LogAlphaMateSol(This, LogUnit, Gen, AcceptRate)
+      implicit none
+      class(AlphaMateSol), intent(in)      :: This
+      integer(int32), intent(in), optional :: LogUnit
+      integer(int32), intent(in)           :: Gen
+      real(real64), intent(in)             :: AcceptRate
+      write(STDOUT,  FMTLOGSTDOUT)   Gen, AcceptRate, This%Criterion, This%Penalty, This%Gain, This%GainStand, This%PopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal, This%GenericMatVal
+      if (present(LogUnit)) then
+        write(LogUnit, FMTLOGUNIT)   Gen, AcceptRate, This%Criterion, This%Penalty, This%Gain, This%GainStand, This%PopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal, This%GenericMatVal
+      end if
+    end subroutine
 
     !###########################################################################
 end module
