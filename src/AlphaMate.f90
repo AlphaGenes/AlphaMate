@@ -58,24 +58,6 @@ module AlphaMateMod
       procedure         :: CalcCriterion => FixSolEtcMateAndCalcCrit
       procedure, nopass :: LogHead       => LogHeadAlphaMateSol
       procedure         :: Log           => LogAlphaMateSol
-
-      ! procedure         :: InitialiseAlphaMateSol
-      ! generic, public   :: Initialise    => InitialiseAlphaMateSol
-
-      ! procedure         :: AssignAlphaMateSol
-      ! generic, public   :: Assignment(=) => AssignAlphaMateSol
-
-      ! procedure         :: UpdateMeanAlphaMateSol
-      ! generic, public   :: UpdateMean    => UpdateMeanAlphaMateSol
-
-      ! procedure         :: FixSolEtcMateAndCalcCrit
-      ! generic, public   :: CalcCriterion => FixSolEtcMateAndCalcCrit
-
-      ! procedure, nopass :: LogHeadAlphaMateSol
-      ! generic, public   :: LogHead       => LogHeadAlphaMateSol
-
-      ! procedure         :: LogAlphaMateSol
-      ! generic, public   :: Log           => LogAlphaMateSol
   end type
 
   integer(int32) :: nInd, nMat, nPotMat, nPar, nPotPar1, nPotPar2, nMal, nFem, nPar1, nPar2, nFrontierSteps
@@ -2374,9 +2356,33 @@ module AlphaMateMod
       integer(int32), intent(in), optional :: LogUnit
       integer(int32), intent(in)           :: Gen
       real(real64), intent(in)             :: AcceptRate
-      write(STDOUT,  FMTLOGSTDOUT)   Gen, AcceptRate, This%Criterion, This%Penalty, This%Gain, This%GainStand, This%PopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal, This%GenericMatVal
+      if (GenericIndValAvailable) then
+        if (GenericMatValAvailable) then
+          write(STDOUT,  FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%Gain, This%GainStand, This%PopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal, This%GenericMatVal
+        else
+          write(STDOUT,  FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%Gain, This%GainStand, This%PopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal
+        end if
+      else
+        if (GenericMatValAvailable) then
+          write(STDOUT,  FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%Gain, This%GainStand, This%PopInb, This%RatePopInb, This%PrgInb,                     This%GenericMatVal
+        else
+          write(STDOUT,  FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%Gain, This%GainStand, This%PopInb, This%RatePopInb, This%PrgInb
+        end if
+      end if
       if (present(LogUnit)) then
-        write(LogUnit, FMTLOGUNIT)   Gen, AcceptRate, This%Criterion, This%Penalty, This%Gain, This%GainStand, This%PopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal, This%GenericMatVal
+        if (GenericIndValAvailable) then
+          if (GenericMatValAvailable) then
+            write(LogUnit,  FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%Gain, This%GainStand, This%PopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal, This%GenericMatVal
+          else
+            write(LogUnit,  FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%Gain, This%GainStand, This%PopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal
+          end if
+        else
+          if (GenericMatValAvailable) then
+            write(LogUnit,  FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%Gain, This%GainStand, This%PopInb, This%RatePopInb, This%PrgInb,                     This%GenericMatVal
+          else
+            write(LogUnit,  FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%Gain, This%GainStand, This%PopInb, This%RatePopInb, This%PrgInb
+          end if
+        end if
       end if
     end subroutine
 
