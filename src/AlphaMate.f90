@@ -76,7 +76,7 @@ module AlphaMateMod
   real(real64), allocatable :: RelMtx(:,:), GenericIndVal(:,:), GenericMatVal(:,:,:)
 
   logical :: ModeMin, ModeRan, ModeOpt, BreedValAvailable, GenderMatters, EqualizePar1, EqualizePar2
-  logical :: SelfingAllowed, PopInbWeightBellow, InferPopInbOld, EvaluateFrontier
+  logical :: SelfingAllowed, PopInbWeightBellow, EvaluateFrontier
   logical :: PAGE, PAGEPar1, PAGEPar2, GenericIndValAvailable, GenericMatValAvailable
 
   character(len=100), allocatable :: IdC(:)
@@ -108,8 +108,7 @@ module AlphaMateMod
   CHARACTER(len=100), PARAMETER  :: FMTFRO = "(a12, 7(1x, es21.14))"
 
   private
-  public :: AlphaMateTitles, ReadSpecAndDataForAlphaMate, ConstructColNamesAndFormats
-  public :: SetInbreedingParameters, AlphaMateSearch
+  public :: AlphaMateTitles, ReadSpecAndDataForAlphaMate, SetupColNamesAndFormats, AlphaMateSearch
 
   contains
 
@@ -119,31 +118,31 @@ module AlphaMateMod
     !
     ! The total inbreeding that we see today is:
     !
-    ! F_total = F_recent + (1 - F_recent) * F_ancient,
+    ! F_total = F_new + (1 - F_new) * F_old,
     !
-    ! where F_recent is recent/new inbreeding after the previous time point
-    !       F_ancient is ancient/old inbreeding before to the previous time point
+    ! where F_new is new/recent  inbreeding built up after  some time point
+    !       F_old is old/ancient inbreeding built up before some time point
     !
     ! Equivalent formulas with some other notation are:
     !
     ! F_T = F_IS + (1 - F_IS) * F_ST
     !
-    ! where F_T is (total) inbreeding relative to ancient/old base
-    !       F_IS is (individual-to-subtotal=recent/new) inbreeding relative to recent base
-    !       F-ST is (subtotal-to-total=ancient/old) inbreeding at recent base relative to ancient/old base
+    ! where F_T is (total) inbreeding relative to old/ancient base time point
+    !       F_IS is (individual-to-subtotal=new/recent) inbreeding relative to recent base time point
+    !       F-ST is (subtotal-to-total=old/ancient)     inbreeding at recent base time point relative to old/ancient base time point
     !
     ! F_t = DeltaF + (1 - DeltaF) * F_t-1
     !     = DeltaF * (1 - F_t-1)  + F_t-1
     !
     ! where F_t is (total) inbreeding in generation t
-    !       DeltaF is recent/new inbreeding after generation t-1 (=rate of inbreeding)
-    !       F-t-1 is ancient/old inbreeding before generation t
+    !       DeltaF is new/recent inbreeding built up between the generations t and t-1 (=rate of inbreeding)
+    !       F-t-1 is old/ancient inbreeding built up before generation t
     !
     ! Clearly:
     !
     ! F_total   = F_T  = F_t
-    ! F_recent  = F_IS = DeltaF
-    ! F_ancient = F_ST = F_t-1
+    ! F_new     = F_IS = DeltaF
+    ! F_old     = F_ST = F_t-1
 
     !###########################################################################
 
@@ -169,7 +168,7 @@ module AlphaMateMod
       implicit none
 
       integer(int32) :: i, j, k, l, m, DumI, jMal, jFem, nIndTmp, GenderTmp, Seed
-      integer(int32) :: SpecUnit, RelMtxUnit, BreedValUnit, GenderUnit
+      integer(int32) :: SpecUnit, RelMtxUnit, BreedValUnit, GenderUnit, InbreedUnit
       integer(int32) :: GenericIndValUnit, GenericMatValUnit
       integer(int32), allocatable :: Order(:)
 
@@ -204,16 +203,19 @@ module AlphaMateMod
       ModeOpt = .false.
 
       read(SpecUnit, *) DumC, DumC
-      if      (index(ToLower(trim(DumC)), "min") > 0) then
+      if (index(ToLower(trim(DumC)), "min") > 0) then
         ModeMin = .true.
         write(STDOUT, "(a)") "Mode: Min"
-      else if (index(ToLower(trim(DumC)), "ran") > 0) then
+      end if
+      if (index(ToLower(trim(DumC)), "ran") > 0) then
         ModeRan = .true.
         write(STDOUT, "(a)") "Mode: Ran"
-      else if (index(ToLower(trim(DumC)), "opt") > 0) then
+      end if
+      if (index(ToLower(trim(DumC)), "opt") > 0) then
         ModeOpt = .true.
         write(STDOUT, "(a)") "Mode: Opt"
-      else
+      end if
+      if (.not.ModeMin .and. .not.ModeRan .and. .not.ModeOpt) then
         write(STDERR, "(a)") "ERROR: Mode must be: Min, Ran, Opt, or a combination of the three, e.g., MinOpt, RanOpt, ...!"
         write(STDERR, "(a)") " "
         stop 1
@@ -584,19 +586,6 @@ module AlphaMateMod
         PAGE = .false.
       end if
 
-      ! --- OldCoancestry ---
-
-      read(SpecUnit, *) DumC, DumC
-      if (ToLower(trim(DumC)) == "unknown") then
-        InferPopInbOld = .true.
-        write(STDOUT, "(a)") "OldCoancestry: unknown"
-      else
-        InferPopInbOld = .false.
-        backspace(SpecUnit)
-        read(SpecUnit, *) DumC, PopInbOld
-        write(STDOUT, "(a)") "OldCoancestry: "//trim(Real2Char(PopInbOld, fmt=FMTREAL2CHAR))
-      end if
-
       ! --- TargetedRateOfPopulationInbreeding ---
 
       read(SpecUnit, *) DumC, RatePopInbTarget, PopInbWeight, DumC
@@ -725,6 +714,11 @@ module AlphaMateMod
       close(RelMtxUnit)
 
       MtxDescStat = CalcDescStatSymMatrix(RelMtx)
+      write(STDOUT, "(a)") "  - all-relationships"
+      write(STDOUT, "(a)") "    - average: "//trim(Real2Char(MtxDescStat%All%Mean, fmt=FMTREAL2CHAR))
+      write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(MtxDescStat%All%SD,   fmt=FMTREAL2CHAR))
+      write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(MtxDescStat%All%Min,  fmt=FMTREAL2CHAR))
+      write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(MtxDescStat%All%Max,  fmt=FMTREAL2CHAR))
       write(STDOUT, "(a)") "  - self-relationships (diagonal)"
       write(STDOUT, "(a)") "    - average: "//trim(Real2Char(MtxDescStat%Diag%Mean, fmt=FMTREAL2CHAR))
       write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(MtxDescStat%Diag%SD,   fmt=FMTREAL2CHAR))
@@ -736,6 +730,27 @@ module AlphaMateMod
       write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(MtxDescStat%OffDiag%Min,  fmt=FMTREAL2CHAR))
       write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(MtxDescStat%OffDiag%Max,  fmt=FMTREAL2CHAR))
       write(STDOUT, "(a)") " "
+
+      ! --- Group coancestry (=current population inbreeding) ---
+
+      PopInbOld = MtxDescStat%All%Mean / 2.0d0
+
+      ! Targeted future population inbreeding
+      ! F_t = DeltaF + (1 - DeltaF) * F_t-1
+      PopInbTarget = RatePopInbTarget + (1.0d0 - RatePopInbTarget) * PopInbOld
+
+      ! Report
+      write(STDOUT, "(a)") "Coancestry/Inbreeding"
+      write(STDOUT, "(a)") "  - current group coancestry/inbreeding:    "//trim(Real2Char(PopInbOld,        fmt=FMTREAL2CHAR))
+      write(STDOUT, "(a)") "  - targeted rate of population inbreeding: "//trim(Real2Char(RatePopInbTarget, fmt=FMTREAL2CHAR))
+      write(STDOUT, "(a)") "  - targeted future population inbreeding:  "//trim(Real2Char(PopInbTarget,     fmt=FMTREAL2CHAR))
+      write(STDOUT, "(a)") " "
+
+      open(newunit=InbreedUnit, file="AlphaMateResults"//DASH//"ConstraintPopulationInbreeding.txt", status="unknown")
+      write(InbreedUnit, "(a, f)") "Old_coancestry, ", PopInbOld
+      write(InbreedUnit, "(a, f)") "Targeted_rate_of_population_inbreeding, ", RatePopInbTarget
+      write(InbreedUnit, "(a, f)") "Targeted_future_population_inbreeding, ", PopInbTarget
+      close(InbreedUnit)
 
       ! --- Shuffle the data ---
 
@@ -1075,534 +1090,7 @@ module AlphaMateMod
 
     !###########################################################################
 
-    subroutine SetInbreedingParameters
-
-      implicit none
-
-      integer(int32) :: i, UnitInbree
-
-      real(real64) :: Tmp
-
-      ! Old inbreeding
-      if (InferPopInbOld) then
-        PopInbOld = 0.0d0
-        do i = 1, nInd
-          Tmp = RelMtx(i,i) - 1.0d0
-          if (Tmp < 0.0d0) then
-            write(STDERR, "(a)") "ERROR: Relationship matrix must have diagonals equal or more than 1.0!"
-            write(STDERR, "(a)") " "
-            stop 1
-          end if
-          PopInbOld = PopInbOld + Tmp
-        end do
-        PopInbOld = PopInbOld / dble(nInd)
-      end if
-
-      ! Targeted future population inbreeding
-      ! F_t = DeltaF + (1 - DeltaF) * F_t-1
-      PopInbTarget = RatePopInbTarget + (1.0d0 - RatePopInbTarget) * PopInbOld
-
-      ! Report
-      write(STDOUT, "(a)") "Coancestry/Inbreeding"
-      write(STDOUT, "(a)") "  - old coancestry:                         "//trim(Real2Char(PopInbOld,        fmt=FMTREAL2CHAR))
-      write(STDOUT, "(a)") "  - targeted rate of population inbreeding: "//trim(Real2Char(RatePopInbTarget, fmt=FMTREAL2CHAR))
-      write(STDOUT, "(a)") "  - targeted future population inbreeding:  "//trim(Real2Char(PopInbTarget,     fmt=FMTREAL2CHAR))
-      write(STDOUT, "(a)") " "
-
-      open(newunit=UnitInbree, file="AlphaMateResults"//DASH//"ConstraintPopulationInbreeding.txt", status="unknown")
-      write(UnitInbree, "(a, f)") "Old_coancestry_defined, ", PopInbOld
-      write(UnitInbree, "(a, f)") "Targeted_rate_of_population_inbreeding_defined, ", RatePopInbTarget
-      write(UnitInbree, "(a, f)") "Targeted_future_population_inbreeding_defined, ", PopInbTarget
-      close(UnitInbree)
-    end subroutine
-
-    !###########################################################################
-
-    subroutine AlphaMateSearch
-
-      implicit none
-
-      integer(int32) :: nParam, i, j, k, nTmp, DumI, Rank(nInd)
-      integer(int32) :: UnitInbree, UnitMating, UnitContri, UnitLog, UnitLog2, UnitFrontier
-
-      real(real64) :: PopInbTargetHold, RatePopInbTargetHold, DumR(8+nGenericIndVal+nGenericMatVal)
-      real(real64), allocatable :: InitEqual(:,:)
-
-      character(len=1000) :: LogFile, LogFile2
-      character(len=100) :: DumC
-
-      logical :: PAGEHolder, Success
-
-      type(AlphaMateSol) :: SolMin, SolRan, SolOpt, Sol
-
-      ! --- Number of parameters to optimise (baseline) ---
-
-      if (GenderMatters) then
-        nParam = nPotPar1 + nPotPar2 + nMat
-      else
-        nParam = nPotPar1 + nMat
-      end if
-
-      ! --- Optimise for minimum inbreeding ---
-
-      if (ModeMin) then
-        write(STDOUT, "(a)") "--- Optimise for minimum inbreeding --- "
-        write(STDOUT, "(a)") " "
-
-        LogFile = "AlphaMateResults"//DASH//"OptimisationLogMinimumInbreeding.txt"
-        LogFile2 = "AlphaMateResults"//DASH//"OptimisationLogMinimumInbreedingInitial.txt"
-
-        allocate(InitEqual(nParam, nint(real(EvolAlgNSol * 0.1))))
-        InitEqual(:,:) = 1.0d0 ! A couple of solutions that would give equal contributions for everybody
-
-        if (PAGE) then
-          PAGEHolder = .true.
-          PAGE = .false.
-        end if
-
-        call DifferentialEvolution(nParam=nParam, nSol=EvolAlgNSol, Init=InitEqual, nGen=EvolAlgNGen, nGenBurnIn=EvolAlgNGenBurnIn, &
-           nGenStop=EvolAlgNGenStop, StopTolerance=EvolAlgStopTol, nGenPrint=EvolAlgNGenPrint, File=LogFile, CritType="min", &
-           CRBurnIn=EvolAlgCRBurnIn, CRLate=EvolAlgCRLate, FBase=EvolAlgFBase, FHigh1=EvolAlgFHigh1, FHigh2=EvolAlgFHigh2, &
-           BestSol=SolMin)
-
-        if (PAGEHolder) then
-          PAGE = .true.
-        end if
-
-        deallocate(InitEqual)
-
-        ! TODO: are not these printouts the same everywhere?
-        open(newunit=UnitContri, file="AlphaMateResults"//DASH//"IndividualResultsMinimumInbreeding.txt", status="unknown")
-        Rank = MrgRnk(SolMin%nVec + BreedValStand / 100.0d0)
-        !                                1234567890123456789012
-        if (.not.PAGE) then
-          write(UnitContri, FMTINDHEAD) "          Id", &
-                                        "      Gender", &
-                                        "       Merit", &
-                                        " AvgCoancest", &
-                                        "  Contribute", &
-                                        "    nMatings"
-          do i = nInd, 1, -1 ! MrgRnk ranks small to large
-            j = Rank(i)
-            write(UnitContri, FMTIND) IdC(j), Gender(j), BreedVal(j), &
-                                      0.5d0 * sum(RelMtx(:,j)) / dble(nInd), &
-                                      SolMin%xVec(j), SolMin%nVec(j)
-          end do
-        else
-          !                                  1234567890123456789012
-          write(UnitContri, FMTINDHEADEDIT) "          Id", &
-                                            "      Gender", &
-                                            "       Merit", &
-                                            " AvgCoancest", &
-                                            "  Contribute", &
-                                            "    nMatings", &
-                                            "  GenomeEdit", &
-                                            " EditedMerit"
-          do i = nInd, 1, -1 ! MrgRnk ranks small to large
-            j = Rank(i)
-            write(UnitContri, FMTINDEDIT) IdC(j), Gender(j), BreedVal(j), &
-                                          0.5d0 * sum(RelMtx(:,j)) / dble(nInd), &
-                                          SolMin%xVec(j), SolMin%nVec(j), &
-                                          0, BreedVal(j)
-          end do
-        end if
-        close(UnitContri)
-
-        open(newunit=UnitMating, file="AlphaMateResults"//DASH//"MatingResultsMinimumInbreeding.txt", status="unknown")
-        !                              1234567890123456789012
-        write(UnitMating, FMTMATHEAD) "      Mating", &
-                                      "     Parent1", &
-                                      "     Parent2"
-        do i = 1, nMat
-          write(UnitMating, FMTMAT) i, IdC(SolMin%MatingPlan(1,i)), IdC(SolMin%MatingPlan(2,i))
-        end do
-        close(UnitMating)
-
-        if (PopInbOld > SolMin%PopInb) then
-
-          ! TODO: this is only really needed when Opt is run too!!!!!
-          write(STDOUT, "(a)") "NOTE: Old coancestry is higher than the minimum group coancestry (x'Ax/2) under no selection."
-          write(STDOUT, "(a)") "NOTE: Resetting the old coancestry to the minimum group coancestry under no selection and"
-          write(STDOUT, "(a)") "NOTE:   recomputing the log values and the targeted future population inbreeding."
-          write(STDOUT, "(a)") " "
-          PopInbOld = SolMin%PopInb
-          ! F_t = DeltaF + (1 - DeltaF) * F_t-1
-          PopInbTarget = RatePopInbTarget + (1.0d0 - RatePopInbTarget) * PopInbOld
-          SolMin%RatePopInb = 0.0d0
-
-          Success = SystemQQ(COPY//" "//trim(LogFile)//" "//trim(LogFile2))
-          if (.not.Success) then
-            write(STDERR, "(a)") "ERROR: Failed to make a backup of the "//trim(LogFile)//" file in the output folder!"
-            write(STDERR, "(a)") " "
-            stop 1
-          end if
-
-          open(newunit=UnitLog, file=trim(LogFile), status="unknown")
-          open(newunit=UnitLog2, file=trim(LogFile2), status="unknown")
-          nTmp = CountLines(LogFile2)
-          read(UnitLog2, *) DumC
-          call SolMin%LogHead(UnitLog)
-          do i = 2, nTmp
-            read(UnitLog2, *) DumI, DumR(:)
-            ! F_t = DeltaF + (1 - DeltaF) * F_t-1
-            ! DeltaF = (F_t - F_t-1) / (1 - F_t-1)
-            DumR(7) = (DumR(6) - PopInbOld) / (1.0d0 - PopInbOld)
-            write(STDOUT,  FMTLOGSTDOUT) DumI, DumR(:)
-            write(UnitLog, FMTLOGUNIT)   DumI, DumR(:)
-          end do
-          write(STDOUT, "(a)") " "
-          close(UnitLog)
-          close(UnitLog2)
-
-          write(STDOUT, "(a)") "Coancestry/Inbreeding (redefined)"
-          write(STDOUT, "(a)") "  - old coancestry:                         "//trim(Real2Char(PopInbOld,        fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") "  - targeted rate of population inbreeding: "//trim(Real2Char(RatePopInbTarget, fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") "  - targeted future population inbreeding:  "//trim(Real2Char(PopInbTarget,     fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") " "
-
-        end if
-
-        ! TODO: can we still do something here?
-        if (PopInbTarget < SolMin%PopInb) then
-          write(STDERR, "(a)") "ERROR: Targeted future population inbreeding is lower than the group coancestry (x'Ax/2) under no selection."
-          write(STDERR, "(a)") "ERROR: Can not optimise! Contact the authors."
-          write(STDERR, "(a)") " "
-          stop 1
-        end if
-
-        open(newunit=UnitInbree, file="AlphaMateResults"//DASH//"ConstraintPopulationInbreeding.txt", status="old")
-        write(UnitInbree, "(a, f)") "Old_coancestry_redefined, ", PopInbOld
-        write(UnitInbree, "(a, f)") "Targeted_rate_of_population_inbreeding_redefined, ", RatePopInbTarget
-        write(UnitInbree, "(a, f)") "Targeted_future_population_inbreeding_redefined, ", PopInbTarget
-        close(UnitInbree)
-      end if
-
-      ! --- Optimise for baseline inbreeding under random mating ---
-
-      if (ModeRan) then
-        write(STDOUT, "(a)") "--- Optimise for baseline inbreeding under random mating --- "
-        write(STDOUT, "(a)") " "
-
-        LogFile = "AlphaMateResults"//DASH//"OptimisationLogBaselineInbreeding.txt"
-        LogFile2 = "AlphaMateResults"//DASH//"OptimisationLogBaselineInbreedingInitial.txt"
-
-        allocate(InitEqual(nParam, nint(real(EvolAlgNSol * 0.1))))
-        InitEqual(:,:) = 1.0d0 ! A couple of solutions that would give equal contributions for everybody
-
-        if (PAGE) then
-          PAGEHolder = .true.
-          PAGE = .false.
-        end if
-
-        call RandomSearch(Mode="avg", nParam=nParam, Init=InitEqual, nSamp=EvolAlgNSol*EvolAlgNGen*RanAlgStricter, nSampStop=EvolAlgNGenStop*RanAlgStricter, &
-          StopTolerance=EvolAlgStopTol/real(RanAlgStricter), nSampPrint=EvolAlgNGenPrint, File=LogFile, CritType="ran", BestSol=SolRan)
-
-        if (PAGEHolder) then
-          PAGE = .true.
-        end if
-
-        deallocate(InitEqual)
-
-        ! TODO: are not these printouts the same everywhere?
-        open(newunit=UnitContri, file="AlphaMateResults"//DASH//"IndividualResultsBaselineInbreeding.txt", status="unknown")
-        Rank = MrgRnk(SolRan%nVec + BreedValStand / 100.0d0)
-        !                                1234567890123456789012
-        if (.not.PAGE) then
-          write(UnitContri, FMTINDHEAD) "          Id", &
-                                        "      Gender", &
-                                        "       Merit", &
-                                        " AvgCoancest", &
-                                        "  Contribute", &
-                                        "    nMatings"
-          do i = nInd, 1, -1 ! MrgRnk ranks small to large
-            j = Rank(i)
-            write(UnitContri, FMTIND) IdC(j), Gender(j), BreedVal(j), &
-                                      0.5d0 * sum(RelMtx(:,j)) / dble(nInd), &
-                                      SolRan%xVec(j), SolRan%nVec(j)
-          end do
-        else
-          !                                  1234567890123456789012
-          write(UnitContri, FMTINDHEADEDIT) "          Id", &
-                                            "      Gender", &
-                                            "       Merit", &
-                                            " AvgCoancest", &
-                                            "  Contribute", &
-                                            "    nMatings", &
-                                            "  GenomeEdit", &
-                                            " EditedMerit"
-          do i = nInd, 1, -1 ! MrgRnk ranks small to large
-            j = Rank(i)
-            write(UnitContri, FMTINDEDIT) IdC(j), Gender(j), BreedVal(j), &
-                                          0.5d0 * sum(RelMtx(:,j)) / dble(nInd), &
-                                          SolRan%xVec(j), SolRan%nVec(j), &
-                                          0, BreedVal(j)
-          end do
-        end if
-        close(UnitContri)
-
-        open(newunit=UnitMating, file="AlphaMateResults"//DASH//"MatingResultsBaselineInbreeding.txt", status="unknown")
-        !                              1234567890123456789012
-        write(UnitMating, FMTMATHEAD) "      Mating", &
-                                      "     Parent1", &
-                                      "     Parent2"
-        do i = 1, nMat
-          write(UnitMating, FMTMAT) i, IdC(SolRan%MatingPlan(1,i)), IdC(SolRan%MatingPlan(2,i))
-        end do
-        close(UnitMating)
-
-        if (PopInbOld > SolRan%PopInb) then
-
-          ! TODO: this is only really needed when Opt is run too!!!!!
-          write(STDOUT, "(a)") "NOTE: Old coancestry is higher than the minimum group coancestry (x'Ax/2) under no selection."
-          write(STDOUT, "(a)") "NOTE: Resetting the old coancestry to the minimum group coancestry under no selection and"
-          write(STDOUT, "(a)") "NOTE:   recomputing the log values and the targeted future population inbreeding."
-          write(STDOUT, "(a)") " "
-          PopInbOld = SolRan%PopInb
-          ! F_t = DeltaF + (1 - DeltaF) * F_t-1
-          PopInbTarget = RatePopInbTarget + (1.0d0 - RatePopInbTarget) * PopInbOld
-          SolRan%RatePopInb = 0.0d0
-
-          Success = SystemQQ(COPY//" "//trim(LogFile)//" "//trim(LogFile2))
-          if (.not.Success) then
-            write(STDERR, "(a)") "ERROR: Failed to make a backup of the "//trim(LogFile)//" file in the output folder!"
-            write(STDERR, "(a)") " "
-            stop 1
-          end if
-
-          open(newunit=UnitLog, file=trim(LogFile), status="unknown")
-          open(newunit=UnitLog2, file=trim(LogFile2), status="unknown")
-          nTmp = CountLines(LogFile2)
-          read(UnitLog2, *) DumC
-          call SolRan%LogHead(UnitLog)
-          do i = 2, nTmp
-            read(UnitLog2, *) DumI, DumR(:)
-            ! F_t = DeltaF + (1 - DeltaF) * F_t-1
-            ! DeltaF = (F_t - F_t-1) / (1 - F_t-1)
-            DumR(7) = (DumR(6) - PopInbOld) / (1.0d0 - PopInbOld)
-            write(STDOUT,  FMTLOGSTDOUT) DumI, DumR(:)
-            write(UnitLog, FMTLOGUNIT)   DumI, DumR(:)
-          end do
-          write(STDOUT, "(a)") " "
-          close(UnitLog)
-          close(UnitLog2)
-
-          write(STDOUT, "(a)") "Coancestry/Inbreeding (redefined)"
-          write(STDOUT, "(a)") "  - old coancestry:                         "//trim(Real2Char(PopInbOld,        fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") "  - targeted rate of population inbreeding: "//trim(Real2Char(RatePopInbTarget, fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") "  - targeted future population inbreeding:  "//trim(Real2Char(PopInbTarget,     fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") " "
-
-        end if
-
-        ! TODO: can we still do something here?
-        if (PopInbTarget < SolRan%PopInb) then
-          write(STDERR, "(a)") "ERROR: Targeted future population inbreeding is lower than the group coancestry (x'Ax/2) under no selection."
-          write(STDERR, "(a)") "ERROR: Can not optimise! Contact the authors."
-          write(STDERR, "(a)") " "
-          stop 1
-        end if
-
-        open(newunit=UnitInbree, file="AlphaMateResults"//DASH//"ConstraintPopulationInbreeding.txt", status="old")
-        write(UnitInbree, "(a, f)") "Old_coancestry_redefined, ", PopInbOld
-        write(UnitInbree, "(a, f)") "Targeted_rate_of_population_inbreeding_redefined, ", RatePopInbTarget
-        write(UnitInbree, "(a, f)") "Targeted_future_population_inbreeding_redefined, ", PopInbTarget
-        close(UnitInbree)
-      end if
-
-      ! --- Optimise for maximum gain with constraint on inbreeding ---
-
-      if (ModeOpt) then
-        write(STDOUT, "(a)") "--- Optimise for maximum gain with constraint on inbreeding ---"
-        write(STDOUT, "(a)") " "
-
-        LogFile = "AlphaMateResults"//DASH//"OptimisationLogOptimumGain.txt"
-
-        if (PAGE) then
-          nParam = nParam + nInd
-        end if
-
-        call DifferentialEvolution(nParam=nParam, nSol=EvolAlgNSol, nGen=EvolAlgNGen, nGenBurnIn=EvolAlgNGenBurnIn, &
-          nGenStop=EvolAlgNGenStop, StopTolerance=EvolAlgStopTol, nGenPrint=EvolAlgNGenPrint, File=LogFile, CritType="opt", &
-          CRBurnIn=EvolAlgCRBurnIn, CRLate=EvolAlgCRLate, FBase=EvolAlgFBase, FHigh1=EvolAlgFHigh1, FHigh2=EvolAlgFHigh2, &
-          BestSol=SolOpt)
-
-        ! TODO: should we have constant output no matter which options are switched on?
-        open(newunit=UnitContri, file="AlphaMateResults"//DASH//"IndividualResultsOptimumGain.txt", status="unknown")
-        Rank = MrgRnk(SolOpt%nVec + BreedValStand / 100.0d0)
-        !                                1234567890123456789012
-        if (.not.PAGE) then
-          write(UnitContri, FMTINDHEAD) "          Id", &
-                                        "      Gender", &
-                                        "       Merit", &
-                                        " AvgCoancest", &
-                                        "  Contribute", &
-                                        "    nMatings"
-          do i = nInd, 1, -1 ! MrgRnk ranks small to large
-            j = Rank(i)
-            write(UnitContri, FMTIND) IdC(j), Gender(j), BreedVal(j), &
-                                      0.5d0 * sum(RelMtx(:,j)) / dble(nInd), &
-                                      SolOpt%xVec(j), SolOpt%nVec(j)
-          end do
-        else
-          !                                  1234567890123456789012
-          write(UnitContri, FMTINDHEADEDIT) "          Id", &
-                                            "      Gender", &
-                                            "       Merit", &
-                                            " AvgCoancest", &
-                                            "  Contribute", &
-                                            "    nMatings", &
-                                            "  GenomeEdit", &
-                                            " EditedMerit"
-          do i = nInd, 1, -1 ! MrgRnk ranks small to large
-            j = Rank(i)
-            write(UnitContri, FMTINDEDIT) IdC(j), Gender(j), BreedVal(j), &
-                                          0.5d0 * sum(RelMtx(:,j)) / dble(nInd), &
-                                          SolOpt%xVec(j), SolOpt%nVec(j), &
-                                          nint(SolOpt%GenomeEdit(j)), BreedVal(j) + SolOpt%GenomeEdit(j) * BreedValPAGE(j)
-          end do
-        end if
-        close(UnitContri)
-
-        open(newunit=UnitMating, file="AlphaMateResults"//DASH//"MatingResultsOptimumGain.txt", status="unknown")
-        !                              1234567890123456789012
-        write(UnitMating, FMTMATHEAD) "      Mating", &
-                                      "     Parent1", &
-                                      "     Parent2"
-        do i = 1, nMat
-          write(UnitMating, FMTMAT) i, IdC(SolOpt%MatingPlan(1,i)), IdC(SolOpt%MatingPlan(2,i))
-        end do
-        close(UnitMating)
-      end if
-
-      ! --- Evaluate the full frontier ---
-
-      if (EvaluateFrontier) then
-        write(STDOUT, "(a)") "--- Evaluate the full frontier (this might take some time!) ---"
-        write(STDOUT, "(a)") " "
-
-        PopInbWeightBellow = .true. ! we want to target certain rates of inbreeding
-
-        open(newunit=UnitFrontier, file="AlphaMateResults"//DASH//"Frontier.txt", status="unknown")
-        !                                1234567890123456789012
-        write(UnitFrontier, FMTFROHEAD) "        Step", &
-                                        "             Criterion", &
-                                        "             Penalties", &
-                                        "                  Gain", &
-                                        "             GainStand", &
-                                        "            PopInbreed", &
-                                        "            RatePopInb", &
-                                        "            PrgInbreed"
-        ! TODO: add the generic stuff from the log?
-        if (ModeMin) then
-          DumC = "Min"
-          write(UnitFrontier, FMTFRO) adjustl(DumC), SolMin%Criterion, SolMin%Penalty, SolMin%Gain, SolMin%GainStand, SolMin%PopInb, SolMin%RatePopInb, SolMin%PrgInb
-        end if
-        if (ModeMin) then
-          DumC = "Ran"
-          write(UnitFrontier, FMTFRO) adjustl(DumC), SolRan%Criterion, SolRan%Penalty, SolRan%Gain, SolRan%GainStand, SolRan%PopInb, SolRan%RatePopInb, SolRan%PrgInb
-        end if
-        if (ModeOpt) then
-          DumC = "Opt"
-          write(UnitFrontier, FMTFRO) adjustl(DumC), SolOpt%Criterion, SolOpt%Penalty, SolOpt%Gain, SolOpt%GainStand, SolOpt%PopInb, SolOpt%RatePopInb, SolOpt%PrgInb
-        end if
-
-        ! Hold old results
-        PopInbTargetHold = PopInbTarget
-        RatePopInbTargetHold = RatePopInbTarget
-
-        ! Evaluate
-        do k = 1, nFrontierSteps
-          RatePopInbTarget = RatePopInbFrontier(k)
-          ! F_t = DeltaF + (1 - DeltaF) * F_t-1
-          PopInbTarget = RatePopInbTarget + (1.0d0 - RatePopInbTarget) * PopInbOld
-          write(STDOUT, "(a)") "Step "//trim(Int2Char(k))//" out of "//trim(Int2Char(nFrontierSteps))//&
-                               " for the rate of population inbreeding of "//trim(Real2Char(RatePopInbTarget, fmt=FMTREAL2CHAR))//&
-                               " (=future pop. inbreed. of "//trim(Real2Char(PopInbTarget, fmt=FMTREAL2CHAR))//")"
-          write(STDOUT, "(a)") ""
-          LogFile = "AlphaMateResults"//DASH//"OptimisationLogFrontier"//trim(Int2Char(k))//".txt"
-          if (GenderMatters) then
-            nTmp = nPotPar1 + nPotPar2 + nMat
-          else
-            nTmp = nPotPar1 + nMat
-          end if
-          if (PAGE) then
-            nTmp = nTmp + nInd
-          end if
-
-          call DifferentialEvolution(nParam=nTmp, nSol=EvolAlgNSol, nGen=EvolAlgNGen, nGenBurnIn=EvolAlgNGenBurnIn, &
-            nGenStop=EvolAlgNGenStop, StopTolerance=EvolAlgStopTol, nGenPrint=EvolAlgNGenPrint, File=LogFile, CritType="opt", &
-            CRBurnIn=EvolAlgCRBurnIn, CRLate=EvolAlgCRLate, FBase=EvolAlgFBase, FHigh1=EvolAlgFHigh1, FHigh2=EvolAlgFHigh2, &
-            BestSol=Sol)
-
-          DumC = "Frontier"//trim(Int2Char(k))
-          write(UnitFrontier, FMTFRO) adjustl(DumC), Sol%Criterion, Sol%Penalty, Sol%Gain, Sol%GainStand, Sol%PopInb, Sol%RatePopInb, Sol%PrgInb
-
-          open(newunit=UnitContri, file="AlphaMateResults"//DASH//"IndividualResultsFrontier"//trim(Int2Char(k))//".txt", status="unknown")
-          Rank = MrgRnk(Sol%nVec + BreedValStand / 100.0d0)
-          !                                1234567890123456789012
-          if (.not.PAGE) then
-            write(UnitContri, FMTINDHEAD) "          Id", &
-                                          "      Gender", &
-                                          "       Merit", &
-                                          " AvgCoancest", &
-                                          "  Contribute", &
-                                          "    nMatings"
-            do i = nInd, 1, -1 ! MrgRnk ranks small to large
-              j = Rank(i)
-              write(UnitContri, FMTIND) IdC(j), Gender(j), BreedVal(j), &
-                                        0.5d0 * sum(RelMtx(:,j)) / dble(nInd), &
-                                        Sol%xVec(j), Sol%nVec(j)
-            end do
-          else
-            !                                  1234567890123456789012
-            write(UnitContri, FMTINDHEADEDIT) "          Id", &
-                                              "      Gender", &
-                                              "       Merit", &
-                                              " AvgCoancest", &
-                                              "  Contribute", &
-                                              "    nMatings", &
-                                              "  GenomeEdit", &
-                                              " EditedMerit"
-            do i = nInd, 1, -1 ! MrgRnk ranks small to large
-              j = Rank(i)
-              write(UnitContri, FMTINDEDIT) IdC(j), Gender(j), BreedVal(j), &
-                                            0.5d0 * sum(RelMtx(:,j)) / dble(nInd), &
-                                            Sol%xVec(j), Sol%nVec(j), &
-                                            nint(Sol%GenomeEdit(j)), BreedVal(j) + Sol%GenomeEdit(j) * BreedValPAGE(j)
-            end do
-          end if
-          close(UnitContri)
-
-          open(newunit=UnitMating, file="AlphaMateResults"//DASH//"MatingResultsFrontier"//trim(Int2Char(k))//".txt", status="unknown")
-          !                              1234567890123456789012
-          write(UnitMating, FMTMATHEAD) "      Mating", &
-                                        "     Parent1", &
-                                        "     Parent2"
-          do i = 1, nMat
-            write(UnitMating, FMTMAT) i, IdC(Sol%MatingPlan(1,i)), IdC(Sol%MatingPlan(2,i))
-          end do
-          close(UnitMating)
-
-          if ((RatePopInbTarget - Sol%RatePopInb) > 0.01d0) then
-            write(STDOUT, "(a)") "NOTE: Could not achieve the rate of population inbreeding of "//trim(Real2Char(RatePopInbTarget, fmt=FMTREAL2CHAR))
-            write(STDOUT, "(a)") "NOTE: Stopping the frontier evaluation."
-            write(STDOUT, "(a)") ""
-            exit
-          end if
-        end do
-
-        ! Put back old results
-        PopInbTarget = PopInbTargetHold
-        RatePopInbTarget = RatePopInbTargetHold
-
-        close(UnitFrontier)
-
-      end if
-    end subroutine
-
-    !###########################################################################
-
-    subroutine ConstructColNamesAndFormats()
+    subroutine SetupColNamesAndFormats()
       implicit none
       integer(int32) :: nCol, nColTmp, i
 
@@ -1650,6 +1138,230 @@ module AlphaMateMod
       FMTLOGSTDOUT     = trim(FMTLOGSTDOUTA)    //trim(Int2Char(nCol-1))//trim(FMTLOGSTDOUTB)
       FMTLOGUNITHEAD   = trim(FMTLOGUNITHEADA)  //trim(Int2Char(nCol)  )//trim(FMTLOGUNITHEADB)
       FMTLOGUNIT       = trim(FMTLOGUNITA)      //trim(Int2Char(nCol-1))//trim(FMTLOGUNITB)
+    end subroutine
+
+    !###########################################################################
+
+    subroutine AlphaMateSearch
+
+      implicit none
+
+      integer(int32) :: nParam, k, FrontierUnit
+
+      real(real64) :: PopInbTargetHold, RatePopInbTargetHold
+      real(real64), allocatable :: InitEqual(:,:)
+
+      character(len=1000) :: LogFile, ContribFile, MatingFile
+      character(len=100) :: DumC
+
+      type(AlphaMateSol) :: SolMin, SolRan, SolOpt, Sol
+
+      ! --- Number of parameters to optimise ---
+
+      if (GenderMatters) then
+        nParam = nPotPar1 + nPotPar2 + nMat
+      else
+        nParam = nPotPar1 + nMat
+      end if
+
+      if (PAGE) then
+        nParam = nParam + nInd
+      end if
+
+      ! --- Optimise for minimum inbreeding ---
+
+      if (ModeMin) then
+        write(STDOUT, "(a)") "--- Optimise for minimum inbreeding --- "
+        write(STDOUT, "(a)") " "
+
+        LogFile     = "AlphaMateResults"//DASH//"OptimisationLogMinimumInbreeding.txt"
+        ContribFile = "AlphaMateResults"//DASH//"IndividualResultsMinimumInbreeding.txt"
+        MatingFile  = "AlphaMateResults"//DASH//"MatingResultsMinimumInbreeding.txt"
+
+        allocate(InitEqual(nParam, nint(real(EvolAlgNSol * 0.1))))
+        InitEqual(:,:) = 1.0d0 ! A couple of solutions that would give equal contributions for everybody
+
+        call DifferentialEvolution(nParam=nParam, nSol=EvolAlgNSol, Init=InitEqual, nGen=EvolAlgNGen, nGenBurnIn=EvolAlgNGenBurnIn, &
+           nGenStop=EvolAlgNGenStop, StopTolerance=EvolAlgStopTol, nGenPrint=EvolAlgNGenPrint, File=LogFile, CritType="min", &
+           CRBurnIn=EvolAlgCRBurnIn, CRLate=EvolAlgCRLate, FBase=EvolAlgFBase, FHigh1=EvolAlgFHigh1, FHigh2=EvolAlgFHigh2, &
+           BestSol=SolMin)
+
+        deallocate(InitEqual)
+
+        call SaveSolution(SolMin, ContribFile, MatingFile)
+      end if
+
+      ! --- Evaluate 'average' inbreeding under random mating ---
+
+      if (ModeRan) then
+        write(STDOUT, "(a)") "--- Evaluate 'average' inbreeding under random mating --- "
+        write(STDOUT, "(a)") " "
+
+        LogFile = "AlphaMateResults"//DASH//"OptimisationLogRandomMating.txt"
+
+        allocate(InitEqual(nParam, nint(real(EvolAlgNSol * 0.1))))
+        InitEqual(:,:) = 1.0d0 ! A couple of solutions that would give equal contributions for everybody
+
+        call RandomSearch(Mode="avg", nParam=nParam, Init=InitEqual, nSamp=EvolAlgNSol*EvolAlgNGen*RanAlgStricter, nSampStop=EvolAlgNGenStop*RanAlgStricter, &
+          StopTolerance=EvolAlgStopTol/real(RanAlgStricter), nSampPrint=EvolAlgNGenPrint, File=LogFile, CritType="ran", BestSol=SolRan)
+
+        deallocate(InitEqual)
+      end if
+
+      ! --- Optimise for maximum gain with constraint on inbreeding ---
+
+      if (ModeOpt) then
+        write(STDOUT, "(a)") "--- Optimise for maximum gain with constraint on inbreeding ---"
+        write(STDOUT, "(a)") " "
+
+        LogFile     = "AlphaMateResults"//DASH//"OptimisationLogOptimumGain.txt"
+        ContribFile = "AlphaMateResults"//DASH//"IndividualResultsOptimumGain.txt"
+        MatingFile  = "AlphaMateResults"//DASH//"MatingResultsOptimumGain.txt"
+
+        call DifferentialEvolution(nParam=nParam, nSol=EvolAlgNSol, nGen=EvolAlgNGen, nGenBurnIn=EvolAlgNGenBurnIn, &
+          nGenStop=EvolAlgNGenStop, StopTolerance=EvolAlgStopTol, nGenPrint=EvolAlgNGenPrint, File=LogFile, CritType="opt", &
+          CRBurnIn=EvolAlgCRBurnIn, CRLate=EvolAlgCRLate, FBase=EvolAlgFBase, FHigh1=EvolAlgFHigh1, FHigh2=EvolAlgFHigh2, &
+          BestSol=SolOpt)
+
+        call SaveSolution(SolOpt, ContribFile, MatingFile)
+      end if
+
+      ! --- Evaluate the full frontier ---
+
+      if (EvaluateFrontier) then
+        write(STDOUT, "(a)") "--- Evaluate the full frontier (this might take some time!) ---"
+        write(STDOUT, "(a)") " "
+
+        PopInbWeightBellow = .true. ! we want to target certain rates of inbreeding
+
+        open(newunit=FrontierUnit, file="AlphaMateResults"//DASH//"Frontier.txt", status="unknown")
+        !                                1234567890123456789012
+        write(FrontierUnit, FMTFROHEAD) "        Step", &
+                                        "             Criterion", &
+                                        "             Penalties", &
+                                        "                  Gain", &
+                                        "             GainStand", &
+                                        "            PopInbreed", &
+                                        "            RatePopInb", &
+                                        "            PrgInbreed"
+        ! TODO: add the generic stuff from the log? Just call This%Log?
+        if (ModeMin) then
+          DumC = "Min"
+          write(FrontierUnit, FMTFRO) adjustl(DumC), SolMin%Criterion, SolMin%Penalty, SolMin%Gain, SolMin%GainStand, SolMin%PopInb, SolMin%RatePopInb, SolMin%PrgInb
+        end if
+        if (ModeRan) then
+          DumC = "Ran"
+          write(FrontierUnit, FMTFRO) adjustl(DumC), SolRan%Criterion, SolRan%Penalty, SolRan%Gain, SolRan%GainStand, SolRan%PopInb, SolRan%RatePopInb, SolRan%PrgInb
+        end if
+        if (ModeOpt) then
+          DumC = "Opt"
+          write(FrontierUnit, FMTFRO) adjustl(DumC), SolOpt%Criterion, SolOpt%Penalty, SolOpt%Gain, SolOpt%GainStand, SolOpt%PopInb, SolOpt%RatePopInb, SolOpt%PrgInb
+        end if
+
+        ! Hold old results
+        PopInbTargetHold = PopInbTarget
+        RatePopInbTargetHold = RatePopInbTarget
+
+        ! Evaluate
+        do k = 1, nFrontierSteps
+          RatePopInbTarget = RatePopInbFrontier(k)
+          ! F_t = DeltaF + (1 - DeltaF) * F_t-1
+          PopInbTarget = RatePopInbTarget + (1.0d0 - RatePopInbTarget) * PopInbOld
+          write(STDOUT, "(a)") "Step "//trim(Int2Char(k))//" out of "//trim(Int2Char(nFrontierSteps))//&
+                               " for the rate of population inbreeding of "//trim(Real2Char(RatePopInbTarget, fmt=FMTREAL2CHAR))//&
+                               " (=future pop. inbreed. of "//trim(Real2Char(PopInbTarget, fmt=FMTREAL2CHAR))//")"
+          write(STDOUT, "(a)") ""
+          LogFile = "AlphaMateResults"//DASH//"OptimisationLogFrontier"//trim(Int2Char(k))//".txt"
+
+          call DifferentialEvolution(nParam=nParam, nSol=EvolAlgNSol, nGen=EvolAlgNGen, nGenBurnIn=EvolAlgNGenBurnIn, &
+            nGenStop=EvolAlgNGenStop, StopTolerance=EvolAlgStopTol, nGenPrint=EvolAlgNGenPrint, File=LogFile, CritType="opt", &
+            CRBurnIn=EvolAlgCRBurnIn, CRLate=EvolAlgCRLate, FBase=EvolAlgFBase, FHigh1=EvolAlgFHigh1, FHigh2=EvolAlgFHigh2, &
+            BestSol=Sol)
+
+          DumC = "Frontier"//trim(Int2Char(k))
+          write(FrontierUnit, FMTFRO) adjustl(DumC), Sol%Criterion, Sol%Penalty, Sol%Gain, Sol%GainStand, Sol%PopInb, Sol%RatePopInb, Sol%PrgInb
+
+          ContribFile = "AlphaMateResults"//DASH//"IndividualResultsFrontier"//trim(Int2Char(k))//".txt"
+          MatingFile  = "AlphaMateResults"//DASH//"MatingResultsFrontier"//trim(Int2Char(k))//".txt"
+          call SaveSolution(Sol, ContribFile, MatingFile)
+
+          if ((RatePopInbTarget - Sol%RatePopInb) > 0.01d0) then
+            write(STDOUT, "(a)") "NOTE: Could not achieve the rate of population inbreeding of "//trim(Real2Char(RatePopInbTarget, fmt=FMTREAL2CHAR))
+            write(STDOUT, "(a)") "NOTE: Stopping the frontier evaluation."
+            write(STDOUT, "(a)") ""
+            exit
+          end if
+        end do
+
+        ! Put back old results
+        PopInbTarget = PopInbTargetHold
+        RatePopInbTarget = RatePopInbTargetHold
+
+        close(FrontierUnit)
+
+      end if
+    end subroutine
+
+    !###########################################################################
+
+    subroutine SaveSolution(Sol, ContribFile, MatingFile)
+
+      implicit none
+
+      ! Arguments
+      type(AlphaMateSol) :: Sol
+      character(len=*)   :: ContribFile
+      character(len=*)   :: MatingFile
+
+      ! Other
+      integer(int32) :: i, j, ContribUnit, MatingUnit, Rank(nInd)
+
+      ! TODO: should we have constant output no matter which options are switched on?
+      open(newunit=ContribUnit, file=ContribFile, status="unknown")
+      Rank = MrgRnk(Sol%nVec + BreedValStand / 100.0d0)
+      if (.not.PAGE) then
+        !                               1234567890123456789012
+        write(ContribUnit, FMTINDHEAD) "          Id", &
+                                       "      Gender", &
+                                       "       Merit", &
+                                       " AvgCoancest", &
+                                       "  Contribute", &
+                                       "    nMatings"
+        do i = nInd, 1, -1 ! MrgRnk ranks small to large
+          j = Rank(i)
+          write(ContribUnit, FMTIND) IdC(j), Gender(j), BreedVal(j), &
+                                     0.5d0 * sum(RelMtx(:,j)) / dble(nInd), &
+                                     Sol%xVec(j), Sol%nVec(j)
+        end do
+      else
+        !                                   1234567890123456789012
+        write(ContribUnit, FMTINDHEADEDIT) "          Id", &
+                                           "      Gender", &
+                                           "       Merit", &
+                                           " AvgCoancest", &
+                                           "  Contribute", &
+                                           "    nMatings", &
+                                           "  GenomeEdit", &
+                                           " EditedMerit"
+        do i = nInd, 1, -1 ! MrgRnk ranks small to large
+          j = Rank(i)
+          write(ContribUnit, FMTINDEDIT) IdC(j), Gender(j), BreedVal(j), &
+                                         0.5d0 * sum(RelMtx(:,j)) / dble(nInd), &
+                                         Sol%xVec(j), Sol%nVec(j), &
+                                         nint(Sol%GenomeEdit(j)), BreedVal(j) + Sol%GenomeEdit(j) * BreedValPAGE(j)
+        end do
+      end if
+      close(ContribUnit)
+
+      open(newunit=MatingUnit, file=MatingFile, status="unknown")
+      !                              1234567890123456789012
+      write(MatingUnit, FMTMATHEAD) "      Mating", &
+                                    "     Parent1", &
+                                    "     Parent2"
+      do i = 1, nMat
+        write(MatingUnit, FMTMAT) i, IdC(Sol%MatingPlan(1,i)), IdC(Sol%MatingPlan(2,i))
+      end do
+      close(MatingUnit)
     end subroutine
 
     !###########################################################################
@@ -2421,8 +2133,7 @@ program AlphaMate
   end if
 
   call ReadSpecAndDataForAlphaMate
-  call ConstructColNamesAndFormats
-  call SetInbreedingParameters
+  call SetupColNamesAndFormats
   call AlphaMateSearch
   call cpu_time(Finish)
 
