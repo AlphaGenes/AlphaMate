@@ -400,8 +400,13 @@ module AlphaMateMod
           else
             backspace(SpecUnit)
             read(SpecUnit, *) DumC, DumC, LimitPar1Min, LimitPar1Max, LimitPar1Weight
+            if (LimitPar1Weight > 0.0) then
+              write(STDERR, "(a)") "ERROR: Penalty weight for limiting parent contributions should be zero or negative!"
+              write(STDERR, "(a)") " "
+              stop 1
+            end if
             write(STDOUT, "(a)") "LimitParentContributions: yes, min "//trim(Int2Char(nint(LimitPar1Min)))//", max "//&
-              trim(Int2Char(nint(LimitPar1Max)))//", weight "//trim(Real2Char(LimitPar1Weight, fmt=FMTREAL2CHAR))
+              trim(Int2Char(nint(LimitPar1Max)))//", penalty weight "//trim(Real2Char(LimitPar1Weight, fmt=FMTREAL2CHAR))
           end if
         else if (ToLower(trim(DumC)) == "no") then
           !write(STDOUT, "(a)") "LimitParentContributions: no"
@@ -424,8 +429,13 @@ module AlphaMateMod
           else
             backspace(SpecUnit)
             read(SpecUnit, *) DumC, DumC, LimitPar1Min, LimitPar1Max, LimitPar1Weight
+            if (LimitPar1Weight > 0.0) then
+              write(STDERR, "(a)") "ERROR: Penalty weight for limiting parent contributions should be zero or negative!"
+              write(STDERR, "(a)") " "
+              stop 1
+            end if
             write(STDOUT, "(a)") "LimitMaleParentContributions: yes, min "//trim(Int2Char(nint(LimitPar1Min)))//", max "//&
-              trim(Int2Char(nint(LimitPar1Max)))//", weight "//trim(Real2Char(LimitPar1Weight, fmt=FMTREAL2CHAR))
+              trim(Int2Char(nint(LimitPar1Max)))//", penalty weight "//trim(Real2Char(LimitPar1Weight, fmt=FMTREAL2CHAR))
           end if
         else if (ToLower(trim(DumC)) == "no") then
           !write(STDOUT, "(a)") "LimitMaleParentContributions: no"
@@ -451,8 +461,13 @@ module AlphaMateMod
           else
             backspace(SpecUnit)
             read(SpecUnit, *) DumC, DumC, LimitPar2Min, LimitPar2Max, LimitPar2Weight
+            if (LimitPar2Weight > 0.0) then
+              write(STDERR, "(a)") "ERROR: Penalty weight for limiting parent contributions should be zero or negative!"
+              write(STDERR, "(a)") " "
+              stop 1
+            end if
             write(STDOUT, "(a)") "LimitFemaleParentContributions: yes, min "//trim(Int2Char(nint(LimitPar2Min)))//", max "//&
-              trim(Int2Char(nint(LimitPar2Max)))//", weight "//trim(Real2Char(LimitPar2Weight, fmt=FMTREAL2CHAR))
+              trim(Int2Char(nint(LimitPar2Max)))//", penalty weight "//trim(Real2Char(LimitPar2Weight, fmt=FMTREAL2CHAR))
           end if
         else if (ToLower(trim(DumC)) == "no") then
           !write(STDOUT, "(a)") "LimitFemaleParentContributions: no"
@@ -479,7 +494,12 @@ module AlphaMateMod
         if (.not.GenderMatters) then
           backspace(SpecUnit)
           read(SpecUnit, *) DumC, DumC, SelfingWeight
-          write(STDOUT, "(a)") "AllowSelfing: no, weight "//trim(Real2Char(SelfingWeight, fmt=FMTREAL2CHAR))
+          if (SelfingWeight > 0.0) then
+            write(STDERR, "(a)") "ERROR: Penalty weight for selfing should be zero or negative!"
+            write(STDERR, "(a)") " "
+            stop 1
+          end if
+          write(STDOUT, "(a)") "AllowSelfing: no, penalty weight "//trim(Real2Char(SelfingWeight, fmt=FMTREAL2CHAR))
         end if
       else
         write(STDERR, "(a)") "ERROR: AllowSelfing must be: Yes or No!"
@@ -499,7 +519,7 @@ module AlphaMateMod
             stop 1
           end if
           backspace(SpecUnit)
-          read(SpecUnit, *) DumC, DumC, PAGEPar1Max, PAGEPar1Cost
+          read(SpecUnit, *) DumC, DumC, PAGEPar1Max!, PAGEPar1Cost
           if (PAGEPar1Max <= nPar) then
             write(STDOUT, "(a)") "PAGE: yes, no. of individuals "//trim(Int2Char(PAGEPar1Max))//", cost "//trim(Real2Char(PAGEPar1Cost, fmt=FMTREAL2CHAR))
           else
@@ -530,7 +550,7 @@ module AlphaMateMod
             stop 1
           end if
           backspace(SpecUnit)
-          read(SpecUnit, *) DumC, DumC, PAGEPar1Max, PAGEPar1Cost
+          read(SpecUnit, *) DumC, DumC, PAGEPar1Max!, PAGEPar1Cost
           if (PAGEPar1Max <= nPar1) then
             write(STDOUT, "(a)") "PAGEMales: yes, no. of individuals "//trim(Int2Char(PAGEPar1Max))//", cost "//trim(Real2Char(PAGEPar1Cost, fmt=FMTREAL2CHAR))
           else
@@ -561,7 +581,7 @@ module AlphaMateMod
             stop 1
           end if
           backspace(SpecUnit)
-          read(SpecUnit, *) DumC, DumC, PAGEPar2Max, PAGEPar2Cost
+          read(SpecUnit, *) DumC, DumC, PAGEPar2Max!, PAGEPar2Cost
           if (PAGEPar2Max <= nPar2) then
             write(STDOUT, "(a)") "PAGEFemales: yes, no. of individuals "//trim(Int2Char(PAGEPar2Max))//", cost "//trim(Real2Char(PAGEPar2Cost, fmt=FMTREAL2CHAR))
           else
@@ -589,6 +609,11 @@ module AlphaMateMod
       ! --- TargetedRateOfPopulationInbreeding ---
 
       read(SpecUnit, *) DumC, RatePopInbTarget, PopInbWeight, DumC
+      if (PopInbWeight > 0.0) then
+        write(STDERR, "(a)") "ERROR: Penalty weight for the targeted rate of inbreeding should be zero or negative!"
+        write(STDERR, "(a)") " "
+        stop 1
+      end if
       if      (ToLower(trim(DumC)) == "above") then
         PopInbWeightBellow = .false.
       else if (ToLower(trim(DumC)) == "aboveandbellow") then
@@ -599,11 +624,16 @@ module AlphaMateMod
         stop 1
       end if
       write(STDOUT, "(a)") "TargetedRateOfPopulationInbreeding: "//trim(Real2Char(RatePopInbTarget, fmt=FMTREAL2CHAR))//&
-        ", weight "//trim(Real2Char(PopInbWeight, fmt=FMTREAL2CHAR))//", mode "//trim(DumC)
+        ", penalty weight "//trim(Real2Char(PopInbWeight, fmt=FMTREAL2CHAR))//", mode "//trim(DumC)
 
       ! --- ProgenyInbreedingWeight (=inbreeding of a mating) ---
 
       read(SpecUnit, *) DumC, PrgInbWeight
+      if (PrgInbWeight > 0.0) then
+        write(STDERR, "(a)") "ERROR: Penalty weight for the progeny inbreeding should be zero or negative!"
+        write(STDERR, "(a)") " "
+        stop 1
+      end if
       write(STDOUT, "(a)") "ProgenyInbreedingWeight: "//trim(Real2Char(PrgInbWeight, fmt=FMTREAL2CHAR))
 
       ! --- EvaluateFrontier ---
