@@ -94,7 +94,7 @@ module AlphaMateMod
   CHARACTER(len=100), PARAMETER  :: FMTLOGUNITHEADB = "a22)"
   CHARACTER(len=100)             :: FMTLOGUNITHEAD
   CHARACTER(len=100), PARAMETER  :: FMTLOGUNITA = "(i22, "
-  CHARACTER(len=100), PARAMETER  :: FMTLOGUNITB = "(1x, es21.14))"
+  CHARACTER(len=100), PARAMETER  :: FMTLOGUNITB = "(1x, es21.13e3))"
   CHARACTER(len=100)             :: FMTLOGUNIT
   CHARACTER(len=22), ALLOCATABLE :: COLNAMELOGUNIT(:)
 
@@ -105,7 +105,7 @@ module AlphaMateMod
   CHARACTER(len=100), PARAMETER  :: FMTMATHEAD = "(3a12)"
   CHARACTER(len=100), PARAMETER  :: FMTMAT = "(i12, 2(1x, a11))"
   CHARACTER(len=100), PARAMETER  :: FMTFROHEAD = "(a12, 7a22)"
-  CHARACTER(len=100), PARAMETER  :: FMTFRO = "(a12, 7(1x, es21.14))"
+  CHARACTER(len=100), PARAMETER  :: FMTFRO = "(a12, 7(1x, es21.13e3))"
 
   private
   public :: AlphaMateTitles, ReadSpecAndDataForAlphaMate, SetupColNamesAndFormats, AlphaMateSearch
@@ -338,6 +338,8 @@ module AlphaMateMod
       read(SpecUnit, *) DumC, DumC
       if (GenderMatters) then
         if      (ToLower(trim(DumC)) == "yes") then
+          EqualizePar1 = .true.
+          write(STDOUT, "(a)") "EqualizeMaleParentContributions: yes"
           if (mod(nMat, nPar1) /= 0) then
             ! TODO: might consider handling this better at some point
             write(STDERR, "(a)") "ERROR: When contributions are equalized the number of matings needs to divide into the number of parents"
@@ -347,8 +349,6 @@ module AlphaMateMod
             write(STDERR, "(a)") " "
             stop 1
           end if
-          EqualizePar1 = .true.
-          write(STDOUT, "(a)") "EqualizeMaleParentContributions: yes"
         else if (ToLower(trim(DumC)) == "no") then
           EqualizePar1 = .false.
           !write(STDOUT, "(a)") "EqualizeMaleParentContributions: no"
@@ -364,6 +364,8 @@ module AlphaMateMod
       read(SpecUnit, *) DumC, DumC
       if (GenderMatters) then
         if      (ToLower(trim(DumC)) == "yes") then
+          EqualizePar2 = .true.
+          write(STDOUT, "(a)") "EqualizeFemaleParentContributions: yes"
           if (mod(nMat, nPar2) /= 0) then
             ! TODO: might consider handling this better at some point
             write(STDERR, "(a)") "ERROR: When contributions are equalized the number of matings needs to divide into the number of parents"
@@ -373,8 +375,6 @@ module AlphaMateMod
             write(STDERR, "(a)") " "
             stop 1
           end if
-          EqualizePar2 = .true.
-          write(STDOUT, "(a)") "EqualizeFemaleParentContributions: yes"
         else if (ToLower(trim(DumC)) == "no") then
           EqualizePar2 = .false.
           !write(STDOUT, "(a)") "EqualizeFemaleParentContributions: no"
@@ -400,13 +400,13 @@ module AlphaMateMod
           else
             backspace(SpecUnit)
             read(SpecUnit, *) DumC, DumC, LimitPar1Min, LimitPar1Max, LimitPar1Weight
+            write(STDOUT, "(a)") "LimitParentContributions: yes, min "//trim(Int2Char(nint(LimitPar1Min)))//", max "//&
+              trim(Int2Char(nint(LimitPar1Max)))//", penalty weight "//trim(Real2Char(LimitPar1Weight, fmt=FMTREAL2CHAR))
             if (LimitPar1Weight > 0.0) then
               write(STDERR, "(a)") "ERROR: Penalty weight for limiting parent contributions should be zero or negative!"
               write(STDERR, "(a)") " "
               stop 1
             end if
-            write(STDOUT, "(a)") "LimitParentContributions: yes, min "//trim(Int2Char(nint(LimitPar1Min)))//", max "//&
-              trim(Int2Char(nint(LimitPar1Max)))//", penalty weight "//trim(Real2Char(LimitPar1Weight, fmt=FMTREAL2CHAR))
           end if
         else if (ToLower(trim(DumC)) == "no") then
           !write(STDOUT, "(a)") "LimitParentContributions: no"
@@ -429,13 +429,13 @@ module AlphaMateMod
           else
             backspace(SpecUnit)
             read(SpecUnit, *) DumC, DumC, LimitPar1Min, LimitPar1Max, LimitPar1Weight
+            write(STDOUT, "(a)") "LimitMaleParentContributions: yes, min "//trim(Int2Char(nint(LimitPar1Min)))//", max "//&
+              trim(Int2Char(nint(LimitPar1Max)))//", penalty weight "//trim(Real2Char(LimitPar1Weight, fmt=FMTREAL2CHAR))
             if (LimitPar1Weight > 0.0) then
               write(STDERR, "(a)") "ERROR: Penalty weight for limiting parent contributions should be zero or negative!"
               write(STDERR, "(a)") " "
               stop 1
             end if
-            write(STDOUT, "(a)") "LimitMaleParentContributions: yes, min "//trim(Int2Char(nint(LimitPar1Min)))//", max "//&
-              trim(Int2Char(nint(LimitPar1Max)))//", penalty weight "//trim(Real2Char(LimitPar1Weight, fmt=FMTREAL2CHAR))
           end if
         else if (ToLower(trim(DumC)) == "no") then
           !write(STDOUT, "(a)") "LimitMaleParentContributions: no"
@@ -461,13 +461,13 @@ module AlphaMateMod
           else
             backspace(SpecUnit)
             read(SpecUnit, *) DumC, DumC, LimitPar2Min, LimitPar2Max, LimitPar2Weight
+            write(STDOUT, "(a)") "LimitFemaleParentContributions: yes, min "//trim(Int2Char(nint(LimitPar2Min)))//", max "//&
+              trim(Int2Char(nint(LimitPar2Max)))//", penalty weight "//trim(Real2Char(LimitPar2Weight, fmt=FMTREAL2CHAR))
             if (LimitPar2Weight > 0.0) then
               write(STDERR, "(a)") "ERROR: Penalty weight for limiting parent contributions should be zero or negative!"
               write(STDERR, "(a)") " "
               stop 1
             end if
-            write(STDOUT, "(a)") "LimitFemaleParentContributions: yes, min "//trim(Int2Char(nint(LimitPar2Min)))//", max "//&
-              trim(Int2Char(nint(LimitPar2Max)))//", penalty weight "//trim(Real2Char(LimitPar2Weight, fmt=FMTREAL2CHAR))
           end if
         else if (ToLower(trim(DumC)) == "no") then
           !write(STDOUT, "(a)") "LimitFemaleParentContributions: no"
@@ -494,12 +494,12 @@ module AlphaMateMod
         if (.not.GenderMatters) then
           backspace(SpecUnit)
           read(SpecUnit, *) DumC, DumC, SelfingWeight
+          write(STDOUT, "(a)") "AllowSelfing: no, penalty weight "//trim(Real2Char(SelfingWeight, fmt=FMTREAL2CHAR))
           if (SelfingWeight > 0.0) then
             write(STDERR, "(a)") "ERROR: Penalty weight for selfing should be zero or negative!"
             write(STDERR, "(a)") " "
             stop 1
           end if
-          write(STDOUT, "(a)") "AllowSelfing: no, penalty weight "//trim(Real2Char(SelfingWeight, fmt=FMTREAL2CHAR))
         end if
       else
         write(STDERR, "(a)") "ERROR: AllowSelfing must be: Yes or No!"
@@ -513,16 +513,15 @@ module AlphaMateMod
       if (.not.GenderMatters) then
         if      (ToLower(trim(DumC)) == "yes") then
           PAGEPar1 = .true.
+          backspace(SpecUnit)
+          read(SpecUnit, *) DumC, DumC, PAGEPar1Max!, PAGEPar1Cost
+          write(STDOUT, "(a)") "PAGE: yes, no. of individuals "//trim(Int2Char(PAGEPar1Max))//", cost "//trim(Real2Char(PAGEPar1Cost, fmt=FMTREAL2CHAR))
           if (.not.BreedValAvailable) then
             write(STDERR, "(a)") "ERROR: Can not use PAGE when breeding value file is None!"
             write(STDERR, "(a)") " "
             stop 1
           end if
-          backspace(SpecUnit)
-          read(SpecUnit, *) DumC, DumC, PAGEPar1Max!, PAGEPar1Cost
-          if (PAGEPar1Max <= nPar) then
-            write(STDOUT, "(a)") "PAGE: yes, no. of individuals "//trim(Int2Char(PAGEPar1Max))//", cost "//trim(Real2Char(PAGEPar1Cost, fmt=FMTREAL2CHAR))
-          else
+          if (PAGEPar1Max > nPar) then
             write(STDERR, "(a)") "ERROR: The max number of individuals to edit must not be greater than the total number of parents!"
             write(STDERR, "(a)") "ERROR: Number of             parents: "//trim(Int2Char(nPar))
             write(STDERR, "(a)") "ERROR: Number of individuals to edit: "//trim(Int2Char(PAGEPar1Max))
@@ -544,16 +543,15 @@ module AlphaMateMod
       if (GenderMatters) then
         if      (ToLower(trim(DumC)) == "yes") then
           PAGEPar1 = .true.
+          backspace(SpecUnit)
+          read(SpecUnit, *) DumC, DumC, PAGEPar1Max!, PAGEPar1Cost
+          write(STDOUT, "(a)") "PAGEMales: yes, no. of individuals "//trim(Int2Char(PAGEPar1Max))//", cost "//trim(Real2Char(PAGEPar1Cost, fmt=FMTREAL2CHAR))
           if (.not.BreedValAvailable) then
             write(STDERR, "(a)") "ERROR: Can not use PAGE when breeding value file is None!"
             write(STDERR, "(a)") " "
             stop 1
           end if
-          backspace(SpecUnit)
-          read(SpecUnit, *) DumC, DumC, PAGEPar1Max!, PAGEPar1Cost
-          if (PAGEPar1Max <= nPar1) then
-            write(STDOUT, "(a)") "PAGEMales: yes, no. of individuals "//trim(Int2Char(PAGEPar1Max))//", cost "//trim(Real2Char(PAGEPar1Cost, fmt=FMTREAL2CHAR))
-          else
+          if (PAGEPar1Max > nPar1) then
             write(STDERR, "(a)") "ERROR: The max number of male individuals to edit must not be greater than the total number of male parents!"
             write(STDERR, "(a)") "ERROR: Number of male             parents: "//trim(Int2Char(nPar1))
             write(STDERR, "(a)") "ERROR: Number of male individuals to edit: "//trim(Int2Char(PAGEPar1Max))
@@ -575,16 +573,15 @@ module AlphaMateMod
       if (GenderMatters) then
         if      (ToLower(trim(DumC)) == "yes") then
           PAGEPar2 = .false.
+          backspace(SpecUnit)
+          read(SpecUnit, *) DumC, DumC, PAGEPar2Max!, PAGEPar2Cost
+          write(STDOUT, "(a)") "PAGEFemales: yes, no. of individuals "//trim(Int2Char(PAGEPar2Max))//", cost "//trim(Real2Char(PAGEPar2Cost, fmt=FMTREAL2CHAR))
           if (.not.BreedValAvailable) then
             write(STDERR, "(a)") "ERROR: Can not use PAGE when breeding value file is None!"
             write(STDERR, "(a)") " "
             stop 1
           end if
-          backspace(SpecUnit)
-          read(SpecUnit, *) DumC, DumC, PAGEPar2Max!, PAGEPar2Cost
-          if (PAGEPar2Max <= nPar2) then
-            write(STDOUT, "(a)") "PAGEFemales: yes, no. of individuals "//trim(Int2Char(PAGEPar2Max))//", cost "//trim(Real2Char(PAGEPar2Cost, fmt=FMTREAL2CHAR))
-          else
+          if (PAGEPar2Max > nPar2) then
             write(STDERR, "(a)") "ERROR: The max number of female individuals to edit must not be greater than the total number of female parents!"
             write(STDERR, "(a)") "ERROR: Number of female             parents: "//trim(Int2Char(nPar2))
             write(STDERR, "(a)") "ERROR: Number of female individuals to edit: "//trim(Int2Char(PAGEPar2Max))
@@ -609,11 +606,8 @@ module AlphaMateMod
       ! --- TargetedRateOfPopulationInbreeding ---
 
       read(SpecUnit, *) DumC, RatePopInbTarget, PopInbWeight, DumC
-      if (PopInbWeight > 0.0) then
-        write(STDERR, "(a)") "ERROR: Penalty weight for the targeted rate of inbreeding should be zero or negative!"
-        write(STDERR, "(a)") " "
-        stop 1
-      end if
+      write(STDOUT, "(a)") "TargetedRateOfPopulationInbreeding: "//trim(Real2Char(RatePopInbTarget, fmt=FMTREAL2CHAR))//&
+        ", penalty weight "//trim(Real2Char(PopInbWeight, fmt=FMTREAL2CHAR))//", mode "//trim(DumC)
       if      (ToLower(trim(DumC)) == "above") then
         PopInbWeightBellow = .false.
       else if (ToLower(trim(DumC)) == "aboveandbellow") then
@@ -623,18 +617,26 @@ module AlphaMateMod
         write(STDERR, "(a)") " "
         stop 1
       end if
-      write(STDOUT, "(a)") "TargetedRateOfPopulationInbreeding: "//trim(Real2Char(RatePopInbTarget, fmt=FMTREAL2CHAR))//&
-        ", penalty weight "//trim(Real2Char(PopInbWeight, fmt=FMTREAL2CHAR))//", mode "//trim(DumC)
+      if (RatePopInbTarget == 0.0) then
+        write(STDERR, "(a)") "ERROR: Can not work with the targeted rate of population inbreeding equal to zero - it is numerically unstable!"
+        write(STDERR, "(a)") " "
+        stop 1
+      end if
+      if (PopInbWeight > 0.0) then
+        write(STDERR, "(a)") "ERROR: Penalty weight for the targeted rate of population inbreeding should be zero or negative!"
+        write(STDERR, "(a)") " "
+        stop 1
+      end if
 
       ! --- ProgenyInbreedingWeight (=inbreeding of a mating) ---
 
       read(SpecUnit, *) DumC, PrgInbWeight
+      write(STDOUT, "(a)") "ProgenyInbreedingWeight: "//trim(Real2Char(PrgInbWeight, fmt=FMTREAL2CHAR))
       if (PrgInbWeight > 0.0) then
         write(STDERR, "(a)") "ERROR: Penalty weight for the progeny inbreeding should be zero or negative!"
         write(STDERR, "(a)") " "
         stop 1
       end if
-      write(STDOUT, "(a)") "ProgenyInbreedingWeight: "//trim(Real2Char(PrgInbWeight, fmt=FMTREAL2CHAR))
 
       ! --- EvaluateFrontier ---
 
@@ -651,6 +653,11 @@ module AlphaMateMod
         read(SpecUnit, *) DumC, DumC, nFrontierSteps, RatePopInbFrontier(:)
         write(STDOUT, "("//Int2Char(1+nFrontierSteps)//"a)") "EvaluateFrontier: yes, #steps: "//trim(Int2Char(nFrontierSteps))//&
           ", rates of pop. inbreeding: ", (trim(Real2Char(RatePopInbFrontier(i), fmt=FMTREAL2CHAR)), i = 1, nFrontierSteps)
+        if (any(RatePopInbFrontier(:) == 0.0)) then
+          write(STDERR, "(a)") "ERROR: Can not work with RatePopInbFrontier equal to zero - it is numerically unstable!"
+          write(STDERR, "(a)") " "
+          stop 1
+        end if
       else
         write(STDERR, "(a)") "ERROR: EvaluateFrontier must be: Yes or No!"
         write(STDERR, "(a)") " "
@@ -970,9 +977,9 @@ module AlphaMateMod
       else
         nPotMat = real(nPotPar1 * nPotPar1) / 2.0
         if (SelfingAllowed) then
-          nPotMat = nint(real(nPotMat) + real(nPotPar1) / 2.0)
+          nPotMat = nint(nPotMat + real(nPotPar1) / 2.0)
         else
-          nPotMat = nint(real(nPotMat) - real(nPotPar1) / 2.0)
+          nPotMat = nint(nPotMat - real(nPotPar1) / 2.0)
         end if
       end if
       if (nMat > nPotMat) then
@@ -1298,8 +1305,8 @@ module AlphaMateMod
           ! F_t = DeltaF + (1 - DeltaF) * F_t-1
           PopInbTarget = RatePopInbTarget + (1.0d0 - RatePopInbTarget) * PopInbOld
           write(STDOUT, "(a)") "Step "//trim(Int2Char(k))//" out of "//trim(Int2Char(nFrontierSteps))//&
-                               " for the rate of population inbreeding of "//trim(Real2Char(RatePopInbTarget, fmt=FMTREAL2CHAR))//&
-                               " (=future pop. inbreed. of "//trim(Real2Char(PopInbTarget, fmt=FMTREAL2CHAR))//")"
+                               " for the rate of population inbreeding "//trim(Real2Char(RatePopInbTarget, fmt=FMTREAL2CHAR))//&
+                               " (=future pop. inbreed. "//trim(Real2Char(PopInbTarget, fmt=FMTREAL2CHAR))//")"
           write(STDOUT, "(a)") ""
           LogFile = "AlphaMateResults"//DASH//"OptimisationLogFrontier"//trim(Int2Char(k))//".txt"
 
@@ -1316,7 +1323,7 @@ module AlphaMateMod
           call SaveSolution(Sol, ContribFile, MatingFile)
 
           if ((RatePopInbTarget - Sol%RatePopInb) > 0.01d0) then
-            write(STDOUT, "(a)") "NOTE: Could not achieve the rate of population inbreeding of "//trim(Real2Char(RatePopInbTarget, fmt=FMTREAL2CHAR))
+            write(STDOUT, "(a)") "NOTE: Could not achieve the rate of population inbreeding "//trim(Real2Char(RatePopInbTarget, fmt=FMTREAL2CHAR))
             write(STDOUT, "(a)") "NOTE: Stopping the frontier evaluation."
             write(STDOUT, "(a)") ""
             exit
@@ -2016,10 +2023,12 @@ module AlphaMateMod
         ! which makes the PopInbWeight generic for ~any scenario.
         TmpR = This%RatePopInb / RatePopInbTarget
         if (TmpR > 1.0d0) then
+          ! Rate of inbreeding for this solution is higher than the target
           TmpR = PopInbWeight * abs(1.0d0 - TmpR)
         else
+          ! Rate of inbreeding for this solution is lower than the target
           if (PopInbWeightBellow) then
-            TmpR = PopInbWeight * abs(1.0d0 - 1.0d0 / TmpR)
+            TmpR = PopInbWeight * abs(1.0d0 - TmpR)
           else
             TmpR = 0.0d0
           end if

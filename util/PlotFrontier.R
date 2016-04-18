@@ -27,7 +27,6 @@ ColRoslinGray   <- rgb(red= 83, green= 83, blue= 83, maxColorValue=255) ## orang
 
 LogFileCount <- 0
 LogFiles <- dir(pattern="OptimisationLog")
-LogFiles <- LogFiles[!grepl(pattern="Initial.txt", x=LogFiles)]
 if (length(LogFiles) < 1 & !file.exists("Frontier.txt")) {
   stop("ERROR: No optimisation and frontier log files to plot!")
 }
@@ -76,19 +75,18 @@ if (length(LogFiles) > 0) {
       points(y=Dat[[LogFileCount]]$GainStand, x=Dat[[LogFileCount]]$RatePopInb, type="o",
              pch=21, lwd=0.5, ylim=ylim, xlim=xlim, col=Col, bg=Col, cex=0.5*Ratio)
     }
-    if (LogFile == "OptimisationLogMinimumInbreeding.txt") {
-      DeltaF <- axis(side=1)
-      CoefF <- Dat[[LogFileCount]][nrow(Dat[[LogFileCount]]), "PopInbreed"]
-      CoefF <- DeltaF*(1-CoefF) + CoefF
-      axis(side=3, at=DeltaF, labels=round(CoefF,digits=3))
-      mtext(side=3, text="Coef. of inbreeding", line=2.5)
-    }
     if (LogFile %in% c("OptimisationLogMinimumInbreeding.txt", "OptimisationLogOptimumGain.txt")) {
       abline(h=Dat[[LogFileCount]][Test, ]$GainStand,  lwd=1, lty=2, col=Col)
       abline(v=Dat[[LogFileCount]][Test, ]$RatePopInb, lwd=1, lty=2, col=Col)
     }
     #readline(prompt=cat("Pause:", LogFile))
   }
+  DeltaF <- axis(side=1)
+  Tmp <- read.csv(file="ConstraintPopulationInbreeding.txt", header=FALSE)
+  CoefF <- Tmp[Tmp$V1 == "Old_coancestry", "V2"]
+  CoefF <- DeltaF*(1-CoefF) + CoefF
+  axis(side=3, at=DeltaF, labels=round(CoefF,digits=3))
+  mtext(side=3, text="Coef. of inbreeding", line=2.5)
 }
 
 if (file.exists("Frontier.txt")) {
@@ -104,8 +102,7 @@ if (file.exists("Frontier.txt")) {
     Mat[,1] <- 1 # fitted value will be >= observed value (0 for =)
     Mat[,2] <- Frontier$RatePopInb
     Mat[,3] <- Frontier$GainStand
-    Tmp <- cobs(x=Frontier$RatePopInb, y=Frontier$GainStand, pointwise=Mat,
-                ic="BIC")#, nknots=10)
+    Tmp <- cobs(x=Frontier$RatePopInb, y=Frontier$GainStand, pointwise=Mat, ic="BIC")#, nknots=10)
     x <- seq(from=min(Frontier$RatePopInb),
              to=max(Frontier$RatePopInb),
              by=0.0001)

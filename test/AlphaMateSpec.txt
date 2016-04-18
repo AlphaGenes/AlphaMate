@@ -1,4 +1,4 @@
-Mode                               ,MinOptRan Opt Min Ran MinOpt
+Mode                               ,Opt MinOpt Min Ran MinOptRan
 RelationshipMatrixFile             ,RelMat.txt
 BreedingValueFile                  ,Ebv.txt None
 GenderFile                         ,Gender.txt None
@@ -9,18 +9,18 @@ NumberOfMaleParents                ,10
 NumberOfFemaleParents              ,50
 EqualizeParentContributions        ,No
 EqualizeMaleParentContributions    ,No
-EqualizeFemaleParentContributions  ,No
+EqualizeFemaleParentContributions  ,Yes
 LimitParentContributions           ,No,5,20,-0.01
-LimitMaleParentContributions       ,No,1,20,-0.01
-LimitFemaleParentContributions     ,Yes,1,1,-0.01
+LimitMaleParentContributions       ,Yes,5,100,-0.01
+LimitFemaleParentContributions     ,No,1,1,-0.01
 AllowSelfing                       ,No,-0.1
 PAGE                               ,No,5
 PAGEMales                          ,Yes,5
 PAGEFemales                        ,No,0
 TargetedRateOfPopulationInbreeding ,0.01,-0.5,AboveAndBellow
-IndividualInbreedingWeight         ,-0, -0.01
-EvaluateFrontier                   ,No Yes,15,0.00001,0.0001,0.001,0.0025,0.005,0.0075, 0.0125,0.01875,0.025,0.03125,0.0375,0.05,0.0625,0.075,0.1
-EvolutionaryAlgorithmIterations    ,100,20000,500,1000,0.0001,100
+IndividualInbreedingWeight         ,-0  -0.01
+EvaluateFrontier                   ,Yes,3,-0.001,0.001,0.0025,0.005,0.0075,0.0125,0.01875,0.025,0.03125,0.0375,0.05,0.0625,0.075,0.1
+EvolutionaryAlgorithmIterations    ,100,20000,500,1000,0.0001,1
 EvolutionaryAlgorithmParameters    ,0.4,0.2,0.1,1.0,4.0
 RandomSearchIterationsStricter     ,10
 Seed                               ,None 19791123
