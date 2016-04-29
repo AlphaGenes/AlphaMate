@@ -59,20 +59,32 @@ if (length(LogFiles) > 0) {
 
     if (LogFile == "OptimisationLogMinimumInbreeding.txt") {
       Col <- ColRoslinBlue
+    } else if (LogFile == "OptimisationLogRandomMating.txt") {
+      Col <- ColRoslinOrange
     } else if (LogFile == "OptimisationLogOptimumGain.txt") {
       Col <- ColRoslinViolet
     } else {
       Col <- ColRoslinGray
     }
-    Test <- which.max(Dat[[LogFileCount]]$Step)
-    Ratio <- Dat[[LogFileCount]]$Criterion/Dat[[LogFileCount]][Test, "Criterion"]
-    Ratio <- Ratio/max(Ratio)
+    if (LogFile == "OptimisationLogRandomMating.txt") {
+      Sel <- which.max(Dat[[LogFileCount]]$Step)
+      Ratio <- 2
+      Type <- "o"
+    } else {
+      # Option to plot less points
+      Sel <- rep(TRUE, times=nrow(Dat[[LogFileCount]]))
+      Test <- which.max(Dat[[LogFileCount]]$Step)
+      Ratio <- Dat[[LogFileCount]][Sel, "Criterion"] / Dat[[LogFileCount]][Sel, "Criterion"][Test]
+      Ratio <- Ratio + min(Ratio)
+      Ratio <- Ratio / max(Ratio)
+      Type <- "l"
+    }
     if (LogFileCount == 1) {
-      plot(y=Dat[[LogFileCount]]$GainStand, x=Dat[[LogFileCount]]$RatePopInb, type="o",
+      plot(y=Dat[[LogFileCount]][Sel, "GainStand"], x=Dat[[LogFileCount]][Sel, "RatePopInb"], type=Type,
            pch=21, lwd=0.5, ylim=ylim, xlim=xlim, col=Col, bg=Col, cex=0.5*Ratio,
            xlab="Rate of inbreeding", ylab="Genetic gain (standardized)")
     } else {
-      points(y=Dat[[LogFileCount]]$GainStand, x=Dat[[LogFileCount]]$RatePopInb, type="o",
+      points(y=Dat[[LogFileCount]][Sel, "GainStand"], x=Dat[[LogFileCount]][Sel, "RatePopInb"], type=Type,
              pch=21, lwd=0.5, ylim=ylim, xlim=xlim, col=Col, bg=Col, cex=0.5*Ratio)
     }
     if (LogFile %in% c("OptimisationLogMinimumInbreeding.txt", "OptimisationLogOptimumGain.txt")) {
