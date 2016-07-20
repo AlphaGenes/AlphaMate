@@ -58,6 +58,8 @@ module AlphaMateMod
       procedure         :: CalcCriterion => FixSolEtcMateAndCalcCrit
       procedure, nopass :: LogHead       => LogHeadAlphaMateSol
       procedure         :: Log           => LogAlphaMateSol
+      procedure, nopass :: LogPopHead    => LogPopHeadAlphaMateSol
+      procedure         :: LogPop        => LogPopAlphaMateSol
   end type
 
   integer(int32) :: nInd, nMat, nPotMat, nPar, nPotPar1, nPotPar2, nMal, nFem, nPar1, nPar2, nFrontierSteps
@@ -76,7 +78,7 @@ module AlphaMateMod
   real(real64), allocatable :: RelMtx(:,:), GenericIndVal(:,:), GenericMatVal(:,:,:)
 
   logical :: ModeMin, ModeRan, ModeOpt, BreedValAvailable, GenderMatters, EqualizePar1, EqualizePar2
-  logical :: SelfingAllowed, PopInbWeightBellow, EvaluateFrontier
+  logical :: SelfingAllowed, PopInbWeightBellow, EvolAlgLogPop, EvaluateFrontier
   logical :: PAGE, PAGEPar1, PAGEPar2, GenericIndValAvailable, GenericMatValAvailable
 
   character(len=100), allocatable :: IdC(:)
@@ -97,6 +99,10 @@ module AlphaMateMod
   CHARACTER(len=100), PARAMETER  :: FMTLOGUNITB = "(1x, es21.13e3))"
   CHARACTER(len=100)             :: FMTLOGUNIT
   CHARACTER(len=22), ALLOCATABLE :: COLNAMELOGUNIT(:)
+
+  CHARACTER(len=100), PARAMETER  :: FMTLOGPOPUNITA = "(2i22, "
+  CHARACTER(len=100)             :: FMTLOGPOPUNIT
+  CHARACTER(len=22), ALLOCATABLE :: COLNAMELOGPOPUNIT(:)
 
   CHARACTER(len=100), PARAMETER  :: FMTINDHEAD = "(6a12)"
   CHARACTER(len=100), PARAMETER  :: FMTINDHEADEDIT = "(8a12)"
@@ -666,7 +672,7 @@ module AlphaMateMod
 
       ! --- EvolutionaryAlgorithmIterations ---
 
-      read(SpecUnit, *) DumC, EvolAlgNSol, EvolAlgNGen, EvolAlgNGenBurnIn, EvolAlgNGenStop, EvolAlgStopTol, EvolAlgNGenPrint
+      read(SpecUnit, *) DumC, EvolAlgNSol, EvolAlgNGen, EvolAlgNGenBurnIn, EvolAlgNGenStop, EvolAlgStopTol, EvolAlgNGenPrint, EvolAlgLogPop
 
       ! --- EvolutionaryAlgorithmParameters ---
 
@@ -1142,6 +1148,7 @@ module AlphaMateMod
       end if
       allocate(COLNAMELOGUNIT(nCol))
       allocate(COLNAMELOGSTDOUT(nCol))
+      allocate(COLNAMELOGPOPUNIT(nCol))
       !                    1234567890123456789012
       COLNAMELOGUNIT(1) = "                  Step"
       COLNAMELOGUNIT(2) = "            AcceptRate"
@@ -1171,10 +1178,14 @@ module AlphaMateMod
         COLNAMELOGSTDOUT(i) = COLNAMELOGUNIT(i)(13:22)
         COLNAMELOGSTDOUT(i) = adjustr(COLNAMELOGSTDOUT(i))
       end do
-      FMTLOGSTDOUTHEAD = trim(FMTLOGSTDOUTHEADA)//trim(Int2Char(nCol))  //trim(FMTLOGSTDOUTHEADB)
-      FMTLOGSTDOUT     = trim(FMTLOGSTDOUTA)    //trim(Int2Char(nCol-1))//trim(FMTLOGSTDOUTB)
-      FMTLOGUNITHEAD   = trim(FMTLOGUNITHEADA)  //trim(Int2Char(nCol)  )//trim(FMTLOGUNITHEADB)
-      FMTLOGUNIT       = trim(FMTLOGUNITA)      //trim(Int2Char(nCol-1))//trim(FMTLOGUNITB)
+      COLNAMELOGPOPUNIT = COLNAMELOGUNIT
+      !                       1234567890123456789012
+      COLNAMELOGPOPUNIT(2) = "              Solution"
+      FMTLOGSTDOUTHEAD  = trim(FMTLOGSTDOUTHEADA) //trim(Int2Char(nCol))  //trim(FMTLOGSTDOUTHEADB)
+      FMTLOGSTDOUT      = trim(FMTLOGSTDOUTA)     //trim(Int2Char(nCol-1))//trim(FMTLOGSTDOUTB)
+      FMTLOGUNITHEAD    = trim(FMTLOGUNITHEADA)   //trim(Int2Char(nCol)  )//trim(FMTLOGUNITHEADB)
+      FMTLOGUNIT        = trim(FMTLOGUNITA)       //trim(Int2Char(nCol-1))//trim(FMTLOGUNITB)
+      FMTLOGPOPUNIT     = trim(FMTLOGPOPUNITA)    //trim(Int2Char(nCol-2))//trim(FMTLOGUNITB)
     end subroutine
 
     !###########################################################################
@@ -1188,7 +1199,7 @@ module AlphaMateMod
       real(real64) :: PopInbTargetHold, RatePopInbTargetHold
       real(real64), allocatable :: InitEqual(:,:)
 
-      character(len=1000) :: LogFile, ContribFile, MatingFile
+      character(len=1000) :: LogFile, LogPopFile, ContribFile, MatingFile
       character(len=100) :: DumC
 
       type(AlphaMateSol) :: SolMin, SolRan, SolOpt, Sol
@@ -1212,6 +1223,7 @@ module AlphaMateMod
         write(STDOUT, "(a)") " "
 
         LogFile     = "AlphaMateResults"//DASH//"OptimisationLogMinimumInbreeding.txt"
+        LogPopFile  = "AlphaMateResults"//DASH//"OptimisationLogPopMinimumInbreeding.txt"
         ContribFile = "AlphaMateResults"//DASH//"IndividualResultsMinimumInbreeding.txt"
         MatingFile  = "AlphaMateResults"//DASH//"MatingResultsMinimumInbreeding.txt"
 
@@ -1219,8 +1231,8 @@ module AlphaMateMod
         InitEqual(:,:) = 1.0d0 ! A couple of solutions that would give equal contributions for everybody
 
         call DifferentialEvolution(nParam=nParam, nSol=EvolAlgNSol, Init=InitEqual, nGen=EvolAlgNGen, nGenBurnIn=EvolAlgNGenBurnIn, &
-           nGenStop=EvolAlgNGenStop, StopTolerance=EvolAlgStopTol, nGenPrint=EvolAlgNGenPrint, File=LogFile, CritType="min", &
-           CRBurnIn=EvolAlgCRBurnIn, CRLate=EvolAlgCRLate, FBase=EvolAlgFBase, FHigh1=EvolAlgFHigh1, FHigh2=EvolAlgFHigh2, &
+           nGenStop=EvolAlgNGenStop, StopTolerance=EvolAlgStopTol, nGenPrint=EvolAlgNGenPrint, LogFile=LogFile, LogPop=EvolAlgLogPop, LogPopFile=LogPopFile, &
+           CritType="min", CRBurnIn=EvolAlgCRBurnIn, CRLate=EvolAlgCRLate, FBase=EvolAlgFBase, FHigh1=EvolAlgFHigh1, FHigh2=EvolAlgFHigh2, &
            BestSol=SolMin)
 
         deallocate(InitEqual)
@@ -1240,7 +1252,7 @@ module AlphaMateMod
         InitEqual(:,:) = 1.0d0 ! A couple of solutions that would give equal contributions for everybody
 
         call RandomSearch(Mode="avg", nParam=nParam, Init=InitEqual, nSamp=EvolAlgNSol*EvolAlgNGen*RanAlgStricter, nSampStop=EvolAlgNGenStop*RanAlgStricter, &
-          StopTolerance=EvolAlgStopTol/real(RanAlgStricter), nSampPrint=EvolAlgNGenPrint, File=LogFile, CritType="ran", BestSol=SolRan)
+          StopTolerance=EvolAlgStopTol/real(RanAlgStricter), nSampPrint=EvolAlgNGenPrint, LogFile=LogFile, CritType="ran", BestSol=SolRan)
 
         deallocate(InitEqual)
       end if
@@ -1252,12 +1264,13 @@ module AlphaMateMod
         write(STDOUT, "(a)") " "
 
         LogFile     = "AlphaMateResults"//DASH//"OptimisationLogOptimumGain.txt"
+        LogPopFile  = "AlphaMateResults"//DASH//"OptimisationLogPopOptimumGain.txt"
         ContribFile = "AlphaMateResults"//DASH//"IndividualResultsOptimumGain.txt"
         MatingFile  = "AlphaMateResults"//DASH//"MatingResultsOptimumGain.txt"
 
         call DifferentialEvolution(nParam=nParam, nSol=EvolAlgNSol, nGen=EvolAlgNGen, nGenBurnIn=EvolAlgNGenBurnIn, &
-          nGenStop=EvolAlgNGenStop, StopTolerance=EvolAlgStopTol, nGenPrint=EvolAlgNGenPrint, File=LogFile, CritType="opt", &
-          CRBurnIn=EvolAlgCRBurnIn, CRLate=EvolAlgCRLate, FBase=EvolAlgFBase, FHigh1=EvolAlgFHigh1, FHigh2=EvolAlgFHigh2, &
+          nGenStop=EvolAlgNGenStop, StopTolerance=EvolAlgStopTol, nGenPrint=EvolAlgNGenPrint, LogFile=LogFile, LogPop=EvolAlgLogPop, LogPopFile=LogPopFile, &
+          CritType="opt", CRBurnIn=EvolAlgCRBurnIn, CRLate=EvolAlgCRLate, FBase=EvolAlgFBase, FHigh1=EvolAlgFHigh1, FHigh2=EvolAlgFHigh2, &
           BestSol=SolOpt)
 
         call SaveSolution(SolOpt, ContribFile, MatingFile)
@@ -1308,18 +1321,21 @@ module AlphaMateMod
                                " for the rate of population inbreeding "//trim(Real2Char(RatePopInbTarget, fmt=FMTREAL2CHAR))//&
                                " (=future pop. inbreed. "//trim(Real2Char(PopInbTarget, fmt=FMTREAL2CHAR))//")"
           write(STDOUT, "(a)") ""
-          LogFile = "AlphaMateResults"//DASH//"OptimisationLogFrontier"//trim(Int2Char(k))//".txt"
+
+          LogFile     = "AlphaMateResults"//DASH//"OptimisationLogFrontier"//trim(Int2Char(k))//".txt"
+          LogPopFile  = "AlphaMateResults"//DASH//"OptimisationLogPopFrontier"//trim(Int2Char(k))//".txt"
+          ContribFile = "AlphaMateResults"//DASH//"IndividualResultsFrontier"//trim(Int2Char(k))//".txt"
+          MatingFile  = "AlphaMateResults"//DASH//"MatingResultsFrontier"//trim(Int2Char(k))//".txt"
 
           call DifferentialEvolution(nParam=nParam, nSol=EvolAlgNSol, nGen=EvolAlgNGen, nGenBurnIn=EvolAlgNGenBurnIn, &
-            nGenStop=EvolAlgNGenStop, StopTolerance=EvolAlgStopTol, nGenPrint=EvolAlgNGenPrint, File=LogFile, CritType="opt", &
-            CRBurnIn=EvolAlgCRBurnIn, CRLate=EvolAlgCRLate, FBase=EvolAlgFBase, FHigh1=EvolAlgFHigh1, FHigh2=EvolAlgFHigh2, &
+            nGenStop=EvolAlgNGenStop, StopTolerance=EvolAlgStopTol, nGenPrint=EvolAlgNGenPrint, LogFile=LogFile, LogPop=EvolAlgLogPop, LogPopFile=LogPopFile, &
+            CritType="opt", CRBurnIn=EvolAlgCRBurnIn, CRLate=EvolAlgCRLate, FBase=EvolAlgFBase, FHigh1=EvolAlgFHigh1, FHigh2=EvolAlgFHigh2, &
             BestSol=Sol)
 
+          ! TODO: add the generic stuff from the log? Just call This%Log?
           DumC = "Frontier"//trim(Int2Char(k))
           write(FrontierUnit, FMTFRO) adjustl(DumC), Sol%Criterion, Sol%Penalty, Sol%Gain, Sol%GainStand, Sol%PopInb, Sol%RatePopInb, Sol%PrgInb
 
-          ContribFile = "AlphaMateResults"//DASH//"IndividualResultsFrontier"//trim(Int2Char(k))//".txt"
-          MatingFile  = "AlphaMateResults"//DASH//"MatingResultsFrontier"//trim(Int2Char(k))//".txt"
           call SaveSolution(Sol, ContribFile, MatingFile)
 
           if ((RatePopInbTarget - Sol%RatePopInb) > 0.01d0) then
@@ -2133,6 +2149,38 @@ module AlphaMateMod
           else
             write(LogUnit,  FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%Gain, This%GainStand, This%PopInb, This%RatePopInb, This%PrgInb
           end if
+        end if
+      end if
+    end subroutine
+
+    !###########################################################################
+
+    subroutine LogPopHeadAlphaMateSol(LogPopUnit)
+      implicit none
+      integer(int32), intent(in) :: LogPopUnit
+      write(LogPopUnit, FMTLOGUNITHEAD) COLNAMELOGPOPUNIT(:)
+    end subroutine
+
+    !###########################################################################
+
+    subroutine LogPopAlphaMateSol(This, LogPopUnit, Gen, i)
+      implicit none
+      class(AlphaMateSol), intent(in) :: This
+      integer(int32), intent(in)      :: LogPopUnit
+      integer(int32), intent(in)      :: Gen
+      integer(int32), intent(in)      :: i
+
+      if (GenericIndValAvailable) then
+        if (GenericMatValAvailable) then
+          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%Gain, This%GainStand, This%PopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal, This%GenericMatVal
+        else
+          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%Gain, This%GainStand, This%PopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal
+        end if
+      else
+        if (GenericMatValAvailable) then
+          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%Gain, This%GainStand, This%PopInb, This%RatePopInb, This%PrgInb,                     This%GenericMatVal
+        else
+          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%Gain, This%GainStand, This%PopInb, This%RatePopInb, This%PrgInb
         end if
       end if
     end subroutine
