@@ -981,11 +981,11 @@ module AlphaMateMod
       if (GenderMatters) then
         nPotMat = nPotPar1 * nPotPar2
       else
-        nPotMat = real(nPotPar1 * nPotPar1) / 2.0
+        nPotMat = real(nPotPar1 * nPotPar1) / 2
         if (SelfingAllowed) then
-          nPotMat = nint(nPotMat + real(nPotPar1) / 2.0)
+          nPotMat = nint(nPotMat + real(nPotPar1) / 2)
         else
-          nPotMat = nint(nPotMat - real(nPotPar1) / 2.0)
+          nPotMat = nint(nPotMat - real(nPotPar1) / 2)
         end if
       end if
       if (nMat > nPotMat) then
@@ -1227,7 +1227,7 @@ module AlphaMateMod
         ContribFile = "AlphaMateResults"//DASH//"IndividualResultsMinimumInbreeding.txt"
         MatingFile  = "AlphaMateResults"//DASH//"MatingResultsMinimumInbreeding.txt"
 
-        allocate(InitEqual(nParam, nint(real(EvolAlgNSol * 0.1))))
+        allocate(InitEqual(nParam, nint(EvolAlgNSol * 0.1)))
         InitEqual(:,:) = 1.0d0 ! A couple of solutions that would give equal contributions for everybody
 
         call DifferentialEvolution(nParam=nParam, nSol=EvolAlgNSol, Init=InitEqual, nGen=EvolAlgNGen, nGenBurnIn=EvolAlgNGenBurnIn, &
@@ -1248,11 +1248,11 @@ module AlphaMateMod
 
         LogFile = "AlphaMateResults"//DASH//"OptimisationLogRandomMating.txt"
 
-        allocate(InitEqual(nParam, nint(real(EvolAlgNSol * 0.1))))
+        allocate(InitEqual(nParam, nint(EvolAlgNSol * 0.1)))
         InitEqual(:,:) = 1.0d0 ! A couple of solutions that would give equal contributions for everybody
 
         call RandomSearch(Mode="avg", nParam=nParam, Init=InitEqual, nSamp=EvolAlgNSol*EvolAlgNGen*RanAlgStricter, nSampStop=EvolAlgNGenStop*RanAlgStricter, &
-          StopTolerance=EvolAlgStopTol/real(RanAlgStricter), nSampPrint=EvolAlgNGenPrint, LogFile=LogFile, CritType="ran", BestSol=SolRan)
+          StopTolerance=EvolAlgStopTol/RanAlgStricter, nSampPrint=EvolAlgNGenPrint, LogFile=LogFile, CritType="ran", BestSol=SolRan)
 
         deallocate(InitEqual)
       end if
@@ -1383,7 +1383,7 @@ module AlphaMateMod
         do i = nInd, 1, -1 ! MrgRnk ranks small to large
           j = Rank(i)
           write(ContribUnit, FMTIND) IdC(j), Gender(j), BreedVal(j), &
-                                     0.5d0 * sum(RelMtx(:,j)) / dble(nInd), &
+                                     0.5d0 * sum(RelMtx(:,j)) / nInd, &
                                      Sol%xVec(j), Sol%nVec(j)
         end do
       else
@@ -1399,7 +1399,7 @@ module AlphaMateMod
         do i = nInd, 1, -1 ! MrgRnk ranks small to large
           j = Rank(i)
           write(ContribUnit, FMTINDEDIT) IdC(j), Gender(j), BreedVal(j), &
-                                         0.5d0 * sum(RelMtx(:,j)) / dble(nInd), &
+                                         0.5d0 * sum(RelMtx(:,j)) / nInd, &
                                          Sol%xVec(j), Sol%nVec(j), &
                                          nint(Sol%GenomeEdit(j)), BreedVal(j) + Sol%GenomeEdit(j) * BreedValPAGE(j)
         end do
@@ -1524,41 +1524,40 @@ module AlphaMateMod
       integer(int32), intent(in)         :: n
 
       ! Other
-      real(real64) :: nR, kR
+      real(real64) :: kR
 
       ! Updates
-      nR = dble(n)
-      kR = (nR - 1.0d0) / nR
+      kR = (dble(n) - 1.0d0) / n
 
       ! (Need to go via the select type stuff as all but the first arguments must
       !  be the same as in the base class/type)
       select type (Add)
         class is (AlphaMateSol)
-          This%Criterion       = This%Criterion     * kR + Add%Criterion     / nR
-          This%Penalty         = This%Penalty       * kR + Add%Penalty       / nR
-          This%Gain            = This%Gain          * kR + Add%Gain          / nR
-          This%GainStand       = This%GainStand     * kR + Add%GainStand     / nR
-          This%PopInb          = This%PopInb        * kR + Add%PopInb        / nR
-          This%RatePopInb      = This%RatePopInb    * kR + Add%RatePopInb    / nR
-          This%PrgInb          = This%PrgInb        * kR + Add%PrgInb        / nR
+          This%Criterion       = This%Criterion     * kR + Add%Criterion     / n
+          This%Penalty         = This%Penalty       * kR + Add%Penalty       / n
+          This%Gain            = This%Gain          * kR + Add%Gain          / n
+          This%GainStand       = This%GainStand     * kR + Add%GainStand     / n
+          This%PopInb          = This%PopInb        * kR + Add%PopInb        / n
+          This%RatePopInb      = This%RatePopInb    * kR + Add%RatePopInb    / n
+          This%PrgInb          = This%PrgInb        * kR + Add%PrgInb        / n
           if (allocated(This%GenericIndVal)) then
-            This%GenericIndVal = This%GenericIndVal * kR + Add%GenericIndVal / nR
+            This%GenericIndVal = This%GenericIndVal * kR + Add%GenericIndVal / n
           end if
           if (allocated(This%GenericMatVal)) then
-            This%GenericMatVal = This%GenericMatVal * kR + Add%GenericMatVal / nR
+            This%GenericMatVal = This%GenericMatVal * kR + Add%GenericMatVal / n
           end if
-          This%Cost            = This%Cost          * kR + Add%Cost          / nR
+          This%Cost            = This%Cost          * kR + Add%Cost          / n
           if (allocated(This%nVec)) then
-            This%nVec          = This%nVec          * kR + Add%nVec          / nR
+            This%nVec          = This%nVec          * kR + Add%nVec          / n
           end if
           if (allocated(This%xVec)) then
-            This%xVec          = This%xVec          * kR + Add%xVec          / nR
+            This%xVec          = This%xVec          * kR + Add%xVec          / n
           end if
           if (allocated(This%MatingPlan)) then
-            This%MatingPlan    = This%MatingPlan    * kR + Add%MatingPlan    / nR
+            This%MatingPlan    = This%MatingPlan    * kR + Add%MatingPlan    / n
           end if
           if (allocated(This%GenomeEdit)) then
-            This%GenomeEdit    = This%GenomeEdit    * kR + Add%GenomeEdit    / nR
+            This%GenomeEdit    = This%GenomeEdit    * kR + Add%GenomeEdit    / n
           end if
         class default
           write(STDERR, "(a)") "ERROR: Both This and Add must be of the AlphaMateSol class for AlphaMate!"
@@ -1645,10 +1644,10 @@ module AlphaMateMod
       if (EqualizePar1) then
         if (nPar1 == nPotPar1) then
           ! ... set integers to all the values (no need for sorting here)
-          Chrom(1:nPotPar1) = dble(nMat * g) / dble(nPar1)
+          Chrom(1:nPotPar1) = dble(nMat * g) / nPar1
         else
           ! ... set integers to the top values
-          Chrom(Rank(1:nPar1)) = dble(nMat * g) / dble(nPar1)
+          Chrom(Rank(1:nPar1)) = dble(nMat * g) / nPar1
           ! TODO: anything better to preserve the order of non contributing individuals? See below!
           Chrom(Rank((nPar1+1):nPotPar1)) = 0.0d0
           ! Chrom(Rank((nPar1+1):nPotPar1)) = -1.0d0
@@ -1745,10 +1744,10 @@ module AlphaMateMod
         if (EqualizePar2) then
           if (nPar2 == nPotPar2) then
             ! ... set integers to all the values (no need for sorting here)
-            Chrom((nPotPar1+1):(nPotPar1+nPotPar2)) = dble(nMat) / dble(nPar2)
+            Chrom((nPotPar1+1):(nPotPar1+nPotPar2)) = dble(nMat) / nPar2
           else
             ! ... set integers to the top values
-            Chrom(nPotPar1+Rank(1:nPar2)) = dble(nMat) / dble(nPar2)
+            Chrom(nPotPar1+Rank(1:nPar2)) = dble(nMat) / nPar2
             ! TODO: anything better to preserve the order of non contributing individuals? See below!
             Chrom(nPotPar1+Rank((nPar2+1):nPotPar2)) = 0.0d0
             ! Chrom(nPotPar1+Rank((nPar2+1):nPotPar2)) = -1.0d0
@@ -1872,7 +1871,7 @@ module AlphaMateMod
         This%nVec(IdPotPar2) = nVecPar2(:)
       end if
 
-      This%xVec(:) = dble(This%nVec(:)) / (dble(2 * nMat))
+      This%xVec(:) = dble(This%nVec(:)) / (2 * nMat)
 
       ! --- PAGE ---
 
@@ -2068,7 +2067,7 @@ module AlphaMateMod
         TmpMin = minval(This%MatingPlan(:,j))
         TmpR = TmpR + 0.5d0 * RelMtx(TmpMax, TmpMin)
       end do
-      This%PrgInb = TmpR / dble(nMat)
+      This%PrgInb = TmpR / nMat
       TmpR = PrgInbWeight * This%PrgInb
       This%Criterion = This%Criterion + TmpR
       if (PrgInbWeight < 0.0d0) then
@@ -2092,7 +2091,7 @@ module AlphaMateMod
               TmpR = TmpR + GenericMatVal(TmpMax, TmpMin, k)
             end do
           end if
-          This%GenericMatVal(k) = TmpR / dble(nMat)
+          This%GenericMatVal(k) = TmpR / nMat
           TmpR = GenericMatValWeight(k) * This%GenericMatVal(k)
           This%Criterion = This%Criterion + TmpR
           if (GenericMatValWeight(k) < 0.0) then
