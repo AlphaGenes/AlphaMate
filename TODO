@@ -1,4 +1,8 @@
+* How do we handle when nMat > nDam? Are we mating one dam with several sires?
+
 * Sort mating plan by contributions
+
+* Good/sensible starting point for optimisation?
 
 * Generic way of adding costs (similar as with the generic individual/mating values)
   - individual level

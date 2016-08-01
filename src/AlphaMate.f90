@@ -39,8 +39,8 @@ module AlphaMateMod
 
   type, extends(AlphaEvolveSol) :: AlphaMateSol
     real(real64)                :: Penalty
-    real(real64)                :: Gain
-    real(real64)                :: GainStand
+    real(real64)                :: Value
+    real(real64)                :: ValueStand
     real(real64)                :: PopInb
     real(real64)                :: RatePopInb
     real(real64)                :: PrgInb
@@ -824,9 +824,9 @@ module AlphaMateMod
         write(STDOUT, "(a)") "Breeding values"
         nIndTmp = CountLines(BreedValFile)
         if (nIndTmp /= nInd) then
-          write(STDERR, "(a)") "ERROR: Number of individuals in the Breeding Value file and the Relationship Matrix file is not the same!"
-          write(STDERR, "(a)") "ERROR: Number of individuals in the Relationship Matrix file: "//trim(Int2Char(nInd))
-          write(STDERR, "(a)") "ERROR: Number of individuals in the Breeding Value file:      "//trim(Int2Char(nIndTmp))
+          write(STDERR, "(a)") "ERROR: Number of individuals in the breeding value file and the relationship matrix file is not the same!"
+          write(STDERR, "(a)") "ERROR: Number of individuals in the relationship matrix file: "//trim(Int2Char(nInd))
+          write(STDERR, "(a)") "ERROR: Number of individuals in the breeding value file:      "//trim(Int2Char(nIndTmp))
           write(STDERR, "(a)") " "
           stop 1
         end if
@@ -839,7 +839,7 @@ module AlphaMateMod
           end if
           j = FindLoc(IdCTmp, IdC)
           if (j == 0) then
-            write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the Breeding Value file not present in the Relationship Matrix File!"
+            write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the breeding value file not present in the relationship matrix file!"
             write(STDERR, "(a)") " "
             stop 1
           end if
@@ -1014,9 +1014,9 @@ module AlphaMateMod
         write(STDOUT, "(a)") "Generic individual values"
         nIndTmp = CountLines(GenericIndValFile)
         if (nIndTmp /= nInd) then
-          write(STDERR, "(a)") "ERROR: Number of individuals in the Generic Individual Values file and the Relationship Matrix file is not the same!"
-          write(STDERR, "(a)") "ERROR: Number of individuals in the Relationship Matrix file:       "//trim(Int2Char(nInd))
-          write(STDERR, "(a)") "ERROR: Number of individuals in the Generic Individual Values file: "//trim(Int2Char(nIndTmp))
+          write(STDERR, "(a)") "ERROR: Number of individuals in the generic individual values file and the relationship matrix file is not the same!"
+          write(STDERR, "(a)") "ERROR: Number of individuals in the relationship matrix file:       "//trim(Int2Char(nInd))
+          write(STDERR, "(a)") "ERROR: Number of individuals in the generic individual values file: "//trim(Int2Char(nIndTmp))
           write(STDERR, "(a)") " "
           stop 1
         end if
@@ -1028,7 +1028,7 @@ module AlphaMateMod
           read(GenericIndValUnit, *) IdCTmp, GenericIndValTmp(:)
           j = FindLoc(IdCTmp, IdC)
           if (j == 0) then
-            write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the Generic Individual Values file not present in the Relationship Matrix File!"
+            write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the generic individual values file not present in the relationship matrix file!"
             write(STDERR, "(a)") " "
             stop 1
           end if
@@ -1053,9 +1053,9 @@ module AlphaMateMod
         write(STDOUT, "(a)") "Generic mating values"
         DumI = CountLines(GenericMatValFile)
         if (DumI /= nPotMat) then
-          write(STDERR, "(a)") "ERROR: Number of matings in the Generic Mating Values file and the number of all potential matings is not the same!"
+          write(STDERR, "(a)") "ERROR: Number of matings in the generic mating values file and the number of all potential matings is not the same!"
           write(STDERR, "(a)") "ERROR: Number of all potential matings:                         "//trim(Int2Char(nPotMat))
-          write(STDERR, "(a)") "ERROR: Number of individuals in the Generic Mating Values file: "//trim(Int2Char(DumI))
+          write(STDERR, "(a)") "ERROR: Number of individuals in the generic mating values file: "//trim(Int2Char(DumI))
           write(STDERR, "(a)") " "
           stop 1
         end if
@@ -1067,28 +1067,28 @@ module AlphaMateMod
           read(GenericMatValUnit, *) IdCTmp, IdCTmp2, GenericMatValTmp(:)
           j = FindLoc(IdCTmp, IdC)
           if (j == 0) then
-            write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the Generic Mating Values file not present in the Relationship Matrix File!"
+            write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the generic mating values file not present in the relationship matrix file!"
             write(STDERR, "(a)") " "
             stop 1
           end if
           k = FindLoc(IdCTmp2, IdC)
           if (k == 0) then
-            write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp2)//" from the Generic Mating Values file not present in the Relationship Matrix File!"
+            write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp2)//" from the generic mating values file not present in the relationship matrix file!"
             write(STDERR, "(a)") " "
             stop 1
           end if
           if (GenderMatters) then
             l = FindLoc(j, IdPotPar1)
             if (l == 0) then
-              write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the first column in the Generic Mating Values file should be a male!"
-              write(STDERR, "(a)") "ERROR: Generic Mating Values file (line "//trim(Int2Char(i))//"): "//trim(IdCTmp)//" "//trim(IdCTmp2)
+              write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the first column in the generic mating values file should be a male!"
+              write(STDERR, "(a)") "ERROR: Generic mating values file (line "//trim(Int2Char(i))//"): "//trim(IdCTmp)//" "//trim(IdCTmp2)
               write(STDERR, "(a)") " "
               stop 1
             end if
             m = FindLoc(k, IdPotPar2)
             if (l == 0) then
-              write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp2)//" from the second column in the Generic Mating Values file should be a female!"
-              write(STDERR, "(a)") "ERROR: Generic Mating Values file (line "//trim(Int2Char(i))//"): "//trim(IdCTmp)//" "//trim(IdCTmp2)
+              write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp2)//" from the second column in the generic mating values file should be a female!"
+              write(STDERR, "(a)") "ERROR: Generic mating values file (line "//trim(Int2Char(i))//"): "//trim(IdCTmp)//" "//trim(IdCTmp2)
               write(STDERR, "(a)") " "
               stop 1
             end if
@@ -1154,8 +1154,8 @@ module AlphaMateMod
       COLNAMELOGUNIT(2) = "            AcceptRate"
       COLNAMELOGUNIT(3) = "             Criterion"
       COLNAMELOGUNIT(4) = "             Penalties"
-      COLNAMELOGUNIT(5) = "                  Gain"
-      COLNAMELOGUNIT(6) = "             GainStand"
+      COLNAMELOGUNIT(5) = "                 Value"
+      COLNAMELOGUNIT(6) = "            ValueStand"
       COLNAMELOGUNIT(7) = "            PopInbreed"
       COLNAMELOGUNIT(8) = "            RatePopInb"
       COLNAMELOGUNIT(9) = "            PrgInbreed"
@@ -1257,16 +1257,16 @@ module AlphaMateMod
         deallocate(InitEqual)
       end if
 
-      ! --- Optimise for maximum gain with constraint on inbreeding ---
+      ! --- Optimise for maximum value with constraint on inbreeding ---
 
       if (ModeOpt) then
-        write(STDOUT, "(a)") "--- Optimise for maximum gain with constraint on inbreeding ---"
+        write(STDOUT, "(a)") "--- Optimise for maximum value with constraint on inbreeding ---"
         write(STDOUT, "(a)") " "
 
-        LogFile     = "AlphaMateResults"//DASH//"OptimisationLogOptimumGain.txt"
-        LogPopFile  = "AlphaMateResults"//DASH//"OptimisationLogPopOptimumGain.txt"
-        ContribFile = "AlphaMateResults"//DASH//"IndividualResultsOptimumGain.txt"
-        MatingFile  = "AlphaMateResults"//DASH//"MatingResultsOptimumGain.txt"
+        LogFile     = "AlphaMateResults"//DASH//"OptimisationLogOptimumValue.txt"
+        LogPopFile  = "AlphaMateResults"//DASH//"OptimisationLogPopOptimumValue.txt"
+        ContribFile = "AlphaMateResults"//DASH//"IndividualResultsOptimumValue.txt"
+        MatingFile  = "AlphaMateResults"//DASH//"MatingResultsOptimumValue.txt"
 
         call DifferentialEvolution(nParam=nParam, nSol=EvolAlgNSol, nGen=EvolAlgNGen, nGenBurnIn=EvolAlgNGenBurnIn, &
           nGenStop=EvolAlgNGenStop, StopTolerance=EvolAlgStopTol, nGenPrint=EvolAlgNGenPrint, LogFile=LogFile, LogPop=EvolAlgLogPop, LogPopFile=LogPopFile, &
@@ -1289,23 +1289,23 @@ module AlphaMateMod
         write(FrontierUnit, FMTFROHEAD) "        Step", &
                                         "             Criterion", &
                                         "             Penalties", &
-                                        "                  Gain", &
-                                        "             GainStand", &
+                                        "                 Value", &
+                                        "            ValueStand", &
                                         "            PopInbreed", &
                                         "            RatePopInb", &
                                         "            PrgInbreed"
         ! TODO: add the generic stuff from the log? Just call This%Log?
         if (ModeMin) then
           DumC = "Min"
-          write(FrontierUnit, FMTFRO) adjustl(DumC), SolMin%Criterion, SolMin%Penalty, SolMin%Gain, SolMin%GainStand, SolMin%PopInb, SolMin%RatePopInb, SolMin%PrgInb
+          write(FrontierUnit, FMTFRO) adjustl(DumC), SolMin%Criterion, SolMin%Penalty, SolMin%Value, SolMin%ValueStand, SolMin%PopInb, SolMin%RatePopInb, SolMin%PrgInb
         end if
         if (ModeRan) then
           DumC = "Ran"
-          write(FrontierUnit, FMTFRO) adjustl(DumC), SolRan%Criterion, SolRan%Penalty, SolRan%Gain, SolRan%GainStand, SolRan%PopInb, SolRan%RatePopInb, SolRan%PrgInb
+          write(FrontierUnit, FMTFRO) adjustl(DumC), SolRan%Criterion, SolRan%Penalty, SolRan%Value, SolRan%ValueStand, SolRan%PopInb, SolRan%RatePopInb, SolRan%PrgInb
         end if
         if (ModeOpt) then
           DumC = "Opt"
-          write(FrontierUnit, FMTFRO) adjustl(DumC), SolOpt%Criterion, SolOpt%Penalty, SolOpt%Gain, SolOpt%GainStand, SolOpt%PopInb, SolOpt%RatePopInb, SolOpt%PrgInb
+          write(FrontierUnit, FMTFRO) adjustl(DumC), SolOpt%Criterion, SolOpt%Penalty, SolOpt%Value, SolOpt%ValueStand, SolOpt%PopInb, SolOpt%RatePopInb, SolOpt%PrgInb
         end if
 
         ! Hold old results
@@ -1334,7 +1334,7 @@ module AlphaMateMod
 
           ! TODO: add the generic stuff from the log? Just call This%Log?
           DumC = "Frontier"//trim(Int2Char(k))
-          write(FrontierUnit, FMTFRO) adjustl(DumC), Sol%Criterion, Sol%Penalty, Sol%Gain, Sol%GainStand, Sol%PopInb, Sol%RatePopInb, Sol%PrgInb
+          write(FrontierUnit, FMTFRO) adjustl(DumC), Sol%Criterion, Sol%Penalty, Sol%Value, Sol%ValueStand, Sol%PopInb, Sol%RatePopInb, Sol%PrgInb
 
           call SaveSolution(Sol, ContribFile, MatingFile)
 
@@ -1376,7 +1376,7 @@ module AlphaMateMod
         !                               1234567890123456789012
         write(ContribUnit, FMTINDHEAD) "          Id", &
                                        "      Gender", &
-                                       "       Merit", &
+                                       "       Value", &
                                        " AvgCoancest", &
                                        "  Contribute", &
                                        "    nMatings"
@@ -1390,12 +1390,12 @@ module AlphaMateMod
         !                                   1234567890123456789012
         write(ContribUnit, FMTINDHEADEDIT) "          Id", &
                                            "      Gender", &
-                                           "       Merit", &
+                                           "       Value", &
                                            " AvgCoancest", &
                                            "  Contribute", &
                                            "    nMatings", &
                                            "  GenomeEdit", &
-                                           " EditedMerit"
+                                           " EditedValue"
         do i = nInd, 1, -1 ! MrgRnk ranks small to large
           j = Rank(i)
           write(ContribUnit, FMTINDEDIT) IdC(j), Gender(j), BreedVal(j), &
@@ -1426,13 +1426,13 @@ module AlphaMateMod
       class(AlphaMateSol), intent(out) :: This
 
       ! Initialisation
-      This%Criterion = 0.0d0
-      This%Penalty = 0.0d0
-      This%Gain = 0.0d0
-      This%GainStand = 0.0d0
-      This%PopInb = 0.0d0
+      This%Criterion  = 0.0d0
+      This%Penalty    = 0.0d0
+      This%Value      = 0.0d0
+      This%ValueStand = 0.0d0
+      This%PopInb     = 0.0d0
       This%RatePopInb = 0.0d0
-      This%PrgInb = 0.0d0
+      This%PrgInb     = 0.0d0
       if (GenericIndValAvailable) then
         allocate(This%GenericIndVal(nGenericIndVal))
         This%GenericIndVal(:) = 0.0d0
@@ -1476,8 +1476,8 @@ module AlphaMateMod
         class is (AlphaMateSol)
           Out%Criterion       = In%Criterion
           Out%Penalty         = In%Penalty
-          Out%Gain            = In%Gain
-          Out%GainStand       = In%GainStand
+          Out%Value           = In%Value
+          Out%ValueStand      = In%ValueStand
           Out%PopInb          = In%PopInb
           Out%RatePopInb      = In%RatePopInb
           Out%PrgInb          = In%PrgInb
@@ -1535,8 +1535,8 @@ module AlphaMateMod
         class is (AlphaMateSol)
           This%Criterion       = This%Criterion     * kR + Add%Criterion     / n
           This%Penalty         = This%Penalty       * kR + Add%Penalty       / n
-          This%Gain            = This%Gain          * kR + Add%Gain          / n
-          This%GainStand       = This%GainStand     * kR + Add%GainStand     / n
+          This%Value           = This%Value         * kR + Add%Value         / n
+          This%ValueStand      = This%ValueStand    * kR + Add%ValueStand    / n
           This%PopInb          = This%PopInb        * kR + Add%PopInb        / n
           This%RatePopInb      = This%RatePopInb    * kR + Add%RatePopInb    / n
           This%PrgInb          = This%PrgInb        * kR + Add%PrgInb        / n
@@ -1975,17 +1975,17 @@ module AlphaMateMod
         end do
       end if
 
-      ! --- Genetic gain ---
+      ! --- Genetic Value ---
 
       if (BreedValAvailable) then
-        This%Gain      = dot_product(This%xVec, BreedVal)
-        This%GainStand = dot_product(This%xVec, BreedValStand)
+        This%Value      = dot_product(This%xVec, BreedVal)
+        This%ValueStand = dot_product(This%xVec, BreedValStand)
         if (PAGE) then
-          This%Gain      = This%Gain      + dot_product(This%xVec, BreedValPAGE(:)      * This%GenomeEdit(:))
-          This%GainStand = This%GainStand + dot_product(This%xVec, BreedValPAGEStand(:) * This%GenomeEdit(:))
+          This%Value      = This%Value      + dot_product(This%xVec, BreedValPAGE(:)      * This%GenomeEdit(:))
+          This%ValueStand = This%ValueStand + dot_product(This%xVec, BreedValPAGEStand(:) * This%GenomeEdit(:))
         end if
         if (CritType == "opt") then
-          This%Criterion = This%Criterion + This%GainStand
+          This%Criterion = This%Criterion + This%ValueStand
         end if
       end if
 
@@ -2124,29 +2124,29 @@ module AlphaMateMod
       real(real64), intent(in)             :: AcceptRate
       if (GenericIndValAvailable) then
         if (GenericMatValAvailable) then
-          write(STDOUT,  FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%Gain, This%GainStand, This%PopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal, This%GenericMatVal
+          write(STDOUT,  FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%Value, This%ValueStand, This%PopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal, This%GenericMatVal
         else
-          write(STDOUT,  FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%Gain, This%GainStand, This%PopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal
+          write(STDOUT,  FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%Value, This%ValueStand, This%PopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal
         end if
       else
         if (GenericMatValAvailable) then
-          write(STDOUT,  FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%Gain, This%GainStand, This%PopInb, This%RatePopInb, This%PrgInb,                     This%GenericMatVal
+          write(STDOUT,  FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%Value, This%ValueStand, This%PopInb, This%RatePopInb, This%PrgInb,                     This%GenericMatVal
         else
-          write(STDOUT,  FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%Gain, This%GainStand, This%PopInb, This%RatePopInb, This%PrgInb
+          write(STDOUT,  FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%Value, This%ValueStand, This%PopInb, This%RatePopInb, This%PrgInb
         end if
       end if
       if (present(LogUnit)) then
         if (GenericIndValAvailable) then
           if (GenericMatValAvailable) then
-            write(LogUnit,  FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%Gain, This%GainStand, This%PopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal, This%GenericMatVal
+            write(LogUnit,  FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%Value, This%ValueStand, This%PopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal, This%GenericMatVal
           else
-            write(LogUnit,  FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%Gain, This%GainStand, This%PopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal
+            write(LogUnit,  FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%Value, This%ValueStand, This%PopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal
           end if
         else
           if (GenericMatValAvailable) then
-            write(LogUnit,  FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%Gain, This%GainStand, This%PopInb, This%RatePopInb, This%PrgInb,                     This%GenericMatVal
+            write(LogUnit,  FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%Value, This%ValueStand, This%PopInb, This%RatePopInb, This%PrgInb,                     This%GenericMatVal
           else
-            write(LogUnit,  FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%Gain, This%GainStand, This%PopInb, This%RatePopInb, This%PrgInb
+            write(LogUnit,  FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%Value, This%ValueStand, This%PopInb, This%RatePopInb, This%PrgInb
           end if
         end if
       end if
@@ -2171,15 +2171,15 @@ module AlphaMateMod
 
       if (GenericIndValAvailable) then
         if (GenericMatValAvailable) then
-          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%Gain, This%GainStand, This%PopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal, This%GenericMatVal
+          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%Value, This%ValueStand, This%PopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal, This%GenericMatVal
         else
-          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%Gain, This%GainStand, This%PopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal
+          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%Value, This%ValueStand, This%PopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal
         end if
       else
         if (GenericMatValAvailable) then
-          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%Gain, This%GainStand, This%PopInb, This%RatePopInb, This%PrgInb,                     This%GenericMatVal
+          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%Value, This%ValueStand, This%PopInb, This%RatePopInb, This%PrgInb,                     This%GenericMatVal
         else
-          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%Gain, This%GainStand, This%PopInb, This%RatePopInb, This%PrgInb
+          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%Value, This%ValueStand, This%PopInb, This%RatePopInb, This%PrgInb
         end if
       end if
     end subroutine
