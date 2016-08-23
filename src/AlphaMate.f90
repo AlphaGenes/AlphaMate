@@ -1150,7 +1150,7 @@ module AlphaMateMod
       allocate(COLNAMELOGSTDOUT(nCol))
       allocate(COLNAMELOGPOPUNIT(nCol))
       !                    1234567890123456789012
-      COLNAMELOGUNIT(1) = "                  Step"
+      COLNAMELOGUNIT(1) = "             Iteration"
       COLNAMELOGUNIT(2) = "            AcceptRate"
       COLNAMELOGUNIT(3) = "             Criterion"
       COLNAMELOGUNIT(4) = "             Penalties"
@@ -1286,7 +1286,7 @@ module AlphaMateMod
 
         open(newunit=FrontierUnit, file="AlphaMateResults"//DASH//"Frontier.txt", status="unknown")
         !                                1234567890123456789012
-        write(FrontierUnit, FMTFROHEAD) "        Step", &
+        write(FrontierUnit, FMTFROHEAD) "   Iteration", &
                                         "             Criterion", &
                                         "             Penalties", &
                                         "                 Value", &
