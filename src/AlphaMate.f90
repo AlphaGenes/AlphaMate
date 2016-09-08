@@ -858,6 +858,13 @@ module AlphaMateMod
         write(STDOUT, "(a)") "  - maximum: "//trim(Real2Char(VecDescStat%Max,  fmt=FMTREAL2CHAR))
         write(STDOUT, "(a)") " "
 
+        if (VecDescStat%SD == 0.0) then
+          write(STDERR, "(a)") "ERROR: There is no variation in values!"
+          write(STDERR, "(a)") "ERROR: Is this intentional?"
+          write(STDERR, "(a)") " "
+          stop 1
+        end if
+
         if (PAGE) then
           ! must have the same scaling as breeding values!!!!
           BreedValPAGEStand(:) = (BreedValPAGE(:) - VecDescStat%Mean) / VecDescStat%SD
@@ -872,6 +879,14 @@ module AlphaMateMod
           write(STDOUT, "(a)") "  - maximum: "//trim(Real2Char(VecDescStat%Max,  fmt=FMTREAL2CHAR))
           write(STDOUT, "(a)") " "
         end if
+
+        if (VecDescStat%SD == 0.0) then
+          write(STDERR, "(a)") "ERROR: There is no variation in values!"
+          write(STDERR, "(a)") "ERROR: Is this intentional?"
+          write(STDERR, "(a)") " "
+          stop 1
+        end if
+
       end if
 
       ! --- Gender ---
