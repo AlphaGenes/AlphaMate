@@ -858,6 +858,13 @@ module AlphaMateMod
         write(STDOUT, "(a)") "  - maximum: "//trim(Real2Char(VecDescStat%Max,  fmt=FMTREAL2CHAR))
         write(STDOUT, "(a)") " "
 
+        if (VecDescStat%SD == 0.0) then
+          write(STDERR, "(a)") "ERROR: There is no variation in values!"
+          write(STDERR, "(a)") "ERROR: Is this intentional?"
+          write(STDERR, "(a)") " "
+          stop 1
+        end if
+
         if (PAGE) then
           ! must have the same scaling as breeding values!!!!
           BreedValPAGEStand(:) = (BreedValPAGE(:) - VecDescStat%Mean) / VecDescStat%SD
@@ -872,6 +879,14 @@ module AlphaMateMod
           write(STDOUT, "(a)") "  - maximum: "//trim(Real2Char(VecDescStat%Max,  fmt=FMTREAL2CHAR))
           write(STDOUT, "(a)") " "
         end if
+
+        if (VecDescStat%SD == 0.0) then
+          write(STDERR, "(a)") "ERROR: There is no variation in values!"
+          write(STDERR, "(a)") "ERROR: Is this intentional?"
+          write(STDERR, "(a)") " "
+          stop 1
+        end if
+
       end if
 
       ! --- Gender ---
@@ -1150,7 +1165,7 @@ module AlphaMateMod
       allocate(COLNAMELOGSTDOUT(nCol))
       allocate(COLNAMELOGPOPUNIT(nCol))
       !                    1234567890123456789012
-      COLNAMELOGUNIT(1) = "                  Step"
+      COLNAMELOGUNIT(1) = "             Iteration"
       COLNAMELOGUNIT(2) = "            AcceptRate"
       COLNAMELOGUNIT(3) = "             Criterion"
       COLNAMELOGUNIT(4) = "             Penalties"
@@ -1286,7 +1301,7 @@ module AlphaMateMod
 
         open(newunit=FrontierUnit, file="AlphaMateResults"//DASH//"Frontier.txt", status="unknown")
         !                                1234567890123456789012
-        write(FrontierUnit, FMTFROHEAD) "        Step", &
+        write(FrontierUnit, FMTFROHEAD) "   Iteration", &
                                         "             Criterion", &
                                         "             Penalties", &
                                         "                 Value", &
@@ -2020,13 +2035,6 @@ module AlphaMateMod
       ! xAx
       This%PopInb = 0.5d0 * dot_product(TmpVec(:,1), This%xVec)
 
-      if (This%PopInb < 0.0d0) then
-        write(STDERR, "(a)") "ERROR: Negative inbreeding cases have not been well tested! Stopping."
-        write(STDERR, "(a)") "ERROR: Contact the authors."
-        write(STDERR, "(a)") " "
-        stop 1
-      end if
-
       ! F_t = DeltaF + (1 - DeltaF) * F_t-1
       ! DeltaF = (F_t - F_t-1) / (1 - F_t-1)
       This%RatePopInb = (This%PopInb - PopInbOld) / (1.0d0 - PopInbOld)
@@ -2038,12 +2046,12 @@ module AlphaMateMod
         ! which makes the PopInbWeight generic for ~any scenario.
         TmpR = This%RatePopInb / RatePopInbTarget
         if (TmpR > 1.0d0) then
-          ! Rate of inbreeding for this solution is higher than the target
+          ! Rate of inbreeding for the solution is higher than the target
           TmpR = PopInbWeight * abs(1.0d0 - TmpR)
         else
-          ! Rate of inbreeding for this solution is lower than the target
+          ! Rate of inbreeding for the solution is lower than the target
           if (PopInbWeightBellow) then
-            TmpR = PopInbWeight * abs(1.0d0 - TmpR)
+            TmpR = PopInbWeight * abs(1.0d0 - abs(TmpR)) ! the second abs is to handle negative inbreeding cases
           else
             TmpR = 0.0d0
           end if

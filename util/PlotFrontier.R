@@ -3,6 +3,8 @@
 # TODO: add some options
 #       - plots the paths, just the min and opt one or all of them
 #       - handling only x limits and only y limits
+#       - handle several frontiers
+#       - plot the population "swarm"?
 
 library(package="methods")
 library(package="utils")
@@ -12,11 +14,13 @@ if (length(args)<1) {
   FindYLim <- TRUE
   FindXLim <- TRUE
   ylim <- xlim <- NULL
+  PlotPaths <- TRUE
 } else {
   FindYLim <- FALSE
   FindXLim <- FALSE
   ylim <- as.numeric(c(args[1], args[2]))
   xlim <- as.numeric(c(args[3], args[4]))
+  PlotPaths <- as.logical(args[5])
 }
 
 ColRoslinBlue   <- rgb(red= 55, green=152, blue=217, maxColorValue=255) ## blue
@@ -81,11 +85,14 @@ if (length(LogFiles) > 0) {
     }
     if (LogFileCount == 1) {
       plot(y=Dat[[LogFileCount]][Sel, "GainStand"], x=Dat[[LogFileCount]][Sel, "RatePopInb"], type=Type,
-           pch=21, lwd=0.5, ylim=ylim, xlim=xlim, col=Col, bg=Col, cex=0.5*Ratio,
+           pch=21, lwd=0.5, ylim=ylim, xlim=xlim, cex=0.5*Ratio,
+           col=ifelse(PlotPaths, Col, "white"), bg=ifelse(PlotPaths, Col, "white"),
            xlab="Rate of inbreeding", ylab="Genetic gain (standardized)")
     } else {
-      points(y=Dat[[LogFileCount]][Sel, "GainStand"], x=Dat[[LogFileCount]][Sel, "RatePopInb"], type=Type,
-             pch=21, lwd=0.5, ylim=ylim, xlim=xlim, col=Col, bg=Col, cex=0.5*Ratio)
+      if (PlotPaths) {
+        points(y=Dat[[LogFileCount]][Sel, "GainStand"], x=Dat[[LogFileCount]][Sel, "RatePopInb"], type=Type,
+               pch=21, lwd=0.5, ylim=ylim, xlim=xlim, col=Col, bg=Col, cex=0.5*Ratio)
+      }
     }
     if (LogFile %in% c("OptimisationLogMinimumInbreeding.txt", "OptimisationLogOptimumGain.txt")) {
       abline(h=Dat[[LogFileCount]][Test, ]$GainStand,  lwd=1, lty=2, col=Col)
@@ -120,6 +127,7 @@ if (file.exists("Frontier.txt")) {
              by=0.0001)
     y <- predict(Tmp, z=x)
     lines(y=y[, 2], x=x, pch=21, cex=.5, lwd=2, col=ColRoslinGray)
+    lines(y=yPAGE[, 2], x=x[-length(x)], pch=21, cex=.5, lwd=2, col=ColRoslinGray, lty=2)
   } else {
     lines(y=Frontier$GainStand, x=Frontier$RatePopInb,
           pch=21, cex=.5, lwd=2, col=ColRoslinGray)
