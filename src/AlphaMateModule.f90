@@ -1,13 +1,33 @@
+#ifdef _WIN32
 
-#define STRINGIFY(x) #x
+#define STRINGIFY(x)#x
 #define TOSTRING(x) STRINGIFY(x)
 
-#ifdef OS_UNIX
-#define DASH "/"
-#define COPY "cp"
-#else
 #define DASH "\"
 #define COPY "copy"
+#define MD "md"
+#define RMDIR "RMDIR /S /Q"
+#define RM "del"
+#define RENAME "MOVE /Y"
+#define SH "BAT"
+#define EXE ".exe"
+#define NULL " >NUL"
+
+#else
+
+#define STRINGIFY(x)#x
+#define TOSTRING(x) STRINGIFY(x)
+
+#define DASH "/"
+#define COPY "cp"
+#define MD "mkdir"
+#define RMDIR "rm -r"
+#define RM "rm"
+#define RENAME "mv"
+#define SH "sh"
+#define EXE ""
+#define NULL ""
+
 #endif
 
 !###############################################################################
@@ -44,7 +64,7 @@ module AlphaMateModule
   type, extends(AlphaEvolveSol) :: AlphaMateSol
     real(real64)                :: Penalty
     real(real64)                :: ExpBreedVal
-    real(real64)                :: GenSelDiff
+    real(real64)                :: GenSelInt
     real(real64)                :: ExpPopInb
     real(real64)                :: RatePopInb
     real(real64)                :: PrgInb
@@ -89,12 +109,12 @@ module AlphaMateModule
   CHARACTER(len=100), PARAMETER :: FMTREAL2CHAR = "(f11.5)"
 
   CHARACTER(len=100), PARAMETER  :: FMTLOGSTDOUTHEADA = "("
-  CHARACTER(len=100), PARAMETER  :: FMTLOGSTDOUTHEADB = "a14)"
+  CHARACTER(len=100), PARAMETER  :: FMTLOGSTDOUTHEADB = "a18)"
   CHARACTER(len=100)             :: FMTLOGSTDOUTHEAD
-  CHARACTER(len=100), PARAMETER  :: FMTLOGSTDOUTA = "(i14, "
-  CHARACTER(len=100), PARAMETER  :: FMTLOGSTDOUTB = "(3x, f11.5))"
+  CHARACTER(len=100), PARAMETER  :: FMTLOGSTDOUTA = "(i18, "
+  CHARACTER(len=100), PARAMETER  :: FMTLOGSTDOUTB = "(7x, f11.5))"
   CHARACTER(len=100)             :: FMTLOGSTDOUT
-  CHARACTER(len=14), ALLOCATABLE :: COLNAMELOGSTDOUT(:)
+  CHARACTER(len=18), ALLOCATABLE :: COLNAMELOGSTDOUT(:)
 
   CHARACTER(len=100), PARAMETER  :: FMTLOGUNITHEADA = "("
   CHARACTER(len=100), PARAMETER  :: FMTLOGUNITHEADB = "a22)"
@@ -146,7 +166,7 @@ module AlphaMateModule
     ! does not work with x'a and x'Ax directly, but with x's and dF
     !
     !       s   is a vector of standardized (estimated) breeding values, s = (a - mean(a)) / sd(a)
-    !       x's is the genetic selection differential (GenSelDiff)
+    !       x's is the genetic selection intensity (GenSelInt)
     !       dF  is the rate of population inbreeding (RatePopInb)
     !
     ! This essentially removes the need to specify the hard to define penalty value
@@ -1210,7 +1230,7 @@ module AlphaMateModule
       COLNAMELOGUNIT(3) = "             Criterion"
       COLNAMELOGUNIT(4) = "             Penalties"
       COLNAMELOGUNIT(5) = "     ExpBreedVal (x'a)"
-      COLNAMELOGUNIT(6) = "      GenSelDiff (x's)"
+      COLNAMELOGUNIT(6) = "       GenSelInt (x's)"
       COLNAMELOGUNIT(7) = "      ExpPopInb (x'Ax)"
       COLNAMELOGUNIT(8) = "            RatePopInb"
       COLNAMELOGUNIT(9) = "            PrgInbreed"
@@ -1230,7 +1250,7 @@ module AlphaMateModule
         end do
       end if
       do i = 1, nCol
-        COLNAMELOGSTDOUT(i) = COLNAMELOGUNIT(i)(10:22)
+        COLNAMELOGSTDOUT(i) = COLNAMELOGUNIT(i)(6:22)
         COLNAMELOGSTDOUT(i) = adjustr(COLNAMELOGSTDOUT(i))
       end do
       COLNAMELOGPOPUNIT = COLNAMELOGUNIT
@@ -1239,6 +1259,7 @@ module AlphaMateModule
       FMTLOGSTDOUTHEAD  = trim(FMTLOGSTDOUTHEADA) //trim(Int2Char(nCol))  //trim(FMTLOGSTDOUTHEADB)
       FMTLOGSTDOUT      = trim(FMTLOGSTDOUTA)     //trim(Int2Char(nCol-1))//trim(FMTLOGSTDOUTB)
       FMTLOGUNITHEAD    = trim(FMTLOGUNITHEADA)   //trim(Int2Char(nCol)  )//trim(FMTLOGUNITHEADB)
+      print*,"FMTLOGUNITHEAD",FMTLOGUNITHEAD
       FMTLOGUNIT        = trim(FMTLOGUNITA)       //trim(Int2Char(nCol-1))//trim(FMTLOGUNITB)
       FMTLOGPOPUNIT     = trim(FMTLOGPOPUNITA)    //trim(Int2Char(nCol-2))//trim(FMTLOGUNITB)
     end subroutine
@@ -1336,7 +1357,7 @@ module AlphaMateModule
       ! --- Evaluate the full frontier ---
 
       if (EvaluateFrontier) then
-        write(STDOUT, "(a)") "--- Evaluate the value/inbreeding frontier (this might take some time!) ---"
+        write(STDOUT, "(a)") "--- Evaluate the frontier (this might take some time!) ---"
         write(STDOUT, "(a)") " "
 
         PopInbWeightBellow = .true. ! we want to target certain rates of inbreeding
@@ -1346,23 +1367,23 @@ module AlphaMateModule
         write(FrontierUnit, FMTFROHEAD) "   Iteration", &
                                         "             Criterion", &
                                         "             Penalties", &
-                                        "     ExpBreedVal (x'a)", &
-                                        "      GenSelDiff (x's)", &
+                                        "     ExpBreedVa2 (x'a)", &
+                                        "       GenSelInt (x's)", &
                                         "      ExpPopInb (x'Ax)", &
                                         "            RatePopInb", &
                                         "            PrgInbreed"
         ! TODO: add the generic stuff from the log? Just call This%Log?
         if (ModeMin) then
           DumC = "Min"
-          write(FrontierUnit, FMTFRO) adjustl(DumC), SolMin%Criterion, SolMin%Penalty, SolMin%ExpBreedVal, SolMin%GenSelDiff, SolMin%ExpPopInb, SolMin%RatePopInb, SolMin%PrgInb
+          write(FrontierUnit, FMTFRO) adjustl(DumC), SolMin%Criterion, SolMin%Penalty, SolMin%ExpBreedVal, SolMin%GenSelInt, SolMin%ExpPopInb, SolMin%RatePopInb, SolMin%PrgInb
         end if
         if (ModeRan) then
           DumC = "Ran"
-          write(FrontierUnit, FMTFRO) adjustl(DumC), SolRan%Criterion, SolRan%Penalty, SolRan%ExpBreedVal, SolRan%GenSelDiff, SolRan%ExpPopInb, SolRan%RatePopInb, SolRan%PrgInb
+          write(FrontierUnit, FMTFRO) adjustl(DumC), SolRan%Criterion, SolRan%Penalty, SolRan%ExpBreedVal, SolRan%GenSelInt, SolRan%ExpPopInb, SolRan%RatePopInb, SolRan%PrgInb
         end if
         if (ModeOpt) then
           DumC = "Opt"
-          write(FrontierUnit, FMTFRO) adjustl(DumC), SolOpt%Criterion, SolOpt%Penalty, SolOpt%ExpBreedVal, SolOpt%GenSelDiff, SolOpt%ExpPopInb, SolOpt%RatePopInb, SolOpt%PrgInb
+          write(FrontierUnit, FMTFRO) adjustl(DumC), SolOpt%Criterion, SolOpt%Penalty, SolOpt%ExpBreedVal, SolOpt%GenSelInt, SolOpt%ExpPopInb, SolOpt%RatePopInb, SolOpt%PrgInb
         end if
 
         ! Hold old results
@@ -1391,7 +1412,7 @@ module AlphaMateModule
 
           ! TODO: add the generic stuff from the log? Just call This%Log?
           DumC = "Frontier"//trim(Int2Char(k))
-          write(FrontierUnit, FMTFRO) adjustl(DumC), Sol%Criterion, Sol%Penalty, Sol%ExpBreedVal, Sol%GenSelDiff, Sol%ExpPopInb, Sol%RatePopInb, Sol%PrgInb
+          write(FrontierUnit, FMTFRO) adjustl(DumC), Sol%Criterion, Sol%Penalty, Sol%ExpBreedVal, Sol%GenSelInt, Sol%ExpPopInb, Sol%RatePopInb, Sol%PrgInb
 
           call SaveSolution(Sol, ContribFile, MatingFile)
 
@@ -1486,7 +1507,7 @@ module AlphaMateModule
       This%Criterion   = 0.0d0
       This%Penalty     = 0.0d0
       This%ExpBreedVal = 0.0d0
-      This%GenSelDiff  = 0.0d0
+      This%GenSelInt   = 0.0d0
       This%ExpPopInb   = 0.0d0
       This%RatePopInb  = 0.0d0
       This%PrgInb      = 0.0d0
@@ -1534,7 +1555,7 @@ module AlphaMateModule
           Out%Criterion       = In%Criterion
           Out%Penalty         = In%Penalty
           Out%ExpBreedVal     = In%ExpBreedVal
-          Out%GenSelDiff      = In%GenSelDiff
+          Out%GenSelInt       = In%GenSelInt
           Out%ExpPopInb       = In%ExpPopInb
           Out%RatePopInb      = In%RatePopInb
           Out%PrgInb          = In%PrgInb
@@ -1593,7 +1614,7 @@ module AlphaMateModule
           This%Criterion       = This%Criterion     * kR + Add%Criterion     / n
           This%Penalty         = This%Penalty       * kR + Add%Penalty       / n
           This%ExpBreedVal     = This%ExpBreedVal   * kR + Add%ExpBreedVal   / n
-          This%GenSelDiff      = This%GenSelDiff    * kR + Add%GenSelDiff    / n
+          This%GenSelInt       = This%GenSelInt     * kR + Add%GenSelInt    / n
           This%ExpPopInb       = This%ExpPopInb     * kR + Add%ExpPopInb     / n
           This%RatePopInb      = This%RatePopInb    * kR + Add%RatePopInb    / n
           This%PrgInb          = This%PrgInb        * kR + Add%PrgInb        / n
@@ -2040,16 +2061,16 @@ module AlphaMateModule
 
       if (BreedValAvailable) then
         !@todo save BreedVal mean and sd in the data object and then compute this dot_product only one and
-        !      compute This%ExpBreedVal as This%ExpBreedVal = This%GenSelDiff * BreedValSD + BreedValMean
+        !      compute This%ExpBreedVal as This%ExpBreedVal = This%GenSelInt * BreedValSD + BreedValMean
         This%ExpBreedVal = dot_product(This%xVec, BreedVal)
-        This%GenSelDiff  = dot_product(This%xVec, BreedValStand)
+        This%GenSelInt   = dot_product(This%xVec, BreedValStand)
         if (PAGE) then
           !@todo as above
           This%ExpBreedVal = This%ExpBreedVal + dot_product(This%xVec, BreedValPAGE(:)      * This%GenomeEdit(:))
-          This%GenSelDiff  = This%GenSelDiff  + dot_product(This%xVec, BreedValPAGEStand(:) * This%GenomeEdit(:))
+          This%GenSelInt   = This%GenSelInt  + dot_product(This%xVec, BreedValPAGEStand(:) * This%GenomeEdit(:))
         end if
         if (CritType == "opt") then
-          This%Criterion = This%Criterion + This%GenSelDiff
+          This%Criterion = This%Criterion + This%GenSelInt
         end if
       end if
 
@@ -2167,7 +2188,7 @@ module AlphaMateModule
       integer(int32), intent(in), optional :: LogUnit
       write(STDOUT, FMTLOGSTDOUTHEAD)   COLNAMELOGSTDOUT(:)
       if (present(LogUnit)) then
-        write(LogUnit,  FMTLOGUNITHEAD) COLNAMELOGUNIT(:)
+        write(LogUnit, FMTLOGUNITHEAD) COLNAMELOGUNIT(:)
       end if
     end subroutine
 
@@ -2181,29 +2202,29 @@ module AlphaMateModule
       real(real64), intent(in)             :: AcceptRate
       if (GenericIndValAvailable) then
         if (GenericMatValAvailable) then
-          write(STDOUT,  FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelDiff, This%ExpPopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal, This%GenericMatVal
+          write(STDOUT, FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%ExpPopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal, This%GenericMatVal
         else
-          write(STDOUT,  FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelDiff, This%ExpPopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal
+          write(STDOUT, FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%ExpPopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal
         end if
       else
         if (GenericMatValAvailable) then
-          write(STDOUT,  FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelDiff, This%ExpPopInb, This%RatePopInb, This%PrgInb,                     This%GenericMatVal
+          write(STDOUT, FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%ExpPopInb, This%RatePopInb, This%PrgInb,                     This%GenericMatVal
         else
-          write(STDOUT,  FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelDiff, This%ExpPopInb, This%RatePopInb, This%PrgInb
+          write(STDOUT, FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%ExpPopInb, This%RatePopInb, This%PrgInb
         end if
       end if
       if (present(LogUnit)) then
         if (GenericIndValAvailable) then
           if (GenericMatValAvailable) then
-            write(LogUnit,  FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelDiff, This%ExpPopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal, This%GenericMatVal
+            write(LogUnit, FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%ExpPopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal, This%GenericMatVal
           else
-            write(LogUnit,  FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelDiff, This%ExpPopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal
+            write(LogUnit, FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%ExpPopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal
           end if
         else
           if (GenericMatValAvailable) then
-            write(LogUnit,  FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelDiff, This%ExpPopInb, This%RatePopInb, This%PrgInb,                     This%GenericMatVal
+            write(LogUnit, FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%ExpPopInb, This%RatePopInb, This%PrgInb,                     This%GenericMatVal
           else
-            write(LogUnit,  FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelDiff, This%ExpPopInb, This%RatePopInb, This%PrgInb
+            write(LogUnit, FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%ExpPopInb, This%RatePopInb, This%PrgInb
           end if
         end if
       end if
@@ -2228,15 +2249,15 @@ module AlphaMateModule
 
       if (GenericIndValAvailable) then
         if (GenericMatValAvailable) then
-          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelDiff, This%ExpPopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal, This%GenericMatVal
+          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%ExpPopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal, This%GenericMatVal
         else
-          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelDiff, This%ExpPopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal
+          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%ExpPopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal
         end if
       else
         if (GenericMatValAvailable) then
-          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelDiff, This%ExpPopInb, This%RatePopInb, This%PrgInb,                     This%GenericMatVal
+          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%ExpPopInb, This%RatePopInb, This%PrgInb,                     This%GenericMatVal
         else
-          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelDiff, This%ExpPopInb, This%RatePopInb, This%PrgInb
+          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%ExpPopInb, This%RatePopInb, This%PrgInb
         end if
       end if
     end subroutine

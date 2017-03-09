@@ -1,10 +1,33 @@
+#ifdef _WIN32
 
-#ifdef OS_UNIX
-#define MKDIR "mkdir -p"
-#define RMDIR "rm -r"
+#define STRINGIFY(x)#x
+#define TOSTRING(x) STRINGIFY(x)
+
+#define DASH "\"
+#define COPY "copy"
+#define MD "md"
+#define RMDIR "RMDIR /S /Q"
+#define RM "del"
+#define RENAME "MOVE /Y"
+#define SH "BAT"
+#define EXE ".exe"
+#define NULL " >NUL"
+
 #else
-#define MKDIR "md"
-#define RMDIR "rmdir /S"
+
+#define STRINGIFY(x)#x
+#define TOSTRING(x) STRINGIFY(x)
+
+#define DASH "/"
+#define COPY "cp"
+#define MD "mkdir"
+#define RMDIR "rm -r"
+#define RM "rm"
+#define RENAME "mv"
+#define SH "sh"
+#define EXE ""
+#define NULL ""
+
 #endif
 
 !###############################################################################
@@ -77,7 +100,7 @@ program AlphaMate
     write(STDERR, "(a)") " "
     stop 1
   end if
-  Success=SystemQQ(MKDIR//" AlphaMateResults")
+  Success=SystemQQ(MD//" AlphaMateResults")
   if (.not.Success) then
     write(STDERR, "(a)") "ERROR: Failed to make the output folder (AlphaMateResults)!"
     write(STDERR, "(a)") " "
