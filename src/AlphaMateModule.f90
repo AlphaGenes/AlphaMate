@@ -99,7 +99,7 @@ module AlphaMateModule
   real(real64) :: PAGEPar1Cost, PAGEPar2Cost
   real(real64), allocatable :: BreedVal(:), BreedValStand(:), BreedValPAGE(:), BreedValPAGEStand(:)
   real(real64), allocatable :: RatePopInbFrontier(:), GenericIndValTmp(:), GenericMatValTmp(:)
-  real(real64), allocatable :: CovMtx(:, :), GenericIndVal(:, :), GenericMatVal(:, :, :)
+  real(real64), allocatable :: RelMtx(:, :), GenericIndVal(:, :), GenericMatVal(:, :, :)
 
   logical :: ModeMin, ModeRan, ModeOpt, BreedValAvailable, GenderMatters, EqualizePar1, EqualizePar2
   logical :: SelfingAllowed, PopInbWeightBellow, EvolAlgLogPop, EvaluateFrontier
@@ -109,12 +109,12 @@ module AlphaMateModule
   CHARACTER(len=100), PARAMETER :: FMTREAL2CHAR = "(f11.5)"
 
   CHARACTER(len=100), PARAMETER  :: FMTLOGSTDOUTHEADA = "("
-  CHARACTER(len=100), PARAMETER  :: FMTLOGSTDOUTHEADB = "a18)"
+  CHARACTER(len=100), PARAMETER  :: FMTLOGSTDOUTHEADB = "a14)"
   CHARACTER(len=100)             :: FMTLOGSTDOUTHEAD
-  CHARACTER(len=100), PARAMETER  :: FMTLOGSTDOUTA = "(i18, "
-  CHARACTER(len=100), PARAMETER  :: FMTLOGSTDOUTB = "(7x, f11.5))"
+  CHARACTER(len=100), PARAMETER  :: FMTLOGSTDOUTA = "(i14, "
+  CHARACTER(len=100), PARAMETER  :: FMTLOGSTDOUTB = "(3x, f11.5))"
   CHARACTER(len=100)             :: FMTLOGSTDOUT
-  CHARACTER(len=18), ALLOCATABLE :: COLNAMELOGSTDOUT(:)
+  CHARACTER(len=14), ALLOCATABLE :: COLNAMELOGSTDOUT(:)
 
   CHARACTER(len=100), PARAMETER  :: FMTLOGUNITHEADA = "("
   CHARACTER(len=100), PARAMETER  :: FMTLOGUNITHEADB = "a22)"
@@ -153,10 +153,9 @@ module AlphaMateModule
     !   x is a vector of contributions of individuals to the next generation (sum(x)=1)
     !   a is a vector of (estimated) breeding values
     !   l is a penalty on the loss of genetic diversity
-    !   A is a matrix of covariance coefficients between breeding values
-    !     (AKA the numerator relationship matrix (A) or 2 * the kinship matrix (K); where the
+    !   A is the numerator relationship matrix (A) or 2 * the kinship matrix (K); where the
     !      the diagonal values are A_i,i = 1 + K_i,i (K_i,i = 0.5 * A_f(i),m(i) = K_f(i),m(i)), and
-    !      off-diagonal values are A_i,j = 2 * K_i,j)
+    !      off-diagonal values are A_i,j = 2 * K_i,j
     !
     !   x'a  is the expected population breeding value in the next generation (ExpBreedVal)
     !   x'Ax is the expected population inbreeding     in the next generation (ExpPopInb)
@@ -236,7 +235,7 @@ module AlphaMateModule
       implicit none
 
       integer(int32) :: i, j, k, l, m, DumI, jMal, jFem, nIndTmp, GenderTmp, Seed
-      integer(int32) :: SpecUnit, CovMtxUnit, BreedValUnit, GenderUnit, InbreedUnit
+      integer(int32) :: SpecUnit, RelMtxUnit, BreedValUnit, GenderUnit, InbreedUnit
       integer(int32) :: GenericIndValUnit, GenericMatValUnit
       integer(int32), allocatable :: Order(:)
 
@@ -244,7 +243,7 @@ module AlphaMateModule
 
       logical :: Success
 
-      character(len=1000) :: CovMtxFile, BreedValFile, GenderFile, SeedFile
+      character(len=1000) :: RelMtxFile, BreedValFile, GenderFile, SeedFile
       character(len=1000) :: GenericIndValFile, GenericMatValFile
       character(len=100) :: DumC, IdCTmp, IdCTmp2
 
@@ -253,13 +252,6 @@ module AlphaMateModule
 
       write(STDOUT, "(a)") "--- Specifications ---"
       write(STDOUT, "(a)") " "
-
-      Success=SystemQQ(COPY//" AlphaMateSpec.txt AlphaMateResults"//DASH//"AlphaMateSpec.txt")
-      if (.not.Success) then
-        write(STDERR, "(a)") "ERROR: Failed to copy the AlphaMateSpec.txt file in the output folder!"
-        write(STDERR, "(a)") " "
-        stop 1
-      end if
 
       open(newunit=SpecUnit, file="AlphaMateSpec.txt", status="old")
       write(STDOUT, "(a)") "SpecFile: AlphaMateSpec.txt"
@@ -289,10 +281,10 @@ module AlphaMateModule
         stop 1
       end if
 
-      ! --- CovarianceCoefMatrixFile ---
+      ! --- RelatednessMatrixFile ---
 
-      read(SpecUnit, *) DumC, CovMtxFile
-      write(STDOUT, "(a)") "CovarianceCoefMatrixFile: "//trim(CovMtxFile)
+      read(SpecUnit, *) DumC, RelMtxFile
+      write(STDOUT, "(a)") "RelatednessMatrixFile: "//trim(RelMtxFile)
 
       ! --- BreedingValueFile ---
 
@@ -747,7 +739,7 @@ module AlphaMateModule
       ! --- Seed ---
 
       read(SpecUnit, *) DumC, DumC
-      SeedFile = "AlphaMateResults"//DASH//"Seed.txt"
+      SeedFile = "Seed.txt"
       if ((ToLower(trim(DumC)) == "unknown") .or. (ToLower(trim(DumC)) == "none")) then
         call SetSeed(SeedFile=SeedFile, Out=Seed)
       else
@@ -799,37 +791,37 @@ module AlphaMateModule
       write(STDOUT, "(a)") "--- Data ---"
       write(STDOUT, "(a)") " "
 
-      ! --- Covariance coefficients ---
+      ! --- Relatedness ---
 
-      write(STDOUT, "(a)") "Covariance coefficients"
+      write(STDOUT, "(a)") "Relatedness"
       allocate(IdC(nInd))
-      allocate(CovMtx(nInd, nInd))
+      allocate(RelMtx(nInd, nInd))
 
-      nIndTmp = CountLines(CovMtxFile)
+      nIndTmp = CountLines(RelMtxFile)
       if (nIndTmp < nInd) then
-        write(STDERR, "(a)") "ERROR: The covariance coefficients matrix file has less rows than there are defined number of individuals!"
-        write(STDERR, "(a)") "ERROR: Number of defined individuals:                             "//trim(Int2Char(nInd))
-        write(STDERR, "(a)") "ERROR: Number of rows in the covariance coefficients matrix file: "//trim(Int2Char(nIndTmp))
+        write(STDERR, "(a)") "ERROR: The relatedness matrix file has less rows than there are defined number of individuals!"
+        write(STDERR, "(a)") "ERROR: Number of defined individuals:                 "//trim(Int2Char(nInd))
+        write(STDERR, "(a)") "ERROR: Number of rows in the relatedness matrix file: "//trim(Int2Char(nIndTmp))
         write(STDERR, "(a)") " "
       end if
-      open(newunit=CovMtxUnit, file=trim(CovMtxFile), status="old")
+      open(newunit=RelMtxUnit, file=trim(RelMtxFile), status="old")
       do i = 1, nInd
-        read(CovMtxUnit, *) IdC(i), CovMtx(:, i)
+        read(RelMtxUnit, *) IdC(i), RelMtx(:, i)
       end do
-      close(CovMtxUnit)
+      close(RelMtxUnit)
 
-      MtxDescStat = DescStatSymMatrix(CovMtx)
-      write(STDOUT, "(a)") "  - all (co)variance coefficients"
+      MtxDescStat = DescStatSymMatrix(RelMtx)
+      write(STDOUT, "(a)") "  - all coefficients"
       write(STDOUT, "(a)") "    - average: "//trim(Real2Char(MtxDescStat%All%Mean, fmt=FMTREAL2CHAR))
       write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(MtxDescStat%All%SD,   fmt=FMTREAL2CHAR))
       write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(MtxDescStat%All%Min,  fmt=FMTREAL2CHAR))
       write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(MtxDescStat%All%Max,  fmt=FMTREAL2CHAR))
-      write(STDOUT, "(a)") "  - variance coefficients (diagonal)"
+      write(STDOUT, "(a)") "  - diagonal"
       write(STDOUT, "(a)") "    - average: "//trim(Real2Char(MtxDescStat%Diag%Mean, fmt=FMTREAL2CHAR))
       write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(MtxDescStat%Diag%SD,   fmt=FMTREAL2CHAR))
       write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(MtxDescStat%Diag%Min,  fmt=FMTREAL2CHAR))
       write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(MtxDescStat%Diag%Max,  fmt=FMTREAL2CHAR))
-      write(STDOUT, "(a)") "  - covariance coefficients (off-diagonal)"
+      write(STDOUT, "(a)") "  - off-diagonal"
       write(STDOUT, "(a)") "    - average: "//trim(Real2Char(MtxDescStat%OffDiag%Mean, fmt=FMTREAL2CHAR))
       write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(MtxDescStat%OffDiag%SD,   fmt=FMTREAL2CHAR))
       write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(MtxDescStat%OffDiag%Min,  fmt=FMTREAL2CHAR))
@@ -838,7 +830,7 @@ module AlphaMateModule
 
       ! --- Current contribution variance coefficient (x'Ax) ---
 
-      PopInbOld = MtxDescStat%All%Mean
+      PopInbOld = 0.5d0 * MtxDescStat%All%Mean
 
       ! Targeted future population inbreeding
       ! F_t = DeltaF + (1 - DeltaF) * F_t-1
@@ -850,7 +842,7 @@ module AlphaMateModule
       write(STDOUT, "(a)") "  - target:  "//trim(Real2Char(PopInbTarget,     fmt=FMTREAL2CHAR))
       write(STDOUT, "(a)") " "
 
-      open(newunit=InbreedUnit, file="AlphaMateResults"//DASH//"PopulationInbreeding.txt", status="unknown")
+      open(newunit=InbreedUnit, file="PopulationInbreeding.txt", status="unknown")
       write(InbreedUnit, "(a, f)") "Current, ", PopInbOld
       write(InbreedUnit, "(a, f)") "Target,  ", PopInbTarget
       close(InbreedUnit)
@@ -858,15 +850,14 @@ module AlphaMateModule
       ! --- Shuffle the data ---
 
       ! To avoid having good animals together - better for Evolutionary algorithm
-      ! This is done upfront for Id and CovMtx only. Then all the data is read and mapped to this order
+      ! This is done upfront for Id and RelMtx only. Then all the data is read and mapped to this order
       ! TODO: is it worth it?
       ! TODO: does this scale well with large data sets?
-
-      allocate(Order(nInd))
-      Order = RandomOrder(nInd)
-      IdC(:) = IdC(Order)
-      CovMtx(:, :) = CovMtx(Order, Order)
-      deallocate(Order)
+      ! allocate(Order(nInd))
+      ! Order = RandomOrder(nInd)
+      ! IdC(:) = IdC(Order)
+      ! RelMtx(:, :) = RelMtx(Order, Order)
+      ! deallocate(Order)
 
       ! --- Breeding values ---
 
@@ -884,9 +875,9 @@ module AlphaMateModule
         write(STDOUT, "(a)") "Breeding values"
         nIndTmp = CountLines(BreedValFile)
         if (nIndTmp /= nInd) then
-          write(STDERR, "(a)") "ERROR: Number of individuals in the breeding value file and the covariance coefficients matrix file is not the same!"
-          write(STDERR, "(a)") "ERROR: Number of individuals in the covariance coefficients matrix file: "//trim(Int2Char(nInd))
-          write(STDERR, "(a)") "ERROR: Number of individuals in the breeding value file:                 "//trim(Int2Char(nIndTmp))
+          write(STDERR, "(a)") "ERROR: Number of individuals in the breeding value file and the relatedness matrix file is not the same!"
+          write(STDERR, "(a)") "ERROR: Number of individuals in the relatedness matrix file: "//trim(Int2Char(nInd))
+          write(STDERR, "(a)") "ERROR: Number of individuals in the breeding value file:     "//trim(Int2Char(nIndTmp))
           write(STDERR, "(a)") " "
           stop 1
         end if
@@ -899,7 +890,7 @@ module AlphaMateModule
           end if
           j = FindLoc(IdCTmp, IdC)
           if (j == 0) then
-            write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the breeding value file not present in the covariance coefficients matrix file!"
+            write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the breeding value file not present in the relatedness matrix file!"
             write(STDERR, "(a)") " "
             stop 1
           end if
@@ -958,9 +949,9 @@ module AlphaMateModule
         write(STDOUT, "(a)") "Gender"
         nIndTmp = CountLines(GenderFile)
         if (nIndTmp /= nInd) then
-          write(STDERR, "(a)") "ERROR: Number of individuals in the gender file and the covariance coefficients matrix file is not the same!"
-          write(STDERR, "(a)") "ERROR: Number of individuals in the covariance coefficients matrix file: "//trim(Int2Char(nInd))
-          write(STDERR, "(a)") "ERROR: Number of individuals in the gender file:                         "//trim(Int2Char(nIndTmp))
+          write(STDERR, "(a)") "ERROR: Number of individuals in the gender file and the relatedness matrix file is not the same!"
+          write(STDERR, "(a)") "ERROR: Number of individuals in the relatedness matrix file: "//trim(Int2Char(nInd))
+          write(STDERR, "(a)") "ERROR: Number of individuals in the gender file:             "//trim(Int2Char(nIndTmp))
           write(STDERR, "(a)") " "
           stop 1
         end if
@@ -983,7 +974,7 @@ module AlphaMateModule
           end if
           j = FindLoc(IdCTmp, IdC)
           if (j == 0) then
-            write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the gender file not present in the covariance coefficients matrix file!"
+            write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the gender file not present in the relatedness matrix file!"
             write(STDERR, "(a)") " "
             stop 1
           end if
@@ -1089,9 +1080,9 @@ module AlphaMateModule
         write(STDOUT, "(a)") "Generic individual values"
         nIndTmp = CountLines(GenericIndValFile)
         if (nIndTmp /= nInd) then
-          write(STDERR, "(a)") "ERROR: Number of individuals in the generic individual values file and the covariance coefficients matrix file is not the same!"
-          write(STDERR, "(a)") "ERROR: Number of individuals in the Covariance coefficients matrix file: "//trim(Int2Char(nInd))
-          write(STDERR, "(a)") "ERROR: Number of individuals in the generic individual values file:      "//trim(Int2Char(nIndTmp))
+          write(STDERR, "(a)") "ERROR: Number of individuals in the generic individual values file and the relatedness matrix file is not the same!"
+          write(STDERR, "(a)") "ERROR: Number of individuals in the relatedness matrix file:        "//trim(Int2Char(nInd))
+          write(STDERR, "(a)") "ERROR: Number of individuals in the generic individual values file: "//trim(Int2Char(nIndTmp))
           write(STDERR, "(a)") " "
           stop 1
         end if
@@ -1103,7 +1094,7 @@ module AlphaMateModule
           read(GenericIndValUnit, *) IdCTmp, GenericIndValTmp(:)
           j = FindLoc(IdCTmp, IdC)
           if (j == 0) then
-            write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the generic individual values file not present in the covariance coefficients matrix file!"
+            write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the generic individual values file not present in the relatedness matrix file!"
             write(STDERR, "(a)") " "
             stop 1
           end if
@@ -1142,13 +1133,13 @@ module AlphaMateModule
           read(GenericMatValUnit, *) IdCTmp, IdCTmp2, GenericMatValTmp(:)
           j = FindLoc(IdCTmp, IdC)
           if (j == 0) then
-            write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the generic mating values file not present in the covariance coefficients matrix file!"
+            write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the generic mating values file not present in the relatedness matrix file!"
             write(STDERR, "(a)") " "
             stop 1
           end if
           k = FindLoc(IdCTmp2, IdC)
           if (k == 0) then
-            write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp2)//" from the generic mating values file not present in the covariance coefficients matrix file!"
+            write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp2)//" from the generic mating values file not present in the relatedness matrix file!"
             write(STDERR, "(a)") " "
             stop 1
           end if
@@ -1229,11 +1220,11 @@ module AlphaMateModule
       COLNAMELOGUNIT(2) = "            AcceptRate"
       COLNAMELOGUNIT(3) = "             Criterion"
       COLNAMELOGUNIT(4) = "             Penalties"
-      COLNAMELOGUNIT(5) = "     ExpBreedVal (x'a)"
-      COLNAMELOGUNIT(6) = "       GenSelInt (x's)"
-      COLNAMELOGUNIT(7) = "      ExpPopInb (x'Ax)"
+      COLNAMELOGUNIT(5) = "         ExpBreedValue"
+      COLNAMELOGUNIT(6) = "             GenSelInt"
+      COLNAMELOGUNIT(7) = "             ExpPopInb"
       COLNAMELOGUNIT(8) = "            RatePopInb"
-      COLNAMELOGUNIT(9) = "            PrgInbreed"
+      COLNAMELOGUNIT(9) = "         ExpPrgInbreed"
       nColTmp = 9
       if (GenericIndValAvailable) then
         do i = 1, nGenericIndVal
@@ -1250,7 +1241,7 @@ module AlphaMateModule
         end do
       end if
       do i = 1, nCol
-        COLNAMELOGSTDOUT(i) = COLNAMELOGUNIT(i)(6:22)
+        COLNAMELOGSTDOUT(i) = COLNAMELOGUNIT(i)(10:22)
         COLNAMELOGSTDOUT(i) = adjustr(COLNAMELOGSTDOUT(i))
       end do
       COLNAMELOGPOPUNIT = COLNAMELOGUNIT
@@ -1259,7 +1250,6 @@ module AlphaMateModule
       FMTLOGSTDOUTHEAD  = trim(FMTLOGSTDOUTHEADA) //trim(Int2Char(nCol))  //trim(FMTLOGSTDOUTHEADB)
       FMTLOGSTDOUT      = trim(FMTLOGSTDOUTA)     //trim(Int2Char(nCol-1))//trim(FMTLOGSTDOUTB)
       FMTLOGUNITHEAD    = trim(FMTLOGUNITHEADA)   //trim(Int2Char(nCol)  )//trim(FMTLOGUNITHEADB)
-      print*,"FMTLOGUNITHEAD",FMTLOGUNITHEAD
       FMTLOGUNIT        = trim(FMTLOGUNITA)       //trim(Int2Char(nCol-1))//trim(FMTLOGUNITB)
       FMTLOGPOPUNIT     = trim(FMTLOGPOPUNITA)    //trim(Int2Char(nCol-2))//trim(FMTLOGUNITB)
     end subroutine
@@ -1298,10 +1288,10 @@ module AlphaMateModule
         write(STDOUT, "(a)") "--- Optimise contributions for minimal inbreeding --- "
         write(STDOUT, "(a)") " "
 
-        LogFile     = "AlphaMateResults"//DASH//"OptimisationLogMinimalInbreeding.txt"
-        LogPopFile  = "AlphaMateResults"//DASH//"OptimisationLogPopMinimalInbreeding.txt"
-        ContribFile = "AlphaMateResults"//DASH//"IndividualResultsMinimalInbreeding.txt"
-        MatingFile  = "AlphaMateResults"//DASH//"MatingResultsMinimalInbreeding.txt"
+        LogFile     = "OptimisationLogMinimalInbreeding.txt"
+        LogPopFile  = "OptimisationLogPopMinimalInbreeding.txt"
+        ContribFile = "IndividualResultsMinimalInbreeding.txt"
+        MatingFile  = "MatingResultsMinimalInbreeding.txt"
 
         allocate(InitEqual(nParam, nint(EvolAlgNSol * 0.1)))
         InitEqual(:, :) = 1.0d0 ! A couple of solutions that would give equal contributions for everybody
@@ -1322,7 +1312,7 @@ module AlphaMateModule
         write(STDOUT, "(a)") "--- Evaluate 'average' inbreeding under random mating --- "
         write(STDOUT, "(a)") " "
 
-        LogFile = "AlphaMateResults"//DASH//"OptimisationLogRandomMating.txt"
+        LogFile = "OptimisationLogRandomMating.txt"
 
         allocate(InitEqual(nParam, nint(EvolAlgNSol * 0.1)))
         InitEqual(:, :) = 1.0d0 ! A couple of solutions that would give equal contributions for everybody
@@ -1339,13 +1329,13 @@ module AlphaMateModule
         write(STDOUT, "(a)") "--- Optimise contributions for maximal value with constraint on inbreeding ---"
         write(STDOUT, "(a)") " "
 
-        LogFile     = "AlphaMateResults"//DASH//"OptimisationLogMaximalValue.txt"
-        LogPopFile  = "AlphaMateResults"//DASH//"OptimisationLogPopMaximalValue.txt"
-        ContribFile = "AlphaMateResults"//DASH//"IndividualResultsMaximalValue.txt"
-        MatingFile  = "AlphaMateResults"//DASH//"MatingResultsMaximalValue.txt"
+        LogFile     = "OptimisationLogMaximalValue.txt"
+        LogPopFile  = "OptimisationLogPopMaximalValue.txt"
+        ContribFile = "IndividualResultsMaximalValue.txt"
+        MatingFile  = "MatingResultsMaximalValue.txt"
 
         ! TODO: add some clever initial values, say equal contributions, decreasing contributions
-        !       with decreasing value, SDP solution, ...?
+        !       with decreasing value, random matings to upper half of distribution, SDP solution, ...?
         call DifferentialEvolution(nParam=nParam, nSol=EvolAlgNSol, nGen=EvolAlgNGen, nGenBurnIn=EvolAlgNGenBurnIn, &
           nGenStop=EvolAlgNGenStop, StopTolerance=EvolAlgStopTol, nGenPrint=EvolAlgNGenPrint, LogFile=LogFile, LogPop=EvolAlgLogPop, LogPopFile=LogPopFile, &
           CritType="opt", CRBurnIn=EvolAlgCRBurnIn, CRLate=EvolAlgCRLate, FBase=EvolAlgFBase, FHigh1=EvolAlgFHigh1, FHigh2=EvolAlgFHigh2, &
@@ -1362,7 +1352,7 @@ module AlphaMateModule
 
         PopInbWeightBellow = .true. ! we want to target certain rates of inbreeding
 
-        open(newunit=FrontierUnit, file="AlphaMateResults"//DASH//"Frontier.txt", status="unknown")
+        open(newunit=FrontierUnit, file="Frontier.txt", status="unknown")
         !                                1234567890123456789012
         write(FrontierUnit, FMTFROHEAD) "   Iteration", &
                                         "             Criterion", &
@@ -1400,10 +1390,10 @@ module AlphaMateModule
                                " (=targeted contribution var. coeff. "//trim(Real2Char(PopInbTarget, fmt=FMTREAL2CHAR))//")"
           write(STDOUT, "(a)") ""
 
-          LogFile     = "AlphaMateResults"//DASH//"OptimisationLogFrontier"//trim(Int2Char(k))//".txt"
-          LogPopFile  = "AlphaMateResults"//DASH//"OptimisationLogPopFrontier"//trim(Int2Char(k))//".txt"
-          ContribFile = "AlphaMateResults"//DASH//"IndividualResultsFrontier"//trim(Int2Char(k))//".txt"
-          MatingFile  = "AlphaMateResults"//DASH//"MatingResultsFrontier"//trim(Int2Char(k))//".txt"
+          LogFile     = "OptimisationLogFrontier"//trim(Int2Char(k))//".txt"
+          LogPopFile  = "OptimisationLogPopFrontier"//trim(Int2Char(k))//".txt"
+          ContribFile = "IndividualResultsFrontier"//trim(Int2Char(k))//".txt"
+          MatingFile  = "MatingResultsFrontier"//trim(Int2Char(k))//".txt"
 
           call DifferentialEvolution(nParam=nParam, nSol=EvolAlgNSol, nGen=EvolAlgNGen, nGenBurnIn=EvolAlgNGenBurnIn, &
             nGenStop=EvolAlgNGenStop, StopTolerance=EvolAlgStopTol, nGenPrint=EvolAlgNGenPrint, LogFile=LogFile, LogPop=EvolAlgLogPop, LogPopFile=LogPopFile, &
@@ -1461,7 +1451,7 @@ module AlphaMateModule
         do i = nInd, 1, -1 ! MrgRnk ranks small to large
           j = Rank(i)
           write(ContribUnit, FMTIND) IdC(j), Gender(j), BreedVal(j), &
-                                     sum(CovMtx(:, j)) / nInd, &
+                                     sum(RelMtx(:, j)) / nInd, &
                                      Sol%xVec(j), Sol%nVec(j)
         end do
       else
@@ -1477,7 +1467,7 @@ module AlphaMateModule
         do i = nInd, 1, -1 ! MrgRnk ranks small to large
           j = Rank(i)
           write(ContribUnit, FMTINDEDIT) IdC(j), Gender(j), BreedVal(j), &
-                                         sum(CovMtx(:, j)) / nInd, &
+                                         sum(RelMtx(:, j)) / nInd, &
                                          Sol%xVec(j), Sol%nVec(j), &
                                          nint(Sol%GenomeEdit(j)), BreedVal(j) + Sol%GenomeEdit(j) * BreedValPAGE(j)
         end do
@@ -2092,18 +2082,18 @@ module AlphaMateModule
 
       ! x'A
       do i = 1, nInd
-        TmpVec(i, 1) = dot_product(This%xVec, CovMtx(:, i))
+        TmpVec(i, 1) = dot_product(This%xVec, RelMtx(:, i))
       end do
       ! TODO: consider using matmul instead of repeated dot_product?
       ! TODO: consider using BLAS/LAPACK - perhaps non-symmetric is more optimised?
       ! Matrix multiplication with a symmetric matrix using BLAS routine
       ! (it was ~5x slower than the above with 1.000 individuals, might be benefical with larger cases)
       ! http://www.netlib.org/lapack/explore-html/d1/d54/group__double__blas__level3.html#ga253c8edb8b21d1b5b1783725c2a6b692
-      ! call dsymm(side="l", uplo="l", m=nInd, n=1, alpha=1.0d0, A=CovMtx, lda=nInd, b=This%xVec, ldb=nInd, beta=0, c=TmpVec, ldc=nInd)
-      ! call dsymm(     "l",      "l",   nInd,   1,       1.0d0,   CovMtx,     nInd,   This%xVec,     nInd,      0,   TmpVec,     nInd)
+      ! call dsymm(side="l", uplo="l", m=nInd, n=1, alpha=1.0d0, A=RelMtx, lda=nInd, b=This%xVec, ldb=nInd, beta=0, c=TmpVec, ldc=nInd)
+      ! call dsymm(     "l",      "l",   nInd,   1,       1.0d0,   RelMtx,     nInd,   This%xVec,     nInd,      0,   TmpVec,     nInd)
 
       ! x'Ax
-      This%ExpPopInb = dot_product(TmpVec(:, 1), This%xVec)
+      This%ExpPopInb = 0.5d0 * dot_product(TmpVec(:, 1), This%xVec)
 
       ! dF = (F_t+1 - F_t) / (1 - F_t)
       This%RatePopInb = (This%ExpPopInb - PopInbOld) / (1.0d0 - PopInbOld)
@@ -2137,13 +2127,13 @@ module AlphaMateModule
 
       ! --- Progeny inbreeding (=inbreeding of a mating) ---
 
-      !print*, "TODO: need to check progeny inbreeding in light of genomic covariance coef. matrix!!!"
+      !print*, "TODO: need to check progeny inbreeding in light of genomic relatedness matrix!!!"
       TmpR = 0.0d0
       do j = 1, nMat
         ! Lower triangle to speedup lookup
         TmpMax = maxval(This%MatingPlan(:, j))
         TmpMin = minval(This%MatingPlan(:, j))
-        TmpR = TmpR + 0.5d0 * CovMtx(TmpMax, TmpMin)
+        TmpR = TmpR + 0.5d0 * RelMtx(TmpMax, TmpMin)
       end do
       This%PrgInb = TmpR / nMat
       TmpR = PrgInbWeight * This%PrgInb

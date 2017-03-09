@@ -94,19 +94,6 @@ program AlphaMate
   call cpu_time(StartTime)
   call AlphaMateTitle
 
-  Success=SystemQQ(RMDIR//" AlphaMateResults")
-  if (.not.Success) then
-    write(STDERR, "(a)") "ERROR: Failed to remove the old output folder (AlphaMateResults)!"
-    write(STDERR, "(a)") " "
-    stop 1
-  end if
-  Success=SystemQQ(MD//" AlphaMateResults")
-  if (.not.Success) then
-    write(STDERR, "(a)") "ERROR: Failed to make the output folder (AlphaMateResults)!"
-    write(STDERR, "(a)") " "
-    stop 1
-  end if
-
   call ReadSpecAndDataForAlphaMate
   call SetupColNamesAndFormats
   call AlphaMateSearch
