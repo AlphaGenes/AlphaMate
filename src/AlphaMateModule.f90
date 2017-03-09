@@ -43,9 +43,9 @@ module AlphaMateModule
 
   type, extends(AlphaEvolveSol) :: AlphaMateSol
     real(real64)                :: Penalty
-    real(real64)                :: ConVal
-    real(real64)                :: ConValStand
-    real(real64)                :: ConVar
+    real(real64)                :: ExpBreedVal
+    real(real64)                :: GenSelDiff
+    real(real64)                :: ExpPopInb
     real(real64)                :: RatePopInb
     real(real64)                :: PrgInb
     real(real64), allocatable   :: GenericIndVal(:)
@@ -53,7 +53,7 @@ module AlphaMateModule
     real(real64)                :: Cost
     integer(int32), allocatable :: nVec(:)
     real(real64), allocatable   :: xVec(:)
-    integer(int32), allocatable :: MatingPlan(:,:)
+    integer(int32), allocatable :: MatingPlan(:, :)
     real(real64), allocatable   :: GenomeEdit(:)
     contains
       procedure         :: Initialise => InitialiseAlphaMateSol
@@ -73,13 +73,13 @@ module AlphaMateModule
 
   real(real64) :: LimitPar1Min, LimitPar1Max, LimitPar2Min, LimitPar2Max
   real(real64) :: EvolAlgStopTol, EvolAlgCRBurnIn, EvolAlgCRLate, EvolAlgFBase, EvolAlgFHigh1, EvolAlgFHigh2
-  real(real64) :: ConVarOld, ConVarTarget, RatePopInbTarget
+  real(real64) :: PopInbOld, PopInbTarget, RatePopInbTarget
   real(real64) :: PopInbWeight, PrgInbWeight, SelfingWeight, LimitPar1Weight, LimitPar2Weight
   real(real64), allocatable :: GenericIndValWeight(:), GenericMatValWeight(:)
   real(real64) :: PAGEPar1Cost, PAGEPar2Cost
   real(real64), allocatable :: BreedVal(:), BreedValStand(:), BreedValPAGE(:), BreedValPAGEStand(:)
   real(real64), allocatable :: RatePopInbFrontier(:), GenericIndValTmp(:), GenericMatValTmp(:)
-  real(real64), allocatable :: CovMtx(:,:), GenericIndVal(:,:), GenericMatVal(:,:,:)
+  real(real64), allocatable :: CovMtx(:, :), GenericIndVal(:, :), GenericMatVal(:, :, :)
 
   logical :: ModeMin, ModeRan, ModeOpt, BreedValAvailable, GenderMatters, EqualizePar1, EqualizePar2
   logical :: SelfingAllowed, PopInbWeightBellow, EvolAlgLogPop, EvaluateFrontier
@@ -124,50 +124,34 @@ module AlphaMateModule
 
     !###########################################################################
 
-    ! This note is just to make clear what the contribution variance coefficient
-    ! calculations are all about.
+    ! This note is just to make clear what the objective function and its components are.
     !
     ! AlphaMate works with the objective function:
     !
-    ! Objective = x'a - l * x'Ax,
+    ! Objective = x'a - l * x'Ax
     !
-    ! where x is a vector of contributions of individuals to the next generation (sum(x)=1)
-    !       a is a vector of (estimated) breeding values
-    !       l is a penalty on loss of genetic diversity
-    !       A is a matrix of covariance coefficients between breeding values
+    !   x is a vector of contributions of individuals to the next generation (sum(x)=1)
+    !   a is a vector of (estimated) breeding values
+    !   l is a penalty on the loss of genetic diversity
+    !   A is a matrix of covariance coefficients between breeding values
+    !     (AKA the numerator relationship matrix (A) or 2 * the kinship matrix (K); where the
+    !      the diagonal values are A_i,i = 1 + K_i,i (K_i,i = 0.5 * A_f(i),m(i) = K_f(i),m(i)), and
+    !      off-diagonal values are A_i,j = 2 * K_i,j)
     !
-    !       x'a  is contribution value (ConVal)
-    !       x'Ax is contribution variance coefficient (ConVar)
+    !   x'a  is the expected population breeding value in the next generation (ExpBreedVal)
+    !   x'Ax is the expected population inbreeding     in the next generation (ExpPopInb)
     !
-    ! We want to maximize x'a, but assure that variance of breeding values is maintained or
-    ! lost at a certain rate. The most appealing way to define maintenance or loss of variance
-    ! is via the rate of (population) inbreeding (dF). We can connect the objective function
-    ! with dF in the following way.
+    ! We want to maximize breeding value in the next generation (x'a), but control
+    ! increase in population inbreeding (x'Ax). For operational reasons optimisation
+    ! does not work with x'a and x'Ax directly, but with x's and dF
     !
-    ! First, note that variance of breeding values changes over time as:
+    !       s   is a vector of standardized (estimated) breeding values, s = (a - mean(a)) / sd(a)
+    !       x's is the genetic selection differential (GenSelDiff)
+    !       dF  is the rate of population inbreeding (RatePopInb)
     !
-    ! Sigma2_{a,t+1} = Sigma2_{a,t}[1 - dF]
-    !
-    ! and that we can express dF as:
-    !
-    ! dF = (Sigma2_{a,t} - Sigma2_{a,t+1}) / Sigma2_{a,t}.
-    !
-    ! Second, note that covariance of breeding values is:
-    !
-    ! Var(a) = A * Sigma2_{a,0}
-    !
-    ! where A is a matrix of covariance coefficients between breeding values - the
-    ! ratios of covariance between breeding values and base population variance,
-    ! Sigma2_{a,0}. Therefore, the contribution variance coefficient is also relative
-    ! to the base population variance and can be used to compute dF as:
-    !
-    ! dF = (x'Ax_{t} * Sigma2_{a,0} - x'Ax_{t+1} * Sigma2_{a,0}) / (x'Ax_{t} * Sigma2_{a,0}),
-    !    = (x'Ax_{t}                - x'Ax_{t+1}               ) / (x'Ax_{t}               ).
-    !
-
-!TODO: variance goes down, but coefficients go up!!!!!!!!!!!
-
-    ! This is old note to make clear what the previous inbreeding calculations were all about.
+    ! This essentially removes the need to specify the hard to define penalty value
+    ! (l) in favour of easier to define rate of inbreeding (dF), which is calculated
+    ! based on the following relations.
     !
     ! The total inbreeding that we see today is:
     !
@@ -176,27 +160,34 @@ module AlphaMateModule
     ! where F_new is new/recent  inbreeding built up after  some time point
     !       F_old is old/ancient inbreeding built up before some time point
     !
-    ! Equivalent formulas with some other notation are:
+    ! Equivalent formulas with different notation are:
     !
     ! F_T = F_IS + (1 - F_IS) * F_ST
     !
-    ! where F_T is (total) inbreeding relative to old/ancient base time point
-    !       F_IS is (individual-to-subtotal=new/recent) inbreeding relative to recent base time point
-    !       F-ST is (subtotal-to-total=old/ancient)     inbreeding at recent base time point relative to old/ancient base time point
+    !   F_T is (total) inbreeding relative to old/ancient base time point
+    !   F_IS is (individual-to-subtotal=new/recent) inbreeding relative to recent base time point
+    !   F-ST is (subtotal-to-total=old/ancient)     inbreeding at recent base time point relative to old/ancient base time point
     !
-    ! F_t = DeltaF + (1 - DeltaF) * F_t-1
-    !     = DeltaF * (1 - F_t-1)  + F_t-1
-    ! (F_t - F_t-1) / (1 - F_t-1) = DeltaF
+    ! F_t+1 = dF + (1 - dF) * F_t
+    !       = dF * (1 - F_t) + F_t
     !
-    ! where F_t is (total) inbreeding in generation t
-    !       DeltaF is new/recent inbreeding built up between the generations t and t-1 (=rate of inbreeding)
-    !       F-t-1 is old/ancient inbreeding built up before generation t
+    !   F_t+1 is (total) inbreeding in the next generation (t + 1)
+    !   dF is new/recent inbreeding built up between the generations t and t + 1 (=rate of inbreeding)
+    !   F-t is old/ancient inbreeding built up to the generation t
     !
-    ! Clearly:
+    ! Then:
     !
-    ! F_total   = F_T  = F_t
-    ! F_new     = F_IS = DeltaF
-    ! F_old     = F_ST = F_t-1
+    ! F_total   = F_T  = F_t+1
+    ! F_new     = F_IS = dF
+    ! F_old     = F_ST = F_t
+    !
+    ! Finally:
+    !
+    ! dF = (F_t+1 - F_t) / (1 - F_t)
+    !
+    ! In AlphaMate F_t is calculated as x'Ax with x set to 1/n, so we obtain average
+    ! of the values in the matrix A, the average relatedness in current population.
+    ! With available F_t and dF the F_t+1 is then calculated as shown above.
 
     !###########################################################################
 
@@ -213,7 +204,7 @@ module AlphaMateModule
       write(STDOUT, "(a)") "                       http://AlphaGenes.Roslin.ed.ac.uk                      "
       write(STDOUT, "(a)") "                                 No liability                                 "
       write(STDOUT, "(a)") ""
-      write(STDOUT, "(a)") "                       Commit:   "//TOSTRING(COMMIT),"                        "
+      write(STDOUT, "(a)") "                       Commit:   "//TOSTRING(COMMIT)//"                       "
       write(STDOUT, "(a)") "                       Compiled: "//__DATE__//", "//__TIME__
       write(STDOUT, "(a)") ""
     end subroutine
@@ -803,7 +794,7 @@ module AlphaMateModule
       end if
       open(newunit=CovMtxUnit, file=trim(CovMtxFile), status="old")
       do i = 1, nInd
-        read(CovMtxUnit, *) IdC(i), CovMtx(:,i)
+        read(CovMtxUnit, *) IdC(i), CovMtx(:, i)
       end do
       close(CovMtxUnit)
 
@@ -827,24 +818,21 @@ module AlphaMateModule
 
       ! --- Current contribution variance coefficient (x'Ax) ---
 
-      ConVarOld = MtxDescStat%All%Mean
+      PopInbOld = MtxDescStat%All%Mean
 
-      ! Targeted future contribution variance coefficient
-      ! dF = (x'Ax_{t} - x'Ax_{t+1}) / x'Ax_{t}
-      ! dF * x'Ax_{t} = x'Ax_{t} - x'Ax_{t+1}
-      ! x'Ax_{t+1} = x'Ax_{t} - dF * x'Ax_{t}
-      !            = x'Ax_{t} * (1 - dF)
-      ConVarTarget = ConVarOld * (1.0d0 - RatePopInbTarget)
+      ! Targeted future population inbreeding
+      ! F_t = DeltaF + (1 - DeltaF) * F_t-1
+      PopInbTarget = RatePopInbTarget + (1.0d0 - RatePopInbTarget) * PopInbOld
 
       ! Report
-      write(STDOUT, "(a)") "Contribution variance coefficient (x'Ax)"
-      write(STDOUT, "(a)") "  - current: "//trim(Real2Char(ConVarOld,        fmt=FMTREAL2CHAR))
-      write(STDOUT, "(a)") "  - target:  "//trim(Real2Char(ConVarTarget,     fmt=FMTREAL2CHAR))
+      write(STDOUT, "(a)") "Population inbreeding (x'Ax)"
+      write(STDOUT, "(a)") "  - current: "//trim(Real2Char(PopInbOld,        fmt=FMTREAL2CHAR))
+      write(STDOUT, "(a)") "  - target:  "//trim(Real2Char(PopInbTarget,     fmt=FMTREAL2CHAR))
       write(STDOUT, "(a)") " "
 
-      open(newunit=InbreedUnit, file="AlphaMateResults"//DASH//"ConstraintContributionVarCoef.txt", status="unknown")
-      write(InbreedUnit, "(a, f)") "Current, ", ConVarOld
-      write(InbreedUnit, "(a, f)") "Target,  ", ConVarTarget
+      open(newunit=InbreedUnit, file="AlphaMateResults"//DASH//"PopulationInbreeding.txt", status="unknown")
+      write(InbreedUnit, "(a, f)") "Current, ", PopInbOld
+      write(InbreedUnit, "(a, f)") "Target,  ", PopInbTarget
       close(InbreedUnit)
 
       ! --- Shuffle the data ---
@@ -857,7 +845,7 @@ module AlphaMateModule
       allocate(Order(nInd))
       Order = RandomOrder(nInd)
       IdC(:) = IdC(Order)
-      CovMtx(:,:) = CovMtx(Order, Order)
+      CovMtx(:, :) = CovMtx(Order, Order)
       deallocate(Order)
 
       ! --- Breeding values ---
@@ -1089,7 +1077,7 @@ module AlphaMateModule
         end if
         allocate(GenericIndVal(nInd, nGenericIndVal))
         allocate(GenericIndValTmp(nGenericIndVal))
-        GenericIndVal(:,:) = 0.0d0
+        GenericIndVal(:, :) = 0.0d0
         open(newunit=GenericIndValUnit, file=GenericIndValFile, status="unknown")
         do i = 1, nInd
           read(GenericIndValUnit, *) IdCTmp, GenericIndValTmp(:)
@@ -1099,13 +1087,13 @@ module AlphaMateModule
             write(STDERR, "(a)") " "
             stop 1
           end if
-          GenericIndVal(j,:) = GenericIndValTmp(:)
+          GenericIndVal(j, :) = GenericIndValTmp(:)
         end do
         close(GenericIndValUnit)
 
         do j = 1, nGenericIndVal
           write(STDOUT, "(a)") "  - column "//trim(Int2Char(j))
-          VecDescStat = DescStat(GenericIndVal(:,j))
+          VecDescStat = DescStat(GenericIndVal(:, j))
           write(STDOUT, "(a)") "    - average: "//trim(Real2Char(VecDescStat%Mean, fmt=FMTREAL2CHAR))
           write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(VecDescStat%SD,   fmt=FMTREAL2CHAR))
           write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(VecDescStat%Min,  fmt=FMTREAL2CHAR))
@@ -1128,7 +1116,7 @@ module AlphaMateModule
         end if
         allocate(GenericMatVal(nPotPar1, nPotPar2, nGenericMatVal))
         allocate(GenericMatValTmp(nGenericMatVal))
-        GenericMatVal(:,:,:) = 0.0d0
+        GenericMatVal(:, :, :) = 0.0d0
         open(newunit=GenericMatValUnit, file=GenericMatValFile, status="unknown")
         do i = 1, nPotMat
           read(GenericMatValUnit, *) IdCTmp, IdCTmp2, GenericMatValTmp(:)
@@ -1166,7 +1154,7 @@ module AlphaMateModule
             GenericMatVal(IdPotParSeq(IdPotPar1(l)), IdPotParSeq(IdPotPar2(m)), :) = GenericMatValTmp(:)
           else
             ! fill lower-triangle (half-diallel)
-            GenericMatVal(maxval([j,k]), minval([j,k]),:) = GenericMatValTmp(:)
+            GenericMatVal(maxval([j, k]), minval([j, k]), :) = GenericMatValTmp(:)
           end if
         end do
         close(GenericMatValUnit)
@@ -1174,20 +1162,20 @@ module AlphaMateModule
         do k = 1, nGenericMatVal
           write(STDOUT, "(a)") "  - column "//trim(Int2Char(k))
           if (GenderMatters) then
-            MtxDescStat = DescStatMatrix(GenericMatVal(:,:,k))
+            MtxDescStat = DescStatMatrix(GenericMatVal(:, :, k))
             write(STDOUT, "(a)") "    - average: "//trim(Real2Char(MtxDescStat%All%Mean, fmt=FMTREAL2CHAR))
             write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(MtxDescStat%All%SD,   fmt=FMTREAL2CHAR))
             write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(MtxDescStat%All%Min,  fmt=FMTREAL2CHAR))
             write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(MtxDescStat%All%Max,  fmt=FMTREAL2CHAR))
           else
             if (SelfingAllowed) then
-              MtxDescStat = DescStatLowTriMatrix(GenericMatVal(:,:,k))
+              MtxDescStat = DescStatLowTriMatrix(GenericMatVal(:, :, k))
               write(STDOUT, "(a)") "    - average: "//trim(Real2Char(MtxDescStat%All%Mean, fmt=FMTREAL2CHAR))
               write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(MtxDescStat%All%SD,   fmt=FMTREAL2CHAR))
               write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(MtxDescStat%All%Min,  fmt=FMTREAL2CHAR))
               write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(MtxDescStat%All%Max,  fmt=FMTREAL2CHAR))
             end if
-              MtxDescStat = DescStatLowTriMatrix(GenericMatVal(:,:,k), Diag=.false.)
+              MtxDescStat = DescStatLowTriMatrix(GenericMatVal(:, :, k), Diag=.false.)
               write(STDOUT, "(a)") "    - average: "//trim(Real2Char(MtxDescStat%OffDiag%Mean, fmt=FMTREAL2CHAR))
               write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(MtxDescStat%OffDiag%SD,   fmt=FMTREAL2CHAR))
               write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(MtxDescStat%OffDiag%Min,  fmt=FMTREAL2CHAR))
@@ -1221,9 +1209,9 @@ module AlphaMateModule
       COLNAMELOGUNIT(2) = "            AcceptRate"
       COLNAMELOGUNIT(3) = "             Criterion"
       COLNAMELOGUNIT(4) = "             Penalties"
-      COLNAMELOGUNIT(5) = "          ConVal (x'a)"
-      COLNAMELOGUNIT(6) = "           ConValStand"
-      COLNAMELOGUNIT(7) = "         ConVar (x'Ax)"
+      COLNAMELOGUNIT(5) = "     ExpBreedVal (x'a)"
+      COLNAMELOGUNIT(6) = "      GenSelDiff (x's)"
+      COLNAMELOGUNIT(7) = "      ExpPopInb (x'Ax)"
       COLNAMELOGUNIT(8) = "            RatePopInb"
       COLNAMELOGUNIT(9) = "            PrgInbreed"
       nColTmp = 9
@@ -1263,8 +1251,8 @@ module AlphaMateModule
 
       integer(int32) :: nParam, k, FrontierUnit
 
-      real(real64) :: ConVarTargetHold, RatePopInbTargetHold
-      real(real64), allocatable :: InitEqual(:,:)
+      real(real64) :: PopInbTargetHold, RatePopInbTargetHold
+      real(real64), allocatable :: InitEqual(:, :)
 
       character(len=1000) :: LogFile, LogPopFile, ContribFile, MatingFile
       character(len=100) :: DumC
@@ -1295,7 +1283,7 @@ module AlphaMateModule
         MatingFile  = "AlphaMateResults"//DASH//"MatingResultsMinimalInbreeding.txt"
 
         allocate(InitEqual(nParam, nint(EvolAlgNSol * 0.1)))
-        InitEqual(:,:) = 1.0d0 ! A couple of solutions that would give equal contributions for everybody
+        InitEqual(:, :) = 1.0d0 ! A couple of solutions that would give equal contributions for everybody
 
         call DifferentialEvolution(nParam=nParam, nSol=EvolAlgNSol, Init=InitEqual, nGen=EvolAlgNGen, nGenBurnIn=EvolAlgNGenBurnIn, &
           nGenStop=EvolAlgNGenStop, StopTolerance=EvolAlgStopTol, nGenPrint=EvolAlgNGenPrint, LogFile=LogFile, LogPop=EvolAlgLogPop, LogPopFile=LogPopFile, &
@@ -1316,7 +1304,7 @@ module AlphaMateModule
         LogFile = "AlphaMateResults"//DASH//"OptimisationLogRandomMating.txt"
 
         allocate(InitEqual(nParam, nint(EvolAlgNSol * 0.1)))
-        InitEqual(:,:) = 1.0d0 ! A couple of solutions that would give equal contributions for everybody
+        InitEqual(:, :) = 1.0d0 ! A couple of solutions that would give equal contributions for everybody
 
         call RandomSearch(Mode="avg", nParam=nParam, Init=InitEqual, nSamp=EvolAlgNSol*EvolAlgNGen*RanAlgStricter, nSampStop=EvolAlgNGenStop*RanAlgStricter, &
           StopTolerance=EvolAlgStopTol/RanAlgStricter, nSampPrint=EvolAlgNGenPrint, LogFile=LogFile, CritType="ran", BestSol=SolRan)
@@ -1358,37 +1346,37 @@ module AlphaMateModule
         write(FrontierUnit, FMTFROHEAD) "   Iteration", &
                                         "             Criterion", &
                                         "             Penalties", &
-                                        "          ConVal (x'a)", &
-                                        "           ConValStand", &
-                                        "         ConVar (x'Ax)", &
+                                        "     ExpBreedVal (x'a)", &
+                                        "      GenSelDiff (x's)", &
+                                        "      ExpPopInb (x'Ax)", &
                                         "            RatePopInb", &
                                         "            PrgInbreed"
         ! TODO: add the generic stuff from the log? Just call This%Log?
         if (ModeMin) then
           DumC = "Min"
-          write(FrontierUnit, FMTFRO) adjustl(DumC), SolMin%Criterion, SolMin%Penalty, SolMin%ConVal, SolMin%ConValStand, SolMin%ConVar, SolMin%RatePopInb, SolMin%PrgInb
+          write(FrontierUnit, FMTFRO) adjustl(DumC), SolMin%Criterion, SolMin%Penalty, SolMin%ExpBreedVal, SolMin%GenSelDiff, SolMin%ExpPopInb, SolMin%RatePopInb, SolMin%PrgInb
         end if
         if (ModeRan) then
           DumC = "Ran"
-          write(FrontierUnit, FMTFRO) adjustl(DumC), SolRan%Criterion, SolRan%Penalty, SolRan%ConVal, SolRan%ConValStand, SolRan%ConVar, SolRan%RatePopInb, SolRan%PrgInb
+          write(FrontierUnit, FMTFRO) adjustl(DumC), SolRan%Criterion, SolRan%Penalty, SolRan%ExpBreedVal, SolRan%GenSelDiff, SolRan%ExpPopInb, SolRan%RatePopInb, SolRan%PrgInb
         end if
         if (ModeOpt) then
           DumC = "Opt"
-          write(FrontierUnit, FMTFRO) adjustl(DumC), SolOpt%Criterion, SolOpt%Penalty, SolOpt%ConVal, SolOpt%ConValStand, SolOpt%ConVar, SolOpt%RatePopInb, SolOpt%PrgInb
+          write(FrontierUnit, FMTFRO) adjustl(DumC), SolOpt%Criterion, SolOpt%Penalty, SolOpt%ExpBreedVal, SolOpt%GenSelDiff, SolOpt%ExpPopInb, SolOpt%RatePopInb, SolOpt%PrgInb
         end if
 
         ! Hold old results
-        ConVarTargetHold = ConVarTarget
+        PopInbTargetHold = PopInbTarget
         RatePopInbTargetHold = RatePopInbTarget
 
         ! Evaluate
         do k = 1, nFrontierSteps
           RatePopInbTarget = RatePopInbFrontier(k)
           ! x'Ax_{t+1} = x'Ax_{t} * (1 - dF)
-          ConVarTarget = ConVarOld * (1.0d0 - RatePopInbTarget)
+          PopInbTarget = PopInbOld * (1.0d0 - RatePopInbTarget)
           write(STDOUT, "(a)") "Step "//trim(Int2Char(k))//" out of "//trim(Int2Char(nFrontierSteps))//&
                                " for the rate of population inbreeding "//trim(Real2Char(RatePopInbTarget, fmt=FMTREAL2CHAR))//&
-                               " (=targeted contribution var. coeff. "//trim(Real2Char(ConVarTarget, fmt=FMTREAL2CHAR))//")"
+                               " (=targeted contribution var. coeff. "//trim(Real2Char(PopInbTarget, fmt=FMTREAL2CHAR))//")"
           write(STDOUT, "(a)") ""
 
           LogFile     = "AlphaMateResults"//DASH//"OptimisationLogFrontier"//trim(Int2Char(k))//".txt"
@@ -1403,7 +1391,7 @@ module AlphaMateModule
 
           ! TODO: add the generic stuff from the log? Just call This%Log?
           DumC = "Frontier"//trim(Int2Char(k))
-          write(FrontierUnit, FMTFRO) adjustl(DumC), Sol%Criterion, Sol%Penalty, Sol%ConVal, Sol%ConValStand, Sol%ConVar, Sol%RatePopInb, Sol%PrgInb
+          write(FrontierUnit, FMTFRO) adjustl(DumC), Sol%Criterion, Sol%Penalty, Sol%ExpBreedVal, Sol%GenSelDiff, Sol%ExpPopInb, Sol%RatePopInb, Sol%PrgInb
 
           call SaveSolution(Sol, ContribFile, MatingFile)
 
@@ -1416,7 +1404,7 @@ module AlphaMateModule
         end do
 
         ! Put back old results
-        ConVarTarget = ConVarTargetHold
+        PopInbTarget = PopInbTargetHold
         RatePopInbTarget = RatePopInbTargetHold
 
         close(FrontierUnit)
@@ -1452,7 +1440,7 @@ module AlphaMateModule
         do i = nInd, 1, -1 ! MrgRnk ranks small to large
           j = Rank(i)
           write(ContribUnit, FMTIND) IdC(j), Gender(j), BreedVal(j), &
-                                     sum(CovMtx(:,j)) / nInd, &
+                                     sum(CovMtx(:, j)) / nInd, &
                                      Sol%xVec(j), Sol%nVec(j)
         end do
       else
@@ -1468,7 +1456,7 @@ module AlphaMateModule
         do i = nInd, 1, -1 ! MrgRnk ranks small to large
           j = Rank(i)
           write(ContribUnit, FMTINDEDIT) IdC(j), Gender(j), BreedVal(j), &
-                                         sum(CovMtx(:,j)) / nInd, &
+                                         sum(CovMtx(:, j)) / nInd, &
                                          Sol%xVec(j), Sol%nVec(j), &
                                          nint(Sol%GenomeEdit(j)), BreedVal(j) + Sol%GenomeEdit(j) * BreedValPAGE(j)
         end do
@@ -1481,7 +1469,7 @@ module AlphaMateModule
                                     "     Parent1", &
                                     "     Parent2"
       do i = 1, nMat
-        write(MatingUnit, FMTMAT) i, IdC(Sol%MatingPlan(1,i)), IdC(Sol%MatingPlan(2,i))
+        write(MatingUnit, FMTMAT) i, IdC(Sol%MatingPlan(1, i)), IdC(Sol%MatingPlan(2, i))
       end do
       close(MatingUnit)
     end subroutine
@@ -1497,9 +1485,9 @@ module AlphaMateModule
       ! Initialisation
       This%Criterion   = 0.0d0
       This%Penalty     = 0.0d0
-      This%ConVal      = 0.0d0
-      This%ConValStand = 0.0d0
-      This%ConVar      = 0.0d0
+      This%ExpBreedVal = 0.0d0
+      This%GenSelDiff  = 0.0d0
+      This%ExpPopInb   = 0.0d0
       This%RatePopInb  = 0.0d0
       This%PrgInb      = 0.0d0
       if (GenericIndValAvailable) then
@@ -1520,7 +1508,7 @@ module AlphaMateModule
       allocate(This%xVec(nInd))
       This%xVec(:) = 0.0d0
       allocate(This%MatingPlan(2, nMat))
-      This%MatingPlan(:,:) = 0
+      This%MatingPlan(:, :) = 0
       if (PAGE) then
         allocate(This%GenomeEdit(nInd))
         This%GenomeEdit(:) = 0.0d0
@@ -1545,9 +1533,9 @@ module AlphaMateModule
         class is (AlphaMateSol)
           Out%Criterion       = In%Criterion
           Out%Penalty         = In%Penalty
-          Out%ConVal          = In%ConVal
-          Out%ConValStand     = In%ConValStand
-          Out%ConVar          = In%ConVar
+          Out%ExpBreedVal     = In%ExpBreedVal
+          Out%GenSelDiff      = In%GenSelDiff
+          Out%ExpPopInb       = In%ExpPopInb
           Out%RatePopInb      = In%RatePopInb
           Out%PrgInb          = In%PrgInb
           if (allocated(In%GenericIndVal)) then
@@ -1604,9 +1592,9 @@ module AlphaMateModule
         class is (AlphaMateSol)
           This%Criterion       = This%Criterion     * kR + Add%Criterion     / n
           This%Penalty         = This%Penalty       * kR + Add%Penalty       / n
-          This%ConVal          = This%ConVal        * kR + Add%ConVal        / n
-          This%ConValStand     = This%ConValStand   * kR + Add%ConValStand   / n
-          This%ConVar          = This%ConVar        * kR + Add%ConVar        / n
+          This%ExpBreedVal     = This%ExpBreedVal   * kR + Add%ExpBreedVal   / n
+          This%GenSelDiff      = This%GenSelDiff    * kR + Add%GenSelDiff    / n
+          This%ExpPopInb       = This%ExpPopInb     * kR + Add%ExpPopInb     / n
           This%RatePopInb      = This%RatePopInb    * kR + Add%RatePopInb    / n
           This%PrgInb          = This%PrgInb        * kR + Add%PrgInb        / n
           if (allocated(This%GenericIndVal)) then
@@ -1650,7 +1638,7 @@ module AlphaMateModule
       integer(int32) :: i, j, k, l, g, nCumMat, Rank(nInd), ChromInt(nInd), MatPar2(nMat)
       integer(int32) :: nVecPar1(nPotPar1), nVecPar2(nPotPar2), TmpMin, TmpMax, TmpI
 
-      real(real64) :: TmpVec(nInd,1), TmpR, RanNum
+      real(real64) :: TmpVec(nInd, 1), TmpR, RanNum
 
       ! Initialize the solution
       call This%Initialise()
@@ -1664,7 +1652,7 @@ module AlphaMateModule
       !   - nPotPar1 edit indicators for "parent1" (males   when GenderMatters, all ind when .not. GenderMatters)
       !   - nPotPar2 edit indicators for "parent2" (females when GenderMatters, present only when GenderMatters)
 
-      ! Say we have Chrom=(|0,2,0,1|...|2.5,1.5,1.0|0,1,0,0|...) then we:
+      ! Say we have Chrom=(| 0, 2, 0, 1 | ... | 2.5, 1.5, 1.0 | 0, 1, 0, 0 | ...) then we:
       ! - mate male 2 with the first  available female (rank 2.5)
       ! - mate male 2 with the second available female (rank 1.5)
       ! - mate male 4 with the third  available female (rank 1.0)
@@ -2015,8 +2003,8 @@ module AlphaMateModule
         do i = 1, nPotPar1
           do j = 1, nVecPar1(i)
             !if (k<2) print*, k, i, j, nVecPar1(i), nMat, sum(nVecPar1(:))
-            This%MatingPlan(1,k) = IdPotPar1(i)
-            This%MatingPlan(2,k) = MatPar2(k)
+            This%MatingPlan(1, k) = IdPotPar1(i)
+            This%MatingPlan(2, k) = MatPar2(k)
             k = k - 1
           end do
         end do
@@ -2025,13 +2013,13 @@ module AlphaMateModule
         ! and when selfing is not allowed we need to avoid it - slower code
         do i = 1, nPotPar1
           do j = 1, nVecPar1(i)
-            This%MatingPlan(1,k) = IdPotPar1(i)
+            This%MatingPlan(1, k) = IdPotPar1(i)
             if (MatPar2(k) == IdPotPar1(i)) then
               ! Try to avoid selfing by swapping the MatPar2 and Rank elements
               do l = k, 1, -1
                 if (MatPar2(l) /= IdPotPar1(i)) then
-                  MatPar2([k,l]) = MatPar2([l,k])
-                  Chrom(nPotPar1+Rank([k,l])) = Chrom(nPotPar1+Rank([l,k]))
+                  MatPar2([k, l]) = MatPar2([l, k])
+                  Chrom(nPotPar1+Rank([k, l])) = Chrom(nPotPar1+Rank([l, k]))
                   exit
                 end if
               end do
@@ -2042,7 +2030,7 @@ module AlphaMateModule
                 end if
               end if
             end if
-            This%MatingPlan(2,k) = MatPar2(k)
+            This%MatingPlan(2, k) = MatPar2(k)
             k = k - 1
           end do
         end do
@@ -2052,16 +2040,16 @@ module AlphaMateModule
 
       if (BreedValAvailable) then
         !@todo save BreedVal mean and sd in the data object and then compute this dot_product only one and
-        !      compute This%ConVal as This%ConVal = This%ConValStand * BreedValSD + BreedValMean
-        This%ConVal      = dot_product(This%xVec, BreedVal)
-        This%ConValStand = dot_product(This%xVec, BreedValStand)
+        !      compute This%ExpBreedVal as This%ExpBreedVal = This%GenSelDiff * BreedValSD + BreedValMean
+        This%ExpBreedVal = dot_product(This%xVec, BreedVal)
+        This%GenSelDiff  = dot_product(This%xVec, BreedValStand)
         if (PAGE) then
           !@todo as above
-          This%ConVal      = This%ConVal      + dot_product(This%xVec, BreedValPAGE(:)      * This%GenomeEdit(:))
-          This%ConValStand = This%ConValStand + dot_product(This%xVec, BreedValPAGEStand(:) * This%GenomeEdit(:))
+          This%ExpBreedVal = This%ExpBreedVal + dot_product(This%xVec, BreedValPAGE(:)      * This%GenomeEdit(:))
+          This%GenSelDiff  = This%GenSelDiff  + dot_product(This%xVec, BreedValPAGEStand(:) * This%GenomeEdit(:))
         end if
         if (CritType == "opt") then
-          This%Criterion = This%Criterion + This%ConValStand
+          This%Criterion = This%Criterion + This%GenSelDiff
         end if
       end if
 
@@ -2069,11 +2057,11 @@ module AlphaMateModule
 
       if (GenericIndValAvailable) then
         do j = 1, nGenericIndVal
-          TmpR = dot_product(This%xVec, GenericIndVal(:,j))
+          TmpR = dot_product(This%xVec, GenericIndVal(:, j))
           This%GenericIndVal(j) = TmpR
           TmpR = GenericIndValWeight(j) * This%GenericIndVal(j)
           This%Criterion = This%Criterion + TmpR
-          if (GenericIndValWeight(j) < 0.0) then
+          if (GenericIndValWeight(j) .lt. 0.0) then
             This%Penalty = This%Penalty + abs(TmpR)
           end if
         end do
@@ -2083,7 +2071,7 @@ module AlphaMateModule
 
       ! x'A
       do i = 1, nInd
-        TmpVec(i,1) = dot_product(This%xVec, CovMtx(:,i))
+        TmpVec(i, 1) = dot_product(This%xVec, CovMtx(:, i))
       end do
       ! TODO: consider using matmul instead of repeated dot_product?
       ! TODO: consider using BLAS/LAPACK - perhaps non-symmetric is more optimised?
@@ -2094,13 +2082,13 @@ module AlphaMateModule
       ! call dsymm(     "l",      "l",   nInd,   1,       1.0d0,   CovMtx,     nInd,   This%xVec,     nInd,      0,   TmpVec,     nInd)
 
       ! x'Ax
-      This%ConVar = dot_product(TmpVec(:,1), This%xVec)
+      This%ExpPopInb = dot_product(TmpVec(:, 1), This%xVec)
 
-      ! dF = (x'Ax_{t} - x'Ax_{t+1}) / x'Ax_{t}
-      This%RatePopInb = (ConVarOld - ConVarTarget) / ConVarOld
+      ! dF = (F_t+1 - F_t) / (1 - F_t)
+      This%RatePopInb = (This%ExpPopInb - PopInbOld) / (1.0d0 - PopInbOld)
 
       if      (CritType == "min" .or. CritType == "ran") then
-        This%Criterion = This%Criterion - This%ConVar
+        This%Criterion = This%Criterion - This%ExpPopInb
       else if (CritType == "opt") then
         ! We know the targeted inbreeding so we can work with relative values,
         ! which makes the PopInbWeight generic for ~any scenario.
@@ -2128,12 +2116,12 @@ module AlphaMateModule
 
       ! --- Progeny inbreeding (=inbreeding of a mating) ---
 
-      !print*,"TODO: need to check progeny inbreeding in light of genomic covariance coef. matrix!!!"
+      !print*, "TODO: need to check progeny inbreeding in light of genomic covariance coef. matrix!!!"
       TmpR = 0.0d0
       do j = 1, nMat
         ! Lower triangle to speedup lookup
-        TmpMax = maxval(This%MatingPlan(:,j))
-        TmpMin = minval(This%MatingPlan(:,j))
+        TmpMax = maxval(This%MatingPlan(:, j))
+        TmpMin = minval(This%MatingPlan(:, j))
         TmpR = TmpR + 0.5d0 * CovMtx(TmpMax, TmpMin)
       end do
       This%PrgInb = TmpR / nMat
@@ -2150,13 +2138,13 @@ module AlphaMateModule
           TmpR = 0.0d0
           if (GenderMatters) then
             do j = 1, nMat
-              TmpR = TmpR + GenericMatVal(IdPotParSeq(This%MatingPlan(1,j)), &
-                                          IdPotParSeq(This%MatingPlan(2,j)), k)
+              TmpR = TmpR + GenericMatVal(IdPotParSeq(This%MatingPlan(1, j)), &
+                                          IdPotParSeq(This%MatingPlan(2, j)), k)
             end do
           else
             do j = 1, nMat
-              TmpMax = maxval(This%MatingPlan(:,j))
-              TmpMin = minval(This%MatingPlan(:,j))
+              TmpMax = maxval(This%MatingPlan(:, j))
+              TmpMin = minval(This%MatingPlan(:, j))
               TmpR = TmpR + GenericMatVal(TmpMax, TmpMin, k)
             end do
           end if
@@ -2193,29 +2181,29 @@ module AlphaMateModule
       real(real64), intent(in)             :: AcceptRate
       if (GenericIndValAvailable) then
         if (GenericMatValAvailable) then
-          write(STDOUT,  FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%ConVal, This%ConValStand, This%ConVar, This%RatePopInb, This%PrgInb, This%GenericIndVal, This%GenericMatVal
+          write(STDOUT,  FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelDiff, This%ExpPopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal, This%GenericMatVal
         else
-          write(STDOUT,  FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%ConVal, This%ConValStand, This%ConVar, This%RatePopInb, This%PrgInb, This%GenericIndVal
+          write(STDOUT,  FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelDiff, This%ExpPopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal
         end if
       else
         if (GenericMatValAvailable) then
-          write(STDOUT,  FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%ConVal, This%ConValStand, This%ConVar, This%RatePopInb, This%PrgInb,                     This%GenericMatVal
+          write(STDOUT,  FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelDiff, This%ExpPopInb, This%RatePopInb, This%PrgInb,                     This%GenericMatVal
         else
-          write(STDOUT,  FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%ConVal, This%ConValStand, This%ConVar, This%RatePopInb, This%PrgInb
+          write(STDOUT,  FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelDiff, This%ExpPopInb, This%RatePopInb, This%PrgInb
         end if
       end if
       if (present(LogUnit)) then
         if (GenericIndValAvailable) then
           if (GenericMatValAvailable) then
-            write(LogUnit,  FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%ConVal, This%ConValStand, This%ConVar, This%RatePopInb, This%PrgInb, This%GenericIndVal, This%GenericMatVal
+            write(LogUnit,  FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelDiff, This%ExpPopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal, This%GenericMatVal
           else
-            write(LogUnit,  FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%ConVal, This%ConValStand, This%ConVar, This%RatePopInb, This%PrgInb, This%GenericIndVal
+            write(LogUnit,  FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelDiff, This%ExpPopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal
           end if
         else
           if (GenericMatValAvailable) then
-            write(LogUnit,  FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%ConVal, This%ConValStand, This%ConVar, This%RatePopInb, This%PrgInb,                     This%GenericMatVal
+            write(LogUnit,  FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelDiff, This%ExpPopInb, This%RatePopInb, This%PrgInb,                     This%GenericMatVal
           else
-            write(LogUnit,  FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%ConVal, This%ConValStand, This%ConVar, This%RatePopInb, This%PrgInb
+            write(LogUnit,  FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelDiff, This%ExpPopInb, This%RatePopInb, This%PrgInb
           end if
         end if
       end if
@@ -2240,15 +2228,15 @@ module AlphaMateModule
 
       if (GenericIndValAvailable) then
         if (GenericMatValAvailable) then
-          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%ConVal, This%ConValStand, This%ConVar, This%RatePopInb, This%PrgInb, This%GenericIndVal, This%GenericMatVal
+          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelDiff, This%ExpPopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal, This%GenericMatVal
         else
-          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%ConVal, This%ConValStand, This%ConVar, This%RatePopInb, This%PrgInb, This%GenericIndVal
+          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelDiff, This%ExpPopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal
         end if
       else
         if (GenericMatValAvailable) then
-          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%ConVal, This%ConValStand, This%ConVar, This%RatePopInb, This%PrgInb,                     This%GenericMatVal
+          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelDiff, This%ExpPopInb, This%RatePopInb, This%PrgInb,                     This%GenericMatVal
         else
-          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%ConVal, This%ConValStand, This%ConVar, This%RatePopInb, This%PrgInb
+          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelDiff, This%ExpPopInb, This%RatePopInb, This%PrgInb
         end if
       end if
     end subroutine
