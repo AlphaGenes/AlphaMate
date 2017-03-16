@@ -74,6 +74,10 @@ module AlphaMateModule
 
   !> @brief AlphaMate data
   type AlphaMateData
+    type(DescStatReal64) :: InbreedingStat, SelCriterionStat, SelCriterionPAGEStat
+    type(DescStatReal64), allocatable :: GenericIndValStat(:)
+    type(DescStatMatrixReal64) :: CoancestryStat, CoancestryStatGenderDiff, CoancestryStatGender1, CoancestryStatGender2
+    type(DescStatMatrixReal64), allocatable :: GenericMatValStat(:)
   end type
 
   !> @brief AlphaMate solution
@@ -102,6 +106,9 @@ module AlphaMateModule
       procedure, nopass :: LogPopHead => LogPopHeadAlphaMateSol
       procedure         :: LogPop     => LogPopAlphaMateSol
   end type
+
+  type(AlphaMateSpec) :: Spec
+  type(AlphaMateData) :: Data
 
   integer(int32) :: nInd, nMat, nPotMat, nPar, nPotPar1, nPotPar2, nMal, nFem, nPar1, nPar2, nFrontierSteps
   integer(int32) :: EvolAlgNSol, EvolAlgNGen, EvolAlgNGenBurnIn, EvolAlgNGenStop, EvolAlgNGenPrint, RanAlgStricter
@@ -257,6 +264,11 @@ module AlphaMateModule
 
     !###########################################################################
 
+    !-------------------------------------------------------------------------
+    !> @brief  Print AlphaMate title
+    !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date   March 16, 2017
+    !-------------------------------------------------------------------------
     subroutine AlphaMateTitle ! not pure due to IO
       implicit none
       write(STDOUT, "(a)") ""
@@ -277,6 +289,39 @@ module AlphaMateModule
 
     !###########################################################################
 
+    !-------------------------------------------------------------------------
+    !> @brief  Initialize AlphaMate specifications
+    !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date   March 16, 2017
+    !-------------------------------------------------------------------------
+    pure subroutine InitAlphaMateSpec
+! TODO
+    end subroutine
+
+    !###########################################################################
+
+    !-------------------------------------------------------------------------
+    !> @brief  Read AlphaMate specifications from a file
+    !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date   March 16, 2017
+    !-------------------------------------------------------------------------
+    subroutine ReadAlphaMateSpec ! not pure due to IO
+! TODO
+    end subroutine
+
+    !###########################################################################
+
+    !-------------------------------------------------------------------------
+    !> @brief  Read AlphaMate data from a file
+    !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date   March 16, 2017
+    !-------------------------------------------------------------------------
+    subroutine ReadAlphaMateData ! not pure due to IO
+! TODO
+    end subroutine
+
+    !###########################################################################
+
     subroutine ReadSpecAndDataForAlphaMate ! not pure due to IO
 
       implicit none
@@ -291,10 +336,6 @@ module AlphaMateModule
       character(len=1000) :: CoaMtxFile, SelCriterionFile, GenderFile, SeedFile
       character(len=1000) :: GenericIndValFile, GenericMatValFile
       character(len=100) :: DumC, IdCTmp, IdCTmp2
-
-      type(DescStatReal64) :: VecDescStat
-      type(DescStatMatrixReal64) :: CoancestryStat, CoancestryStatGenderDiff, CoancestryStatGender1, CoancestryStatGender2
-      type(DescStatMatrixReal64) :: MtxDescStat
 
       write(STDOUT, "(a)") "--- Specifications ---"
       write(STDOUT, "(a)") " "
@@ -953,17 +994,17 @@ module AlphaMateModule
       call Coancestry%Inbreeding(Out=Inbreeding, Nrm=.false.)
 
       ! Current
-      VecDescStat = DescStat(Inbreeding%Value(1:))
-      CurrentInbreeding = VecDescStat%Mean
+      InbreedingStat = DescStat(Inbreeding%Value(1:))
+      CurrentInbreeding = InbreedingStat%Mean
 
       ! Obtain limit/target based on given rates
       ! F_t = DeltaF + (1 - DeltaF) * F_t-1
       TargetInbreeding = TargetInbreedingRate + (1.0d0 - TargetInbreedingRate) * CurrentInbreeding
 
-      write(STDOUT, "(a)") "  - average: "//trim(Real2Char(VecDescStat%Mean, fmt=FMTREAL2CHAR))//", limit/target: "//trim(Real2Char(TargetInbreeding, fmt=FMTREAL2CHAR))
-      write(STDOUT, "(a)") "  - st.dev.: "//trim(Real2Char(VecDescStat%SD,   fmt=FMTREAL2CHAR))
-      write(STDOUT, "(a)") "  - minimum: "//trim(Real2Char(VecDescStat%Min,  fmt=FMTREAL2CHAR))
-      write(STDOUT, "(a)") "  - maximum: "//trim(Real2Char(VecDescStat%Max,  fmt=FMTREAL2CHAR))
+      write(STDOUT, "(a)") "  - average: "//trim(Real2Char(InbreedingStat%Mean, fmt=FMTREAL2CHAR))//", limit/target: "//trim(Real2Char(TargetInbreeding, fmt=FMTREAL2CHAR))
+      write(STDOUT, "(a)") "  - st.dev.: "//trim(Real2Char(InbreedingStat%SD,   fmt=FMTREAL2CHAR))
+      write(STDOUT, "(a)") "  - minimum: "//trim(Real2Char(InbreedingStat%Min,  fmt=FMTREAL2CHAR))
+      write(STDOUT, "(a)") "  - maximum: "//trim(Real2Char(InbreedingStat%Max,  fmt=FMTREAL2CHAR))
       write(STDOUT, "(a)") " "
 
       open(newunit=AvgInbreedingUnit, file="AverageInbreeding.txt", status="unknown")
@@ -1013,15 +1054,15 @@ module AlphaMateModule
         end do
         close(SelCriterionUnit)
 
-        VecDescStat = DescStat(SelCriterion)
-        SelCriterionStand(:) = (SelCriterion(:) - VecDescStat%Mean) / VecDescStat%SD
-        write(STDOUT, "(a)") "  - average: "//trim(Real2Char(VecDescStat%Mean, fmt=FMTREAL2CHAR))
-        write(STDOUT, "(a)") "  - st.dev.: "//trim(Real2Char(VecDescStat%SD,   fmt=FMTREAL2CHAR))
-        write(STDOUT, "(a)") "  - minimum: "//trim(Real2Char(VecDescStat%Min,  fmt=FMTREAL2CHAR))
-        write(STDOUT, "(a)") "  - maximum: "//trim(Real2Char(VecDescStat%Max,  fmt=FMTREAL2CHAR))
+        SelCriterionStat = DescStat(SelCriterion)
+        SelCriterionStand(:) = (SelCriterion(:) - SelCriterionStat%Mean) / SelCriterionStat%SD
+        write(STDOUT, "(a)") "  - average: "//trim(Real2Char(SelCriterionStat%Mean, fmt=FMTREAL2CHAR))
+        write(STDOUT, "(a)") "  - st.dev.: "//trim(Real2Char(SelCriterionStat%SD,   fmt=FMTREAL2CHAR))
+        write(STDOUT, "(a)") "  - minimum: "//trim(Real2Char(SelCriterionStat%Min,  fmt=FMTREAL2CHAR))
+        write(STDOUT, "(a)") "  - maximum: "//trim(Real2Char(SelCriterionStat%Max,  fmt=FMTREAL2CHAR))
         write(STDOUT, "(a)") " "
 
-        if (VecDescStat%SD == 0.0) then
+        if (SelCriterionStat%SD == 0.0) then
           write(STDERR, "(a)") "ERROR: There is no variation in values!"
           write(STDERR, "(a)") "ERROR: Is this intentional?"
           write(STDERR, "(a)") " "
@@ -1030,20 +1071,20 @@ module AlphaMateModule
 
         if (PAGE) then
           ! must have the same scaling as selection criterion!!!!
-          SelCriterionPAGEStand(:) = (SelCriterionPAGE(:) - VecDescStat%Mean) / VecDescStat%SD
+          SelCriterionPAGEStand(:) = (SelCriterionPAGE(:) - SelCriterionStat%Mean) / SelCriterionStat%SD
           ! only the PAGE bit of SelCriterion
           SelCriterionPAGE(:) = SelCriterionPAGE(:) - SelCriterion(:)
           SelCriterionPAGEStand(:) = SelCriterionPAGEStand(:) - SelCriterionStand(:)
-          VecDescStat = DescStat(SelCriterionPAGE)
+          SelCriterionPAGEStat = DescStat(SelCriterionPAGE)
           write(STDOUT, "(a)") "Genome editing increments"
-          write(STDOUT, "(a)") "  - average: "//trim(Real2Char(VecDescStat%Mean, fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") "  - st.dev.: "//trim(Real2Char(VecDescStat%SD,   fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") "  - minimum: "//trim(Real2Char(VecDescStat%Min,  fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") "  - maximum: "//trim(Real2Char(VecDescStat%Max,  fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "  - average: "//trim(Real2Char(SelCriterionPAGEStat%Mean, fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "  - st.dev.: "//trim(Real2Char(SelCriterionPAGEStat%SD,   fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "  - minimum: "//trim(Real2Char(SelCriterionPAGEStat%Min,  fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "  - maximum: "//trim(Real2Char(SelCriterionPAGEStat%Max,  fmt=FMTREAL2CHAR))
           write(STDOUT, "(a)") " "
         end if
 
-        if (VecDescStat%SD == 0.0) then
+        if (SelCriterionPAGEStat%SD == 0.0) then
           write(STDERR, "(a)") "ERROR: There is no variation in values!"
           write(STDERR, "(a)") "ERROR: Is this intentional?"
           write(STDERR, "(a)") " "
@@ -1214,13 +1255,14 @@ module AlphaMateModule
         end do
         close(GenericIndValUnit)
 
+        allocate(GenericIndValStat(nGenericIndVal))
         do j = 1, nGenericIndVal
           write(STDOUT, "(a)") "  - column "//trim(Int2Char(j))
-          VecDescStat = DescStat(GenericIndVal(:, j))
-          write(STDOUT, "(a)") "    - average: "//trim(Real2Char(VecDescStat%Mean, fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(VecDescStat%SD,   fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(VecDescStat%Min,  fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(VecDescStat%Max,  fmt=FMTREAL2CHAR))
+          GenericIndValStat(i) = DescStat(GenericIndVal(:, j))
+          write(STDOUT, "(a)") "    - average: "//trim(Real2Char(GenericIndValStat(i)%Mean, fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(GenericIndValStat(i)%SD,   fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(GenericIndValStat(i)%Min,  fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(GenericIndValStat(i)%Max,  fmt=FMTREAL2CHAR))
         end do
         write(STDOUT, "(a)") " "
       end if
@@ -1282,27 +1324,28 @@ module AlphaMateModule
         end do
         close(GenericMatValUnit)
 
+        allocate(GenericMatValStat(nGenericMatVal))
         do k = 1, nGenericMatVal
           write(STDOUT, "(a)") "  - column "//trim(Int2Char(k))
           if (GenderMatters) then
-            MtxDescStat = DescStatMatrix(GenericMatVal(:, :, k))
-            write(STDOUT, "(a)") "    - average: "//trim(Real2Char(MtxDescStat%All%Mean, fmt=FMTREAL2CHAR))
-            write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(MtxDescStat%All%SD,   fmt=FMTREAL2CHAR))
-            write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(MtxDescStat%All%Min,  fmt=FMTREAL2CHAR))
-            write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(MtxDescStat%All%Max,  fmt=FMTREAL2CHAR))
+            GenericMatValStat(k) = DescStatMatrix(GenericMatVal(:, :, k))
+            write(STDOUT, "(a)") "    - average: "//trim(Real2Char(GenericMatValStat(k)%All%Mean, fmt=FMTREAL2CHAR))
+            write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(GenericMatValStat(k)%All%SD,   fmt=FMTREAL2CHAR))
+            write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(GenericMatValStat(k)%All%Min,  fmt=FMTREAL2CHAR))
+            write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(GenericMatValStat(k)%All%Max,  fmt=FMTREAL2CHAR))
           else
             if (SelfingAllowed) then
-              MtxDescStat = DescStatLowTriMatrix(GenericMatVal(:, :, k))
-              write(STDOUT, "(a)") "    - average: "//trim(Real2Char(MtxDescStat%All%Mean, fmt=FMTREAL2CHAR))
-              write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(MtxDescStat%All%SD,   fmt=FMTREAL2CHAR))
-              write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(MtxDescStat%All%Min,  fmt=FMTREAL2CHAR))
-              write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(MtxDescStat%All%Max,  fmt=FMTREAL2CHAR))
+              GenericMatValStat(k) = DescStatLowTriMatrix(GenericMatVal(:, :, k))
+              write(STDOUT, "(a)") "    - average: "//trim(Real2Char(GenericMatValStat(k)%All%Mean, fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(GenericMatValStat(k)%All%SD,   fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(GenericMatValStat(k)%All%Min,  fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(GenericMatValStat(k)%All%Max,  fmt=FMTREAL2CHAR))
             end if
-              MtxDescStat = DescStatLowTriMatrix(GenericMatVal(:, :, k), Diag=.false.)
-              write(STDOUT, "(a)") "    - average: "//trim(Real2Char(MtxDescStat%OffDiag%Mean, fmt=FMTREAL2CHAR))
-              write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(MtxDescStat%OffDiag%SD,   fmt=FMTREAL2CHAR))
-              write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(MtxDescStat%OffDiag%Min,  fmt=FMTREAL2CHAR))
-              write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(MtxDescStat%OffDiag%Max,  fmt=FMTREAL2CHAR))
+              GenericMatValStat(k) = DescStatLowTriMatrix(GenericMatVal(:, :, k), Diag=.false.)
+              write(STDOUT, "(a)") "    - average: "//trim(Real2Char(GenericMatValStat(k)%OffDiag%Mean, fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(GenericMatValStat(k)%OffDiag%SD,   fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(GenericMatValStat(k)%OffDiag%Min,  fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(GenericMatValStat(k)%OffDiag%Max,  fmt=FMTREAL2CHAR))
           end if
         end do
         write(STDOUT, "(a)") " "
@@ -1311,6 +1354,11 @@ module AlphaMateModule
 
     !###########################################################################
 
+    !-------------------------------------------------------------------------
+    !> @brief  Setup colnames and formats for output
+    !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date   March 16, 2017
+    !-------------------------------------------------------------------------
     subroutine SetupColNamesAndFormats
       implicit none
       integer(int32) :: nCol, nColTmp, i
@@ -1369,6 +1417,11 @@ module AlphaMateModule
 
     !###########################################################################
 
+    !-------------------------------------------------------------------------
+    !> @brief  Call various optimisations for AlphaMate
+    !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date   March 16, 2017
+    !-------------------------------------------------------------------------
     subroutine AlphaMateSearch
 
       implicit none
@@ -1542,8 +1595,14 @@ module AlphaMateModule
 
     !###########################################################################
 
+    !-------------------------------------------------------------------------
+    !> @brief  Write AlphaMate solution to files or standard output
+    !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date   March 16, 2017
+    !-------------------------------------------------------------------------
     subroutine SaveSolution(Sol, ContribFile, MatingFile) ! not pure due to IO
 
+! TODO: add stdout when ContribFile and MatingFile are not given
       implicit none
 
       ! Arguments
@@ -1604,6 +1663,11 @@ module AlphaMateModule
 
     !###########################################################################
 
+    !-------------------------------------------------------------------------
+    !> @brief  Initialize AlphaMate solution
+    !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date   March 16, 2017
+    !-------------------------------------------------------------------------
     subroutine InitialiseAlphaMateSol(This)
       implicit none
 
@@ -1647,6 +1711,11 @@ module AlphaMateModule
 
     !###########################################################################
 
+    !-------------------------------------------------------------------------
+    !> @brief  Assign one AlphaMate solution to another
+    !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date   March 16, 2017
+    !-------------------------------------------------------------------------
     subroutine AssignAlphaMateSol(Out, In)
       implicit none
 
@@ -1700,6 +1769,12 @@ module AlphaMateModule
 
     !###########################################################################
 
+! TODO: keep the best random solution?
+    !-------------------------------------------------------------------------
+    !> @brief  Update mean of AlphaMate solution (when performing random search)
+    !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date   March 16, 2017
+    !-------------------------------------------------------------------------
     subroutine UpdateMeanAlphaMateSol(This, Add, n)
       implicit none
 
@@ -1753,6 +1828,11 @@ module AlphaMateModule
 
     !###########################################################################
 
+    !-------------------------------------------------------------------------
+    !> @brief  AlphaMate evaluate function plus much MORE (this is the core!!!!)
+    !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date   March 16, 2017
+    !-------------------------------------------------------------------------
     subroutine FixSolEtcMateAndEvaluate(This, Chrom, CritType)
 
       implicit none
@@ -2306,6 +2386,11 @@ module AlphaMateModule
 
     !###########################################################################
 
+    !-------------------------------------------------------------------------
+    !> @brief  Write head of the AlphaMate log
+    !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date   March 16, 2017
+    !-------------------------------------------------------------------------
     subroutine LogHeadAlphaMateSol(LogUnit)
       implicit none
       integer(int32), intent(in), optional :: LogUnit
@@ -2317,6 +2402,12 @@ module AlphaMateModule
 
     !###########################################################################
 
+! TODO: should this be a method for AlphaMateSol?
+    !-------------------------------------------------------------------------
+    !> @brief  Write the AlphaMate log
+    !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date   March 16, 2017
+    !-------------------------------------------------------------------------
     subroutine LogAlphaMateSol(This, LogUnit, Gen, AcceptRate)
       implicit none
       class(AlphaMateSol), intent(in)      :: This
@@ -2355,6 +2446,11 @@ module AlphaMateModule
 
     !###########################################################################
 
+    !-------------------------------------------------------------------------
+    !> @brief  Write head of the AlphaMate log - for the swarm/population of solutions
+    !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date   March 16, 2017
+    !-------------------------------------------------------------------------
     subroutine LogPopHeadAlphaMateSol(LogPopUnit)
       implicit none
       integer(int32), intent(in) :: LogPopUnit
@@ -2363,6 +2459,12 @@ module AlphaMateModule
 
     !###########################################################################
 
+! TODO: should this be a method for AlphaMateSol?
+    !-------------------------------------------------------------------------
+    !> @brief  Write the AlphaMate log - for the swarm/population of solutions
+    !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date   March 16, 2017
+    !-------------------------------------------------------------------------
     subroutine LogPopAlphaMateSol(This, LogPopUnit, Gen, i)
       implicit none
       class(AlphaMateSol), intent(in) :: This
