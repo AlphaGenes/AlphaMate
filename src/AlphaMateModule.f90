@@ -70,6 +70,8 @@ module AlphaMateModule
 
   !> @brief AlphaMate specifications
   type AlphaMateSpec
+      real(real64) :: TargetCoancestryRate
+      real(real64) :: TargetInbreedingRate
   end type
 
   !> @brief AlphaMate data
@@ -83,6 +85,10 @@ module AlphaMateModule
     type(DescStatMatrixReal64) :: CoancestryStat, CoancestryStatGenderDiff, CoancestryStatGender1, CoancestryStatGender2
     type(DescStatMatrixReal64), allocatable :: GenericMatValStat(:)
     ! Derived data
+    real(real64) :: CurrentCoancestryRanMate, CurrentCoancestryRanMateNoSelf, CurrentCoancestryGenderMate
+    real(real64) :: CurrentInbreeding
+    real(real64) :: TargetCoancestryRanMate, TargetCoancestryRanMateNoSelf, TargetCoancestryGenderMate
+    real(real64) :: TargetInbreeding
   end type
 
   !> @brief AlphaMate solution
@@ -122,11 +128,6 @@ module AlphaMateModule
 
   real(real64) :: LimitPar1Min, LimitPar1Max, LimitPar2Min, LimitPar2Max
   real(real64) :: EvolAlgStopTol, EvolAlgCRBurnIn, EvolAlgCRLate, EvolAlgFBase, EvolAlgFHigh1, EvolAlgFHigh2
-  real(real64) :: TargetCoancestryRate, TargetInbreedingRate
-  real(real64) :: CurrentCoancestryRanMate, CurrentCoancestryRanMateNoSelf, CurrentCoancestryGenderMate
-  real(real64) :: CurrentInbreeding
-  real(real64) :: TargetCoancestryRanMate, TargetCoancestryRanMateNoSelf, TargetCoancestryGenderMate ! TODO: what more?
-  real(real64) :: TargetInbreeding
   real(real64) :: CoancestryWeight, InbreedingWeight, SelfingWeight, LimitPar1Weight, LimitPar2Weight
   real(real64), allocatable :: GenericIndValWeight(:), GenericMatValWeight(:)
   real(real64) :: PAGEPar1Cost, PAGEPar2Cost
@@ -761,8 +762,8 @@ module AlphaMateModule
 
       ! --- TargetedRateOfCoancestry ---
 
-      read(SpecUnit, *) DumC, TargetCoancestryRate, CoancestryWeight, DumC
-      write(STDOUT, "(a)") "TargetedRateOfCoancestry: "//trim(Real2Char(TargetCoancestryRate, fmt=FMTREAL2CHAR))//&
+      read(SpecUnit, *) DumC, Spec%TargetCoancestryRate, CoancestryWeight, DumC
+      write(STDOUT, "(a)") "TargetedRateOfCoancestry: "//trim(Real2Char(Spec%TargetCoancestryRate, fmt=FMTREAL2CHAR))//&
         ", penalty weight "//trim(Real2Char(CoancestryWeight, fmt=FMTREAL2CHAR))//", mode "//trim(DumC)
       if      (ToLower(trim(DumC)) == "above") then
         CoancestryWeightBellow = .false.
@@ -773,7 +774,7 @@ module AlphaMateModule
         write(STDERR, "(a)") " "
         stop 1
       end if
-      if (TargetCoancestryRate == 0.0) then
+      if (Spec%TargetCoancestryRate == 0.0) then
         write(STDERR, "(a)") "ERROR: Can not work with the targeted rate of coancestry exactly equal to zero - it is numerically unstable!"
         write(STDERR, "(a)") " "
         stop 1
@@ -786,8 +787,8 @@ module AlphaMateModule
 
       ! --- TargetedRateOfInbreeding (=inbreeding of a mating) ---
 
-      read(SpecUnit, *) DumC, TargetInbreedingRate, InbreedingWeight, DumC
-      write(STDOUT, "(a)") "TargetedRateOfInbreeding: "//trim(Real2Char(TargetInbreedingRate, fmt=FMTREAL2CHAR))//&
+      read(SpecUnit, *) DumC, Spec%TargetInbreedingRate, InbreedingWeight, DumC
+      write(STDOUT, "(a)") "TargetedRateOfInbreeding: "//trim(Real2Char(Spec%TargetInbreedingRate, fmt=FMTREAL2CHAR))//&
         ", penalty weight "//trim(Real2Char(InbreedingWeight, fmt=FMTREAL2CHAR))//", mode "//trim(DumC)
       if      (ToLower(trim(DumC)) == "above") then
         InbreedingWeightBellow = .false.
@@ -798,7 +799,7 @@ module AlphaMateModule
         write(STDERR, "(a)") " "
         stop 1
       end if
-      if (TargetInbreedingRate == 0.0) then
+      if (Spec%TargetInbreedingRate == 0.0) then
         write(STDERR, "(a)") "ERROR: Can not work with the targeted rate of inbreeding exactly equal to zero - it is numerically unstable!"
         write(STDERR, "(a)") " "
         stop 1
@@ -927,23 +928,23 @@ module AlphaMateModule
       end if
 
       ! Current
-      CurrentCoancestryRanMate       = Data%CoancestryStat%All%Mean
-      CurrentCoancestryRanMateNoSelf = Data%CoancestryStat%OffDiag%Mean
+      Data%CurrentCoancestryRanMate       = Data%CoancestryStat%All%Mean
+      Data%CurrentCoancestryRanMateNoSelf = Data%CoancestryStat%OffDiag%Mean
       if (GenderMatters) then
-        CurrentCoancestryGenderMate  = Data%CoancestryStatGenderDiff%All%Mean
+        Data%CurrentCoancestryGenderMate  = Data%CoancestryStatGenderDiff%All%Mean
       end if
 
       ! Obtain limit/target based on given rates
       ! F_t = DeltaF + (1 - DeltaF) * F_t-1
-      TargetCoancestryRanMate       = TargetCoancestryRate + (1.0d0 - TargetCoancestryRate) * CurrentCoancestryRanMate
-      TargetCoancestryRanMateNoSelf = TargetCoancestryRate + (1.0d0 - TargetCoancestryRate) * CurrentCoancestryRanMateNoSelf
+      Data%TargetCoancestryRanMate       = Spec%TargetCoancestryRate + (1.0d0 - Spec%TargetCoancestryRate) * Data%CurrentCoancestryRanMate
+      Data%TargetCoancestryRanMateNoSelf = Spec%TargetCoancestryRate + (1.0d0 - Spec%TargetCoancestryRate) * Data%CurrentCoancestryRanMateNoSelf
       if (GenderMatters) then
-        TargetCoancestryGenderMate  = TargetCoancestryRate + (1.0d0 - TargetCoancestryRate) * CurrentCoancestryGenderMate
+        Data%TargetCoancestryGenderMate  = Spec%TargetCoancestryRate + (1.0d0 - Spec%TargetCoancestryRate) * Data%CurrentCoancestryGenderMate
       end if
 
       write(STDOUT, "(a)") "  - coancestry among individuals (including self-coancestry)"
       write(STDOUT, "(a)") "    (expected inbreeding under random mating, including selfing)"
-      write(STDOUT, "(a)") "    - average: "//trim(Real2Char(Data%CoancestryStat%All%Mean, fmt=FMTREAL2CHAR))//", limit/target: "//trim(Real2Char(TargetCoancestryRanMate, fmt=FMTREAL2CHAR))
+      write(STDOUT, "(a)") "    - average: "//trim(Real2Char(Data%CoancestryStat%All%Mean, fmt=FMTREAL2CHAR))//", limit/target: "//trim(Real2Char(Data%TargetCoancestryRanMate, fmt=FMTREAL2CHAR))
       write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(Data%CoancestryStat%All%SD,   fmt=FMTREAL2CHAR))
       write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(Data%CoancestryStat%All%Min,  fmt=FMTREAL2CHAR))
       write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(Data%CoancestryStat%All%Max,  fmt=FMTREAL2CHAR))
@@ -951,7 +952,7 @@ module AlphaMateModule
       write(STDOUT, "(a)") ""
       write(STDOUT, "(a)") "  - coancestry between individuals"
       write(STDOUT, "(a)") "    (expected inbreeding under random mating, excluding selfing)"
-      write(STDOUT, "(a)") "    - average: "//trim(Real2Char(Data%CoancestryStat%OffDiag%Mean, fmt=FMTREAL2CHAR))//", limit/target: "//trim(Real2Char(TargetCoancestryRanMateNoSelf, fmt=FMTREAL2CHAR))
+      write(STDOUT, "(a)") "    - average: "//trim(Real2Char(Data%CoancestryStat%OffDiag%Mean, fmt=FMTREAL2CHAR))//", limit/target: "//trim(Real2Char(Data%TargetCoancestryRanMateNoSelf, fmt=FMTREAL2CHAR))
       write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(Data%CoancestryStat%OffDiag%SD,   fmt=FMTREAL2CHAR))
       write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(Data%CoancestryStat%OffDiag%Min,  fmt=FMTREAL2CHAR))
       write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(Data%CoancestryStat%OffDiag%Max,  fmt=FMTREAL2CHAR))
@@ -960,7 +961,7 @@ module AlphaMateModule
         write(STDOUT, "(a)") ""
         write(STDOUT, "(a)") "  - coancestry between individuals of different gender"
         write(STDOUT, "(a)") "    (expected inbreeding under random mating, excluding selfing and equal-gender mating)"
-        write(STDOUT, "(a)") "    - average: "//trim(Real2Char(Data%CoancestryStatGenderDiff%All%Mean, fmt=FMTREAL2CHAR))//", limit/target: "//trim(Real2Char(TargetCoancestryGenderMate, fmt=FMTREAL2CHAR))
+        write(STDOUT, "(a)") "    - average: "//trim(Real2Char(Data%CoancestryStatGenderDiff%All%Mean, fmt=FMTREAL2CHAR))//", limit/target: "//trim(Real2Char(Data%TargetCoancestryGenderMate, fmt=FMTREAL2CHAR))
         write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(Data%CoancestryStatGenderDiff%All%SD,   fmt=FMTREAL2CHAR))
         write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(Data%CoancestryStatGenderDiff%All%Min,  fmt=FMTREAL2CHAR))
         write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(Data%CoancestryStatGenderDiff%All%Max,  fmt=FMTREAL2CHAR))
@@ -982,10 +983,10 @@ module AlphaMateModule
 
       ! Report
       open(newunit=AvgCoancestryUnit, file="AverageCoancestry.txt", status="unknown")
-      write(AvgCoancestryUnit, "(a, f)") "Current (random mating),                  ", CurrentCoancestryRanMate
-      write(AvgCoancestryUnit, "(a, f)") "Current (random mating, no selfing),      ", CurrentCoancestryRanMateNoSelf
-      write(AvgCoancestryUnit, "(a, f)") "Limit/Target (random mating),             ", TargetCoancestryRanMate
-      write(AvgCoancestryUnit, "(a, f)") "Limit/Target (random mating, no selfing), ", TargetCoancestryRanMateNoSelf
+      write(AvgCoancestryUnit, "(a, f)") "Current (random mating),                  ", Data%CurrentCoancestryRanMate
+      write(AvgCoancestryUnit, "(a, f)") "Current (random mating, no selfing),      ", Data%CurrentCoancestryRanMateNoSelf
+      write(AvgCoancestryUnit, "(a, f)") "Limit/Target (random mating),             ", Data%TargetCoancestryRanMate
+      write(AvgCoancestryUnit, "(a, f)") "Limit/Target (random mating, no selfing), ", Data%TargetCoancestryRanMateNoSelf
       close(AvgCoancestryUnit)
 
       ! --- Inbreeding ---
@@ -997,21 +998,21 @@ module AlphaMateModule
 
       ! Current
       Data%InbreedingStat = DescStat(Data%Inbreeding%Value(1:))
-      CurrentInbreeding = Data%InbreedingStat%Mean
+      Data%CurrentInbreeding = Data%InbreedingStat%Mean
 
       ! Obtain limit/target based on given rates
       ! F_t = DeltaF + (1 - DeltaF) * F_t-1
-      TargetInbreeding = TargetInbreedingRate + (1.0d0 - TargetInbreedingRate) * CurrentInbreeding
+      Data%TargetInbreeding = Spec%TargetInbreedingRate + (1.0d0 - Spec%TargetInbreedingRate) * Data%CurrentInbreeding
 
-      write(STDOUT, "(a)") "  - average: "//trim(Real2Char(Data%InbreedingStat%Mean, fmt=FMTREAL2CHAR))//", limit/target: "//trim(Real2Char(TargetInbreeding, fmt=FMTREAL2CHAR))
+      write(STDOUT, "(a)") "  - average: "//trim(Real2Char(Data%InbreedingStat%Mean, fmt=FMTREAL2CHAR))//", limit/target: "//trim(Real2Char(Data%TargetInbreeding, fmt=FMTREAL2CHAR))
       write(STDOUT, "(a)") "  - st.dev.: "//trim(Real2Char(Data%InbreedingStat%SD,   fmt=FMTREAL2CHAR))
       write(STDOUT, "(a)") "  - minimum: "//trim(Real2Char(Data%InbreedingStat%Min,  fmt=FMTREAL2CHAR))
       write(STDOUT, "(a)") "  - maximum: "//trim(Real2Char(Data%InbreedingStat%Max,  fmt=FMTREAL2CHAR))
       write(STDOUT, "(a)") " "
 
       open(newunit=AvgInbreedingUnit, file="AverageInbreeding.txt", status="unknown")
-      write(AvgInbreedingUnit, "(a, f)") "Current,      ", CurrentInbreeding
-      write(AvgInbreedingUnit, "(a, f)") "Limit/Target, ", TargetInbreeding
+      write(AvgInbreedingUnit, "(a, f)") "Current,      ", Data%CurrentInbreeding
+      write(AvgInbreedingUnit, "(a, f)") "Limit/Target, ", Data%TargetInbreeding
       close(AvgInbreedingUnit)
 
       ! --- Selection criterion ---
@@ -1548,18 +1549,18 @@ module AlphaMateModule
         end if
 
         ! Hold old results
-        HoldTargetCoancestryRanMate = TargetCoancestryRanMate
-        HoldTargetCoancestryRate = TargetCoancestryRate
+        HoldTargetCoancestryRanMate = Data%TargetCoancestryRanMate
+        HoldTargetCoancestryRate = Spec%TargetCoancestryRate
 
         ! Evaluate
         do k = 1, nFrontierSteps
-          TargetCoancestryRate = TargetCoancestryRateFrontier(k)
+          Spec%TargetCoancestryRate = TargetCoancestryRateFrontier(k)
           ! F_t = DeltaF + (1 - DeltaF) * F_t-1
 ! TODO
-          TargetCoancestryRanMate = TargetCoancestryRate + (1.0d0 - TargetCoancestryRate) * CurrentCoancestryRanMate
+          Data%TargetCoancestryRanMate = Spec%TargetCoancestryRate + (1.0d0 - Spec%TargetCoancestryRate) * Data%CurrentCoancestryRanMate
           write(STDOUT, "(a)") "Step "//trim(Int2Char(k))//" out of "//trim(Int2Char(nFrontierSteps))//&
-                               " for the rate of coancestry "//trim(Real2Char(TargetCoancestryRate, fmt=FMTREAL2CHAR))//&
-                               " (=targeted coancestry "//trim(Real2Char(TargetCoancestryRanMate, fmt=FMTREAL2CHAR))//")"
+                               " for the rate of coancestry "//trim(Real2Char(Spec%TargetCoancestryRate, fmt=FMTREAL2CHAR))//&
+                               " (=targeted coancestry "//trim(Real2Char(Data%TargetCoancestryRanMate, fmt=FMTREAL2CHAR))//")"
           write(STDOUT, "(a)") ""
 
           LogFile     = "OptimisationLogFrontier"//trim(Int2Char(k))//".txt"
@@ -1578,8 +1579,8 @@ module AlphaMateModule
 
           call SaveSolution(Sol, ContribFile, MatingFile)
 
-          if ((TargetCoancestryRate - Sol%CoancestryRateRanMate) > 0.01d0) then
-            write(STDOUT, "(a)") "NOTE: Could not achieve the rate of coancestry "//trim(Real2Char(TargetCoancestryRate, fmt=FMTREAL2CHAR))
+          if ((Spec%TargetCoancestryRate - Sol%CoancestryRateRanMate) > 0.01d0) then
+            write(STDOUT, "(a)") "NOTE: Could not achieve the rate of coancestry "//trim(Real2Char(Spec%TargetCoancestryRate, fmt=FMTREAL2CHAR))
             write(STDOUT, "(a)") "NOTE: Stopping the frontier evaluation."
             write(STDOUT, "(a)") ""
             exit
@@ -1587,8 +1588,8 @@ module AlphaMateModule
         end do
 
         ! Put back old results
-        HoldTargetCoancestryRanMate = TargetCoancestryRanMate
-        HoldTargetCoancestryRate = TargetCoancestryRate
+        Spec%TargetCoancestryRate = HoldTargetCoancestryRate
+        Data%TargetCoancestryRanMate = HoldTargetCoancestryRanMate
 
         close(FrontierUnit)
 
@@ -2297,14 +2298,14 @@ module AlphaMateModule
 
       ! dF = (F_t+1 - F_t) / (1 - F_t)
 !TODO
-      This%CoancestryRateRanMate = (This%FutureCoancestryRanMate - CurrentCoancestryRanMate) / (1.0d0 - CurrentCoancestryRanMate)
+      This%CoancestryRateRanMate = (This%FutureCoancestryRanMate - Data%CurrentCoancestryRanMate) / (1.0d0 - Data%CurrentCoancestryRanMate)
 
       if      (CritType == "min" .or. CritType == "ran") then
         This%Criterion = This%Criterion - This%FutureCoancestryRanMate
       else if (CritType == "opt") then
         ! We know the targeted rate of coancestry so we can work with relative values,
         ! which makes the CoancestryWeight generic for ~any scenario.
-        TmpR = This%CoancestryRateRanMate / TargetCoancestryRate
+        TmpR = This%CoancestryRateRanMate / Spec%TargetCoancestryRate
         if (TmpR > 1.0d0) then
           ! Rate of coancestry for the solution is higher than the target
           TmpR = CoancestryWeight * abs(1.0d0 - TmpR)
@@ -2337,10 +2338,10 @@ module AlphaMateModule
         TmpR = TmpR + 0.5d0 * Data%Coancestry%Value(TmpMax, TmpMin)
       end do
       This%FutureInbreeding = TmpR / nMat
-      This%InbreedingRate = (This%FutureInbreeding - CurrentInbreeding) / (1.0d0 - CurrentInbreeding)
+      This%InbreedingRate = (This%FutureInbreeding - Data%CurrentInbreeding) / (1.0d0 - Data%CurrentInbreeding)
       ! We know the targeted rate of inbreeding so we can work with relative values,
       ! which makes the InbreedingWeight generic for ~any scenario.
-      TmpR = This%InbreedingRate / TargetInbreedingRate
+      TmpR = This%InbreedingRate / Spec%TargetInbreedingRate
       if (TmpR > 1.0d0) then
         ! Rate of inbreeding for the solution is higher than the target
         TmpR = InbreedingWeight * abs(1.0d0 - TmpR)
