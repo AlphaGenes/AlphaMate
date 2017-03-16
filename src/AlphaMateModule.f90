@@ -68,7 +68,7 @@ module AlphaMateModule
     real(real64)                :: GenSelInt
     real(real64)                :: FutureCoancestryRanMate
     real(real64)                :: CoancestryRateRanMate
-    real(real64)                :: PrgInb
+    real(real64)                :: Inbreeding
     real(real64), allocatable   :: GenericIndVal(:)
     real(real64), allocatable   :: GenericMatVal(:)
     real(real64)                :: Cost
@@ -97,8 +97,9 @@ module AlphaMateModule
   real(real64) :: TargetCoancestryRate, TargetInbreedingRate
   real(real64) :: CurrentCoancestryRanMate, CurrentCoancestryRanMateNoSelf, CurrentCoancestryGenderMate ! TODO: what more?
   real(real64) :: CurrentInbreeding
-  real(real64) :: TargetInbreedingRandom, TargetInbreedingRandomNoSelf
-  real(real64) :: CoancestryWeight, PrgInbWeight, SelfingWeight, LimitPar1Weight, LimitPar2Weight
+  real(real64) :: TargetCoancestryRanMate, TargetCoancestryRanMateNoSelf, TargetCoancestryGenderMate ! TODO: what more?
+  real(real64) :: TargetInbreeding
+  real(real64) :: CoancestryWeight, InbreedingWeight, SelfingWeight, LimitPar1Weight, LimitPar2Weight
   real(real64), allocatable :: GenericIndValWeight(:), GenericMatValWeight(:)
   real(real64) :: PAGEPar1Cost, PAGEPar2Cost
   real(real64), allocatable :: BreedVal(:), BreedValStand(:), BreedValPAGE(:), BreedValPAGEStand(:)
@@ -113,7 +114,6 @@ module AlphaMateModule
   logical :: SelfingAllowed, CoancestryWeightBellow, EvolAlgLogPop, EvaluateFrontier
   logical :: PAGE, PAGEPar1, PAGEPar2, GenericIndValAvailable, GenericMatValAvailable
 
-  character(len=100), allocatable :: IdC(:)
   CHARACTER(len=100), PARAMETER :: FMTREAL2CHAR = "(f11.5)"
 
   CHARACTER(len=100), PARAMETER  :: FMTLOGSTDOUTHEADA = "("
@@ -269,7 +269,7 @@ module AlphaMateModule
       implicit none
 
       integer(int32) :: i, j, k, l, m, DumI, jMal, jFem, nIndTmp, GenderTmp, Seed
-      integer(int32) :: SpecUnit, CoaMtxUnit, BreedValUnit, GenderUnit, InbreedUnit
+      integer(int32) :: SpecUnit, BreedValUnit, GenderUnit, InbreedUnit
       integer(int32) :: GenericIndValUnit, GenericMatValUnit
       ! integer(int32), allocatable :: Order(:)
 
@@ -729,10 +729,10 @@ module AlphaMateModule
 
       ! --- ProgenyInbreedingWeight (=inbreeding of a mating) ---
 !TODO
-      read(SpecUnit, *) DumC, PrgInbWeight
-      write(STDOUT, "(a)") "ProgenyInbreedingWeight: "//trim(Real2Char(PrgInbWeight, fmt=FMTREAL2CHAR))
-      if (PrgInbWeight > 0.0) then
-        write(STDERR, "(a)") "ERROR: Penalty weight for the progeny inbreeding should be zero or negative!"
+      read(SpecUnit, *) DumC, InbreedingWeight
+      write(STDOUT, "(a)") "ProgenyInbreedingWeight: "//trim(Real2Char(InbreedingWeight, fmt=FMTREAL2CHAR))
+      if (InbreedingWeight > 0.0) then
+        write(STDERR, "(a)") "ERROR: Penalty weight for progeny inbreeding should be zero or negative!"
         write(STDERR, "(a)") " "
         stop 1
       end if
@@ -752,7 +752,7 @@ module AlphaMateModule
         backspace(SpecUnit)
         read(SpecUnit, *) DumC, DumC, nFrontierSteps, TargetCoancestryRateFrontier(:)
         write(STDOUT, "("//Int2Char(1+nFrontierSteps)//"a)") "EvaluateFrontier: yes, #steps: "//trim(Int2Char(nFrontierSteps))//&
-          ", rates of pop. inbreeding: ", (trim(Real2Char(TargetCoancestryRateFrontier(i), fmt=FMTREAL2CHAR)), i = 1, nFrontierSteps)
+          ", rates of coancestry: ", (trim(Real2Char(TargetCoancestryRateFrontier(i), fmt=FMTREAL2CHAR)), i = 1, nFrontierSteps)
         if (any(TargetCoancestryRateFrontier(:) == 0.0)) then
           write(STDERR, "(a)") "ERROR: Can not work with TargetCoancestryRateFrontier equal to zero - it is numerically unstable!"
           write(STDERR, "(a)") " "
@@ -895,35 +895,23 @@ module AlphaMateModule
       CurrentInbreeding = VecDescStat%Mean
       ! CurrentIdeRandom
 
-      ! Targeted future population inbreeding
+      ! Targeted future coancestry & inbreeding
       ! F_t = DeltaF + (1 - DeltaF) * F_t-1
 ! TODO
-      ! @todo which of the above CurrentCoancestry should we use?
       TargetCoancestryRanMate = TargetCoancestryRate + (1.0d0 - TargetCoancestryRate) * CurrentCoancestryRanMate
       TargetInbreeding        = TargetInbreedingRate + (1.0d0 - TargetInbreedingRate) * CurrentInbreeding
 
       ! Report
-      write(STDOUT, "(a)") "Population inbreeding (x'Cx)"
+! TODO
+      write(STDOUT, "(a)") "Coancestry (x'Cx)"
       write(STDOUT, "(a)") "  - current: "//trim(Real2Char(CurrentCoancestryRanMate, fmt=FMTREAL2CHAR))
       write(STDOUT, "(a)") "  - target:  "//trim(Real2Char(TargetCoancestryRanMate,  fmt=FMTREAL2CHAR))
       write(STDOUT, "(a)") " "
 
-      open(newunit=InbreedUnit, file="PopulationInbreeding.txt", status="unknown")
+      open(newunit=InbreedUnit, file="CoancestryAndInbreeding.txt", status="unknown")
       write(InbreedUnit, "(a, f)") "Current, ", CurrentCoancestryRanMate
       write(InbreedUnit, "(a, f)") "Target,  ", TargetCoancestryRanMate
       close(InbreedUnit)
-
-      ! --- Shuffle the data ---
-
-      ! To avoid having good animals together - better for Evolutionary algorithm
-      ! This is done upfront for Id and CoaMtx only. Then all the data is read and mapped to this order
-      ! @todo is it worth it?
-      ! @todo does this scale well with large data sets?
-      ! allocate(Order(nInd))
-      ! Order = RandomOrder(nInd)
-      ! IdC(:) = IdC(Order)
-      ! CoaMtx(:, :) = CoaMtx(Order, Order)
-      ! deallocate(Order)
 
       ! --- Breeding values ---
 
@@ -954,7 +942,7 @@ module AlphaMateModule
           else
             read(BreedValUnit, *) IdCTmp, BreedValTmp
           end if
-          j = FindLoc(IdCTmp, IdC)
+          j = FindLoc(IdCTmp, CurrentCoancestry%OriginalId)
           if (j == 0) then
             write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the breeding value file not present in the coancestry matrix file!"
             write(STDERR, "(a)") " "
@@ -1038,7 +1026,7 @@ module AlphaMateModule
             write(STDERR, "(a)") " "
             stop 1
           end if
-          j = FindLoc(IdCTmp, IdC)
+          j = FindLoc(IdCTmp, CurrentCoancestry%OriginalId)
           if (j == 0) then
             write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the gender file not present in the coancestry matrix file!"
             write(STDERR, "(a)") " "
@@ -1158,7 +1146,7 @@ module AlphaMateModule
         open(newunit=GenericIndValUnit, file=GenericIndValFile, status="unknown")
         do i = 1, nInd
           read(GenericIndValUnit, *) IdCTmp, GenericIndValTmp(:)
-          j = FindLoc(IdCTmp, IdC)
+          j = FindLoc(IdCTmp, CurrentCoancestry%OriginalId)
           if (j == 0) then
             write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the generic individual values file not present in the coancestry matrix file!"
             write(STDERR, "(a)") " "
@@ -1197,13 +1185,13 @@ module AlphaMateModule
         open(newunit=GenericMatValUnit, file=GenericMatValFile, status="unknown")
         do i = 1, nPotMat
           read(GenericMatValUnit, *) IdCTmp, IdCTmp2, GenericMatValTmp(:)
-          j = FindLoc(IdCTmp, IdC)
+          j = FindLoc(IdCTmp, CurrentCoancestry%OriginalId)
           if (j == 0) then
             write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the generic mating values file not present in the coancestry matrix file!"
             write(STDERR, "(a)") " "
             stop 1
           end if
-          k = FindLoc(IdCTmp2, IdC)
+          k = FindLoc(IdCTmp2, CurrentCoancestry%OriginalId)
           if (k == 0) then
             write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp2)//" from the generic mating values file not present in the coancestry matrix file!"
             write(STDERR, "(a)") " "
@@ -1291,6 +1279,7 @@ module AlphaMateModule
       COLNAMELOGUNIT(7) = "            Coancestry"
       COLNAMELOGUNIT(8) = "        CoancestryRate"
       COLNAMELOGUNIT(9) = "            Inbreeding"
+! TODO: add inbreeding rate, which one, also for coancestry rate?
       nColTmp = 9
       if (GenericIndValAvailable) then
         do i = 1, nGenericIndVal
@@ -1351,7 +1340,8 @@ module AlphaMateModule
       ! --- Optimise contributions for minimal inbreeding ---
 
       if (ModeMin) then
-        write(STDOUT, "(a)") "--- Optimise contributions for minimal inbreeding --- "
+! TODO
+        write(STDOUT, "(a)") "--- Optimise contributions for minimal inbreeding??? --- "
         write(STDOUT, "(a)") " "
 
         LogFile     = "OptimisationLogMinimalInbreeding.txt"
@@ -1375,7 +1365,8 @@ module AlphaMateModule
       ! --- Evaluate 'average' inbreeding under random mating ---
 
       if (ModeRan) then
-        write(STDOUT, "(a)") "--- Evaluate 'average' inbreeding under random mating --- "
+! TODO
+        write(STDOUT, "(a)") "--- Evaluate 'average' inbreeding??? under random mating --- "
         write(STDOUT, "(a)") " "
 
         LogFile = "OptimisationLogRandomMating.txt"
@@ -1392,7 +1383,8 @@ module AlphaMateModule
       ! --- Optimise contributions for maximal value with constraint on inbreeding ---
 
       if (ModeOpt) then
-        write(STDOUT, "(a)") "--- Optimise contributions for maximal value with constraint on inbreeding ---"
+! TODO
+        write(STDOUT, "(a)") "--- Optimise contributions for maximal value with constraint on inbreeding? ---"
         write(STDOUT, "(a)") " "
 
         LogFile     = "OptimisationLogMaximalValue.txt"
@@ -1428,18 +1420,19 @@ module AlphaMateModule
                                              "            Coancestry", &
                                              "        CoancestryRate", &
                                              "            Inbreeding"
+! TODO: add inbreeding rate, which one? what about coancestry rate?
 ! @todo add the generic stuff from the log? Just call This%Log?
         if (ModeMin) then
           DumC = "Min"
-          write(FrontierUnit, FMTFRONTEIR) adjustl(DumC), SolMin%Criterion, SolMin%Penalty, SolMin%ExpBreedVal, SolMin%GenSelInt, SolMin%FutureCoancestryRanMate, SolMin%CoancestryRateRanMate, SolMin%PrgInb
+          write(FrontierUnit, FMTFRONTEIR) adjustl(DumC), SolMin%Criterion, SolMin%Penalty, SolMin%ExpBreedVal, SolMin%GenSelInt, SolMin%FutureCoancestryRanMate, SolMin%CoancestryRateRanMate, SolMin%Inbreeding
         end if
         if (ModeRan) then
           DumC = "Ran"
-          write(FrontierUnit, FMTFRONTEIR) adjustl(DumC), SolRan%Criterion, SolRan%Penalty, SolRan%ExpBreedVal, SolRan%GenSelInt, SolRan%FutureCoancestryRanMate, SolRan%CoancestryRateRanMate, SolRan%PrgInb
+          write(FrontierUnit, FMTFRONTEIR) adjustl(DumC), SolRan%Criterion, SolRan%Penalty, SolRan%ExpBreedVal, SolRan%GenSelInt, SolRan%FutureCoancestryRanMate, SolRan%CoancestryRateRanMate, SolRan%Inbreeding
         end if
         if (ModeOpt) then
           DumC = "Opt"
-          write(FrontierUnit, FMTFRONTEIR) adjustl(DumC), SolOpt%Criterion, SolOpt%Penalty, SolOpt%ExpBreedVal, SolOpt%GenSelInt, SolOpt%FutureCoancestryRanMate, SolOpt%CoancestryRateRanMate, SolOpt%PrgInb
+          write(FrontierUnit, FMTFRONTEIR) adjustl(DumC), SolOpt%Criterion, SolOpt%Penalty, SolOpt%ExpBreedVal, SolOpt%GenSelInt, SolOpt%FutureCoancestryRanMate, SolOpt%CoancestryRateRanMate, SolOpt%Inbreeding
         end if
 
         ! Hold old results
@@ -1469,7 +1462,7 @@ module AlphaMateModule
 
           ! @todo add the generic stuff from the log? Just call This%Log?
           DumC = "Frontier"//trim(Int2Char(k))
-          write(FrontierUnit, FMTFRONTEIR) adjustl(DumC), Sol%Criterion, Sol%Penalty, Sol%ExpBreedVal, Sol%GenSelInt, Sol%FutureCoancestryRanMate, Sol%CoancestryRateRanMate, Sol%PrgInb
+          write(FrontierUnit, FMTFRONTEIR) adjustl(DumC), Sol%Criterion, Sol%Penalty, Sol%ExpBreedVal, Sol%GenSelInt, Sol%FutureCoancestryRanMate, Sol%CoancestryRateRanMate, Sol%Inbreeding
 
           call SaveSolution(Sol, ContribFile, MatingFile)
 
@@ -1517,8 +1510,8 @@ module AlphaMateModule
                                                 "     nMating"
         do i = nInd, 1, -1 ! MrgRnk ranks small to large
           j = Rank(i)
-          write(ContribUnit, FMTCONTRIBUTION) IdC(j), Gender(j), BreedVal(j), &
-                                              sum(CoaMtx(:, j)) / nInd, &
+          write(ContribUnit, FMTCONTRIBUTION) CurrentCoancestry%OriginalId(j), Gender(j), BreedVal(j), &
+                                              sum(CurrentCoancestry%Value(1:, j)) / nInd, &
                                               Sol%xVec(j), Sol%nVec(j)
         end do
       else
@@ -1533,8 +1526,8 @@ module AlphaMateModule
                                                     " EditedValue"
         do i = nInd, 1, -1 ! MrgRnk ranks small to large
           j = Rank(i)
-          write(ContribUnit, FMTCONTRIBUTIONEDIT) IdC(j), Gender(j), BreedVal(j), &
-                                                  sum(CoaMtx(:, j)) / nInd, &
+          write(ContribUnit, FMTCONTRIBUTIONEDIT) CurrentCoancestry%OriginalId(j), Gender(j), BreedVal(j), &
+                                                  sum(CurrentCoancestry%Value(1:, j)) / nInd, &
                                                   Sol%xVec(j), Sol%nVec(j), &
                                                   nint(Sol%GenomeEdit(j)), BreedVal(j) + Sol%GenomeEdit(j) * BreedValPAGE(j)
         end do
@@ -1547,7 +1540,7 @@ module AlphaMateModule
                                        "     Parent1", &
                                        "     Parent2"
       do i = 1, nMat
-        write(MatingUnit, FMTMATING) i, IdC(Sol%MatingPlan(1, i)), IdC(Sol%MatingPlan(2, i))
+        write(MatingUnit, FMTMATING) i, CurrentCoancestry%OriginalId(Sol%MatingPlan(1, i)), CurrentCoancestry%OriginalId(Sol%MatingPlan(2, i))
       end do
       close(MatingUnit)
     end subroutine
@@ -1567,7 +1560,7 @@ module AlphaMateModule
       This%GenSelInt = 0.0d0
       This%FutureCoancestryRanMate = 0.0d0
       This%CoancestryRateRanMate = 0.0d0
-      This%PrgInb = 0.0d0
+      This%Inbreeding = 0.0d0
       if (GenericIndValAvailable) then
         allocate(This%GenericIndVal(nGenericIndVal))
         This%GenericIndVal(:) = 0.0d0
@@ -1615,7 +1608,7 @@ module AlphaMateModule
           Out%GenSelInt = In%GenSelInt
           Out%FutureCoancestryRanMate = In%FutureCoancestryRanMate
           Out%CoancestryRateRanMate = In%CoancestryRateRanMate
-          Out%PrgInb = In%PrgInb
+          Out%Inbreeding = In%Inbreeding
           if (allocated(In%GenericIndVal)) then
             allocate(Out%GenericIndVal(size(In%GenericIndVal)))
             Out%GenericIndVal = In%GenericIndVal
@@ -1672,9 +1665,9 @@ module AlphaMateModule
           This%Penalty                   = This%Penalty                   * kR + Add%Penalty                   / n
           This%ExpBreedVal               = This%ExpBreedVal               * kR + Add%ExpBreedVal               / n
           This%GenSelInt                 = This%GenSelInt                 * kR + Add%GenSelInt                 / n
-          This%FutureCoancestryRanMate = This%FutureCoancestryRanMate * kR + Add%FutureCoancestryRanMate / n
-          This%CoancestryRateRanMate            = This%CoancestryRateRanMate            * kR + Add%CoancestryRateRanMate            / n
-          This%PrgInb                    = This%PrgInb                    * kR + Add%PrgInb                    / n
+          This%FutureCoancestryRanMate   = This%FutureCoancestryRanMate   * kR + Add%FutureCoancestryRanMate   / n
+          This%CoancestryRateRanMate     = This%CoancestryRateRanMate     * kR + Add%CoancestryRateRanMate     / n
+          This%Inbreeding                = This%Inbreeding                * kR + Add%Inbreeding                / n
           if (allocated(This%GenericIndVal)) then
             This%GenericIndVal           = This%GenericIndVal             * kR + Add%GenericIndVal             / n
           end if
@@ -2145,11 +2138,11 @@ module AlphaMateModule
         end do
       end if
 
-      ! --- Contribution variance coefficient & rate of inbreeding ---
+      ! --- Coancestry ---
 
       ! x'C
       do i = 1, nInd
-        TmpVec(i, 1) = dot_product(This%xVec, CoaMtx(:, i))
+        TmpVec(i, 1) = dot_product(This%xVec, CurrentCoancestry%Value(1:, i))
       end do
       ! @todo consider using matmul instead of repeated dot_product?
       ! @todo consider using BLAS/LAPACK - perhaps non-symmetric is more optimised?
@@ -2202,12 +2195,12 @@ module AlphaMateModule
         ! Lower triangle to speedup lookup
         TmpMax = maxval(This%MatingPlan(:, j))
         TmpMin = minval(This%MatingPlan(:, j))
-        TmpR = TmpR + 0.5d0 * CoaMtx(TmpMax, TmpMin)
+        TmpR = TmpR + 0.5d0 * CurrentCoancestry%Value(TmpMax, TmpMin)
       end do
-      This%PrgInb = TmpR / nMat
-      TmpR = PrgInbWeight * This%PrgInb
+      This%Inbreeding = TmpR / nMat
+      TmpR = InbreedingWeight * This%Inbreeding
       This%Criterion = This%Criterion + TmpR
-      if (PrgInbWeight < 0.0d0) then
+      if (InbreedingWeight < 0.0d0) then
         This%Penalty = This%Penalty + abs(TmpR)
       end if
 
@@ -2261,29 +2254,29 @@ module AlphaMateModule
       real(real64), intent(in)             :: AcceptRate
       if (GenericIndValAvailable) then
         if (GenericMatValAvailable) then
-          write(STDOUT, FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%PrgInb, This%GenericIndVal, This%GenericMatVal
+          write(STDOUT, FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%Inbreeding, This%GenericIndVal, This%GenericMatVal
         else
-          write(STDOUT, FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%PrgInb, This%GenericIndVal
+          write(STDOUT, FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%Inbreeding, This%GenericIndVal
         end if
       else
         if (GenericMatValAvailable) then
-          write(STDOUT, FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%PrgInb,                     This%GenericMatVal
+          write(STDOUT, FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%Inbreeding,                     This%GenericMatVal
         else
-          write(STDOUT, FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%PrgInb
+          write(STDOUT, FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%Inbreeding
         end if
       end if
       if (present(LogUnit)) then
         if (GenericIndValAvailable) then
           if (GenericMatValAvailable) then
-            write(LogUnit, FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%PrgInb, This%GenericIndVal, This%GenericMatVal
+            write(LogUnit, FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%Inbreeding, This%GenericIndVal, This%GenericMatVal
           else
-            write(LogUnit, FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%PrgInb, This%GenericIndVal
+            write(LogUnit, FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%Inbreeding, This%GenericIndVal
           end if
         else
           if (GenericMatValAvailable) then
-            write(LogUnit, FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%PrgInb,                     This%GenericMatVal
+            write(LogUnit, FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%Inbreeding,                     This%GenericMatVal
           else
-            write(LogUnit, FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%PrgInb
+            write(LogUnit, FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%Inbreeding
           end if
         end if
       end if
@@ -2308,15 +2301,15 @@ module AlphaMateModule
 
       if (GenericIndValAvailable) then
         if (GenericMatValAvailable) then
-          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%PrgInb, This%GenericIndVal, This%GenericMatVal
+          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%Inbreeding, This%GenericIndVal, This%GenericMatVal
         else
-          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%PrgInb, This%GenericIndVal
+          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%Inbreeding, This%GenericIndVal
         end if
       else
         if (GenericMatValAvailable) then
-          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%PrgInb,                     This%GenericMatVal
+          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%Inbreeding,                     This%GenericMatVal
         else
-          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%PrgInb
+          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%Inbreeding
         end if
       end if
     end subroutine
