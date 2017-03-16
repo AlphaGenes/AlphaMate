@@ -72,6 +72,8 @@ module AlphaMateModule
   type AlphaMateSpec
       real(real64) :: TargetCoancestryRate
       real(real64) :: TargetInbreedingRate
+      integer(int32) :: PAGEPar1Max, PAGEPar2Max
+      real(real64) :: PAGEPar1Cost, PAGEPar2Cost
   end type
 
   !> @brief AlphaMate data
@@ -81,13 +83,16 @@ module AlphaMateModule
     type(InbVec) :: Inbreeding
     real(real64), allocatable :: SelCriterion(:), SelCriterionStand(:), SelCriterionPAGE(:), SelCriterionPAGEStand(:)
     integer(int32), allocatable :: Gender(:)
+    real(real64), allocatable :: GenericIndVal(:, :), GenericMatVal(:, :, :)
     ! Data summaries
     type(DescStatReal64) :: InbreedingStat, SelCriterionStat, SelCriterionPAGEStat
     type(DescStatReal64), allocatable :: GenericIndValStat(:)
     type(DescStatMatrixReal64) :: CoancestryStat, CoancestryStatGenderDiff, CoancestryStatGender1, CoancestryStatGender2
     type(DescStatMatrixReal64), allocatable :: GenericMatValStat(:)
     ! Derived data
+    integer(int32) :: nInd, nMat, nPotMat, nPar, nPotPar1, nPotPar2, nMal, nFem, nPar1, nPar2
     integer(int32), allocatable :: IdPotPar1(:), IdPotPar2(:), IdPotParSeq(:)
+    integer(int32) :: nGenericIndVal, nGenericMatVal
     real(real64) :: CurrentCoancestryRanMate, CurrentCoancestryRanMateNoSelf, CurrentCoancestryGenderMate
     real(real64) :: CurrentInbreeding
     real(real64) :: TargetCoancestryRanMate, TargetCoancestryRanMateNoSelf, TargetCoancestryGenderMate
@@ -124,17 +129,14 @@ module AlphaMateModule
   type(AlphaMateSpec) :: Spec
   type(AlphaMateData) :: Data
 
-  integer(int32) :: nInd, nMat, nPotMat, nPar, nPotPar1, nPotPar2, nMal, nFem, nPar1, nPar2, nFrontierSteps
+  integer(int32) :: nFrontierSteps
   integer(int32) :: EvolAlgNSol, EvolAlgNGen, EvolAlgNGenBurnIn, EvolAlgNGenStop, EvolAlgNGenPrint, RanAlgStricter
-  integer(int32) :: PAGEPar1Max, PAGEPar2Max, nGenericIndVal, nGenericMatVal
 
   real(real64) :: LimitPar1Min, LimitPar1Max, LimitPar2Min, LimitPar2Max
   real(real64) :: EvolAlgStopTol, EvolAlgCRBurnIn, EvolAlgCRLate, EvolAlgFBase, EvolAlgFHigh1, EvolAlgFHigh2
   real(real64) :: CoancestryWeight, InbreedingWeight, SelfingWeight, LimitPar1Weight, LimitPar2Weight
   real(real64), allocatable :: GenericIndValWeight(:), GenericMatValWeight(:)
-  real(real64) :: PAGEPar1Cost, PAGEPar2Cost
   real(real64), allocatable :: TargetCoancestryRateFrontier(:), GenericIndValTmp(:), GenericMatValTmp(:)
-  real(real64), allocatable :: GenericIndVal(:, :), GenericMatVal(:, :, :)
 
   logical :: NrmInsteadOfCoancestry
   logical :: ModeMin, ModeRan, ModeOpt, SelCriterionAvailable, GenderMatters, EqualizePar1, EqualizePar2
@@ -406,70 +408,70 @@ module AlphaMateModule
 
       ! --- NumberOfIndividuals ---
 
-      read(SpecUnit, *) DumC, nInd
-      write(STDOUT, "(a)") "NumberOfIndividuals: "//trim(Int2Char(nInd))
+      read(SpecUnit, *) DumC, Data%nInd
+      write(STDOUT, "(a)") "NumberOfIndividuals: "//trim(Int2Char(Data%nInd))
 
       ! --- NumberOfMatings ---
 
-      read(SpecUnit, *) DumC, nMat
-      write(STDOUT, "(a)") "NumberOfMatings: "//trim(Int2Char(nMat))
+      read(SpecUnit, *) DumC, Data%nMat
+      write(STDOUT, "(a)") "NumberOfMatings: "//trim(Int2Char(Data%nMat))
 
       ! --- NumberOfParents ---
 
-      read(SpecUnit, *) DumC, nPar
-      write(STDOUT, "(a)") "NumberOfParents: "//trim(Int2Char(nPar))
-      if (nPar > nInd) then
+      read(SpecUnit, *) DumC, Data%nPar
+      write(STDOUT, "(a)") "NumberOfParents: "//trim(Int2Char(Data%nPar))
+      if (Data%nPar > Data%nInd) then
         write(STDERR, "(a)") "ERROR: The number of parents can not be larger than the number of individuals!"
-        write(STDERR, "(a)") "ERROR: Number of     parents: "//trim(Int2Char(nPar))
-        write(STDERR, "(a)") "ERROR: Number of individuals: "//trim(Int2Char(nInd))
+        write(STDERR, "(a)") "ERROR: Number of     parents: "//trim(Int2Char(Data%nPar))
+        write(STDERR, "(a)") "ERROR: Number of individuals: "//trim(Int2Char(Data%nInd))
         write(STDERR, "(a)") " "
         stop 1
       end if
-      if (nMat > nPar) then
+      if (Data%nMat > Data%nPar) then
         write(STDOUT, "(a)") "NOTE: The number of matings is larger than the number of parents! Was this really the intention?"
-        write(STDOUT, "(a)") "NOTE: Number of matings: "//trim(Int2Char(nMat))
-        write(STDOUT, "(a)") "NOTE: Number of parents: "//trim(Int2Char(nPar))
+        write(STDOUT, "(a)") "NOTE: Number of matings: "//trim(Int2Char(Data%nMat))
+        write(STDOUT, "(a)") "NOTE: Number of parents: "//trim(Int2Char(Data%nPar))
         write(STDOUT, "(a)") " "
       end if
 
       ! --- NumberOfMaleParents ---
 
-      read(SpecUnit, *) DumC, nPar1
+      read(SpecUnit, *) DumC, Data%nPar1
 
       ! --- NumberOfFemaleParents ---
 
-      read(SpecUnit, *) DumC, nPar2
+      read(SpecUnit, *) DumC, Data%nPar2
 
       if (.not.GenderMatters) then
-        nPar1 = nPar
+        Data%nPar1 = Data%nPar
       else
-        write(STDOUT, "(a)") "NumberOfMaleParents:   "//trim(Int2Char(nPar1))
-        write(STDOUT, "(a)") "NumberOfFemaleParents: "//trim(Int2Char(nPar2))
+        write(STDOUT, "(a)") "NumberOfMaleParents:   "//trim(Int2Char(Data%nPar1))
+        write(STDOUT, "(a)") "NumberOfFemaleParents: "//trim(Int2Char(Data%nPar2))
       end if
       if (GenderMatters) then
-        if ((nPar1 + nPar2) > nInd) then
+        if ((Data%nPar1 + Data%nPar2) > Data%nInd) then
           write(STDERR, "(a)") "ERROR: The number of parents can not be larger than the number of individuals!"
-          write(STDERR, "(a)") "ERROR: Number of        parents: "//trim(Int2Char(nPar1 + nPar2))
-          write(STDERR, "(a)") "ERROR: Number of   male parents: "//trim(Int2Char(nPar1))
-          write(STDERR, "(a)") "ERROR: Number of female parents: "//trim(Int2Char(nPar2))
-          write(STDERR, "(a)") "ERROR: Number of    individuals: "//trim(Int2Char(nInd))
+          write(STDERR, "(a)") "ERROR: Number of        parents: "//trim(Int2Char(Data%nPar1 + Data%nPar2))
+          write(STDERR, "(a)") "ERROR: Number of   male parents: "//trim(Int2Char(Data%nPar1))
+          write(STDERR, "(a)") "ERROR: Number of female parents: "//trim(Int2Char(Data%nPar2))
+          write(STDERR, "(a)") "ERROR: Number of    individuals: "//trim(Int2Char(Data%nInd))
           write(STDERR, "(a)") " "
           stop 1
         end if
-        if ((nPar1 + nPar2) /= nPar) then
+        if ((Data%nPar1 + Data%nPar2) /= Data%nPar) then
           write(STDOUT, "(a)") "NOTE: The number of male and female parents does not match with the total number of parents - redefined!"
-          write(STDOUT, "(a)") "NOTE: Number of   male parents: "//trim(Int2Char(nPar1))
-          write(STDOUT, "(a)") "NOTE: Number of female parents: "//trim(Int2Char(nPar2))
-          write(STDOUT, "(a)") "NOTE: Number of        parents: "//trim(Int2Char(nPar))//" (defined)"
-          nPar = nPar1 + nPar2
-          write(STDOUT, "(a)") "NOTE: Number of        parents: "//trim(Int2Char(nPar))//" (redefined)"
+          write(STDOUT, "(a)") "NOTE: Number of   male parents: "//trim(Int2Char(Data%nPar1))
+          write(STDOUT, "(a)") "NOTE: Number of female parents: "//trim(Int2Char(Data%nPar2))
+          write(STDOUT, "(a)") "NOTE: Number of        parents: "//trim(Int2Char(Data%nPar))//" (defined)"
+          Data%nPar = Data%nPar1 + Data%nPar2
+          write(STDOUT, "(a)") "NOTE: Number of        parents: "//trim(Int2Char(Data%nPar))//" (redefined)"
           write(STDOUT, "(a)") " "
         end if
-        if ((nMat > nPar1) .and. (nMat > nPar2)) then
+        if ((Data%nMat > Data%nPar1) .and. (Data%nMat > Data%nPar2)) then
           write(STDOUT, "(a)") "NOTE: The number of matings is larger than the number of male and female parents! Was this really the intention?"
-          write(STDOUT, "(a)") "NOTE: Number of        matings: "//trim(Int2Char(nMat))
-          write(STDOUT, "(a)") "NOTE: Number of   male parents: "//trim(Int2Char(nPar1))
-          write(STDOUT, "(a)") "NOTE: Number of female parents: "//trim(Int2Char(nPar2))
+          write(STDOUT, "(a)") "NOTE: Number of        matings: "//trim(Int2Char(Data%nMat))
+          write(STDOUT, "(a)") "NOTE: Number of   male parents: "//trim(Int2Char(Data%nPar1))
+          write(STDOUT, "(a)") "NOTE: Number of female parents: "//trim(Int2Char(Data%nPar2))
           write(STDOUT, "(a)") " "
         end if
       end if
@@ -498,12 +500,12 @@ module AlphaMateModule
         if      (ToLower(trim(DumC)) == "yes") then
           EqualizePar1 = .true.
           write(STDOUT, "(a)") "EqualizeMaleParentContributions: yes"
-          if (mod(nMat, nPar1) /= 0) then
+          if (mod(Data%nMat, Data%nPar1) /= 0) then
             ! @todo might consider handling this better at some point
             write(STDERR, "(a)") "ERROR: When contributions are equalized the number of matings needs to divide into the number of parents"
-            write(STDERR, "(a)") "ERROR: Number of       matings: "//trim(Int2Char(nMat))
-            write(STDERR, "(a)") "ERROR: Number of  male parents: "//trim(Int2Char(nPar1))
-            write(STDERR, "(a)") "ERROR: Modulo (should be zero): "//trim(Int2Char(mod(nMat, nPar1)))
+            write(STDERR, "(a)") "ERROR: Number of       matings: "//trim(Int2Char(Data%nMat))
+            write(STDERR, "(a)") "ERROR: Number of  male parents: "//trim(Int2Char(Data%nPar1))
+            write(STDERR, "(a)") "ERROR: Modulo (should be zero): "//trim(Int2Char(mod(Data%nMat, Data%nPar1)))
             write(STDERR, "(a)") " "
             stop 1
           end if
@@ -524,12 +526,12 @@ module AlphaMateModule
         if      (ToLower(trim(DumC)) == "yes") then
           EqualizePar2 = .true.
           write(STDOUT, "(a)") "EqualizeFemaleParentContributions: yes"
-          if (mod(nMat, nPar2) /= 0) then
+          if (mod(Data%nMat, Data%nPar2) /= 0) then
             ! @todo might consider handling this better at some point
             write(STDERR, "(a)") "ERROR: When contributions are equalized the number of matings needs to divide into the number of parents"
-            write(STDERR, "(a)") "ERROR: Number of        matings: "//trim(Int2Char(nMat))
-            write(STDERR, "(a)") "ERROR: Number of female parents: "//trim(Int2Char(nPar2))
-            write(STDERR, "(a)") "ERROR: Modulo  (should be zero): "//trim(Int2Char(mod(nMat, nPar2)))
+            write(STDERR, "(a)") "ERROR: Number of        matings: "//trim(Int2Char(Data%nMat))
+            write(STDERR, "(a)") "ERROR: Number of female parents: "//trim(Int2Char(Data%nPar2))
+            write(STDERR, "(a)") "ERROR: Modulo  (should be zero): "//trim(Int2Char(mod(Data%nMat, Data%nPar2)))
             write(STDERR, "(a)") " "
             stop 1
           end if
@@ -672,17 +674,17 @@ module AlphaMateModule
         if      (ToLower(trim(DumC)) == "yes") then
           PAGEPar1 = .true.
           backspace(SpecUnit)
-          read(SpecUnit, *) DumC, DumC, PAGEPar1Max!, PAGEPar1Cost
-          write(STDOUT, "(a)") "PAGE: yes, no. of individuals "//trim(Int2Char(PAGEPar1Max))//", cost "//trim(Real2Char(PAGEPar1Cost, fmt=FMTREAL2CHAR))
+          read(SpecUnit, *) DumC, DumC, Spec%PAGEPar1Max!, Spec%PAGEPar1Cost
+          write(STDOUT, "(a)") "PAGE: yes, no. of individuals "//trim(Int2Char(Spec%PAGEPar1Max))//", cost "//trim(Real2Char(Spec%PAGEPar1Cost, fmt=FMTREAL2CHAR))
           if (.not.SelCriterionAvailable) then
             write(STDERR, "(a)") "ERROR: Can not use PAGE when selection criterion file is not given!"
             write(STDERR, "(a)") " "
             stop 1
           end if
-          if (PAGEPar1Max > nPar) then
+          if (Spec%PAGEPar1Max > Data%nPar) then
             write(STDERR, "(a)") "ERROR: The max number of individuals to edit must not be greater than the total number of parents!"
-            write(STDERR, "(a)") "ERROR: Number of             parents: "//trim(Int2Char(nPar))
-            write(STDERR, "(a)") "ERROR: Number of individuals to edit: "//trim(Int2Char(PAGEPar1Max))
+            write(STDERR, "(a)") "ERROR: Number of             parents: "//trim(Int2Char(Data%nPar))
+            write(STDERR, "(a)") "ERROR: Number of individuals to edit: "//trim(Int2Char(Spec%PAGEPar1Max))
             write(STDERR, "(a)") " "
           end if
         else if (ToLower(trim(DumC)) == "no") then
@@ -702,17 +704,17 @@ module AlphaMateModule
         if      (ToLower(trim(DumC)) == "yes") then
           PAGEPar1 = .true.
           backspace(SpecUnit)
-          read(SpecUnit, *) DumC, DumC, PAGEPar1Max!, PAGEPar1Cost
-          write(STDOUT, "(a)") "PAGEMales: yes, no. of individuals "//trim(Int2Char(PAGEPar1Max))//", cost "//trim(Real2Char(PAGEPar1Cost, fmt=FMTREAL2CHAR))
+          read(SpecUnit, *) DumC, DumC, Spec%PAGEPar1Max!, Spec%PAGEPar1Cost
+          write(STDOUT, "(a)") "PAGEMales: yes, no. of individuals "//trim(Int2Char(Spec%PAGEPar1Max))//", cost "//trim(Real2Char(Spec%PAGEPar1Cost, fmt=FMTREAL2CHAR))
           if (.not.SelCriterionAvailable) then
             write(STDERR, "(a)") "ERROR: Can not use PAGE when selection criterion file is not given!"
             write(STDERR, "(a)") " "
             stop 1
           end if
-          if (PAGEPar1Max > nPar1) then
+          if (Spec%PAGEPar1Max > Data%nPar1) then
             write(STDERR, "(a)") "ERROR: The max number of male individuals to edit must not be greater than the total number of male parents!"
-            write(STDERR, "(a)") "ERROR: Number of male             parents: "//trim(Int2Char(nPar1))
-            write(STDERR, "(a)") "ERROR: Number of male individuals to edit: "//trim(Int2Char(PAGEPar1Max))
+            write(STDERR, "(a)") "ERROR: Number of male             parents: "//trim(Int2Char(Data%nPar1))
+            write(STDERR, "(a)") "ERROR: Number of male individuals to edit: "//trim(Int2Char(Spec%PAGEPar1Max))
             write(STDERR, "(a)") " "
           end if
         else if (ToLower(trim(DumC)) == "no") then
@@ -732,17 +734,17 @@ module AlphaMateModule
         if      (ToLower(trim(DumC)) == "yes") then
           PAGEPar2 = .false.
           backspace(SpecUnit)
-          read(SpecUnit, *) DumC, DumC, PAGEPar2Max!, PAGEPar2Cost
-          write(STDOUT, "(a)") "PAGEFemales: yes, no. of individuals "//trim(Int2Char(PAGEPar2Max))//", cost "//trim(Real2Char(PAGEPar2Cost, fmt=FMTREAL2CHAR))
+          read(SpecUnit, *) DumC, DumC, Spec%PAGEPar2Max!, Spec%PAGEPar2Cost
+          write(STDOUT, "(a)") "PAGEFemales: yes, no. of individuals "//trim(Int2Char(Spec%PAGEPar2Max))//", cost "//trim(Real2Char(Spec%PAGEPar2Cost, fmt=FMTREAL2CHAR))
           if (.not.SelCriterionAvailable) then
             write(STDERR, "(a)") "ERROR: Can not use PAGE when selection criterion file is not given!"
             write(STDERR, "(a)") " "
             stop 1
           end if
-          if (PAGEPar2Max > nPar2) then
+          if (Spec%PAGEPar2Max > Data%nPar2) then
             write(STDERR, "(a)") "ERROR: The max number of female individuals to edit must not be greater than the total number of female parents!"
-            write(STDERR, "(a)") "ERROR: Number of female             parents: "//trim(Int2Char(nPar2))
-            write(STDERR, "(a)") "ERROR: Number of female individuals to edit: "//trim(Int2Char(PAGEPar2Max))
+            write(STDERR, "(a)") "ERROR: Number of female             parents: "//trim(Int2Char(Data%nPar2))
+            write(STDERR, "(a)") "ERROR: Number of female individuals to edit: "//trim(Int2Char(Spec%PAGEPar2Max))
             write(STDERR, "(a)") " "
           end if
         else if (ToLower(trim(DumC)) == "no") then
@@ -866,7 +868,7 @@ module AlphaMateModule
       ! --- GenericIndividualValuesFile ---
       ! --- GenericIndividualValuesWeight ---
 
-      nGenericIndVal = 0
+      Data%nGenericIndVal = 0
       read(SpecUnit, *) DumC, GenericIndValFile
       if (ToLower(trim(GenericIndValFile)) == "none") then
         GenericIndValAvailable = .false.
@@ -874,17 +876,17 @@ module AlphaMateModule
       else
         GenericIndValAvailable = .true.
         backspace(SpecUnit)
-        read(SpecUnit, *) DumC, GenericIndValFile, nGenericIndVal
-        allocate(GenericIndValWeight(nGenericIndVal))
+        read(SpecUnit, *) DumC, GenericIndValFile, Data%nGenericIndVal
+        allocate(GenericIndValWeight(Data%nGenericIndVal))
         read(SpecUnit, *) DumC, GenericIndValWeight(:)
-        write(STDOUT, "("//Int2Char(1 + nGenericIndVal)//"a)") "GenericIndividualValuesFile: "//trim(GenericIndValFile)//&
-          ", weight(s): ", (trim(Real2Char(GenericIndValWeight(i), fmt=FMTREAL2CHAR)), i = 1, nGenericIndVal)
+        write(STDOUT, "("//Int2Char(1 + Data%nGenericIndVal)//"a)") "GenericIndividualValuesFile: "//trim(GenericIndValFile)//&
+          ", weight(s): ", (trim(Real2Char(GenericIndValWeight(i), fmt=FMTREAL2CHAR)), i = 1, Data%nGenericIndVal)
       end if
 
       ! --- GenericMatingValuesFile ---
       ! --- GenericMatingValuesWeight ---
 
-      nGenericMatVal = 0
+      Data%nGenericMatVal = 0
       read(SpecUnit, *) DumC, GenericMatValFile
       if (ToLower(trim(GenericMatValFile)) == "none") then
         GenericMatValAvailable = .false.
@@ -892,11 +894,11 @@ module AlphaMateModule
       else
         GenericMatValAvailable = .true.
         backspace(SpecUnit)
-        read(SpecUnit, *) DumC, GenericMatValFile, nGenericMatVal
-        allocate(GenericMatValWeight(nGenericMatVal))
+        read(SpecUnit, *) DumC, GenericMatValFile, Data%nGenericMatVal
+        allocate(GenericMatValWeight(Data%nGenericMatVal))
         read(SpecUnit, *) DumC, GenericMatValWeight(:)
-        write(STDOUT, "("//Int2Char(1 + nGenericMatVal)//"a)") "GenericMatingValuesFile: "//trim(GenericMatValFile)//&
-          ", weight(s): ", (trim(Real2Char(GenericMatValWeight(i), fmt=FMTREAL2CHAR)), i = 1, nGenericMatVal)
+        write(STDOUT, "("//Int2Char(1 + Data%nGenericMatVal)//"a)") "GenericMatingValuesFile: "//trim(GenericMatValFile)//&
+          ", weight(s): ", (trim(Real2Char(GenericMatValWeight(i), fmt=FMTREAL2CHAR)), i = 1, Data%nGenericMatVal)
       end if
 
       write(STDOUT, "(a)") " "
@@ -910,9 +912,9 @@ module AlphaMateModule
       write(STDOUT, "(a)") "Coancestry (average identity of the four genome combinations of two individuals)"
 
       call Data%Coancestry%Read(File=CoaMtxFile)
-      if (Data%Coancestry%nInd < nInd) then
+      if (Data%Coancestry%nInd < Data%nInd) then
         write(STDERR, "(a)") "ERROR: The coancestry matrix file has less rows than there are defined number of individuals!"
-        write(STDERR, "(a)") "ERROR: Number of defined individuals:                       "//trim(Int2Char(nInd))
+        write(STDERR, "(a)") "ERROR: Number of defined individuals:                       "//trim(Int2Char(Data%nInd))
         write(STDERR, "(a)") "ERROR: Number of individuals in the coancestry matrix file: "//trim(Int2Char(Data%Coancestry%nInd))
         write(STDERR, "(a)") " "
       end if
@@ -1018,11 +1020,11 @@ module AlphaMateModule
 
       ! --- Selection criterion ---
 
-      allocate(Data%SelCriterion(nInd))
-      allocate(Data%SelCriterionStand(nInd))
+      allocate(Data%SelCriterion(Data%nInd))
+      allocate(Data%SelCriterionStand(Data%nInd))
       if (PAGE) then
-        allocate(Data%SelCriterionPAGE(nInd))
-        allocate(Data%SelCriterionPAGEStand(nInd))
+        allocate(Data%SelCriterionPAGE(Data%nInd))
+        allocate(Data%SelCriterionPAGEStand(Data%nInd))
       end if
 
       if (.not.SelCriterionAvailable) then
@@ -1031,15 +1033,15 @@ module AlphaMateModule
       else
         write(STDOUT, "(a)") "Selection criterion"
         nIndTmp = CountLines(SelCriterionFile)
-        if (nIndTmp /= nInd) then
+        if (nIndTmp /= Data%nInd) then
           write(STDERR, "(a)") "ERROR: Number of individuals in the selection criterion file and the coancestry matrix file is not the same!"
-          write(STDERR, "(a)") "ERROR: Number of individuals in the coancestry matrix file:   "//trim(Int2Char(nInd))
+          write(STDERR, "(a)") "ERROR: Number of individuals in the coancestry matrix file:   "//trim(Int2Char(Data%nInd))
           write(STDERR, "(a)") "ERROR: Number of individuals in the selection criterion file: "//trim(Int2Char(nIndTmp))
           write(STDERR, "(a)") " "
           stop 1
         end if
         open(newunit=SelCriterionUnit, file=trim(SelCriterionFile), status="old")
-        do i = 1, nInd
+        do i = 1, Data%nInd
           if (PAGE) then
             read(SelCriterionUnit, *) IdCTmp, SelCriterionTmp, SelCriterionTmp2
           else
@@ -1099,30 +1101,30 @@ module AlphaMateModule
 
       ! --- Gender ---
 
-      allocate(Data%Gender(nInd))
+      allocate(Data%Gender(Data%nInd))
 
       Data%Gender(:) = 0
       if (GenderMatters) then
         write(STDOUT, "(a)") "Gender"
         nIndTmp = CountLines(GenderFile)
-        if (nIndTmp /= nInd) then
+        if (nIndTmp /= Data%nInd) then
           write(STDERR, "(a)") "ERROR: Number of individuals in the gender file and the coancestry matrix file is not the same!"
-          write(STDERR, "(a)") "ERROR: Number of individuals in the coancestry matrix file: "//trim(Int2Char(nInd))
+          write(STDERR, "(a)") "ERROR: Number of individuals in the coancestry matrix file: "//trim(Int2Char(Data%nInd))
           write(STDERR, "(a)") "ERROR: Number of individuals in the gender file:            "//trim(Int2Char(nIndTmp))
           write(STDERR, "(a)") " "
           stop 1
         end if
 
-        nMal = 0
-        nFem = 0
+        Data%nMal = 0
+        Data%nFem = 0
 
         open(newunit=GenderUnit, file=trim(GenderFile), status="old")
-        do i = 1, nInd
+        do i = 1, Data%nInd
           read(GenderUnit, *) IdCTmp, GenderTmp
           if      (GenderTmp == 1) then
-            nMal = nMal + 1
+            Data%nMal = Data%nMal + 1
           else if (GenderTmp == 2) then
-            nFem = nFem + 1
+            Data%nFem = Data%nFem + 1
           else
             write(STDERR, "(a)") "ERROR: Gender code must be either 1 for male individuals or 2 for female individuals!"
             write(STDERR, "(a)") "ERROR: "//trim(Int2Char(i))//" "//trim(IdCTmp)//" "//trim(Int2Char(GenderTmp))
@@ -1139,21 +1141,21 @@ module AlphaMateModule
         end do
         close(GenderUnit)
 
-        write(STDOUT, "(a)") "  - number of   males in data: "//trim(Int2Char(nMal))
-        write(STDOUT, "(a)") "  - number of females in data: "//trim(Int2Char(nFem))
+        write(STDOUT, "(a)") "  - number of   males in data: "//trim(Int2Char(Data%nMal))
+        write(STDOUT, "(a)") "  - number of females in data: "//trim(Int2Char(Data%nFem))
         write(STDOUT, "(a)") " "
 
-        if (nPar1 > nMal) then
+        if (Data%nPar1 > Data%nMal) then
           write(STDERR, "(a)") "ERROR: The number of male parents can not be larger than the number of males"
-          write(STDERR, "(a)") "ERROR: Number of male parents: "//trim(Int2Char(nPar1))
-          write(STDERR, "(a)") "ERROR: Number of        males: "//trim(Int2Char(nMal))
+          write(STDERR, "(a)") "ERROR: Number of male parents: "//trim(Int2Char(Data%nPar1))
+          write(STDERR, "(a)") "ERROR: Number of        males: "//trim(Int2Char(Data%nMal))
           write(STDERR, "(a)") " "
           stop 1
         end if
-        if (nPar2 > nFem) then
+        if (Data%nPar2 > Data%nFem) then
           write(STDERR, "(a)") "ERROR: The number of female parents can not be larger than the number of females"
-          write(STDERR, "(a)") "ERROR: Number of female parents: "//trim(Int2Char(nPar2))
-          write(STDERR, "(a)") "ERROR: Number of        females: "//trim(Int2Char(nFem))
+          write(STDERR, "(a)") "ERROR: Number of female parents: "//trim(Int2Char(Data%nPar2))
+          write(STDERR, "(a)") "ERROR: Number of        females: "//trim(Int2Char(Data%nFem))
           write(STDERR, "(a)") " "
           stop 1
         end if
@@ -1162,21 +1164,21 @@ module AlphaMateModule
       ! --- Define potential parents ---
 
       if (.not.GenderMatters) then
-        nPotPar1 = nInd
-        nPotPar2 = nInd
-        allocate(Data%IdPotPar1(nPotPar1))
-        do i = 1, nInd
+        Data%nPotPar1 = Data%nInd
+        Data%nPotPar2 = Data%nInd
+        allocate(Data%IdPotPar1(Data%nPotPar1))
+        do i = 1, Data%nInd
           Data%IdPotPar1(i) = i
         end do
       else
-        nPotPar1 = nMal
-        nPotPar2 = nFem
-        allocate(Data%IdPotPar1(nPotPar1))
-        allocate(Data%IdPotPar2(nPotPar2))
-        allocate(Data%IdPotParSeq(nInd))
+        Data%nPotPar1 = Data%nMal
+        Data%nPotPar2 = Data%nFem
+        allocate(Data%IdPotPar1(Data%nPotPar1))
+        allocate(Data%IdPotPar2(Data%nPotPar2))
+        allocate(Data%IdPotParSeq(Data%nInd))
         jMal = 0
         jFem = 0
-        do i = 1, nInd
+        do i = 1, Data%nInd
           if (Data%Gender(i) == 1) then
             jMal = jMal + 1
             Data%IdPotPar1(jMal) = i
@@ -1187,13 +1189,13 @@ module AlphaMateModule
             Data%IdPotParSeq(i) = jFem
           end if
         end do
-        if (nPar1 > nPotPar1) then
-          nPar1 = nPotPar1
+        if (Data%nPar1 > Data%nPotPar1) then
+          Data%nPar1 = Data%nPotPar1
           write(STDOUT, "(a)") "NOTE: The number of male parents reduced to the number of male individuals!"
           write(STDOUT, "(a)") " "
         end if
-        if (nPar2 > nPotPar2) then
-          nPar2 = nPotPar2
+        if (Data%nPar2 > Data%nPotPar2) then
+          Data%nPar2 = Data%nPotPar2
           write(STDOUT, "(a)") "NOTE: The number of female parents reduced to the number of female individuals!"
           write(STDOUT, "(a)") " "
         end if
@@ -1202,21 +1204,21 @@ module AlphaMateModule
       ! --- Number of all potential matings ---
 
       if (GenderMatters) then
-        nPotMat = nPotPar1 * nPotPar2
+        Data%nPotMat = Data%nPotPar1 * Data%nPotPar2
       else
-        nPotMat = real(nPotPar1 * nPotPar1) / 2
+        Data%nPotMat = real(Data%nPotPar1 * Data%nPotPar1) / 2
         if (SelfingAllowed) then
-          nPotMat = nint(nPotMat + real(nPotPar1) / 2)
+          Data%nPotMat = nint(Data%nPotMat + real(Data%nPotPar1) / 2)
         else
-          nPotMat = nint(nPotMat - real(nPotPar1) / 2)
+          Data%nPotMat = nint(Data%nPotMat - real(Data%nPotPar1) / 2)
         end if
       end if
-      if (nMat > nPotMat) then
+      if (Data%nMat > Data%nPotMat) then
         write(STDOUT, "(a)") "NOTE: The number of matings is larger than the number of all potential matings!"
-        write(STDOUT, "(a)") "NOTE: Number of all potential matings: "//trim(Int2Char(nPotMat))
+        write(STDOUT, "(a)") "NOTE: Number of all potential matings: "//trim(Int2Char(Data%nPotMat))
         if (GenderMatters) then
           write(STDOUT, "(a)") "NOTE: = all males with all females"
-          write(STDOUT, "(a)") "NOTE: = no. of males ("//trim(Int2Char(nPotPar1))//") * no. of females ("//trim(Int2Char(nPotPar2))//")"
+          write(STDOUT, "(a)") "NOTE: = no. of males ("//trim(Int2Char(Data%nPotPar1))//") * no. of females ("//trim(Int2Char(Data%nPotPar2))//")"
         else
           if (SelfingAllowed) then
             write(STDOUT, "(a)") "NOTE: = half-diallel including selfing"
@@ -1225,9 +1227,9 @@ module AlphaMateModule
             write(STDOUT, "(a)") "NOTE: = half-diallel excluding selfing"
             write(STDOUT, "(a)") "NOTE: = no. of individuals * no. of individuals / 2 - individuals / 2"
           end if
-          write(STDOUT, "(a)") "NOTE:   (no. of individuals = "//trim(Int2Char(nPotPar1))//")"
+          write(STDOUT, "(a)") "NOTE:   (no. of individuals = "//trim(Int2Char(Data%nPotPar1))//")"
         end if
-        write(STDOUT, "(a)") "NOTE: Number of              matings: "//trim(Int2Char(nMat))
+        write(STDOUT, "(a)") "NOTE: Number of              matings: "//trim(Int2Char(Data%nMat))
         write(STDOUT, "(a)") " "
       end if
 
@@ -1236,18 +1238,18 @@ module AlphaMateModule
       if (GenericIndValAvailable) then
         write(STDOUT, "(a)") "Generic individual values"
         nIndTmp = CountLines(GenericIndValFile)
-        if (nIndTmp /= nInd) then
+        if (nIndTmp /= Data%nInd) then
           write(STDERR, "(a)") "ERROR: Number of individuals in the generic individual values file and the coancestry matrix file is not the same!"
-          write(STDERR, "(a)") "ERROR: Number of individuals in the coancestry matrix file:         "//trim(Int2Char(nInd))
+          write(STDERR, "(a)") "ERROR: Number of individuals in the coancestry matrix file:         "//trim(Int2Char(Data%nInd))
           write(STDERR, "(a)") "ERROR: Number of individuals in the generic individual values file: "//trim(Int2Char(nIndTmp))
           write(STDERR, "(a)") " "
           stop 1
         end if
-        allocate(GenericIndVal(nInd, nGenericIndVal))
-        allocate(GenericIndValTmp(nGenericIndVal))
-        GenericIndVal(:, :) = 0.0d0
+        allocate(Data%GenericIndVal(Data%nInd, Data%nGenericIndVal))
+        allocate(GenericIndValTmp(Data%nGenericIndVal))
+        Data%GenericIndVal(:, :) = 0.0d0
         open(newunit=GenericIndValUnit, file=GenericIndValFile, status="unknown")
-        do i = 1, nInd
+        do i = 1, Data%nInd
           read(GenericIndValUnit, *) IdCTmp, GenericIndValTmp(:)
           j = FindLoc(IdCTmp, Data%Coancestry%OriginalId(1:))
           if (j == 0) then
@@ -1255,14 +1257,14 @@ module AlphaMateModule
             write(STDERR, "(a)") " "
             stop 1
           end if
-          GenericIndVal(j, :) = GenericIndValTmp(:)
+          Data%GenericIndVal(j, :) = GenericIndValTmp(:)
         end do
         close(GenericIndValUnit)
 
-        allocate(Data%GenericIndValStat(nGenericIndVal))
-        do j = 1, nGenericIndVal
+        allocate(Data%GenericIndValStat(Data%nGenericIndVal))
+        do j = 1, Data%nGenericIndVal
           write(STDOUT, "(a)") "  - column "//trim(Int2Char(j))
-          Data%GenericIndValStat(i) = DescStat(GenericIndVal(:, j))
+          Data%GenericIndValStat(i) = DescStat(Data%GenericIndVal(:, j))
           write(STDOUT, "(a)") "    - average: "//trim(Real2Char(Data%GenericIndValStat(i)%Mean, fmt=FMTREAL2CHAR))
           write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(Data%GenericIndValStat(i)%SD,   fmt=FMTREAL2CHAR))
           write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(Data%GenericIndValStat(i)%Min,  fmt=FMTREAL2CHAR))
@@ -1276,18 +1278,18 @@ module AlphaMateModule
       if (GenericMatValAvailable) then
         write(STDOUT, "(a)") "Generic mating values"
         DumI = CountLines(GenericMatValFile)
-        if (DumI /= nPotMat) then
+        if (DumI /= Data%nPotMat) then
           write(STDERR, "(a)") "ERROR: Number of matings in the generic mating values file and the number of all potential matings is not the same!"
-          write(STDERR, "(a)") "ERROR: Number of all potential matings:                         "//trim(Int2Char(nPotMat))
+          write(STDERR, "(a)") "ERROR: Number of all potential matings:                         "//trim(Int2Char(Data%nPotMat))
           write(STDERR, "(a)") "ERROR: Number of individuals in the generic mating values file: "//trim(Int2Char(DumI))
           write(STDERR, "(a)") " "
           stop 1
         end if
-        allocate(GenericMatVal(nPotPar1, nPotPar2, nGenericMatVal))
-        allocate(GenericMatValTmp(nGenericMatVal))
-        GenericMatVal(:, :, :) = 0.0d0
+        allocate(Data%GenericMatVal(Data%nPotPar1, Data%nPotPar2, Data%nGenericMatVal))
+        allocate(GenericMatValTmp(Data%nGenericMatVal))
+        Data%GenericMatVal(:, :, :) = 0.0d0
         open(newunit=GenericMatValUnit, file=GenericMatValFile, status="unknown")
-        do i = 1, nPotMat
+        do i = 1, Data%nPotMat
           read(GenericMatValUnit, *) IdCTmp, IdCTmp2, GenericMatValTmp(:)
           j = FindLoc(IdCTmp, Data%Coancestry%OriginalId(1:))
           if (j == 0) then
@@ -1320,32 +1322,32 @@ module AlphaMateModule
             ! - l and m tell respectively the position within IdPotPar1 and IdPotPar2
             ! - values in IdPotPar1 and IdPotPar2 are "joint" Id of males and females
             ! - values in IdPotParSeq are separate Id of males and females (need these to find matching row and column)
-            GenericMatVal(Data%IdPotParSeq(Data%IdPotPar1(l)), Data%IdPotParSeq(Data%IdPotPar2(m)), :) = GenericMatValTmp(:)
+            Data%GenericMatVal(Data%IdPotParSeq(Data%IdPotPar1(l)), Data%IdPotParSeq(Data%IdPotPar2(m)), :) = GenericMatValTmp(:)
           else
             ! fill lower-triangle (half-diallel)
-            GenericMatVal(maxval([j, k]), minval([j, k]), :) = GenericMatValTmp(:)
+            Data%GenericMatVal(maxval([j, k]), minval([j, k]), :) = GenericMatValTmp(:)
           end if
         end do
         close(GenericMatValUnit)
 
-        allocate(Data%GenericMatValStat(nGenericMatVal))
-        do k = 1, nGenericMatVal
+        allocate(Data%GenericMatValStat(Data%nGenericMatVal))
+        do k = 1, Data%nGenericMatVal
           write(STDOUT, "(a)") "  - column "//trim(Int2Char(k))
           if (GenderMatters) then
-            Data%GenericMatValStat(k) = DescStatMatrix(GenericMatVal(:, :, k))
+            Data%GenericMatValStat(k) = DescStatMatrix(Data%GenericMatVal(:, :, k))
             write(STDOUT, "(a)") "    - average: "//trim(Real2Char(Data%GenericMatValStat(k)%All%Mean, fmt=FMTREAL2CHAR))
             write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(Data%GenericMatValStat(k)%All%SD,   fmt=FMTREAL2CHAR))
             write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(Data%GenericMatValStat(k)%All%Min,  fmt=FMTREAL2CHAR))
             write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(Data%GenericMatValStat(k)%All%Max,  fmt=FMTREAL2CHAR))
           else
             if (SelfingAllowed) then
-              Data%GenericMatValStat(k) = DescStatLowTriMatrix(GenericMatVal(:, :, k))
+              Data%GenericMatValStat(k) = DescStatLowTriMatrix(Data%GenericMatVal(:, :, k))
               write(STDOUT, "(a)") "    - average: "//trim(Real2Char(Data%GenericMatValStat(k)%All%Mean, fmt=FMTREAL2CHAR))
               write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(Data%GenericMatValStat(k)%All%SD,   fmt=FMTREAL2CHAR))
               write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(Data%GenericMatValStat(k)%All%Min,  fmt=FMTREAL2CHAR))
               write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(Data%GenericMatValStat(k)%All%Max,  fmt=FMTREAL2CHAR))
             end if
-              Data%GenericMatValStat(k) = DescStatLowTriMatrix(GenericMatVal(:, :, k), Diag=.false.)
+              Data%GenericMatValStat(k) = DescStatLowTriMatrix(Data%GenericMatVal(:, :, k), Diag=.false.)
               write(STDOUT, "(a)") "    - average: "//trim(Real2Char(Data%GenericMatValStat(k)%OffDiag%Mean, fmt=FMTREAL2CHAR))
               write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(Data%GenericMatValStat(k)%OffDiag%SD,   fmt=FMTREAL2CHAR))
               write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(Data%GenericMatValStat(k)%OffDiag%Min,  fmt=FMTREAL2CHAR))
@@ -1371,10 +1373,10 @@ module AlphaMateModule
 
       nCol = 10
       if (GenericIndValAvailable) then
-        nCol = nCol + nGenericIndVal
+        nCol = nCol + Data%nGenericIndVal
       end if
       if (GenericMatValAvailable) then
-        nCol = nCol + nGenericMatVal
+        nCol = nCol + Data%nGenericMatVal
       end if
       allocate(COLNAMELOGUNIT(nCol))
       allocate(COLNAMELOGSTDOUT(nCol))
@@ -1392,14 +1394,14 @@ module AlphaMateModule
       COLNAMELOGUNIT(10) = "        InbreedingRate"
       nColTmp = 10
       if (GenericIndValAvailable) then
-        do i = 1, nGenericIndVal
+        do i = 1, Data%nGenericIndVal
           nColTmp = nColTmp + 1
           COLNAMELOGUNIT(nColTmp) = "GenIndVal"//trim(Int2Char(i))
           COLNAMELOGUNIT(nColTmp) = adjustr(COLNAMELOGUNIT(nColTmp))
         end do
       end if
       if (GenericMatValAvailable) then
-        do i = 1, nGenericMatVal
+        do i = 1, Data%nGenericMatVal
           nColTmp = nColTmp + 1
           COLNAMELOGUNIT(nColTmp) = "GenMatVal"//trim(Int2Char(i))
           COLNAMELOGUNIT(nColTmp) = adjustr(COLNAMELOGUNIT(nColTmp))
@@ -1443,13 +1445,13 @@ module AlphaMateModule
       ! --- Number of parameters to optimise ---
 
       if (GenderMatters) then
-        nParam = nPotPar1 + nPotPar2 + nMat
+        nParam = Data%nPotPar1 + Data%nPotPar2 + Data%nMat
       else
-        nParam = nPotPar1 + nMat
+        nParam = Data%nPotPar1 + Data%nMat
       end if
 
       if (PAGE) then
-        nParam = nParam + nInd
+        nParam = nParam + Data%nInd
       end if
 
       ! --- Optimise contributions for minimal future coancestry/inbreeding ---
@@ -1615,7 +1617,7 @@ module AlphaMateModule
       character(len=*)   :: MatingFile
 
       ! Other
-      integer(int32) :: i, j, ContribUnit, MatingUnit, Rank(nInd)
+      integer(int32) :: i, j, ContribUnit, MatingUnit, Rank(Data%nInd)
 
       ! @todo should we have constant output no matter which options are switched on?
       open(newunit=ContribUnit, file=ContribFile, status="unknown")
@@ -1628,10 +1630,10 @@ module AlphaMateModule
                                                 "AvCoancestry", &
                                                 "Contribution", &
                                                 "     nMating"
-        do i = nInd, 1, -1 ! MrgRnk ranks small to large
+        do i = Data%nInd, 1, -1 ! MrgRnk ranks small to large
           j = Rank(i)
           write(ContribUnit, FMTCONTRIBUTION) Data%Coancestry%OriginalId(j), Data%Gender(j), Data%SelCriterion(j), &
-                                              sum(Data%Coancestry%Value(1:, j)) / nInd, &
+                                              sum(Data%Coancestry%Value(1:, j)) / Data%nInd, &
                                               Sol%xVec(j), Sol%nVec(j)
         end do
       else
@@ -1644,10 +1646,10 @@ module AlphaMateModule
                                                     "     nMating", &
                                                     "  GenomeEdit", &
                                                     " EditedValue"
-        do i = nInd, 1, -1 ! MrgRnk ranks small to large
+        do i = Data%nInd, 1, -1 ! MrgRnk ranks small to large
           j = Rank(i)
           write(ContribUnit, FMTCONTRIBUTIONEDIT) Data%Coancestry%OriginalId(j), Data%Gender(j), Data%SelCriterion(j), &
-                                                  sum(Data%Coancestry%Value(1:, j)) / nInd, &
+                                                  sum(Data%Coancestry%Value(1:, j)) / Data%nInd, &
                                                   Sol%xVec(j), Sol%nVec(j), &
                                                   nint(Sol%GenomeEdit(j)), Data%SelCriterion(j) + Sol%GenomeEdit(j) * Data%SelCriterionPAGE(j)
         end do
@@ -1659,7 +1661,7 @@ module AlphaMateModule
       write(MatingUnit, FMTMATINGHEAD) "      Mating", &
                                        "     Parent1", &
                                        "     Parent2"
-      do i = 1, nMat
+      do i = 1, Data%nMat
         write(MatingUnit, FMTMATING) i, Data%Coancestry%OriginalId(Sol%MatingPlan(1, i)), Data%Coancestry%OriginalId(Sol%MatingPlan(2, i))
       end do
       close(MatingUnit)
@@ -1687,26 +1689,26 @@ module AlphaMateModule
       This%CoancestryRateRanMate = 0.0d0
       This%FutureInbreeding = 0.0d0
       if (GenericIndValAvailable) then
-        allocate(This%GenericIndVal(nGenericIndVal))
+        allocate(This%GenericIndVal(Data%nGenericIndVal))
         This%GenericIndVal(:) = 0.0d0
       else
         allocate(This%GenericIndVal(0))
       end if
       if (GenericMatValAvailable) then
-        allocate(This%GenericMatVal(nGenericMatVal))
+        allocate(This%GenericMatVal(Data%nGenericMatVal))
         This%GenericMatVal(:) = 0.0d0
       else
         allocate(This%GenericMatVal(0))
       end if
       This%Cost = 0.0d0
-      allocate(This%nVec(nInd))
+      allocate(This%nVec(Data%nInd))
       This%nVec(:) = 0
-      allocate(This%xVec(nInd))
+      allocate(This%xVec(Data%nInd))
       This%xVec(:) = 0.0d0
-      allocate(This%MatingPlan(2, nMat))
+      allocate(This%MatingPlan(2, Data%nMat))
       This%MatingPlan(:, :) = 0
       if (PAGE) then
-        allocate(This%GenomeEdit(nInd))
+        allocate(This%GenomeEdit(Data%nInd))
         This%GenomeEdit(:) = 0.0d0
       else
         allocate(This%GenomeEdit(0))
@@ -1847,22 +1849,22 @@ module AlphaMateModule
       character(len=*), intent(in), optional :: CritType  ! Type of criterion (Min, Ran, Opt)
 
       ! Other
-      integer(int32) :: i, j, k, l, g, nCumMat, Rank(nInd), ChromInt(nInd), MatPar2(nMat)
-      integer(int32) :: nVecPar1(nPotPar1), nVecPar2(nPotPar2), TmpMin, TmpMax, TmpI
+      integer(int32) :: i, j, k, l, g, nCumMat, Rank(Data%nInd), ChromInt(Data%nInd), MatPar2(Data%nMat)
+      integer(int32) :: nVecPar1(Data%nPotPar1), nVecPar2(Data%nPotPar2), TmpMin, TmpMax, TmpI
 
-      real(real64) :: TmpVec(nInd, 1), TmpR, RanNum
+      real(real64) :: TmpVec(Data%nInd, 1), TmpR, RanNum
 
       ! Initialize the solution
       call This%Initialise()
 
       ! The solution (based on the mate selection driver) has:
-      ! - nInd individual contributions
-      !   - nPotPar1 individual contributions for "parent1" (males   when GenderMatters, all ind when .not. GenderMatters)
-      !   - nPotPar2 individual contributions for "parent2" (females when GenderMatters, meaningful only when GenderMatters)
-      ! - nMat     rankings of parent1 1:nMat matings to pair with 1:nPotPar2 "parent2" (see bellow)
-      ! - nInd edit indicators
-      !   - nPotPar1 edit indicators for "parent1" (males   when GenderMatters, all ind when .not. GenderMatters)
-      !   - nPotPar2 edit indicators for "parent2" (females when GenderMatters, present only when GenderMatters)
+      ! - Data%nInd individual contributions
+      !   - Data%nPotPar1 individual contributions for "parent1" (males   when GenderMatters, all ind when .not. GenderMatters)
+      !   - Data%nPotPar2 individual contributions for "parent2" (females when GenderMatters, meaningful only when GenderMatters)
+      ! - Data%nMat     rankings of parent1 1:Data%nMat matings to pair with 1:Data%nPotPar2 "parent2" (see bellow)
+      ! - Data%nInd edit indicators
+      !   - Data%nPotPar1 edit indicators for "parent1" (males   when GenderMatters, all ind when .not. GenderMatters)
+      !   - Data%nPotPar2 edit indicators for "parent2" (females when GenderMatters, present only when GenderMatters)
 
       ! Say we have Chrom=(| 0, 2, 0, 1 | ... | 2.5, 1.5, 1.0 | 0, 1, 0, 0 | ...) then we:
       ! - mate male 2 with the first  available female (rank 2.5)
@@ -1882,16 +1884,16 @@ module AlphaMateModule
 
       ! --- Parse the mate selection driver (=Is the solution valid?) ---
 
-      ! The approach below assures that we have nMat contributions for each of
+      ! The approach below assures that we have Data%nMat contributions for each of
       ! the two parent sets. It does this by ranking internal solution values and
       ! traverses from top to the defined number of parents checking when the sum of
-      ! interegrised values gives nMat. If values bellow 0.5 are found, they are
-      ! changed to 1 contribution. If this still does not give nMat, then we start
+      ! interegrised values gives Data%nMat. If values bellow 0.5 are found, they are
+      ! changed to 1 contribution. If this still does not give Data%nMat, then we start
 
       ! @todo least contributing? Those that already contribute or thos that do not contribute at all?
 
       ! adding on contribution to each parent (starting from least contributing
-      ! parents to avoid local minima) until we reach nMat. How to treat values
+      ! parents to avoid local minima) until we reach Data%nMat. How to treat values
       ! for the individuals that do not contribute is unlcear. None of the tested
       ! methods seemed to be very different. Intuitively, using properly ordered
       ! negative values should inform optim. alg. which individuals should less
@@ -1908,28 +1910,28 @@ module AlphaMateModule
         g = 2
       end if
       ! ... find ranks to find the top values
-      if (.not.(EqualizePar1 .and. (nPar1 == nPotPar1))) then
-        Rank(1:nPotPar1) = MrgRnk(Chrom(1:nPotPar1))
-        Rank(1:nPotPar1) = Rank(nPotPar1:1:-1) ! MrgRnk ranks small to large
+      if (.not.(EqualizePar1 .and. (Data%nPar1 == Data%nPotPar1))) then
+        Rank(1:Data%nPotPar1) = MrgRnk(Chrom(1:Data%nPotPar1))
+        Rank(1:Data%nPotPar1) = Rank(Data%nPotPar1:1:-1) ! MrgRnk ranks small to large
         !@todo decreasing option in MrgRnk?
       end if
       ! ... handle cases with equalized contributions
       if (EqualizePar1) then
-        if (nPar1 == nPotPar1) then
+        if (Data%nPar1 == Data%nPotPar1) then
           ! ... set integers to all the values (no need for sorting here)
-          Chrom(1:nPotPar1) = dble(nMat * g) / nPar1
+          Chrom(1:Data%nPotPar1) = dble(Data%nMat * g) / Data%nPar1
         else
           ! ... set integers to the top values
-          Chrom(Rank(1:nPar1)) = dble(nMat * g) / nPar1
+          Chrom(Rank(1:Data%nPar1)) = dble(Data%nMat * g) / Data%nPar1
           !@todo anything better to preserve the order of non contributing individuals? See below!
-          Chrom(Rank((nPar1+1):nPotPar1)) = 0.0d0
-          ! Chrom(Rank((nPar1+1):nPotPar1)) = -1.0d0
+          Chrom(Rank((Data%nPar1+1):Data%nPotPar1)) = 0.0d0
+          ! Chrom(Rank((Data%nPar1+1):Data%nPotPar1)) = -1.0d0
         end if
       else
         ! ... handle cases with unequal contributions
         ! ... work for the defined number or parents
         nCumMat = 0
-        do i = 1, nPar1
+        do i = 1, Data%nPar1
           j = Rank(i)
           ! ... these would have "zero" contributions and if we hit them then they need at least minimum contrib
           if (Chrom(j) < LimitPar1Min) then
@@ -1939,12 +1941,12 @@ module AlphaMateModule
           if (Chrom(j) > LimitPar1Max) then
             Chrom(j) = LimitPar1Max
           end if
-          ! ... accumulate and check if we reached nMat
+          ! ... accumulate and check if we reached Data%nMat
           nCumMat = nCumMat + nint(Chrom(j)) ! internally real, externally integer
-          if (nCumMat >= nMat * g) then
-            ! ... there should be exactly nMat contributions
-            if (nCumMat > nMat * g) then
-              Chrom(j) = Chrom(j) - dble(nCumMat - nMat * g)
+          if (nCumMat >= Data%nMat * g) then
+            ! ... there should be exactly Data%nMat contributions
+            if (nCumMat > Data%nMat * g) then
+              Chrom(j) = Chrom(j) - dble(nCumMat - Data%nMat * g)
               if (nint(Chrom(j)) < LimitPar1Min) then
                 TmpR = LimitPar1Weight * (LimitPar1Min - nint(Chrom(j)))
                 This%Criterion = This%Criterion + TmpR
@@ -1952,49 +1954,49 @@ module AlphaMateModule
                   This%Penalty = This%Penalty + abs(TmpR)
                 end if
               end if
-              nCumMat = nMat * g
+              nCumMat = Data%nMat * g
             end if
             exit
           end if
         end do
-        ! ... increment i if we have hit the exit, do loop would have ended with i=nPar1 + 1
-        if (i <= nPar1) then
+        ! ... increment i if we have hit the exit, do loop would have ended with i=Data%nPar1 + 1
+        if (i <= Data%nPar1) then
           i = i + 1
         end if
         ! ... the other individuals do not contribute
-        if (i <= nPotPar1) then ! "=" to capture incremented i+1 on the do loop exit
+        if (i <= Data%nPotPar1) then ! "=" to capture incremented i+1 on the do loop exit
           ! ... zero (the same for all ind so no order)
-          Chrom(Rank(i:nPotPar1)) = 0.0d0
+          Chrom(Rank(i:Data%nPotPar1)) = 0.0d0
           ! ... negative (the same for all ind so no order)
-          ! Chrom(Rank(i:nPotPar1)) = -1.0d0
+          ! Chrom(Rank(i:Data%nPotPar1)) = -1.0d0
           ! ... negative (variable with partially preserving order)
           !     Found faster convergence than with properly decreasing negative values?
           !     I guess it adds some more randomness, i.e., it causes suffling of individuals that just did not make it onto the mating list.
-          ! Chrom(Rank(i:nPotPar1)) = sign(Chrom(Rank(i:nPotPar1)), -1.0d0)
+          ! Chrom(Rank(i:Data%nPotPar1)) = sign(Chrom(Rank(i:Data%nPotPar1)), -1.0d0)
           ! ... negative and properly decreasing
-          ! TmpR = maxval(Chrom(Rank(i:nPotPar1)))
+          ! TmpR = maxval(Chrom(Rank(i:Data%nPotPar1)))
           ! if (TmpR > 0.0d0) then
-          !     Chrom(Rank(i:nPotPar1)) = Chrom(Rank(i:nPotPar1)) - abs(TmpR)
+          !     Chrom(Rank(i:Data%nPotPar1)) = Chrom(Rank(i:Data%nPotPar1)) - abs(TmpR)
           ! end if
           ! ... negative (random so no order)
-          ! do j = i, nPotPar1 ! @todo really need this loop?
+          ! do j = i, Data%nPotPar1 ! @todo really need this loop?
           !   call random_number(RanNum)
           !   Chrom(Rank(j)) = -1.0d0 * RanNum
           ! end do
         end if
-        ! ... nMat still not reached?
-        do while (nCumMat < nMat * g)
+        ! ... Data%nMat still not reached?
+        do while (nCumMat < Data%nMat * g)
           ! ... add more contributions
-          do i = nPar1, 1, -1 ! to bottom ranked selected individuals (to avoid local optima)
+          do i = Data%nPar1, 1, -1 ! to bottom ranked selected individuals (to avoid local optima)
             j = Rank(i)
             Chrom(j) = Chrom(j) + 1.0d0
-            ! ... accumulate and check if we reached nMat
+            ! ... accumulate and check if we reached Data%nMat
             nCumMat = nCumMat + 1
-            if (nCumMat >= nMat * g) then
+            if (nCumMat >= Data%nMat * g) then
               ! To cater for real vs. integer issues
-              TmpI = sum(nint(Chrom(Rank(1:nPar1))))
-              if (TmpI /= nMat * g) then
-                if (TmpI > nMat * g) then
+              TmpI = sum(nint(Chrom(Rank(1:Data%nPar1))))
+              if (TmpI /= Data%nMat * g) then
+                if (TmpI > Data%nMat * g) then
                   Chrom(j) = dble(nint(Chrom(j)) - 1)
                 else
                   Chrom(j) = dble(nint(Chrom(j)) + 1)
@@ -2009,28 +2011,28 @@ module AlphaMateModule
       ! "Parent2"
       if (GenderMatters) then
         ! ... find ranks to find the top values
-        if (.not.(EqualizePar2 .and. (nPar2 == nPotPar2))) then
-          Rank(1:nPotPar2) = MrgRnk(Chrom((nPotPar1+1):(nPotPar1+nPotPar2)))
-          Rank(1:nPotPar2) = Rank(nPotPar2:1:-1) ! MrgRnk ranks small to large
+        if (.not.(EqualizePar2 .and. (Data%nPar2 == Data%nPotPar2))) then
+          Rank(1:Data%nPotPar2) = MrgRnk(Chrom((Data%nPotPar1+1):(Data%nPotPar1+Data%nPotPar2)))
+          Rank(1:Data%nPotPar2) = Rank(Data%nPotPar2:1:-1) ! MrgRnk ranks small to large
         end if
         ! ... handle cases with equalized contributions
         if (EqualizePar2) then
-          if (nPar2 == nPotPar2) then
+          if (Data%nPar2 == Data%nPotPar2) then
             ! ... set integers to all the values (no need for sorting here)
-            Chrom((nPotPar1+1):(nPotPar1+nPotPar2)) = dble(nMat) / nPar2
+            Chrom((Data%nPotPar1+1):(Data%nPotPar1+Data%nPotPar2)) = dble(Data%nMat) / Data%nPar2
           else
             ! ... set integers to the top values
-            Chrom(nPotPar1+Rank(1:nPar2)) = dble(nMat) / nPar2
+            Chrom(Data%nPotPar1+Rank(1:Data%nPar2)) = dble(Data%nMat) / Data%nPar2
             ! @todo anything better to preserve the order of non contributing individuals? See below!
-            Chrom(nPotPar1+Rank((nPar2+1):nPotPar2)) = 0.0d0
-            ! Chrom(nPotPar1+Rank((nPar2+1):nPotPar2)) = -1.0d0
+            Chrom(Data%nPotPar1+Rank((Data%nPar2+1):Data%nPotPar2)) = 0.0d0
+            ! Chrom(Data%nPotPar1+Rank((Data%nPar2+1):Data%nPotPar2)) = -1.0d0
           end if
         else
           ! ... handle cases with unequal contributions
           ! ... work for the defined number or parents
           nCumMat = 0
-          do i = 1, nPar2
-            j = nPotPar1 + Rank(i)
+          do i = 1, Data%nPar2
+            j = Data%nPotPar1 + Rank(i)
             ! ... these would have "zero" contributions and if we hit them then they need at least minimum contrib
             if (Chrom(j) < LimitPar2Min) then
               Chrom(j) = LimitPar2Min
@@ -2039,12 +2041,12 @@ module AlphaMateModule
             if (Chrom(j) > LimitPar2Max) then
               Chrom(j) = LimitPar2Max
             end if
-            ! ... accumulate and check if we reached nMat
+            ! ... accumulate and check if we reached Data%nMat
             nCumMat = nCumMat + nint(Chrom(j)) ! internally real, externally integer
-            if (nCumMat >= nMat) then
-              ! ... there should be exactly nMat contributions
-              if (nCumMat > nMat) then
-                Chrom(j) = Chrom(j) - dble(nCumMat - nMat)
+            if (nCumMat >= Data%nMat) then
+              ! ... there should be exactly Data%nMat contributions
+              if (nCumMat > Data%nMat) then
+                Chrom(j) = Chrom(j) - dble(nCumMat - Data%nMat)
                 if (nint(Chrom(j)) < LimitPar2Min) then
                   TmpR = LimitPar2Weight * (LimitPar2Min - nint(Chrom(j)))
                   This%Criterion = This%Criterion + TmpR
@@ -2052,49 +2054,49 @@ module AlphaMateModule
                     This%Penalty = This%Penalty + abs(TmpR)
                   end if
                 end if
-                nCumMat = nMat
+                nCumMat = Data%nMat
               end if
               exit
             end if
           end do
-          ! ... increment i if we have hit the exit, do loop would have ended with i=nPar2+1
-          if (i <= nPar2) then
+          ! ... increment i if we have hit the exit, do loop would have ended with i=Data%nPar2+1
+          if (i <= Data%nPar2) then
             i = i + 1
           end if
           ! ... the other individuals do not contribute
-          if (i <= nPotPar2) then ! "="" to capture incremented i+1 on the do loop exit
+          if (i <= Data%nPotPar2) then ! "="" to capture incremented i+1 on the do loop exit
             ! ... zero (the same for all ind so no order)
-            Chrom(nPotPar1+(Rank(i:nPotPar2))) = 0.0d0
+            Chrom(Data%nPotPar1+(Rank(i:Data%nPotPar2))) = 0.0d0
             ! ... negative (the same for all ind so no order)
-            ! Chrom(nPotPar1+(Rank(i:nPotPar2))) = -1.0d0
+            ! Chrom(Data%nPotPar1+(Rank(i:Data%nPotPar2))) = -1.0d0
             ! ... negative (variable with partially preserving order, i.e., ~large positives become ~large negatives)
             !     Found faster convergence than with properly decreasing negative values?
             !     I guess it adds some more randomness, i.e., it causes suffling of individuals that just did not make it onto the mating list.
-            ! Chrom(nPotPar1+(Rank(i:nPotPar2))) = sign(Chrom(nPotPar1+(Rank(i:nPotPar2))), -1.0d0)
+            ! Chrom(Data%nPotPar1+(Rank(i:Data%nPotPar2))) = sign(Chrom(Data%nPotPar1+(Rank(i:Data%nPotPar2))), -1.0d0)
             ! ... negative and properly decreasing
-            ! TmpR = maxval(Chrom(nPotPar1+(Rank(i:nPotPar2))))
+            ! TmpR = maxval(Chrom(Data%nPotPar1+(Rank(i:Data%nPotPar2))))
             ! if (TmpR > 0.0d0) then
-            !     Chrom(nPotPar1+(Rank(i:nPotPar2))) = Chrom(nPotPar1+(Rank(i:nPotPar2))) - abs(TmpR)
+            !     Chrom(Data%nPotPar1+(Rank(i:Data%nPotPar2))) = Chrom(Data%nPotPar1+(Rank(i:Data%nPotPar2))) - abs(TmpR)
             ! end if
             ! ... negative (random so no order)
-            ! do j = i, nPotPar2 ! @todo really need this loop?
+            ! do j = i, Data%nPotPar2 ! @todo really need this loop?
             !   call random_number(RanNum)
-            !   Chrom(nPotPar1+Rank(j)) = -1.0d0 * RanNum
+            !   Chrom(Data%nPotPar1+Rank(j)) = -1.0d0 * RanNum
             ! end do
           end if
-          ! ... nMat still not reached?
-          do while (nCumMat < nMat)
+          ! ... Data%nMat still not reached?
+          do while (nCumMat < Data%nMat)
             ! ... add more contributions
-            do i = nPar2, 1, -1 ! to bottom ranked selected individuals (to avoid local optima)
-              j = nPotPar1 + Rank(i)
+            do i = Data%nPar2, 1, -1 ! to bottom ranked selected individuals (to avoid local optima)
+              j = Data%nPotPar1 + Rank(i)
               Chrom(j) = Chrom(j) + 1.0d0
-              ! ... accumulate and check if we reached nMat
+              ! ... accumulate and check if we reached Data%nMat
               nCumMat = nCumMat + 1
-              if (nCumMat == nMat) then
+              if (nCumMat == Data%nMat) then
                 ! To cater for real vs. integer issues
-                TmpI = sum(nint(Chrom(nPotPar1+Rank(1:nPar2))))
-                if (TmpI /= nMat) then
-                  if (TmpI > nMat) then
+                TmpI = sum(nint(Chrom(Data%nPotPar1+Rank(1:Data%nPar2))))
+                if (TmpI /= Data%nMat) then
+                  if (TmpI > Data%nMat) then
                     Chrom(j) = dble(nint(Chrom(j)) - 1)
                   else
                     Chrom(j) = dble(nint(Chrom(j)) + 1)
@@ -2113,15 +2115,15 @@ module AlphaMateModule
 
       ! "Parent1"
       ! ... get integer values
-      ChromInt(1:nPotPar1) = nint(Chrom(1:nPotPar1))
+      ChromInt(1:Data%nPotPar1) = nint(Chrom(1:Data%nPotPar1))
       ! ... remove negatives
-      do i = 1, nPotPar1
+      do i = 1, Data%nPotPar1
         if (ChromInt(i) < 0) then
           ChromInt(i) = 0
         end if
       end do
       ! ... map internal to external order
-      nVecPar1(:) = ChromInt(1:nPotPar1)
+      nVecPar1(:) = ChromInt(1:Data%nPotPar1)
       if (.not.GenderMatters) then
         This%nVec(:) = nVecPar1(:)
       else
@@ -2132,34 +2134,34 @@ module AlphaMateModule
       if (GenderMatters) then
         nVecPar2(:) = 0
         ! ... get integer values
-        ChromInt(1:nPotPar2) = nint(Chrom((nPotPar1+1):(nPotPar1+nPotPar2)))
+        ChromInt(1:Data%nPotPar2) = nint(Chrom((Data%nPotPar1+1):(Data%nPotPar1+Data%nPotPar2)))
         ! ... remove negatives
-        do i = 1, nPotPar2
+        do i = 1, Data%nPotPar2
           if (ChromInt(i) < 0) then
             ChromInt(i) = 0
           end if
         end do
         ! ... map internal to external order
-        nVecPar2(:) = ChromInt(1:nPotPar2)
+        nVecPar2(:) = ChromInt(1:Data%nPotPar2)
         This%nVec(Data%IdPotPar2) = nVecPar2(:)
       end if
 
-      This%xVec(:) = dble(This%nVec(:)) / (2 * nMat)
+      This%xVec(:) = dble(This%nVec(:)) / (2 * Data%nMat)
 
       ! --- PAGE ---
 
       if (PAGE) then
         if (.not.GenderMatters) then
-          Rank(1:nInd) = MrgRnk(Chrom((nPotPar1+nMat+1):(nPotPar1+nMat+nInd)))
-          This%GenomeEdit(Rank(nInd:(nInd-PAGEPar1Max+1):-1)) = 1.0d0 ! MrgRnk ranks small to large
+          Rank(1:Data%nInd) = MrgRnk(Chrom((Data%nPotPar1+Data%nMat+1):(Data%nPotPar1+Data%nMat+Data%nInd)))
+          This%GenomeEdit(Rank(Data%nInd:(Data%nInd-Spec%PAGEPar1Max+1):-1)) = 1.0d0 ! MrgRnk ranks small to large
         else
           if (PAGEPar1) then
-            Rank(1:nPotPar1) = MrgRnk(Chrom((nPotPar1+nPotPar2+nMat+1):(nPotPar1+nPotPar2+nMat+nPotPar1)))
-            This%GenomeEdit(Data%IdPotPar1(Rank(nPotPar1:(nPotPar1-PAGEPar1Max+1):-1))) = 1.0d0 ! MrgRnk ranks small to large
+            Rank(1:Data%nPotPar1) = MrgRnk(Chrom((Data%nPotPar1+Data%nPotPar2+Data%nMat+1):(Data%nPotPar1+Data%nPotPar2+Data%nMat+Data%nPotPar1)))
+            This%GenomeEdit(Data%IdPotPar1(Rank(Data%nPotPar1:(Data%nPotPar1-Spec%PAGEPar1Max+1):-1))) = 1.0d0 ! MrgRnk ranks small to large
           end if
           if (PAGEPar2) then
-            Rank(1:nPotPar2) = MrgRnk(Chrom((nPotPar1+nPotPar2+nMat+nPotPar1+1):(nPotPar1+nPotPar2+nMat+nPotPar1+nPotPar2)))
-            This%GenomeEdit(Data%IdPotPar2(Rank(nPotPar2:(nPotPar2-PAGEPar2Max+1):-1))) = 1.0d0 ! MrgRnk ranks small to large
+            Rank(1:Data%nPotPar2) = MrgRnk(Chrom((Data%nPotPar1+Data%nPotPar2+Data%nMat+Data%nPotPar1+1):(Data%nPotPar1+Data%nPotPar2+Data%nMat+Data%nPotPar1+Data%nPotPar2)))
+            This%GenomeEdit(Data%IdPotPar2(Rank(Data%nPotPar2:(Data%nPotPar2-Spec%PAGEPar2Max+1):-1))) = 1.0d0 ! MrgRnk ranks small to large
           end if
         end if
       end if
@@ -2170,20 +2172,20 @@ module AlphaMateModule
       if (GenderMatters) then
         ! Distribute parent2 (=female) contributions into matings
         k = 0
-        do i = 1, nPotPar2 ! need to loop whole nVecPar2 as some entries are zero
+        do i = 1, Data%nPotPar2 ! need to loop whole nVecPar2 as some entries are zero
           do j = 1, nVecPar2(i)
             k = k + 1
             MatPar2(k) = Data%IdPotPar2(i)
           end do
         end do
         ! Reorder parent2 contributions according to the rank of matings
-        Rank(1:nMat) = MrgRnk(Chrom((nPotPar1+nPotPar2+1):(nPotPar1+nPotPar2+nMat)))
-        MatPar2(:) = MatPar2(Rank(1:nMat))
+        Rank(1:Data%nMat) = MrgRnk(Chrom((Data%nPotPar1+Data%nPotPar2+1):(Data%nPotPar1+Data%nPotPar2+Data%nMat)))
+        MatPar2(:) = MatPar2(Rank(1:Data%nMat))
       else
         ! Distribute one half of contributions into matings
         k = 0
-        do while (k < nMat)
-          do i = 1, nPotPar1 ! need to loop whole nVecPar1 as some entries are zero
+        do while (k < Data%nMat)
+          do i = 1, Data%nPotPar1 ! need to loop whole nVecPar1 as some entries are zero
             l = nVecPar1(i) / 2
             if (mod(nVecPar1(i), 2) == 1) then
               call random_number(RanNum)
@@ -2192,7 +2194,7 @@ module AlphaMateModule
               end if
             end if
             do j = 1, l
-              if (k == nMat) then
+              if (k == Data%nMat) then
                 exit
               end if
               k = k + 1
@@ -2202,19 +2204,19 @@ module AlphaMateModule
           end do
         end do
         ! Reorder one half of contributions according to the rank of matings
-        Rank(1:nMat) = MrgRnk(Chrom((nPotPar1+1):(nPotPar1+nMat)))
-        MatPar2(:) = MatPar2(Rank(1:nMat))
+        Rank(1:Data%nMat) = MrgRnk(Chrom((Data%nPotPar1+1):(Data%nPotPar1+Data%nMat)))
+        MatPar2(:) = MatPar2(Rank(1:Data%nMat))
       end if
 
       ! Pair the contributions (=Mating plan)
-      k = nMat ! MrgRnk ranks small to large
+      k = Data%nMat ! MrgRnk ranks small to large
       if (GenderMatters .or. SelfingAllowed) then
         ! When gender matters selfing can not happen (we have two distinct sets of parents,
         ! unless the user adds individuals of one sex in both sets) and when SelfingAllowed
         ! we do not need to care about it - faster code
-        do i = 1, nPotPar1
+        do i = 1, Data%nPotPar1
           do j = 1, nVecPar1(i)
-            !if (k<2) print*, k, i, j, nVecPar1(i), nMat, sum(nVecPar1(:))
+            !if (k<2) print*, k, i, j, nVecPar1(i), Data%nMat, sum(nVecPar1(:))
             This%MatingPlan(1, k) = Data%IdPotPar1(i)
             This%MatingPlan(2, k) = MatPar2(k)
             k = k - 1
@@ -2223,7 +2225,7 @@ module AlphaMateModule
       else
         ! When gender does not matter, selfing can happen (we have one set of parents)
         ! and when selfing is not allowed we need to avoid it - slower code
-        do i = 1, nPotPar1
+        do i = 1, Data%nPotPar1
           do j = 1, nVecPar1(i)
             This%MatingPlan(1, k) = Data%IdPotPar1(i)
             if (MatPar2(k) == Data%IdPotPar1(i)) then
@@ -2231,7 +2233,7 @@ module AlphaMateModule
               do l = k, 1, -1
                 if (MatPar2(l) /= Data%IdPotPar1(i)) then
                   MatPar2([k, l]) = MatPar2([l, k])
-                  Chrom(nPotPar1+Rank([k, l])) = Chrom(nPotPar1+Rank([l, k]))
+                  Chrom(Data%nPotPar1+Rank([k, l])) = Chrom(Data%nPotPar1+Rank([l, k]))
                   exit
                 end if
               end do
@@ -2268,8 +2270,8 @@ module AlphaMateModule
       ! --- Generic individual values ---
 
       if (GenericIndValAvailable) then
-        do j = 1, nGenericIndVal
-          TmpR = dot_product(This%xVec, GenericIndVal(:, j))
+        do j = 1, Data%nGenericIndVal
+          TmpR = dot_product(This%xVec, Data%GenericIndVal(:, j))
           This%GenericIndVal(j) = TmpR
           TmpR = GenericIndValWeight(j) * This%GenericIndVal(j)
           This%Criterion = This%Criterion + TmpR
@@ -2282,7 +2284,7 @@ module AlphaMateModule
       ! --- Coancestry ---
 
       ! x'C
-      do i = 1, nInd
+      do i = 1, Data%nInd
         TmpVec(i, 1) = dot_product(This%xVec, Data%Coancestry%Value(1:, i))
       end do
       ! @todo consider using matmul instead of repeated dot_product?
@@ -2290,8 +2292,8 @@ module AlphaMateModule
       ! Matrix multiplication with a symmetric matrix using BLAS routine
       ! (it was ~5x slower than the above with 1.000 individuals, might be benefical with larger cases)
       ! http://www.netlib.org/lapack/explore-html/d1/d54/group__double__blas__level3.html#ga253c8edb8b21d1b5b1783725c2a6b692
-      ! call dsymm(side="l", uplo="l", m=nInd, n=1, alpha=1.0d0, A=CoaMtx, lda=nInd, b=This%xVec, ldb=nInd, beta=0, c=TmpVec, ldc=nInd)
-      ! call dsymm(     "l",      "l",   nInd,   1,       1.0d0,   CoaMtx,     nInd,   This%xVec,     nInd,      0,   TmpVec,     nInd)
+      ! call dsymm(side="l", uplo="l", m=Data%nInd, n=1, alpha=1.0d0, A=CoaMtx, lda=Data%nInd, b=This%xVec, ldb=Data%nInd, beta=0, c=TmpVec, ldc=Data%nInd)
+      ! call dsymm(     "l",      "l",   Data%nInd,   1,       1.0d0,   CoaMtx,     Data%nInd,   This%xVec,     Data%nInd,      0,   TmpVec,     Data%nInd)
 
       ! x'Cx
 !TODO
@@ -2332,13 +2334,13 @@ module AlphaMateModule
 
       !print*, "@todo need to check progeny inbreeding in light of genomic coancestry matrix!!!"
       TmpR = 0.0d0
-      do j = 1, nMat
+      do j = 1, Data%nMat
         ! Lower triangle to speedup lookup
         TmpMax = maxval(This%MatingPlan(:, j))
         TmpMin = minval(This%MatingPlan(:, j))
         TmpR = TmpR + 0.5d0 * Data%Coancestry%Value(TmpMax, TmpMin)
       end do
-      This%FutureInbreeding = TmpR / nMat
+      This%FutureInbreeding = TmpR / Data%nMat
       This%InbreedingRate = (This%FutureInbreeding - Data%CurrentInbreeding) / (1.0d0 - Data%CurrentInbreeding)
       ! We know the targeted rate of inbreeding so we can work with relative values,
       ! which makes the InbreedingWeight generic for ~any scenario.
@@ -2362,21 +2364,22 @@ module AlphaMateModule
       ! --- Generic mating values ---
 
       if (GenericMatValAvailable) then
-        do k = 1, nGenericMatVal
+        do k = 1, Data%nGenericMatVal
           TmpR = 0.0d0
           if (GenderMatters) then
-            do j = 1, nMat
-              TmpR = TmpR + GenericMatVal(Data%IdPotParSeq(This%MatingPlan(1, j)), &
-                                          Data%IdPotParSeq(This%MatingPlan(2, j)), k)
+            do j = 1, Data%nMat
+              TmpR = TmpR + Data%GenericMatVal(Data%IdPotParSeq(This%MatingPlan(1, j)), &
+                                               Data%IdPotParSeq(This%MatingPlan(2, j)), k)
             end do
           else
-            do j = 1, nMat
+            do j = 1, Data%nMat
+              ! Speedup lookup
               TmpMax = maxval(This%MatingPlan(:, j))
               TmpMin = minval(This%MatingPlan(:, j))
-              TmpR = TmpR + GenericMatVal(TmpMax, TmpMin, k)
+              TmpR = TmpR + Data%GenericMatVal(TmpMax, TmpMin, k)
             end do
           end if
-          This%GenericMatVal(k) = TmpR / nMat
+          This%GenericMatVal(k) = TmpR / Data%nMat
           TmpR = GenericMatValWeight(k) * This%GenericMatVal(k)
           This%Criterion = This%Criterion + TmpR
           if (GenericMatValWeight(k) < 0.0) then
