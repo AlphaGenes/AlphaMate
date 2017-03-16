@@ -916,19 +916,19 @@ module AlphaMateModule
         call Coancestry%Nrm2Coancestry
       end if
 
-      CoancestryStat = DescStatSymMatrix(Coancestry%Value(1:, 1:))
+      Data%CoancestryStat = DescStatSymMatrix(Coancestry%Value(1:, 1:))
       if (GenderMatters) then
 ! TODO
-        CoancestryStatGenderDiff = DescStatSymMatrix(Coancestry%Value(1:, 1:))
-        CoancestryStatGender1    = DescStatSymMatrix(Coancestry%Value(1:, 1:))
-        CoancestryStatGender2    = DescStatSymMatrix(Coancestry%Value(1:, 1:))
+        Data%CoancestryStatGenderDiff = DescStatSymMatrix(Coancestry%Value(1:, 1:))
+        Data%CoancestryStatGender1    = DescStatSymMatrix(Coancestry%Value(1:, 1:))
+        Data%CoancestryStatGender2    = DescStatSymMatrix(Coancestry%Value(1:, 1:))
       end if
 
       ! Current
-      CurrentCoancestryRanMate       = CoancestryStat%All%Mean
-      CurrentCoancestryRanMateNoSelf = CoancestryStat%OffDiag%Mean
+      CurrentCoancestryRanMate       = Data%CoancestryStat%All%Mean
+      CurrentCoancestryRanMateNoSelf = Data%CoancestryStat%OffDiag%Mean
       if (GenderMatters) then
-        CurrentCoancestryGenderMate  = CoancestryStatGenderDiff%All%Mean
+        CurrentCoancestryGenderMate  = Data%CoancestryStatGenderDiff%All%Mean
       end if
 
       ! Obtain limit/target based on given rates
@@ -941,41 +941,41 @@ module AlphaMateModule
 
       write(STDOUT, "(a)") "  - coancestry among individuals (including self-coancestry)"
       write(STDOUT, "(a)") "    (expected inbreeding under random mating, including selfing)"
-      write(STDOUT, "(a)") "    - average: "//trim(Real2Char(CoancestryStat%All%Mean, fmt=FMTREAL2CHAR))//", limit/target: "//trim(Real2Char(TargetCoancestryRanMate, fmt=FMTREAL2CHAR))
-      write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(CoancestryStat%All%SD,   fmt=FMTREAL2CHAR))
-      write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(CoancestryStat%All%Min,  fmt=FMTREAL2CHAR))
-      write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(CoancestryStat%All%Max,  fmt=FMTREAL2CHAR))
+      write(STDOUT, "(a)") "    - average: "//trim(Real2Char(Data%CoancestryStat%All%Mean, fmt=FMTREAL2CHAR))//", limit/target: "//trim(Real2Char(TargetCoancestryRanMate, fmt=FMTREAL2CHAR))
+      write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(Data%CoancestryStat%All%SD,   fmt=FMTREAL2CHAR))
+      write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(Data%CoancestryStat%All%Min,  fmt=FMTREAL2CHAR))
+      write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(Data%CoancestryStat%All%Max,  fmt=FMTREAL2CHAR))
 
       write(STDOUT, "(a)") ""
       write(STDOUT, "(a)") "  - coancestry between individuals"
       write(STDOUT, "(a)") "    (expected inbreeding under random mating, excluding selfing)"
-      write(STDOUT, "(a)") "    - average: "//trim(Real2Char(CoancestryStat%OffDiag%Mean, fmt=FMTREAL2CHAR))//", limit/target: "//trim(Real2Char(TargetCoancestryRanMateNoSelf, fmt=FMTREAL2CHAR))
-      write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(CoancestryStat%OffDiag%SD,   fmt=FMTREAL2CHAR))
-      write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(CoancestryStat%OffDiag%Min,  fmt=FMTREAL2CHAR))
-      write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(CoancestryStat%OffDiag%Max,  fmt=FMTREAL2CHAR))
+      write(STDOUT, "(a)") "    - average: "//trim(Real2Char(Data%CoancestryStat%OffDiag%Mean, fmt=FMTREAL2CHAR))//", limit/target: "//trim(Real2Char(TargetCoancestryRanMateNoSelf, fmt=FMTREAL2CHAR))
+      write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(Data%CoancestryStat%OffDiag%SD,   fmt=FMTREAL2CHAR))
+      write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(Data%CoancestryStat%OffDiag%Min,  fmt=FMTREAL2CHAR))
+      write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(Data%CoancestryStat%OffDiag%Max,  fmt=FMTREAL2CHAR))
 
       if (GenderMatters) then
         write(STDOUT, "(a)") ""
         write(STDOUT, "(a)") "  - coancestry between individuals of different gender"
         write(STDOUT, "(a)") "    (expected inbreeding under random mating, excluding selfing and equal-gender mating)"
-        write(STDOUT, "(a)") "    - average: "//trim(Real2Char(CoancestryStatGenderDiff%All%Mean, fmt=FMTREAL2CHAR))//", limit/target: "//trim(Real2Char(TargetCoancestryGenderMate, fmt=FMTREAL2CHAR))
-        write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(CoancestryStatGenderDiff%All%SD,   fmt=FMTREAL2CHAR))
-        write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(CoancestryStatGenderDiff%All%Min,  fmt=FMTREAL2CHAR))
-        write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(CoancestryStatGenderDiff%All%Max,  fmt=FMTREAL2CHAR))
+        write(STDOUT, "(a)") "    - average: "//trim(Real2Char(Data%CoancestryStatGenderDiff%All%Mean, fmt=FMTREAL2CHAR))//", limit/target: "//trim(Real2Char(TargetCoancestryGenderMate, fmt=FMTREAL2CHAR))
+        write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(Data%CoancestryStatGenderDiff%All%SD,   fmt=FMTREAL2CHAR))
+        write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(Data%CoancestryStatGenderDiff%All%Min,  fmt=FMTREAL2CHAR))
+        write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(Data%CoancestryStatGenderDiff%All%Max,  fmt=FMTREAL2CHAR))
 
         write(STDOUT, "(a)") ""
         write(STDOUT, "(a)") "  - coancestry between individuals of gender 1"
-        write(STDOUT, "(a)") "    - average: "//trim(Real2Char(CoancestryStatGender1%All%Mean, fmt=FMTREAL2CHAR))
-        write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(CoancestryStatGender1%All%SD,   fmt=FMTREAL2CHAR))
-        write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(CoancestryStatGender1%All%Min,  fmt=FMTREAL2CHAR))
-        write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(CoancestryStatGender1%All%Max,  fmt=FMTREAL2CHAR))
+        write(STDOUT, "(a)") "    - average: "//trim(Real2Char(Data%CoancestryStatGender1%All%Mean, fmt=FMTREAL2CHAR))
+        write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(Data%CoancestryStatGender1%All%SD,   fmt=FMTREAL2CHAR))
+        write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(Data%CoancestryStatGender1%All%Min,  fmt=FMTREAL2CHAR))
+        write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(Data%CoancestryStatGender1%All%Max,  fmt=FMTREAL2CHAR))
 
         write(STDOUT, "(a)") ""
         write(STDOUT, "(a)") "  - coancestry between individuals of gender 2"
-        write(STDOUT, "(a)") "    - average: "//trim(Real2Char(CoancestryStatGender2%All%Mean, fmt=FMTREAL2CHAR))
-        write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(CoancestryStatGender2%All%SD,   fmt=FMTREAL2CHAR))
-        write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(CoancestryStatGender2%All%Min,  fmt=FMTREAL2CHAR))
-        write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(CoancestryStatGender2%All%Max,  fmt=FMTREAL2CHAR))
+        write(STDOUT, "(a)") "    - average: "//trim(Real2Char(Data%CoancestryStatGender2%All%Mean, fmt=FMTREAL2CHAR))
+        write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(Data%CoancestryStatGender2%All%SD,   fmt=FMTREAL2CHAR))
+        write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(Data%CoancestryStatGender2%All%Min,  fmt=FMTREAL2CHAR))
+        write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(Data%CoancestryStatGender2%All%Max,  fmt=FMTREAL2CHAR))
       end if
 
       ! Report
@@ -994,17 +994,17 @@ module AlphaMateModule
       call Coancestry%Inbreeding(Out=Inbreeding, Nrm=.false.)
 
       ! Current
-      InbreedingStat = DescStat(Inbreeding%Value(1:))
-      CurrentInbreeding = InbreedingStat%Mean
+      Data%InbreedingStat = DescStat(Inbreeding%Value(1:))
+      CurrentInbreeding = Data%InbreedingStat%Mean
 
       ! Obtain limit/target based on given rates
       ! F_t = DeltaF + (1 - DeltaF) * F_t-1
       TargetInbreeding = TargetInbreedingRate + (1.0d0 - TargetInbreedingRate) * CurrentInbreeding
 
-      write(STDOUT, "(a)") "  - average: "//trim(Real2Char(InbreedingStat%Mean, fmt=FMTREAL2CHAR))//", limit/target: "//trim(Real2Char(TargetInbreeding, fmt=FMTREAL2CHAR))
-      write(STDOUT, "(a)") "  - st.dev.: "//trim(Real2Char(InbreedingStat%SD,   fmt=FMTREAL2CHAR))
-      write(STDOUT, "(a)") "  - minimum: "//trim(Real2Char(InbreedingStat%Min,  fmt=FMTREAL2CHAR))
-      write(STDOUT, "(a)") "  - maximum: "//trim(Real2Char(InbreedingStat%Max,  fmt=FMTREAL2CHAR))
+      write(STDOUT, "(a)") "  - average: "//trim(Real2Char(Data%InbreedingStat%Mean, fmt=FMTREAL2CHAR))//", limit/target: "//trim(Real2Char(TargetInbreeding, fmt=FMTREAL2CHAR))
+      write(STDOUT, "(a)") "  - st.dev.: "//trim(Real2Char(Data%InbreedingStat%SD,   fmt=FMTREAL2CHAR))
+      write(STDOUT, "(a)") "  - minimum: "//trim(Real2Char(Data%InbreedingStat%Min,  fmt=FMTREAL2CHAR))
+      write(STDOUT, "(a)") "  - maximum: "//trim(Real2Char(Data%InbreedingStat%Max,  fmt=FMTREAL2CHAR))
       write(STDOUT, "(a)") " "
 
       open(newunit=AvgInbreedingUnit, file="AverageInbreeding.txt", status="unknown")
@@ -1054,15 +1054,15 @@ module AlphaMateModule
         end do
         close(SelCriterionUnit)
 
-        SelCriterionStat = DescStat(SelCriterion)
-        SelCriterionStand(:) = (SelCriterion(:) - SelCriterionStat%Mean) / SelCriterionStat%SD
-        write(STDOUT, "(a)") "  - average: "//trim(Real2Char(SelCriterionStat%Mean, fmt=FMTREAL2CHAR))
-        write(STDOUT, "(a)") "  - st.dev.: "//trim(Real2Char(SelCriterionStat%SD,   fmt=FMTREAL2CHAR))
-        write(STDOUT, "(a)") "  - minimum: "//trim(Real2Char(SelCriterionStat%Min,  fmt=FMTREAL2CHAR))
-        write(STDOUT, "(a)") "  - maximum: "//trim(Real2Char(SelCriterionStat%Max,  fmt=FMTREAL2CHAR))
+        Data%SelCriterionStat = DescStat(SelCriterion)
+        SelCriterionStand(:) = (SelCriterion(:) - Data%SelCriterionStat%Mean) / Data%SelCriterionStat%SD
+        write(STDOUT, "(a)") "  - average: "//trim(Real2Char(Data%SelCriterionStat%Mean, fmt=FMTREAL2CHAR))
+        write(STDOUT, "(a)") "  - st.dev.: "//trim(Real2Char(Data%SelCriterionStat%SD,   fmt=FMTREAL2CHAR))
+        write(STDOUT, "(a)") "  - minimum: "//trim(Real2Char(Data%SelCriterionStat%Min,  fmt=FMTREAL2CHAR))
+        write(STDOUT, "(a)") "  - maximum: "//trim(Real2Char(Data%SelCriterionStat%Max,  fmt=FMTREAL2CHAR))
         write(STDOUT, "(a)") " "
 
-        if (SelCriterionStat%SD == 0.0) then
+        if (Data%SelCriterionStat%SD == 0.0) then
           write(STDERR, "(a)") "ERROR: There is no variation in values!"
           write(STDERR, "(a)") "ERROR: Is this intentional?"
           write(STDERR, "(a)") " "
@@ -1071,20 +1071,20 @@ module AlphaMateModule
 
         if (PAGE) then
           ! must have the same scaling as selection criterion!!!!
-          SelCriterionPAGEStand(:) = (SelCriterionPAGE(:) - SelCriterionStat%Mean) / SelCriterionStat%SD
+          SelCriterionPAGEStand(:) = (SelCriterionPAGE(:) - Data%SelCriterionStat%Mean) / Data%SelCriterionStat%SD
           ! only the PAGE bit of SelCriterion
           SelCriterionPAGE(:) = SelCriterionPAGE(:) - SelCriterion(:)
           SelCriterionPAGEStand(:) = SelCriterionPAGEStand(:) - SelCriterionStand(:)
-          SelCriterionPAGEStat = DescStat(SelCriterionPAGE)
+          Data%SelCriterionPAGEStat = DescStat(SelCriterionPAGE)
           write(STDOUT, "(a)") "Genome editing increments"
-          write(STDOUT, "(a)") "  - average: "//trim(Real2Char(SelCriterionPAGEStat%Mean, fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") "  - st.dev.: "//trim(Real2Char(SelCriterionPAGEStat%SD,   fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") "  - minimum: "//trim(Real2Char(SelCriterionPAGEStat%Min,  fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") "  - maximum: "//trim(Real2Char(SelCriterionPAGEStat%Max,  fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "  - average: "//trim(Real2Char(Data%SelCriterionPAGEStat%Mean, fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "  - st.dev.: "//trim(Real2Char(Data%SelCriterionPAGEStat%SD,   fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "  - minimum: "//trim(Real2Char(Data%SelCriterionPAGEStat%Min,  fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "  - maximum: "//trim(Real2Char(Data%SelCriterionPAGEStat%Max,  fmt=FMTREAL2CHAR))
           write(STDOUT, "(a)") " "
         end if
 
-        if (SelCriterionPAGEStat%SD == 0.0) then
+        if (Data%SelCriterionPAGEStat%SD == 0.0) then
           write(STDERR, "(a)") "ERROR: There is no variation in values!"
           write(STDERR, "(a)") "ERROR: Is this intentional?"
           write(STDERR, "(a)") " "
@@ -1255,14 +1255,14 @@ module AlphaMateModule
         end do
         close(GenericIndValUnit)
 
-        allocate(GenericIndValStat(nGenericIndVal))
+        allocate(Data%GenericIndValStat(nGenericIndVal))
         do j = 1, nGenericIndVal
           write(STDOUT, "(a)") "  - column "//trim(Int2Char(j))
-          GenericIndValStat(i) = DescStat(GenericIndVal(:, j))
-          write(STDOUT, "(a)") "    - average: "//trim(Real2Char(GenericIndValStat(i)%Mean, fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(GenericIndValStat(i)%SD,   fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(GenericIndValStat(i)%Min,  fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(GenericIndValStat(i)%Max,  fmt=FMTREAL2CHAR))
+          Data%GenericIndValStat(i) = DescStat(GenericIndVal(:, j))
+          write(STDOUT, "(a)") "    - average: "//trim(Real2Char(Data%GenericIndValStat(i)%Mean, fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(Data%GenericIndValStat(i)%SD,   fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(Data%GenericIndValStat(i)%Min,  fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(Data%GenericIndValStat(i)%Max,  fmt=FMTREAL2CHAR))
         end do
         write(STDOUT, "(a)") " "
       end if
@@ -1324,28 +1324,28 @@ module AlphaMateModule
         end do
         close(GenericMatValUnit)
 
-        allocate(GenericMatValStat(nGenericMatVal))
+        allocate(Data%GenericMatValStat(nGenericMatVal))
         do k = 1, nGenericMatVal
           write(STDOUT, "(a)") "  - column "//trim(Int2Char(k))
           if (GenderMatters) then
-            GenericMatValStat(k) = DescStatMatrix(GenericMatVal(:, :, k))
-            write(STDOUT, "(a)") "    - average: "//trim(Real2Char(GenericMatValStat(k)%All%Mean, fmt=FMTREAL2CHAR))
-            write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(GenericMatValStat(k)%All%SD,   fmt=FMTREAL2CHAR))
-            write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(GenericMatValStat(k)%All%Min,  fmt=FMTREAL2CHAR))
-            write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(GenericMatValStat(k)%All%Max,  fmt=FMTREAL2CHAR))
+            Data%GenericMatValStat(k) = DescStatMatrix(GenericMatVal(:, :, k))
+            write(STDOUT, "(a)") "    - average: "//trim(Real2Char(Data%GenericMatValStat(k)%All%Mean, fmt=FMTREAL2CHAR))
+            write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(Data%GenericMatValStat(k)%All%SD,   fmt=FMTREAL2CHAR))
+            write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(Data%GenericMatValStat(k)%All%Min,  fmt=FMTREAL2CHAR))
+            write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(Data%GenericMatValStat(k)%All%Max,  fmt=FMTREAL2CHAR))
           else
             if (SelfingAllowed) then
-              GenericMatValStat(k) = DescStatLowTriMatrix(GenericMatVal(:, :, k))
-              write(STDOUT, "(a)") "    - average: "//trim(Real2Char(GenericMatValStat(k)%All%Mean, fmt=FMTREAL2CHAR))
-              write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(GenericMatValStat(k)%All%SD,   fmt=FMTREAL2CHAR))
-              write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(GenericMatValStat(k)%All%Min,  fmt=FMTREAL2CHAR))
-              write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(GenericMatValStat(k)%All%Max,  fmt=FMTREAL2CHAR))
+              Data%GenericMatValStat(k) = DescStatLowTriMatrix(GenericMatVal(:, :, k))
+              write(STDOUT, "(a)") "    - average: "//trim(Real2Char(Data%GenericMatValStat(k)%All%Mean, fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(Data%GenericMatValStat(k)%All%SD,   fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(Data%GenericMatValStat(k)%All%Min,  fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(Data%GenericMatValStat(k)%All%Max,  fmt=FMTREAL2CHAR))
             end if
-              GenericMatValStat(k) = DescStatLowTriMatrix(GenericMatVal(:, :, k), Diag=.false.)
-              write(STDOUT, "(a)") "    - average: "//trim(Real2Char(GenericMatValStat(k)%OffDiag%Mean, fmt=FMTREAL2CHAR))
-              write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(GenericMatValStat(k)%OffDiag%SD,   fmt=FMTREAL2CHAR))
-              write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(GenericMatValStat(k)%OffDiag%Min,  fmt=FMTREAL2CHAR))
-              write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(GenericMatValStat(k)%OffDiag%Max,  fmt=FMTREAL2CHAR))
+              Data%GenericMatValStat(k) = DescStatLowTriMatrix(GenericMatVal(:, :, k), Diag=.false.)
+              write(STDOUT, "(a)") "    - average: "//trim(Real2Char(Data%GenericMatValStat(k)%OffDiag%Mean, fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(Data%GenericMatValStat(k)%OffDiag%SD,   fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(Data%GenericMatValStat(k)%OffDiag%Min,  fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(Data%GenericMatValStat(k)%OffDiag%Max,  fmt=FMTREAL2CHAR))
           end if
         end do
         write(STDOUT, "(a)") " "
