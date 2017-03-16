@@ -80,12 +80,14 @@ module AlphaMateModule
     type(RelMat) :: Coancestry
     type(InbVec) :: Inbreeding
     real(real64), allocatable :: SelCriterion(:), SelCriterionStand(:), SelCriterionPAGE(:), SelCriterionPAGEStand(:)
+    integer(int32), allocatable :: Gender(:)
     ! Data summaries
     type(DescStatReal64) :: InbreedingStat, SelCriterionStat, SelCriterionPAGEStat
     type(DescStatReal64), allocatable :: GenericIndValStat(:)
     type(DescStatMatrixReal64) :: CoancestryStat, CoancestryStatGenderDiff, CoancestryStatGender1, CoancestryStatGender2
     type(DescStatMatrixReal64), allocatable :: GenericMatValStat(:)
     ! Derived data
+    integer(int32), allocatable :: IdPotPar1(:), IdPotPar2(:), IdPotParSeq(:)
     real(real64) :: CurrentCoancestryRanMate, CurrentCoancestryRanMateNoSelf, CurrentCoancestryGenderMate
     real(real64) :: CurrentInbreeding
     real(real64) :: TargetCoancestryRanMate, TargetCoancestryRanMateNoSelf, TargetCoancestryGenderMate
@@ -125,7 +127,6 @@ module AlphaMateModule
   integer(int32) :: nInd, nMat, nPotMat, nPar, nPotPar1, nPotPar2, nMal, nFem, nPar1, nPar2, nFrontierSteps
   integer(int32) :: EvolAlgNSol, EvolAlgNGen, EvolAlgNGenBurnIn, EvolAlgNGenStop, EvolAlgNGenPrint, RanAlgStricter
   integer(int32) :: PAGEPar1Max, PAGEPar2Max, nGenericIndVal, nGenericMatVal
-  integer(int32), allocatable :: Gender(:), IdPotPar1(:), IdPotPar2(:), IdPotParSeq(:)
 
   real(real64) :: LimitPar1Min, LimitPar1Max, LimitPar2Min, LimitPar2Max
   real(real64) :: EvolAlgStopTol, EvolAlgCRBurnIn, EvolAlgCRLate, EvolAlgFBase, EvolAlgFHigh1, EvolAlgFHigh2
@@ -1098,9 +1099,9 @@ module AlphaMateModule
 
       ! --- Gender ---
 
-      allocate(Gender(nInd))
+      allocate(Data%Gender(nInd))
 
-      Gender(:) = 0
+      Data%Gender(:) = 0
       if (GenderMatters) then
         write(STDOUT, "(a)") "Gender"
         nIndTmp = CountLines(GenderFile)
@@ -1134,7 +1135,7 @@ module AlphaMateModule
             write(STDERR, "(a)") " "
             stop 1
           end if
-          Gender(j) = GenderTmp
+          Data%Gender(j) = GenderTmp
         end do
         close(GenderUnit)
 
@@ -1163,27 +1164,27 @@ module AlphaMateModule
       if (.not.GenderMatters) then
         nPotPar1 = nInd
         nPotPar2 = nInd
-        allocate(IdPotPar1(nPotPar1))
+        allocate(Data%IdPotPar1(nPotPar1))
         do i = 1, nInd
-          IdPotPar1(i) = i
+          Data%IdPotPar1(i) = i
         end do
       else
         nPotPar1 = nMal
         nPotPar2 = nFem
-        allocate(IdPotPar1(nPotPar1))
-        allocate(IdPotPar2(nPotPar2))
-        allocate(IdPotParSeq(nInd))
+        allocate(Data%IdPotPar1(nPotPar1))
+        allocate(Data%IdPotPar2(nPotPar2))
+        allocate(Data%IdPotParSeq(nInd))
         jMal = 0
         jFem = 0
         do i = 1, nInd
-          if (Gender(i) == 1) then
+          if (Data%Gender(i) == 1) then
             jMal = jMal + 1
-            IdPotPar1(jMal) = i
-            IdPotParSeq(i) = jMal
+            Data%IdPotPar1(jMal) = i
+            Data%IdPotParSeq(i) = jMal
           else
             jFem = jFem + 1
-            IdPotPar2(jFem) = i
-            IdPotParSeq(i) = jFem
+            Data%IdPotPar2(jFem) = i
+            Data%IdPotParSeq(i) = jFem
           end if
         end do
         if (nPar1 > nPotPar1) then
@@ -1301,14 +1302,14 @@ module AlphaMateModule
             stop 1
           end if
           if (GenderMatters) then
-            l = FindLoc(j, IdPotPar1)
+            l = FindLoc(j, Data%IdPotPar1)
             if (l == 0) then
               write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the first column in the generic mating values file should be a male!"
               write(STDERR, "(a)") "ERROR: Generic mating values file (line "//trim(Int2Char(i))//"): "//trim(IdCTmp)//" "//trim(IdCTmp2)
               write(STDERR, "(a)") " "
               stop 1
             end if
-            m = FindLoc(k, IdPotPar2)
+            m = FindLoc(k, Data%IdPotPar2)
             if (l == 0) then
               write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp2)//" from the second column in the generic mating values file should be a female!"
               write(STDERR, "(a)") "ERROR: Generic mating values file (line "//trim(Int2Char(i))//"): "//trim(IdCTmp)//" "//trim(IdCTmp2)
@@ -1319,7 +1320,7 @@ module AlphaMateModule
             ! - l and m tell respectively the position within IdPotPar1 and IdPotPar2
             ! - values in IdPotPar1 and IdPotPar2 are "joint" Id of males and females
             ! - values in IdPotParSeq are separate Id of males and females (need these to find matching row and column)
-            GenericMatVal(IdPotParSeq(IdPotPar1(l)), IdPotParSeq(IdPotPar2(m)), :) = GenericMatValTmp(:)
+            GenericMatVal(Data%IdPotParSeq(Data%IdPotPar1(l)), Data%IdPotParSeq(Data%IdPotPar2(m)), :) = GenericMatValTmp(:)
           else
             ! fill lower-triangle (half-diallel)
             GenericMatVal(maxval([j, k]), minval([j, k]), :) = GenericMatValTmp(:)
@@ -1629,7 +1630,7 @@ module AlphaMateModule
                                                 "     nMating"
         do i = nInd, 1, -1 ! MrgRnk ranks small to large
           j = Rank(i)
-          write(ContribUnit, FMTCONTRIBUTION) Data%Coancestry%OriginalId(j), Gender(j), Data%SelCriterion(j), &
+          write(ContribUnit, FMTCONTRIBUTION) Data%Coancestry%OriginalId(j), Data%Gender(j), Data%SelCriterion(j), &
                                               sum(Data%Coancestry%Value(1:, j)) / nInd, &
                                               Sol%xVec(j), Sol%nVec(j)
         end do
@@ -1645,7 +1646,7 @@ module AlphaMateModule
                                                     " EditedValue"
         do i = nInd, 1, -1 ! MrgRnk ranks small to large
           j = Rank(i)
-          write(ContribUnit, FMTCONTRIBUTIONEDIT) Data%Coancestry%OriginalId(j), Gender(j), Data%SelCriterion(j), &
+          write(ContribUnit, FMTCONTRIBUTIONEDIT) Data%Coancestry%OriginalId(j), Data%Gender(j), Data%SelCriterion(j), &
                                                   sum(Data%Coancestry%Value(1:, j)) / nInd, &
                                                   Sol%xVec(j), Sol%nVec(j), &
                                                   nint(Sol%GenomeEdit(j)), Data%SelCriterion(j) + Sol%GenomeEdit(j) * Data%SelCriterionPAGE(j)
@@ -2124,7 +2125,7 @@ module AlphaMateModule
       if (.not.GenderMatters) then
         This%nVec(:) = nVecPar1(:)
       else
-        This%nVec(IdPotPar1) = nVecPar1(:)
+        This%nVec(Data%IdPotPar1) = nVecPar1(:)
       end if
 
       ! "Parent2"
@@ -2140,7 +2141,7 @@ module AlphaMateModule
         end do
         ! ... map internal to external order
         nVecPar2(:) = ChromInt(1:nPotPar2)
-        This%nVec(IdPotPar2) = nVecPar2(:)
+        This%nVec(Data%IdPotPar2) = nVecPar2(:)
       end if
 
       This%xVec(:) = dble(This%nVec(:)) / (2 * nMat)
@@ -2154,11 +2155,11 @@ module AlphaMateModule
         else
           if (PAGEPar1) then
             Rank(1:nPotPar1) = MrgRnk(Chrom((nPotPar1+nPotPar2+nMat+1):(nPotPar1+nPotPar2+nMat+nPotPar1)))
-            This%GenomeEdit(IdPotPar1(Rank(nPotPar1:(nPotPar1-PAGEPar1Max+1):-1))) = 1.0d0 ! MrgRnk ranks small to large
+            This%GenomeEdit(Data%IdPotPar1(Rank(nPotPar1:(nPotPar1-PAGEPar1Max+1):-1))) = 1.0d0 ! MrgRnk ranks small to large
           end if
           if (PAGEPar2) then
             Rank(1:nPotPar2) = MrgRnk(Chrom((nPotPar1+nPotPar2+nMat+nPotPar1+1):(nPotPar1+nPotPar2+nMat+nPotPar1+nPotPar2)))
-            This%GenomeEdit(IdPotPar2(Rank(nPotPar2:(nPotPar2-PAGEPar2Max+1):-1))) = 1.0d0 ! MrgRnk ranks small to large
+            This%GenomeEdit(Data%IdPotPar2(Rank(nPotPar2:(nPotPar2-PAGEPar2Max+1):-1))) = 1.0d0 ! MrgRnk ranks small to large
           end if
         end if
       end if
@@ -2172,7 +2173,7 @@ module AlphaMateModule
         do i = 1, nPotPar2 ! need to loop whole nVecPar2 as some entries are zero
           do j = 1, nVecPar2(i)
             k = k + 1
-            MatPar2(k) = IdPotPar2(i)
+            MatPar2(k) = Data%IdPotPar2(i)
           end do
         end do
         ! Reorder parent2 contributions according to the rank of matings
@@ -2195,7 +2196,7 @@ module AlphaMateModule
                 exit
               end if
               k = k + 1
-              MatPar2(k) = IdPotPar1(i)
+              MatPar2(k) = Data%IdPotPar1(i)
               nVecPar1(i) = nVecPar1(i) - 1
             end do
           end do
@@ -2214,7 +2215,7 @@ module AlphaMateModule
         do i = 1, nPotPar1
           do j = 1, nVecPar1(i)
             !if (k<2) print*, k, i, j, nVecPar1(i), nMat, sum(nVecPar1(:))
-            This%MatingPlan(1, k) = IdPotPar1(i)
+            This%MatingPlan(1, k) = Data%IdPotPar1(i)
             This%MatingPlan(2, k) = MatPar2(k)
             k = k - 1
           end do
@@ -2224,11 +2225,11 @@ module AlphaMateModule
         ! and when selfing is not allowed we need to avoid it - slower code
         do i = 1, nPotPar1
           do j = 1, nVecPar1(i)
-            This%MatingPlan(1, k) = IdPotPar1(i)
-            if (MatPar2(k) == IdPotPar1(i)) then
+            This%MatingPlan(1, k) = Data%IdPotPar1(i)
+            if (MatPar2(k) == Data%IdPotPar1(i)) then
               ! Try to avoid selfing by swapping the MatPar2 and Rank elements
               do l = k, 1, -1
-                if (MatPar2(l) /= IdPotPar1(i)) then
+                if (MatPar2(l) /= Data%IdPotPar1(i)) then
                   MatPar2([k, l]) = MatPar2([l, k])
                   Chrom(nPotPar1+Rank([k, l])) = Chrom(nPotPar1+Rank([l, k]))
                   exit
@@ -2365,8 +2366,8 @@ module AlphaMateModule
           TmpR = 0.0d0
           if (GenderMatters) then
             do j = 1, nMat
-              TmpR = TmpR + GenericMatVal(IdPotParSeq(This%MatingPlan(1, j)), &
-                                          IdPotParSeq(This%MatingPlan(2, j)), k)
+              TmpR = TmpR + GenericMatVal(Data%IdPotParSeq(This%MatingPlan(1, j)), &
+                                          Data%IdPotParSeq(This%MatingPlan(2, j)), k)
             end do
           else
             do j = 1, nMat
