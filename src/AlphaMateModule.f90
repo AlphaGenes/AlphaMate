@@ -79,6 +79,7 @@ module AlphaMateModule
     ! Raw data
     type(RelMat) :: Coancestry
     type(InbVec) :: Inbreeding
+    real(real64), allocatable :: SelCriterion(:), SelCriterionStand(:), SelCriterionPAGE(:), SelCriterionPAGEStand(:)
     ! Data summaries
     type(DescStatReal64) :: InbreedingStat, SelCriterionStat, SelCriterionPAGEStat
     type(DescStatReal64), allocatable :: GenericIndValStat(:)
@@ -131,7 +132,6 @@ module AlphaMateModule
   real(real64) :: CoancestryWeight, InbreedingWeight, SelfingWeight, LimitPar1Weight, LimitPar2Weight
   real(real64), allocatable :: GenericIndValWeight(:), GenericMatValWeight(:)
   real(real64) :: PAGEPar1Cost, PAGEPar2Cost
-  real(real64), allocatable :: SelCriterion(:), SelCriterionStand(:), SelCriterionPAGE(:), SelCriterionPAGEStand(:)
   real(real64), allocatable :: TargetCoancestryRateFrontier(:), GenericIndValTmp(:), GenericMatValTmp(:)
   real(real64), allocatable :: GenericIndVal(:, :), GenericMatVal(:, :, :)
 
@@ -1017,16 +1017,16 @@ module AlphaMateModule
 
       ! --- Selection criterion ---
 
-      allocate(SelCriterion(nInd))
-      allocate(SelCriterionStand(nInd))
+      allocate(Data%SelCriterion(nInd))
+      allocate(Data%SelCriterionStand(nInd))
       if (PAGE) then
-        allocate(SelCriterionPAGE(nInd))
-        allocate(SelCriterionPAGEStand(nInd))
+        allocate(Data%SelCriterionPAGE(nInd))
+        allocate(Data%SelCriterionPAGEStand(nInd))
       end if
 
       if (.not.SelCriterionAvailable) then
-        SelCriterion(:) = 0.0d0
-        SelCriterionStand(:) = 0.0d0
+        Data%SelCriterion(:) = 0.0d0
+        Data%SelCriterionStand(:) = 0.0d0
       else
         write(STDOUT, "(a)") "Selection criterion"
         nIndTmp = CountLines(SelCriterionFile)
@@ -1050,15 +1050,15 @@ module AlphaMateModule
             write(STDERR, "(a)") " "
             stop 1
           end if
-          SelCriterion(j) = SelCriterionTmp
+          Data%SelCriterion(j) = SelCriterionTmp
           if (PAGE) then
-            SelCriterionPAGE(j) = SelCriterionTmp2
+            Data%SelCriterionPAGE(j) = SelCriterionTmp2
           end if
         end do
         close(SelCriterionUnit)
 
-        Data%SelCriterionStat = DescStat(SelCriterion)
-        SelCriterionStand(:) = (SelCriterion(:) - Data%SelCriterionStat%Mean) / Data%SelCriterionStat%SD
+        Data%SelCriterionStat = DescStat(Data%SelCriterion)
+        Data%SelCriterionStand(:) = (Data%SelCriterion(:) - Data%SelCriterionStat%Mean) / Data%SelCriterionStat%SD
         write(STDOUT, "(a)") "  - average: "//trim(Real2Char(Data%SelCriterionStat%Mean, fmt=FMTREAL2CHAR))
         write(STDOUT, "(a)") "  - st.dev.: "//trim(Real2Char(Data%SelCriterionStat%SD,   fmt=FMTREAL2CHAR))
         write(STDOUT, "(a)") "  - minimum: "//trim(Real2Char(Data%SelCriterionStat%Min,  fmt=FMTREAL2CHAR))
@@ -1074,11 +1074,11 @@ module AlphaMateModule
 
         if (PAGE) then
           ! must have the same scaling as selection criterion!!!!
-          SelCriterionPAGEStand(:) = (SelCriterionPAGE(:) - Data%SelCriterionStat%Mean) / Data%SelCriterionStat%SD
+          Data%SelCriterionPAGEStand(:) = (Data%SelCriterionPAGE(:) - Data%SelCriterionStat%Mean) / Data%SelCriterionStat%SD
           ! only the PAGE bit of SelCriterion
-          SelCriterionPAGE(:) = SelCriterionPAGE(:) - SelCriterion(:)
-          SelCriterionPAGEStand(:) = SelCriterionPAGEStand(:) - SelCriterionStand(:)
-          Data%SelCriterionPAGEStat = DescStat(SelCriterionPAGE)
+          Data%SelCriterionPAGE(:) = Data%SelCriterionPAGE(:) - Data%SelCriterion(:)
+          Data%SelCriterionPAGEStand(:) = Data%SelCriterionPAGEStand(:) - Data%SelCriterionStand(:)
+          Data%SelCriterionPAGEStat = DescStat(Data%SelCriterionPAGE)
           write(STDOUT, "(a)") "Genome editing increments"
           write(STDOUT, "(a)") "  - average: "//trim(Real2Char(Data%SelCriterionPAGEStat%Mean, fmt=FMTREAL2CHAR))
           write(STDOUT, "(a)") "  - st.dev.: "//trim(Real2Char(Data%SelCriterionPAGEStat%SD,   fmt=FMTREAL2CHAR))
@@ -1618,7 +1618,7 @@ module AlphaMateModule
 
       ! @todo should we have constant output no matter which options are switched on?
       open(newunit=ContribUnit, file=ContribFile, status="unknown")
-      Rank = MrgRnk(Sol%nVec + SelCriterionStand / 100.0d0) ! @todo is this really good sorting?
+      Rank = MrgRnk(Sol%nVec + Data%SelCriterionStand / 100.0d0) ! @todo is this really good sorting?
       if (.not.PAGE) then
         !                                        1234567890123456789012
         write(ContribUnit, FMTCONTRIBUTIONHEAD) "          Id", &
@@ -1629,7 +1629,7 @@ module AlphaMateModule
                                                 "     nMating"
         do i = nInd, 1, -1 ! MrgRnk ranks small to large
           j = Rank(i)
-          write(ContribUnit, FMTCONTRIBUTION) Data%Coancestry%OriginalId(j), Gender(j), SelCriterion(j), &
+          write(ContribUnit, FMTCONTRIBUTION) Data%Coancestry%OriginalId(j), Gender(j), Data%SelCriterion(j), &
                                               sum(Data%Coancestry%Value(1:, j)) / nInd, &
                                               Sol%xVec(j), Sol%nVec(j)
         end do
@@ -1645,10 +1645,10 @@ module AlphaMateModule
                                                     " EditedValue"
         do i = nInd, 1, -1 ! MrgRnk ranks small to large
           j = Rank(i)
-          write(ContribUnit, FMTCONTRIBUTIONEDIT) Data%Coancestry%OriginalId(j), Gender(j), SelCriterion(j), &
+          write(ContribUnit, FMTCONTRIBUTIONEDIT) Data%Coancestry%OriginalId(j), Gender(j), Data%SelCriterion(j), &
                                                   sum(Data%Coancestry%Value(1:, j)) / nInd, &
                                                   Sol%xVec(j), Sol%nVec(j), &
-                                                  nint(Sol%GenomeEdit(j)), SelCriterion(j) + Sol%GenomeEdit(j) * SelCriterionPAGE(j)
+                                                  nint(Sol%GenomeEdit(j)), Data%SelCriterion(j) + Sol%GenomeEdit(j) * Data%SelCriterionPAGE(j)
         end do
       end if
       close(ContribUnit)
@@ -2252,12 +2252,12 @@ module AlphaMateModule
       if (SelCriterionAvailable) then
         !@todo save SelCriterion mean and sd in the data object and then compute this dot_product only once and
         !      compute This%SelCriterion as This%SelCriterion = This%SelIntensity * SelCriterionSD + SelCriterionMean
-        This%SelCriterion = dot_product(This%xVec, SelCriterion)
-        This%SelIntensity = dot_product(This%xVec, SelCriterionStand)
+        This%SelCriterion = dot_product(This%xVec, Data%SelCriterion)
+        This%SelIntensity = dot_product(This%xVec, Data%SelCriterionStand)
         if (PAGE) then
           !@todo as above
-          This%SelCriterion = This%SelCriterion + dot_product(This%xVec, SelCriterionPAGE(:)      * This%GenomeEdit(:))
-          This%SelIntensity = This%SelIntensity + dot_product(This%xVec, SelCriterionPAGEStand(:) * This%GenomeEdit(:))
+          This%SelCriterion = This%SelCriterion + dot_product(This%xVec, Data%SelCriterionPAGE(:)      * This%GenomeEdit(:))
+          This%SelIntensity = This%SelIntensity + dot_product(This%xVec, Data%SelCriterionPAGEStand(:) * This%GenomeEdit(:))
         end if
         if (CritType == "opt") then
           This%Criterion = This%Criterion + This%SelIntensity
