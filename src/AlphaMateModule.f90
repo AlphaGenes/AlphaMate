@@ -70,10 +70,15 @@ module AlphaMateModule
 
   !> @brief AlphaMate specifications
   type AlphaMateSpec
-      real(real64) :: TargetCoancestryRate
-      real(real64) :: TargetInbreedingRate
-      integer(int32) :: PAGEPar1Max, PAGEPar2Max
-      real(real64) :: PAGEPar1Cost, PAGEPar2Cost
+    ! Biological specifications
+    real(real64) :: TargetCoancestryRate
+    real(real64) :: TargetInbreedingRate
+    integer(int32) :: PAGEPar1Max, PAGEPar2Max
+    real(real64) :: PAGEPar1Cost, PAGEPar2Cost
+    integer(int32) :: nFrontierSteps
+    ! Search algorithm specifications
+    integer(int32) :: EvolAlgNSol, EvolAlgNGen, EvolAlgNGenBurnIn, EvolAlgNGenStop, EvolAlgNGenPrint, RanAlgStricter
+    real(real64) :: EvolAlgStopTol, EvolAlgCRBurnIn, EvolAlgCRLate, EvolAlgFBase, EvolAlgFHigh1, EvolAlgFHigh2
   end type
 
   !> @brief AlphaMate data
@@ -129,11 +134,7 @@ module AlphaMateModule
   type(AlphaMateSpec) :: Spec
   type(AlphaMateData) :: Data
 
-  integer(int32) :: nFrontierSteps
-  integer(int32) :: EvolAlgNSol, EvolAlgNGen, EvolAlgNGenBurnIn, EvolAlgNGenStop, EvolAlgNGenPrint, RanAlgStricter
-
   real(real64) :: LimitPar1Min, LimitPar1Max, LimitPar2Min, LimitPar2Max
-  real(real64) :: EvolAlgStopTol, EvolAlgCRBurnIn, EvolAlgCRLate, EvolAlgFBase, EvolAlgFHigh1, EvolAlgFHigh2
   real(real64) :: CoancestryWeight, InbreedingWeight, SelfingWeight, LimitPar1Weight, LimitPar2Weight
   real(real64), allocatable :: GenericIndValWeight(:), GenericMatValWeight(:)
   real(real64), allocatable :: TargetCoancestryRateFrontier(:), GenericIndValTmp(:), GenericMatValTmp(:)
@@ -823,12 +824,12 @@ module AlphaMateModule
       else if (ToLower(trim(DumC)) == "yes") then
         EvaluateFrontier = .true.
         backspace(SpecUnit)
-        read(SpecUnit, *) DumC, DumC, nFrontierSteps
-        allocate(TargetCoancestryRateFrontier(nFrontierSteps))
+        read(SpecUnit, *) DumC, DumC, Spec%nFrontierSteps
+        allocate(TargetCoancestryRateFrontier(Spec%nFrontierSteps))
         backspace(SpecUnit)
-        read(SpecUnit, *) DumC, DumC, nFrontierSteps, TargetCoancestryRateFrontier(:)
-        write(STDOUT, "("//Int2Char(1+nFrontierSteps)//"a)") "EvaluateFrontier: yes, #steps: "//trim(Int2Char(nFrontierSteps))//&
-          ", rates of coancestry: ", (trim(Real2Char(TargetCoancestryRateFrontier(i), fmt=FMTREAL2CHAR)), i = 1, nFrontierSteps)
+        read(SpecUnit, *) DumC, DumC, Spec%nFrontierSteps, TargetCoancestryRateFrontier(:)
+        write(STDOUT, "("//Int2Char(1+Spec%nFrontierSteps)//"a)") "EvaluateFrontier: yes, #steps: "//trim(Int2Char(Spec%nFrontierSteps))//&
+          ", rates of coancestry: ", (trim(Real2Char(TargetCoancestryRateFrontier(i), fmt=FMTREAL2CHAR)), i = 1, Spec%nFrontierSteps)
         if (any(TargetCoancestryRateFrontier(:) == 0.0)) then
           write(STDERR, "(a)") "ERROR: Can not work with TargetCoancestryRateFrontier equal to zero - it is numerically unstable!"
           write(STDERR, "(a)") " "
@@ -842,15 +843,15 @@ module AlphaMateModule
 
       ! --- EvolutionaryAlgorithmIterations ---
 
-      read(SpecUnit, *) DumC, EvolAlgNSol, EvolAlgNGen, EvolAlgNGenBurnIn, EvolAlgNGenStop, EvolAlgStopTol, EvolAlgNGenPrint, EvolAlgLogPop
+      read(SpecUnit, *) DumC, Spec%EvolAlgNSol, Spec%EvolAlgNGen, Spec%EvolAlgNGenBurnIn, Spec%EvolAlgNGenStop, Spec%EvolAlgStopTol, Spec%EvolAlgNGenPrint, EvolAlgLogPop
 
       ! --- EvolutionaryAlgorithmParameters ---
 
-      read(SpecUnit, *) DumC, EvolAlgCRBurnIn, EvolAlgCRLate, EvolAlgFBase, EvolAlgFHigh1, EvolAlgFHigh2
+      read(SpecUnit, *) DumC, Spec%EvolAlgCRBurnIn, Spec%EvolAlgCRLate, Spec%EvolAlgFBase, Spec%EvolAlgFHigh1, Spec%EvolAlgFHigh2
 
       ! --- RandomSearchIterationsStricter ---
 
-      read(SpecUnit, *) DumC, RanAlgStricter
+      read(SpecUnit, *) DumC, Spec%RanAlgStricter
 
       ! --- Seed ---
 
@@ -1465,12 +1466,12 @@ module AlphaMateModule
         ContribFile = "IndividualResultsMinimalInbreeding.txt"
         MatingFile  = "MatingResultsMinimalInbreeding.txt"
 
-        allocate(InitEqual(nParam, nint(EvolAlgNSol * 0.1)))
+        allocate(InitEqual(nParam, nint(Spec%EvolAlgNSol * 0.1)))
         InitEqual(:, :) = 1.0d0 ! A couple of solutions that would give equal contributions for everybody
 
-        call DifferentialEvolution(nParam=nParam, nSol=EvolAlgNSol, Init=InitEqual, nGen=EvolAlgNGen, nGenBurnIn=EvolAlgNGenBurnIn, &
-          nGenStop=EvolAlgNGenStop, StopTolerance=EvolAlgStopTol, nGenPrint=EvolAlgNGenPrint, LogFile=LogFile, LogPop=EvolAlgLogPop, LogPopFile=LogPopFile, &
-          CritType="min", CRBurnIn=EvolAlgCRBurnIn, CRLate=EvolAlgCRLate, FBase=EvolAlgFBase, FHigh1=EvolAlgFHigh1, FHigh2=EvolAlgFHigh2, &
+        call DifferentialEvolution(nParam=nParam, nSol=Spec%EvolAlgNSol, Init=InitEqual, nGen=Spec%EvolAlgNGen, nGenBurnIn=Spec%EvolAlgNGenBurnIn, &
+          nGenStop=Spec%EvolAlgNGenStop, StopTolerance=Spec%EvolAlgStopTol, nGenPrint=Spec%EvolAlgNGenPrint, LogFile=LogFile, LogPop=EvolAlgLogPop, LogPopFile=LogPopFile, &
+          CritType="min", CRBurnIn=Spec%EvolAlgCRBurnIn, CRLate=Spec%EvolAlgCRLate, FBase=Spec%EvolAlgFBase, FHigh1=Spec%EvolAlgFHigh1, FHigh2=Spec%EvolAlgFHigh2, &
           BestSol=SolMin)
 
         deallocate(InitEqual)
@@ -1486,11 +1487,11 @@ module AlphaMateModule
 
         LogFile = "OptimisationLogRandomMating.txt"
 
-        allocate(InitEqual(nParam, nint(EvolAlgNSol * 0.1)))
+        allocate(InitEqual(nParam, nint(Spec%EvolAlgNSol * 0.1)))
         InitEqual(:, :) = 1.0d0 ! A couple of solutions that would give equal contributions for everybody
 
-        call RandomSearch(Mode="avg", nParam=nParam, Init=InitEqual, nSamp=EvolAlgNSol*EvolAlgNGen*RanAlgStricter, nSampStop=EvolAlgNGenStop*RanAlgStricter, &
-          StopTolerance=EvolAlgStopTol/RanAlgStricter, nSampPrint=EvolAlgNGenPrint, LogFile=LogFile, CritType="ran", BestSol=SolRan)
+        call RandomSearch(Mode="avg", nParam=nParam, Init=InitEqual, nSamp=Spec%EvolAlgNSol*Spec%EvolAlgNGen*Spec%RanAlgStricter, nSampStop=Spec%EvolAlgNGenStop*Spec%RanAlgStricter, &
+          StopTolerance=Spec%EvolAlgStopTol/Spec%RanAlgStricter, nSampPrint=Spec%EvolAlgNGenPrint, LogFile=LogFile, CritType="ran", BestSol=SolRan)
 
         deallocate(InitEqual)
       end if
@@ -1510,9 +1511,9 @@ module AlphaMateModule
         !       - equal contributions for top 2/3 or 1/2 of BV distribution,
         !       - decreasing contributions with decreasing value
         !       - SDP solution, ...?
-        call DifferentialEvolution(nParam=nParam, nSol=EvolAlgNSol, nGen=EvolAlgNGen, nGenBurnIn=EvolAlgNGenBurnIn, &
-          nGenStop=EvolAlgNGenStop, StopTolerance=EvolAlgStopTol, nGenPrint=EvolAlgNGenPrint, LogFile=LogFile, LogPop=EvolAlgLogPop, LogPopFile=LogPopFile, &
-          CritType="opt", CRBurnIn=EvolAlgCRBurnIn, CRLate=EvolAlgCRLate, FBase=EvolAlgFBase, FHigh1=EvolAlgFHigh1, FHigh2=EvolAlgFHigh2, &
+        call DifferentialEvolution(nParam=nParam, nSol=Spec%EvolAlgNSol, nGen=Spec%EvolAlgNGen, nGenBurnIn=Spec%EvolAlgNGenBurnIn, &
+          nGenStop=Spec%EvolAlgNGenStop, StopTolerance=Spec%EvolAlgStopTol, nGenPrint=Spec%EvolAlgNGenPrint, LogFile=LogFile, LogPop=EvolAlgLogPop, LogPopFile=LogPopFile, &
+          CritType="opt", CRBurnIn=Spec%EvolAlgCRBurnIn, CRLate=Spec%EvolAlgCRLate, FBase=Spec%EvolAlgFBase, FHigh1=Spec%EvolAlgFHigh1, FHigh2=Spec%EvolAlgFHigh2, &
           BestSol=SolOpt)
 
         call SaveSolution(SolOpt, ContribFile, MatingFile)
@@ -1556,12 +1557,12 @@ module AlphaMateModule
         HoldTargetCoancestryRate = Spec%TargetCoancestryRate
 
         ! Evaluate
-        do k = 1, nFrontierSteps
+        do k = 1, Spec%nFrontierSteps
           Spec%TargetCoancestryRate = TargetCoancestryRateFrontier(k)
           ! F_t = DeltaF + (1 - DeltaF) * F_t-1
 ! TODO
           Data%TargetCoancestryRanMate = Spec%TargetCoancestryRate + (1.0d0 - Spec%TargetCoancestryRate) * Data%CurrentCoancestryRanMate
-          write(STDOUT, "(a)") "Step "//trim(Int2Char(k))//" out of "//trim(Int2Char(nFrontierSteps))//&
+          write(STDOUT, "(a)") "Step "//trim(Int2Char(k))//" out of "//trim(Int2Char(Spec%nFrontierSteps))//&
                                " for the rate of coancestry "//trim(Real2Char(Spec%TargetCoancestryRate, fmt=FMTREAL2CHAR))//&
                                " (=targeted coancestry "//trim(Real2Char(Data%TargetCoancestryRanMate, fmt=FMTREAL2CHAR))//")"
           write(STDOUT, "(a)") ""
@@ -1571,9 +1572,9 @@ module AlphaMateModule
           ContribFile = "IndividualResultsFrontier"//trim(Int2Char(k))//".txt"
           MatingFile  = "MatingResultsFrontier"//trim(Int2Char(k))//".txt"
 
-          call DifferentialEvolution(nParam=nParam, nSol=EvolAlgNSol, nGen=EvolAlgNGen, nGenBurnIn=EvolAlgNGenBurnIn, &
-            nGenStop=EvolAlgNGenStop, StopTolerance=EvolAlgStopTol, nGenPrint=EvolAlgNGenPrint, LogFile=LogFile, LogPop=EvolAlgLogPop, LogPopFile=LogPopFile, &
-            CritType="opt", CRBurnIn=EvolAlgCRBurnIn, CRLate=EvolAlgCRLate, FBase=EvolAlgFBase, FHigh1=EvolAlgFHigh1, FHigh2=EvolAlgFHigh2, &
+          call DifferentialEvolution(nParam=nParam, nSol=Spec%EvolAlgNSol, nGen=Spec%EvolAlgNGen, nGenBurnIn=Spec%EvolAlgNGenBurnIn, &
+            nGenStop=Spec%EvolAlgNGenStop, StopTolerance=Spec%EvolAlgStopTol, nGenPrint=Spec%EvolAlgNGenPrint, LogFile=LogFile, LogPop=EvolAlgLogPop, LogPopFile=LogPopFile, &
+            CritType="opt", CRBurnIn=Spec%EvolAlgCRBurnIn, CRLate=Spec%EvolAlgCRLate, FBase=Spec%EvolAlgFBase, FHigh1=Spec%EvolAlgFHigh1, FHigh2=Spec%EvolAlgFHigh2, &
             BestSol=Sol)
 
           ! @todo add the generic stuff from the log? Just call This%Log?
