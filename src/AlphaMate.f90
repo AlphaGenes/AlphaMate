@@ -41,7 +41,7 @@
 ! DESCRIPTION:
 !> @brief    Mate selection / Optimum contribution selection
 !
-!> @details  Optimize contributions or individuals to the next generation and
+!> @details  Optimize contributions of individuals to the next generation and
 !!           generate a mating plan
 !
 !> @author   Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
@@ -89,7 +89,7 @@ program AlphaMate
 
   real(real32) :: StartTime, EndTime
 
-  logical :: Success
+  ! logical :: Success
 
   call cpu_time(StartTime)
   call AlphaMateTitle

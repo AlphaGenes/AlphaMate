@@ -19,6 +19,7 @@ SET(ALPHAMATEEXE AlphaMate)
 MESSAGE("Prog name ${ALPHAMATEEXE}")
 # Define the library name
 SET(AHLIB AlphaHouse)
+SET(ARLIB AlphaRelate)
 
 # Define some directories
 SET(SRC ${CMAKE_SOURCE_DIR}/src)
@@ -65,11 +66,13 @@ INCLUDE(${CMAKE_MODULE_PATH}/findDoxygen.cmake)
 # are to your liking.
 INCLUDE(${CMAKE_MODULE_PATH}/SetFortranFlags.cmake)
 SET(SRCAH ../AlphaHouse/src/)
+SET(SRCAR ../AlphaRelate/src/)
 
 # Have the .mod files placed in the OBJ folder
 SET(CMAKE_Fortran_MODULE_DIRECTORY ${OBJ})
 
 ADD_SUBDIRECTORY(${SRCAH} ${OBJ}/AH)
+ADD_SUBDIRECTORY(${SRCAR} ${OBJ}/AR)
 
 # TODO add tests to correct location
 ADD_SUBDIRECTORY(${SRCALPHAMATE} ${BIN})

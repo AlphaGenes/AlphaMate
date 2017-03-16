@@ -58,6 +58,7 @@ module AlphaMateModule
   use AlphaHouseMod, only : CountLines, Int2Char, Real2Char, RandomOrder, SetSeed, ToLower, FindLoc
   use AlphaStatMod, only : DescStat, DescStatReal64, DescStatMatrix, DescStatMatrixReal64, DescStatSymMatrix, DescStatLowTriMatrix
   use AlphaEvolveModule, only : AlphaEvolveSol, DifferentialEvolution, RandomSearch
+  use AlphaRelateModule
 
   implicit none
 
@@ -65,8 +66,8 @@ module AlphaMateModule
     real(real64)                :: Penalty
     real(real64)                :: ExpBreedVal
     real(real64)                :: GenSelInt
-    real(real64)                :: ExpPopInb
-    real(real64)                :: RatePopInb
+    real(real64)                :: FutureCoancestryRanMate
+    real(real64)                :: CoancestryRateRanMate
     real(real64)                :: PrgInb
     real(real64), allocatable   :: GenericIndVal(:)
     real(real64), allocatable   :: GenericMatVal(:)
@@ -93,16 +94,23 @@ module AlphaMateModule
 
   real(real64) :: LimitPar1Min, LimitPar1Max, LimitPar2Min, LimitPar2Max
   real(real64) :: EvolAlgStopTol, EvolAlgCRBurnIn, EvolAlgCRLate, EvolAlgFBase, EvolAlgFHigh1, EvolAlgFHigh2
-  real(real64) :: PopInbOld, PopInbTarget, RatePopInbTarget
-  real(real64) :: PopInbWeight, PrgInbWeight, SelfingWeight, LimitPar1Weight, LimitPar2Weight
+  real(real64) :: TargetCoancestryRate, TargetInbreedingRate
+  real(real64) :: CurrentCoancestryRanMate, CurrentCoancestryRanMateNoSelf, CurrentCoancestryGenderMate ! TODO: what more?
+  real(real64) :: CurrentInbreeding
+  real(real64) :: TargetInbreedingRandom, TargetInbreedingRandomNoSelf
+  real(real64) :: CoancestryWeight, PrgInbWeight, SelfingWeight, LimitPar1Weight, LimitPar2Weight
   real(real64), allocatable :: GenericIndValWeight(:), GenericMatValWeight(:)
   real(real64) :: PAGEPar1Cost, PAGEPar2Cost
   real(real64), allocatable :: BreedVal(:), BreedValStand(:), BreedValPAGE(:), BreedValPAGEStand(:)
-  real(real64), allocatable :: RatePopInbFrontier(:), GenericIndValTmp(:), GenericMatValTmp(:)
-  real(real64), allocatable :: RelMtx(:, :), GenericIndVal(:, :), GenericMatVal(:, :, :)
+  real(real64), allocatable :: TargetCoancestryRateFrontier(:), GenericIndValTmp(:), GenericMatValTmp(:)
+  real(real64), allocatable :: GenericIndVal(:, :), GenericMatVal(:, :, :)
 
+  type(RelMat) :: CurrentCoancestry
+  type(Inbreeding) :: CurrentInbreeding
+
+  logical :: NrmInsteadOfCoancestry
   logical :: ModeMin, ModeRan, ModeOpt, BreedValAvailable, GenderMatters, EqualizePar1, EqualizePar2
-  logical :: SelfingAllowed, PopInbWeightBellow, EvolAlgLogPop, EvaluateFrontier
+  logical :: SelfingAllowed, CoancestryWeightBellow, EvolAlgLogPop, EvaluateFrontier
   logical :: PAGE, PAGEPar1, PAGEPar2, GenericIndValAvailable, GenericMatValAvailable
 
   character(len=100), allocatable :: IdC(:)
@@ -128,14 +136,16 @@ module AlphaMateModule
   CHARACTER(len=100)             :: FMTLOGPOPUNIT
   CHARACTER(len=22), ALLOCATABLE :: COLNAMELOGPOPUNIT(:)
 
-  CHARACTER(len=100), PARAMETER  :: FMTINDHEAD = "(6a12)"
-  CHARACTER(len=100), PARAMETER  :: FMTINDHEADEDIT = "(8a12)"
-  CHARACTER(len=100), PARAMETER  :: FMTIND = "(a12, 1x, i11, 3(1x, f11.5), 1x, i11)"
-  CHARACTER(len=100), PARAMETER  :: FMTINDEDIT = "(a12, 1x, i11, 3(1x, f11.5), 2(1x, i11), 1x, f11.5)"
-  CHARACTER(len=100), PARAMETER  :: FMTMATHEAD = "(3a12)"
-  CHARACTER(len=100), PARAMETER  :: FMTMAT = "(i12, 2(1x, a11))"
-  CHARACTER(len=100), PARAMETER  :: FMTFROHEAD = "(a12, 7a22)"
-  CHARACTER(len=100), PARAMETER  :: FMTFRO = "(a12, 7(1x, es21.13e3))"
+  CHARACTER(len=100), PARAMETER  :: FMTCONTRIBUTIONHEAD = "(6a12)"
+  CHARACTER(len=100), PARAMETER  :: FMTCONTRIBUTIONHEADEDIT = "(8a12)"
+  CHARACTER(len=100), PARAMETER  :: FMTCONTRIBUTION = "(a12, 1x, i11, 3(1x, f11.5), 1x, i11)"
+  CHARACTER(len=100), PARAMETER  :: FMTCONTRIBUTIONEDIT = "(a12, 1x, i11, 3(1x, f11.5), 2(1x, i11), 1x, f11.5)"
+
+  CHARACTER(len=100), PARAMETER  :: FMTMATINGHEAD = "(3a12)"
+  CHARACTER(len=100), PARAMETER  :: FMTMATING = "(i12, 2(1x, a11))"
+
+  CHARACTER(len=100), PARAMETER  :: FMTFRONTEIRHEAD = "(a12, 7a22)"
+  CHARACTER(len=100), PARAMETER  :: FMTFRONTEIR = "(a12, 7(1x, es21.13e3))"
 
   private
   public :: AlphaMateTitle, ReadSpecAndDataForAlphaMate, SetupColNamesAndFormats, AlphaMateSearch
@@ -144,33 +154,56 @@ module AlphaMateModule
 
     !###########################################################################
 
+! TODO: make this clearer with objective being dG - l * dF etc.
+
+! With two individuals there are four genome combinations, hence four coefficients
+! that measure similarity between the two individuals. The COEFFICIENT OF COANCESTRY
+! is an average of these four coefficients, f_i,j = 1/4 (f_i1,j1 + f_i1,j2 + f_i2,j1 + f_i2,j2).
+! When the two individuals in comparison is just one individual, there are only
+! two genomes to compare, hence f_i,i = 1/4 (f_i1,i1 + f_i1,i2 + f_i2,i1 + f_i2,i2) =
+! 1/4 (1 + f_i1,i2 + f_i2,i1 + 1) = 1/4 (2 + 2f_i1,i2) = 1/2 (1 + f_i1,i2). The
+! coefficient f_i1,i2 is the COEFFICIENT OF INBREEDING.
+
+!       Also Coancestry is expected future inbreeding = average coancestry between
+!       the parents (selection/mate candidates we have at hand). When working
+!       with dF we then need to evaluate average coancestry in the new generation.
+
     ! This note is just to make clear what the objective function and its components are.
     !
     ! AlphaMate works with the objective function:
     !
-    ! Objective = x'a - l * x'Ax
+    ! Objective = x'a - l * x'Cx
     !
     !   x is a vector of contributions of individuals to the next generation (sum(x)=1)
     !   a is a vector of (estimated) breeding values
-    !   l is a penalty on the loss of genetic diversity
-    !   A is the numerator relationship matrix (A) or 2 * the kinship matrix (K); where the
-    !      the diagonal values are A_i,i = 1 + K_i,i (K_i,i = 0.5 * A_f(i),m(i) = K_f(i),m(i)), and
-    !      off-diagonal values are A_i,j = 2 * K_i,j
+    !   l is a penalty for the loss of genetic diversity
+    !   C is the coancestry (kinship) matrix where
+    !      the diagonal values are 1/2 * (1 + F_i,i), with F_i being inbreeding
+    !        coefficient of individual i (note: F_i,i = C_f(i),m(i))
+    !      the off-diagonal values are coancestry coefficients between individuals (C_i,j)
+    !      (note: the numerator relationship matrix A = 2 * C)
     !
-    !   x'a  is the expected population breeding value in the next generation (ExpBreedVal)
-    !   x'Ax is the expected population inbreeding     in the next generation (ExpPopInb)
+    !   x'a is average breeding value of the contributing gametes to the next generation,
+    !     which is the expected breeding value of the next generation (ExpBreedVal)
+    !     (note: ExpBreedVal = x'a assumes random mating; @todo ExpBreedVal under
+    !      designed mating will be added in future )
+    !   x'Cx is average coancestry among the contributing gametes to the next generation,
+    !     which is the expected population inbreeding in the next generation (CoancestryRandom)
+    !     (note: CoancestryRandom = x'Cx assumes random mating (selfing included) with contributions x;
+    !      CoancestryRandom under random mating without selfing is hard to calculate exactly;
+    !      @todo CoancestryRandom under designed mating will be added in future)
     !
     ! We want to maximize breeding value in the next generation (x'a), but control
-    ! increase in population inbreeding (x'Ax). For operational reasons optimisation
-    ! does not work with x'a and x'Ax directly, but with x's and dF
+    ! for loss of genetic diversity (x'Cx). For operational reasons optimisation
+    ! does not work directly with x'a and x'Cx, but with x's and dF
     !
     !       s   is a vector of standardized (estimated) breeding values, s = (a - mean(a)) / sd(a)
     !       x's is the genetic selection intensity (GenSelInt)
-    !       dF  is the rate of population inbreeding (RatePopInb)
+    !       dF  is the rate of population inbreeding (CoancestryRate)
     !
-    ! This essentially removes the need to specify the hard to define penalty value
-    ! (l) in favour of easier to define rate of inbreeding (dF), which is calculated
-    ! based on the following relations.
+    ! Use of x's and dF essentially removes the need to specify the hard to define
+    ! penalty value (l) in favour of easier to define rate of inbreeding (dF), which
+    ! is calculated based on the following relations.
     !
     ! The total inbreeding that we see today is:
     !
@@ -204,8 +237,9 @@ module AlphaMateModule
     !
     ! dF = (F_t+1 - F_t) / (1 - F_t)
     !
-    ! In AlphaMate F_t is calculated as x'Ax with x set to 1/n, so we obtain average
-    ! of the values in the matrix A, the average relatedness in current population.
+    ! In AlphaMate F_t is calculated as x'Cx with x set to 1/n (n number of ???), so we obtain average
+    ! of the values in the matrix C, the average coancestry in current population, which is the expected
+    !
     ! With available F_t and dF the F_t+1 is then calculated as shown above.
 
     !###########################################################################
@@ -235,15 +269,13 @@ module AlphaMateModule
       implicit none
 
       integer(int32) :: i, j, k, l, m, DumI, jMal, jFem, nIndTmp, GenderTmp, Seed
-      integer(int32) :: SpecUnit, RelMtxUnit, BreedValUnit, GenderUnit, InbreedUnit
+      integer(int32) :: SpecUnit, CoaMtxUnit, BreedValUnit, GenderUnit, InbreedUnit
       integer(int32) :: GenericIndValUnit, GenericMatValUnit
-      integer(int32), allocatable :: Order(:)
+      ! integer(int32), allocatable :: Order(:)
 
       real(real64) :: BreedValTmp, BreedValTmp2
 
-      logical :: Success
-
-      character(len=1000) :: RelMtxFile, BreedValFile, GenderFile, SeedFile
+      character(len=1000) :: CoaMtxFile, BreedValFile, GenderFile, SeedFile
       character(len=1000) :: GenericIndValFile, GenericMatValFile
       character(len=100) :: DumC, IdCTmp, IdCTmp2
 
@@ -281,10 +313,17 @@ module AlphaMateModule
         stop 1
       end if
 
-      ! --- RelatednessMatrixFile ---
+      ! --- CoancestryMatrixFile ---
 
-      read(SpecUnit, *) DumC, RelMtxFile
-      write(STDOUT, "(a)") "RelatednessMatrixFile: "//trim(RelMtxFile)
+      ! read(SpecUnit, *) DumC, CoaMtxFile
+      ! write(STDOUT, "(a)") "CoancestryMatrixFile: "//trim(CoaMtxFile)
+      ! NrmInsteadOfCoancestry = .false.
+
+      ! --- NrmMatrixFile ---
+
+      read(SpecUnit, *) DumC, CoaMtxFile
+      write(STDOUT, "(a)") "NrmMatrixFile: "//trim(CoaMtxFile)
+      NrmInsteadOfCoancestry = .true.
 
       ! --- BreedingValueFile ---
 
@@ -401,7 +440,7 @@ module AlphaMateModule
           EqualizePar1 = .true.
           write(STDOUT, "(a)") "EqualizeMaleParentContributions: yes"
           if (mod(nMat, nPar1) /= 0) then
-            ! TODO: might consider handling this better at some point
+            ! @todo might consider handling this better at some point
             write(STDERR, "(a)") "ERROR: When contributions are equalized the number of matings needs to divide into the number of parents"
             write(STDERR, "(a)") "ERROR: Number of       matings: "//trim(Int2Char(nMat))
             write(STDERR, "(a)") "ERROR: Number of  male parents: "//trim(Int2Char(nPar1))
@@ -427,7 +466,7 @@ module AlphaMateModule
           EqualizePar2 = .true.
           write(STDOUT, "(a)") "EqualizeFemaleParentContributions: yes"
           if (mod(nMat, nPar2) /= 0) then
-            ! TODO: might consider handling this better at some point
+            ! @todo might consider handling this better at some point
             write(STDERR, "(a)") "ERROR: When contributions are equalized the number of matings needs to divide into the number of parents"
             write(STDERR, "(a)") "ERROR: Number of        matings: "//trim(Int2Char(nMat))
             write(STDERR, "(a)") "ERROR: Number of female parents: "//trim(Int2Char(nPar2))
@@ -663,33 +702,33 @@ module AlphaMateModule
         PAGE = .false.
       end if
 
-      ! --- TargetedRateOfPopulationInbreeding ---
+      ! --- TargetedRateOfCoancestry ---
 
-      read(SpecUnit, *) DumC, RatePopInbTarget, PopInbWeight, DumC
-      write(STDOUT, "(a)") "TargetedRateOfPopulationInbreeding: "//trim(Real2Char(RatePopInbTarget, fmt=FMTREAL2CHAR))//&
-        ", penalty weight "//trim(Real2Char(PopInbWeight, fmt=FMTREAL2CHAR))//", mode "//trim(DumC)
+      read(SpecUnit, *) DumC, TargetCoancestryRate, CoancestryWeight, DumC
+      write(STDOUT, "(a)") "TargetedRateOfCoancestry: "//trim(Real2Char(TargetCoancestryRate, fmt=FMTREAL2CHAR))//&
+        ", penalty weight "//trim(Real2Char(CoancestryWeight, fmt=FMTREAL2CHAR))//", mode "//trim(DumC)
       if      (ToLower(trim(DumC)) == "above") then
-        PopInbWeightBellow = .false.
+        CoancestryWeightBellow = .false.
       else if (ToLower(trim(DumC)) == "aboveandbellow") then
-        PopInbWeightBellow = .true.
+        CoancestryWeightBellow = .true.
       else
-        write(STDERR, "(a)") "ERROR: PopInbWeightMode must be: Above or AboveAndBellow!"
+        write(STDERR, "(a)") "ERROR: CoancestryWeightMode must be: Above or AboveAndBellow!"
         write(STDERR, "(a)") " "
         stop 1
       end if
-      if (RatePopInbTarget == 0.0) then
-        write(STDERR, "(a)") "ERROR: Can not work with the targeted rate of population inbreeding equal to zero - it is numerically unstable!"
+      if (TargetCoancestryRate == 0.0) then
+        write(STDERR, "(a)") "ERROR: Can not work with the targeted rate of coancestry equal to zero - it is numerically unstable!"
         write(STDERR, "(a)") " "
         stop 1
       end if
-      if (PopInbWeight > 0.0) then
-        write(STDERR, "(a)") "ERROR: Penalty weight for the targeted rate of population inbreeding should be zero or negative!"
+      if (CoancestryWeight > 0.0) then
+        write(STDERR, "(a)") "ERROR: Penalty weight for the targeted rate of coancestry should be zero or negative!"
         write(STDERR, "(a)") " "
         stop 1
       end if
 
       ! --- ProgenyInbreedingWeight (=inbreeding of a mating) ---
-
+!TODO
       read(SpecUnit, *) DumC, PrgInbWeight
       write(STDOUT, "(a)") "ProgenyInbreedingWeight: "//trim(Real2Char(PrgInbWeight, fmt=FMTREAL2CHAR))
       if (PrgInbWeight > 0.0) then
@@ -700,6 +739,7 @@ module AlphaMateModule
 
       ! --- EvaluateFrontier ---
 
+      ! @todo Should this be part of TargetedCoancestryRate??
       read(SpecUnit, *) DumC, DumC
       if      (ToLower(trim(DumC)) == "no") then
         EvaluateFrontier = .false.
@@ -708,13 +748,13 @@ module AlphaMateModule
         EvaluateFrontier = .true.
         backspace(SpecUnit)
         read(SpecUnit, *) DumC, DumC, nFrontierSteps
-        allocate(RatePopInbFrontier(nFrontierSteps))
+        allocate(TargetCoancestryRateFrontier(nFrontierSteps))
         backspace(SpecUnit)
-        read(SpecUnit, *) DumC, DumC, nFrontierSteps, RatePopInbFrontier(:)
+        read(SpecUnit, *) DumC, DumC, nFrontierSteps, TargetCoancestryRateFrontier(:)
         write(STDOUT, "("//Int2Char(1+nFrontierSteps)//"a)") "EvaluateFrontier: yes, #steps: "//trim(Int2Char(nFrontierSteps))//&
-          ", rates of pop. inbreeding: ", (trim(Real2Char(RatePopInbFrontier(i), fmt=FMTREAL2CHAR)), i = 1, nFrontierSteps)
-        if (any(RatePopInbFrontier(:) == 0.0)) then
-          write(STDERR, "(a)") "ERROR: Can not work with RatePopInbFrontier equal to zero - it is numerically unstable!"
+          ", rates of pop. inbreeding: ", (trim(Real2Char(TargetCoancestryRateFrontier(i), fmt=FMTREAL2CHAR)), i = 1, nFrontierSteps)
+        if (any(TargetCoancestryRateFrontier(:) == 0.0)) then
+          write(STDERR, "(a)") "ERROR: Can not work with TargetCoancestryRateFrontier equal to zero - it is numerically unstable!"
           write(STDERR, "(a)") " "
           stop 1
         end if
@@ -791,72 +831,98 @@ module AlphaMateModule
       write(STDOUT, "(a)") "--- Data ---"
       write(STDOUT, "(a)") " "
 
-      ! --- Relatedness ---
+      ! --- Coancestry ---
 
-      write(STDOUT, "(a)") "Relatedness"
-      allocate(IdC(nInd))
-      allocate(RelMtx(nInd, nInd))
+      write(STDOUT, "(a)") "Coancestry"
 
-      nIndTmp = CountLines(RelMtxFile)
-      if (nIndTmp < nInd) then
-        write(STDERR, "(a)") "ERROR: The relatedness matrix file has less rows than there are defined number of individuals!"
-        write(STDERR, "(a)") "ERROR: Number of defined individuals:                 "//trim(Int2Char(nInd))
-        write(STDERR, "(a)") "ERROR: Number of rows in the relatedness matrix file: "//trim(Int2Char(nIndTmp))
+      call CurrentCoancestry%Read(File=CoaMtxFile)
+      if (CurrentCoancestry%nInd < nInd) then
+        write(STDERR, "(a)") "ERROR: The coancestry matrix file has less rows than there are defined number of individuals!"
+        write(STDERR, "(a)") "ERROR: Number of defined individuals:                       "//trim(Int2Char(nInd))
+        write(STDERR, "(a)") "ERROR: Number of individuals in the coancestry matrix file: "//trim(Int2Char(CurrentCoancestry%nInd))
         write(STDERR, "(a)") " "
       end if
-      open(newunit=RelMtxUnit, file=trim(RelMtxFile), status="old")
-      do i = 1, nInd
-        read(RelMtxUnit, *) IdC(i), RelMtx(:, i)
-      end do
-      close(RelMtxUnit)
+      if (NrmInsteadOfCoancestry) then
+        call CurrentCoancestry%Nrm2Coancestry
+      end if
+      call CurrentCoancestry%Inbreeding(Out=CurrentInbreeding, Nrm=.false.)
 
-      MtxDescStat = DescStatSymMatrix(RelMtx)
-      write(STDOUT, "(a)") "  - all coefficients"
-      write(STDOUT, "(a)") "    - average: "//trim(Real2Char(MtxDescStat%All%Mean, fmt=FMTREAL2CHAR))
-      write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(MtxDescStat%All%SD,   fmt=FMTREAL2CHAR))
-      write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(MtxDescStat%All%Min,  fmt=FMTREAL2CHAR))
-      write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(MtxDescStat%All%Max,  fmt=FMTREAL2CHAR))
-      write(STDOUT, "(a)") "  - diagonal"
-      write(STDOUT, "(a)") "    - average: "//trim(Real2Char(MtxDescStat%Diag%Mean, fmt=FMTREAL2CHAR))
-      write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(MtxDescStat%Diag%SD,   fmt=FMTREAL2CHAR))
-      write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(MtxDescStat%Diag%Min,  fmt=FMTREAL2CHAR))
-      write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(MtxDescStat%Diag%Max,  fmt=FMTREAL2CHAR))
-      write(STDOUT, "(a)") "  - off-diagonal"
+      MtxDescStat = DescStatSymMatrix(CurrentCoancestry%Value(1:CurrentCoancestry%nInd, 1:CurrentCoancestry%nInd))
+
+      write(STDOUT, "(a)") "  - coancestry among individuals (including self-coancestry)"
+      write(STDOUT, "(a)") "    (average identity of the four genome combinations of two individuals)"
+      write(STDOUT, "(a)") "    - average: "//trim(Real2Char(MtxDescStat%All%Mean,     fmt=FMTREAL2CHAR))
+      write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(MtxDescStat%All%SD,       fmt=FMTREAL2CHAR))
+      write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(MtxDescStat%All%Min,      fmt=FMTREAL2CHAR))
+      write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(MtxDescStat%All%Max,      fmt=FMTREAL2CHAR))
+
+      write(STDOUT, "(a)") "  - coancestry between individuals"
+      write(STDOUT, "(a)") "    (average identity of the four genome combinations of two distinct individuals)"
       write(STDOUT, "(a)") "    - average: "//trim(Real2Char(MtxDescStat%OffDiag%Mean, fmt=FMTREAL2CHAR))
       write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(MtxDescStat%OffDiag%SD,   fmt=FMTREAL2CHAR))
       write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(MtxDescStat%OffDiag%Min,  fmt=FMTREAL2CHAR))
       write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(MtxDescStat%OffDiag%Max,  fmt=FMTREAL2CHAR))
+
+      write(STDOUT, "(a)") "  - self-coancestry ((1 + F) / 2)"
+      write(STDOUT, "(a)") "    (average identity of the four genome combinations of an individual)"
+      write(STDOUT, "(a)") "    - average: "//trim(Real2Char(MtxDescStat%Diag%Mean,    fmt=FMTREAL2CHAR))
+      write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(MtxDescStat%Diag%SD,      fmt=FMTREAL2CHAR))
+      write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(MtxDescStat%Diag%Min,     fmt=FMTREAL2CHAR))
+      write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(MtxDescStat%Diag%Max,     fmt=FMTREAL2CHAR))
+
+      write(STDOUT, "(a)") "  - inbreeding (F)"
+      write(STDOUT, "(a)") "    (identity between the two genomes of an individual)"
+      VecDescStat = DescStat(CurrentInbreeding%Value(1:CurrentInbreeding%nInd))
+      write(STDOUT, "(a)") "    - average: "//trim(Real2Char(VecDescStat%Mean,         fmt=FMTREAL2CHAR))
+      write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(VecDescStat%SD,           fmt=FMTREAL2CHAR))
+      write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(VecDescStat%Min,          fmt=FMTREAL2CHAR))
+      write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(VecDescStat%Max,          fmt=FMTREAL2CHAR))
       write(STDOUT, "(a)") " "
 
-      ! --- Current contribution variance coefficient (x'Ax) ---
+      ! TODO
+      ! write(STDOUT, "(a)") "  - identity between genomes"
+      ! write(STDOUT, "(a)") "    - average: "//trim(Real2Char(MtxDescStat%OffDiag%Mean, fmt=FMTREAL2CHAR))
+      ! write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(MtxDescStat%OffDiag%SD,   fmt=FMTREAL2CHAR))
+      ! write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(MtxDescStat%OffDiag%Min,  fmt=FMTREAL2CHAR))
+      ! write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(MtxDescStat%OffDiag%Max,  fmt=FMTREAL2CHAR))
 
-      PopInbOld = 0.5d0 * MtxDescStat%All%Mean
+      ! --- Current and targeted future population coancestry (x'Cx) ---
+! TODO
+      ! @todo Compute CurrentCoancestry under random mating excluding selfing
+      ! @todo ... match sexes
+      ! @todo ... impose constraints?
+      CurrentCoancestryRanMate = MtxDescStat%All%Mean
+      CurrentInbreeding = VecDescStat%Mean
+      ! CurrentIdeRandom
 
       ! Targeted future population inbreeding
       ! F_t = DeltaF + (1 - DeltaF) * F_t-1
-      PopInbTarget = RatePopInbTarget + (1.0d0 - RatePopInbTarget) * PopInbOld
+! TODO
+      ! @todo which of the above CurrentCoancestry should we use?
+      TargetCoancestryRanMate = TargetCoancestryRate + (1.0d0 - TargetCoancestryRate) * CurrentCoancestryRanMate
+      TargetInbreeding        = TargetInbreedingRate + (1.0d0 - TargetInbreedingRate) * CurrentInbreeding
 
       ! Report
-      write(STDOUT, "(a)") "Population inbreeding (x'Ax)"
-      write(STDOUT, "(a)") "  - current: "//trim(Real2Char(PopInbOld,        fmt=FMTREAL2CHAR))
-      write(STDOUT, "(a)") "  - target:  "//trim(Real2Char(PopInbTarget,     fmt=FMTREAL2CHAR))
+      write(STDOUT, "(a)") "Population inbreeding (x'Cx)"
+      write(STDOUT, "(a)") "  - current: "//trim(Real2Char(CurrentCoancestryRanMate, fmt=FMTREAL2CHAR))
+      write(STDOUT, "(a)") "  - target:  "//trim(Real2Char(TargetCoancestryRanMate,  fmt=FMTREAL2CHAR))
       write(STDOUT, "(a)") " "
 
       open(newunit=InbreedUnit, file="PopulationInbreeding.txt", status="unknown")
-      write(InbreedUnit, "(a, f)") "Current, ", PopInbOld
-      write(InbreedUnit, "(a, f)") "Target,  ", PopInbTarget
+      write(InbreedUnit, "(a, f)") "Current, ", CurrentCoancestryRanMate
+      write(InbreedUnit, "(a, f)") "Target,  ", TargetCoancestryRanMate
       close(InbreedUnit)
 
       ! --- Shuffle the data ---
 
       ! To avoid having good animals together - better for Evolutionary algorithm
-      ! This is done upfront for Id and RelMtx only. Then all the data is read and mapped to this order
-      ! TODO: is it worth it?
-      ! TODO: does this scale well with large data sets?
+      ! This is done upfront for Id and CoaMtx only. Then all the data is read and mapped to this order
+      ! @todo is it worth it?
+      ! @todo does this scale well with large data sets?
       ! allocate(Order(nInd))
       ! Order = RandomOrder(nInd)
       ! IdC(:) = IdC(Order)
-      ! RelMtx(:, :) = RelMtx(Order, Order)
+      ! CoaMtx(:, :) = CoaMtx(Order, Order)
       ! deallocate(Order)
 
       ! --- Breeding values ---
@@ -875,9 +941,9 @@ module AlphaMateModule
         write(STDOUT, "(a)") "Breeding values"
         nIndTmp = CountLines(BreedValFile)
         if (nIndTmp /= nInd) then
-          write(STDERR, "(a)") "ERROR: Number of individuals in the breeding value file and the relatedness matrix file is not the same!"
-          write(STDERR, "(a)") "ERROR: Number of individuals in the relatedness matrix file: "//trim(Int2Char(nInd))
-          write(STDERR, "(a)") "ERROR: Number of individuals in the breeding value file:     "//trim(Int2Char(nIndTmp))
+          write(STDERR, "(a)") "ERROR: Number of individuals in the breeding value file and the coancestry matrix file is not the same!"
+          write(STDERR, "(a)") "ERROR: Number of individuals in the coancestry matrix file: "//trim(Int2Char(nInd))
+          write(STDERR, "(a)") "ERROR: Number of individuals in the breeding value file:    "//trim(Int2Char(nIndTmp))
           write(STDERR, "(a)") " "
           stop 1
         end if
@@ -890,7 +956,7 @@ module AlphaMateModule
           end if
           j = FindLoc(IdCTmp, IdC)
           if (j == 0) then
-            write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the breeding value file not present in the relatedness matrix file!"
+            write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the breeding value file not present in the coancestry matrix file!"
             write(STDERR, "(a)") " "
             stop 1
           end if
@@ -949,9 +1015,9 @@ module AlphaMateModule
         write(STDOUT, "(a)") "Gender"
         nIndTmp = CountLines(GenderFile)
         if (nIndTmp /= nInd) then
-          write(STDERR, "(a)") "ERROR: Number of individuals in the gender file and the relatedness matrix file is not the same!"
-          write(STDERR, "(a)") "ERROR: Number of individuals in the relatedness matrix file: "//trim(Int2Char(nInd))
-          write(STDERR, "(a)") "ERROR: Number of individuals in the gender file:             "//trim(Int2Char(nIndTmp))
+          write(STDERR, "(a)") "ERROR: Number of individuals in the gender file and the coancestry matrix file is not the same!"
+          write(STDERR, "(a)") "ERROR: Number of individuals in the coancestry matrix file: "//trim(Int2Char(nInd))
+          write(STDERR, "(a)") "ERROR: Number of individuals in the gender file:            "//trim(Int2Char(nIndTmp))
           write(STDERR, "(a)") " "
           stop 1
         end if
@@ -974,7 +1040,7 @@ module AlphaMateModule
           end if
           j = FindLoc(IdCTmp, IdC)
           if (j == 0) then
-            write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the gender file not present in the relatedness matrix file!"
+            write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the gender file not present in the coancestry matrix file!"
             write(STDERR, "(a)") " "
             stop 1
           end if
@@ -986,7 +1052,7 @@ module AlphaMateModule
         write(STDOUT, "(a)") "  - number of females in data: "//trim(Int2Char(nFem))
         write(STDOUT, "(a)") " "
 
-        if (nPar1 > nMat) then
+        if (nPar1 > nMal) then
           write(STDERR, "(a)") "ERROR: The number of male parents can not be larger than the number of males"
           write(STDERR, "(a)") "ERROR: Number of male parents: "//trim(Int2Char(nPar1))
           write(STDERR, "(a)") "ERROR: Number of        males: "//trim(Int2Char(nMal))
@@ -1080,8 +1146,8 @@ module AlphaMateModule
         write(STDOUT, "(a)") "Generic individual values"
         nIndTmp = CountLines(GenericIndValFile)
         if (nIndTmp /= nInd) then
-          write(STDERR, "(a)") "ERROR: Number of individuals in the generic individual values file and the relatedness matrix file is not the same!"
-          write(STDERR, "(a)") "ERROR: Number of individuals in the relatedness matrix file:        "//trim(Int2Char(nInd))
+          write(STDERR, "(a)") "ERROR: Number of individuals in the generic individual values file and the coancestry matrix file is not the same!"
+          write(STDERR, "(a)") "ERROR: Number of individuals in the coancestry matrix file:         "//trim(Int2Char(nInd))
           write(STDERR, "(a)") "ERROR: Number of individuals in the generic individual values file: "//trim(Int2Char(nIndTmp))
           write(STDERR, "(a)") " "
           stop 1
@@ -1094,7 +1160,7 @@ module AlphaMateModule
           read(GenericIndValUnit, *) IdCTmp, GenericIndValTmp(:)
           j = FindLoc(IdCTmp, IdC)
           if (j == 0) then
-            write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the generic individual values file not present in the relatedness matrix file!"
+            write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the generic individual values file not present in the coancestry matrix file!"
             write(STDERR, "(a)") " "
             stop 1
           end if
@@ -1133,13 +1199,13 @@ module AlphaMateModule
           read(GenericMatValUnit, *) IdCTmp, IdCTmp2, GenericMatValTmp(:)
           j = FindLoc(IdCTmp, IdC)
           if (j == 0) then
-            write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the generic mating values file not present in the relatedness matrix file!"
+            write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the generic mating values file not present in the coancestry matrix file!"
             write(STDERR, "(a)") " "
             stop 1
           end if
           k = FindLoc(IdCTmp2, IdC)
           if (k == 0) then
-            write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp2)//" from the generic mating values file not present in the relatedness matrix file!"
+            write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp2)//" from the generic mating values file not present in the coancestry matrix file!"
             write(STDERR, "(a)") " "
             stop 1
           end if
@@ -1222,9 +1288,9 @@ module AlphaMateModule
       COLNAMELOGUNIT(4) = "             Penalties"
       COLNAMELOGUNIT(5) = "         ExpBreedValue"
       COLNAMELOGUNIT(6) = "             GenSelInt"
-      COLNAMELOGUNIT(7) = "             ExpPopInb"
-      COLNAMELOGUNIT(8) = "            RatePopInb"
-      COLNAMELOGUNIT(9) = "         ExpPrgInbreed"
+      COLNAMELOGUNIT(7) = "            Coancestry"
+      COLNAMELOGUNIT(8) = "        CoancestryRate"
+      COLNAMELOGUNIT(9) = "            Inbreeding"
       nColTmp = 9
       if (GenericIndValAvailable) then
         do i = 1, nGenericIndVal
@@ -1262,7 +1328,7 @@ module AlphaMateModule
 
       integer(int32) :: nParam, k, FrontierUnit
 
-      real(real64) :: PopInbTargetHold, RatePopInbTargetHold
+      real(real64) :: HoldTargetCoancestryRanMate, HoldTargetCoancestryRate
       real(real64), allocatable :: InitEqual(:, :)
 
       character(len=1000) :: LogFile, LogPopFile, ContribFile, MatingFile
@@ -1334,7 +1400,7 @@ module AlphaMateModule
         ContribFile = "IndividualResultsMaximalValue.txt"
         MatingFile  = "MatingResultsMaximalValue.txt"
 
-        ! TODO: add some clever initial values, say equal contributions, decreasing contributions
+        ! @todo add some clever initial values, say equal contributions, decreasing contributions
         !       with decreasing value, random matings to upper half of distribution, SDP solution, ...?
         call DifferentialEvolution(nParam=nParam, nSol=EvolAlgNSol, nGen=EvolAlgNGen, nGenBurnIn=EvolAlgNGenBurnIn, &
           nGenStop=EvolAlgNGenStop, StopTolerance=EvolAlgStopTol, nGenPrint=EvolAlgNGenPrint, LogFile=LogFile, LogPop=EvolAlgLogPop, LogPopFile=LogPopFile, &
@@ -1347,47 +1413,48 @@ module AlphaMateModule
       ! --- Evaluate the full frontier ---
 
       if (EvaluateFrontier) then
-        write(STDOUT, "(a)") "--- Evaluate the frontier (this might take some time!) ---"
+        write(STDOUT, "(a)") "--- Evaluate the frontier ---"
         write(STDOUT, "(a)") " "
 
-        PopInbWeightBellow = .true. ! we want to target certain rates of inbreeding
+        CoancestryWeightBellow = .true. ! we want to target certain rates of inbreeding
 
         open(newunit=FrontierUnit, file="Frontier.txt", status="unknown")
         !                                1234567890123456789012
-        write(FrontierUnit, FMTFROHEAD) "   Iteration", &
-                                        "             Criterion", &
-                                        "             Penalties", &
-                                        "     ExpBreedVa2 (x'a)", &
-                                        "       GenSelInt (x's)", &
-                                        "      ExpPopInb (x'Ax)", &
-                                        "            RatePopInb", &
-                                        "            PrgInbreed"
-        ! TODO: add the generic stuff from the log? Just call This%Log?
+        write(FrontierUnit, FMTFRONTEIRHEAD) "   Iteration", &
+                                             "             Criterion", &
+                                             "             Penalties", &
+                                             "         ExpBreedValue", &
+                                             "             GenSelInt", &
+                                             "            Coancestry", &
+                                             "        CoancestryRate", &
+                                             "            Inbreeding"
+! @todo add the generic stuff from the log? Just call This%Log?
         if (ModeMin) then
           DumC = "Min"
-          write(FrontierUnit, FMTFRO) adjustl(DumC), SolMin%Criterion, SolMin%Penalty, SolMin%ExpBreedVal, SolMin%GenSelInt, SolMin%ExpPopInb, SolMin%RatePopInb, SolMin%PrgInb
+          write(FrontierUnit, FMTFRONTEIR) adjustl(DumC), SolMin%Criterion, SolMin%Penalty, SolMin%ExpBreedVal, SolMin%GenSelInt, SolMin%FutureCoancestryRanMate, SolMin%CoancestryRateRanMate, SolMin%PrgInb
         end if
         if (ModeRan) then
           DumC = "Ran"
-          write(FrontierUnit, FMTFRO) adjustl(DumC), SolRan%Criterion, SolRan%Penalty, SolRan%ExpBreedVal, SolRan%GenSelInt, SolRan%ExpPopInb, SolRan%RatePopInb, SolRan%PrgInb
+          write(FrontierUnit, FMTFRONTEIR) adjustl(DumC), SolRan%Criterion, SolRan%Penalty, SolRan%ExpBreedVal, SolRan%GenSelInt, SolRan%FutureCoancestryRanMate, SolRan%CoancestryRateRanMate, SolRan%PrgInb
         end if
         if (ModeOpt) then
           DumC = "Opt"
-          write(FrontierUnit, FMTFRO) adjustl(DumC), SolOpt%Criterion, SolOpt%Penalty, SolOpt%ExpBreedVal, SolOpt%GenSelInt, SolOpt%ExpPopInb, SolOpt%RatePopInb, SolOpt%PrgInb
+          write(FrontierUnit, FMTFRONTEIR) adjustl(DumC), SolOpt%Criterion, SolOpt%Penalty, SolOpt%ExpBreedVal, SolOpt%GenSelInt, SolOpt%FutureCoancestryRanMate, SolOpt%CoancestryRateRanMate, SolOpt%PrgInb
         end if
 
         ! Hold old results
-        PopInbTargetHold = PopInbTarget
-        RatePopInbTargetHold = RatePopInbTarget
+        HoldTargetCoancestryRanMate = TargetCoancestryRanMate
+        HoldTargetCoancestryRate = TargetCoancestryRate
 
         ! Evaluate
         do k = 1, nFrontierSteps
-          RatePopInbTarget = RatePopInbFrontier(k)
-          ! x'Ax_{t+1} = x'Ax_{t} * (1 - dF)
-          PopInbTarget = PopInbOld * (1.0d0 - RatePopInbTarget)
+          TargetCoancestryRate = TargetCoancestryRateFrontier(k)
+          ! F_t = DeltaF + (1 - DeltaF) * F_t-1
+! TODO
+          TargetCoancestryRanMate = TargetCoancestryRate + (1.0d0 - TargetCoancestryRate) * CurrentCoancestryRanMate
           write(STDOUT, "(a)") "Step "//trim(Int2Char(k))//" out of "//trim(Int2Char(nFrontierSteps))//&
-                               " for the rate of population inbreeding "//trim(Real2Char(RatePopInbTarget, fmt=FMTREAL2CHAR))//&
-                               " (=targeted contribution var. coeff. "//trim(Real2Char(PopInbTarget, fmt=FMTREAL2CHAR))//")"
+                               " for the coancestry rate "//trim(Real2Char(TargetCoancestryRate, fmt=FMTREAL2CHAR))//&
+                               " (=targeted coancestry "//trim(Real2Char(TargetCoancestryRanMate, fmt=FMTREAL2CHAR))//")"
           write(STDOUT, "(a)") ""
 
           LogFile     = "OptimisationLogFrontier"//trim(Int2Char(k))//".txt"
@@ -1400,14 +1467,14 @@ module AlphaMateModule
             CritType="opt", CRBurnIn=EvolAlgCRBurnIn, CRLate=EvolAlgCRLate, FBase=EvolAlgFBase, FHigh1=EvolAlgFHigh1, FHigh2=EvolAlgFHigh2, &
             BestSol=Sol)
 
-          ! TODO: add the generic stuff from the log? Just call This%Log?
+          ! @todo add the generic stuff from the log? Just call This%Log?
           DumC = "Frontier"//trim(Int2Char(k))
-          write(FrontierUnit, FMTFRO) adjustl(DumC), Sol%Criterion, Sol%Penalty, Sol%ExpBreedVal, Sol%GenSelInt, Sol%ExpPopInb, Sol%RatePopInb, Sol%PrgInb
+          write(FrontierUnit, FMTFRONTEIR) adjustl(DumC), Sol%Criterion, Sol%Penalty, Sol%ExpBreedVal, Sol%GenSelInt, Sol%FutureCoancestryRanMate, Sol%CoancestryRateRanMate, Sol%PrgInb
 
           call SaveSolution(Sol, ContribFile, MatingFile)
 
-          if ((RatePopInbTarget - Sol%RatePopInb) > 0.01d0) then
-            write(STDOUT, "(a)") "NOTE: Could not achieve the rate of population inbreeding "//trim(Real2Char(RatePopInbTarget, fmt=FMTREAL2CHAR))
+          if ((TargetCoancestryRate - Sol%CoancestryRateRanMate) > 0.01d0) then
+            write(STDOUT, "(a)") "NOTE: Could not achieve the coancestry rate "//trim(Real2Char(TargetCoancestryRate, fmt=FMTREAL2CHAR))
             write(STDOUT, "(a)") "NOTE: Stopping the frontier evaluation."
             write(STDOUT, "(a)") ""
             exit
@@ -1415,8 +1482,8 @@ module AlphaMateModule
         end do
 
         ! Put back old results
-        PopInbTarget = PopInbTargetHold
-        RatePopInbTarget = RatePopInbTargetHold
+        HoldTargetCoancestryRanMate = TargetCoancestryRanMate
+        HoldTargetCoancestryRate = TargetCoancestryRate
 
         close(FrontierUnit)
 
@@ -1437,50 +1504,50 @@ module AlphaMateModule
       ! Other
       integer(int32) :: i, j, ContribUnit, MatingUnit, Rank(nInd)
 
-      ! TODO: should we have constant output no matter which options are switched on?
+      ! @todo should we have constant output no matter which options are switched on?
       open(newunit=ContribUnit, file=ContribFile, status="unknown")
-      Rank = MrgRnk(Sol%nVec + BreedValStand / 100.0d0)
+      Rank = MrgRnk(Sol%nVec + BreedValStand / 100.0d0) ! @todo is this really good sorting?
       if (.not.PAGE) then
-        !                               1234567890123456789012
-        write(ContribUnit, FMTINDHEAD) "          Id", &
-                                       "      Gender", &
-                                       "       Value", &
-                                       "  AvgCovCoef", &
-                                       "  Contribute", &
-                                       "    nMatings"
+        !                                        1234567890123456789012
+        write(ContribUnit, FMTCONTRIBUTIONHEAD) "          Id", &
+                                                "      Gender", &
+                                                "  BreedValue", &
+                                                "AvCoancestry", &
+                                                "Contribution", &
+                                                "     nMating"
         do i = nInd, 1, -1 ! MrgRnk ranks small to large
           j = Rank(i)
-          write(ContribUnit, FMTIND) IdC(j), Gender(j), BreedVal(j), &
-                                     sum(RelMtx(:, j)) / nInd, &
-                                     Sol%xVec(j), Sol%nVec(j)
+          write(ContribUnit, FMTCONTRIBUTION) IdC(j), Gender(j), BreedVal(j), &
+                                              sum(CoaMtx(:, j)) / nInd, &
+                                              Sol%xVec(j), Sol%nVec(j)
         end do
       else
-        !                                   1234567890123456789012
-        write(ContribUnit, FMTINDHEADEDIT) "          Id", &
-                                           "      Gender", &
-                                           "       Value", &
-                                           "  AvgCovCoef", &
-                                           "  Contribute", &
-                                           "    nMatings", &
-                                           "  GenomeEdit", &
-                                           " EditedValue"
+        !                                            1234567890123456789012
+        write(ContribUnit, FMTCONTRIBUTIONHEADEDIT) "          Id", &
+                                                    "      Gender", &
+                                                    "  BreedValue", &
+                                                    "AvCoancestry", &
+                                                    "Contribution", &
+                                                    "     nMating", &
+                                                    "  GenomeEdit", &
+                                                    " EditedValue"
         do i = nInd, 1, -1 ! MrgRnk ranks small to large
           j = Rank(i)
-          write(ContribUnit, FMTINDEDIT) IdC(j), Gender(j), BreedVal(j), &
-                                         sum(RelMtx(:, j)) / nInd, &
-                                         Sol%xVec(j), Sol%nVec(j), &
-                                         nint(Sol%GenomeEdit(j)), BreedVal(j) + Sol%GenomeEdit(j) * BreedValPAGE(j)
+          write(ContribUnit, FMTCONTRIBUTIONEDIT) IdC(j), Gender(j), BreedVal(j), &
+                                                  sum(CoaMtx(:, j)) / nInd, &
+                                                  Sol%xVec(j), Sol%nVec(j), &
+                                                  nint(Sol%GenomeEdit(j)), BreedVal(j) + Sol%GenomeEdit(j) * BreedValPAGE(j)
         end do
       end if
       close(ContribUnit)
 
       open(newunit=MatingUnit, file=MatingFile, status="unknown")
-      !                              1234567890123456789012
-      write(MatingUnit, FMTMATHEAD) "      Mating", &
-                                    "     Parent1", &
-                                    "     Parent2"
+      !                                 1234567890123456789012
+      write(MatingUnit, FMTMATINGHEAD) "      Mating", &
+                                       "     Parent1", &
+                                       "     Parent2"
       do i = 1, nMat
-        write(MatingUnit, FMTMAT) i, IdC(Sol%MatingPlan(1, i)), IdC(Sol%MatingPlan(2, i))
+        write(MatingUnit, FMTMATING) i, IdC(Sol%MatingPlan(1, i)), IdC(Sol%MatingPlan(2, i))
       end do
       close(MatingUnit)
     end subroutine
@@ -1494,13 +1561,13 @@ module AlphaMateModule
       class(AlphaMateSol), intent(out) :: This
 
       ! Initialisation
-      This%Criterion   = 0.0d0
-      This%Penalty     = 0.0d0
+      This%Criterion = 0.0d0
+      This%Penalty = 0.0d0
       This%ExpBreedVal = 0.0d0
-      This%GenSelInt   = 0.0d0
-      This%ExpPopInb   = 0.0d0
-      This%RatePopInb  = 0.0d0
-      This%PrgInb      = 0.0d0
+      This%GenSelInt = 0.0d0
+      This%FutureCoancestryRanMate = 0.0d0
+      This%CoancestryRateRanMate = 0.0d0
+      This%PrgInb = 0.0d0
       if (GenericIndValAvailable) then
         allocate(This%GenericIndVal(nGenericIndVal))
         This%GenericIndVal(:) = 0.0d0
@@ -1542,13 +1609,13 @@ module AlphaMateModule
       !  be the same as in the base class/type)
       select type (In)
         class is (AlphaMateSol)
-          Out%Criterion       = In%Criterion
-          Out%Penalty         = In%Penalty
-          Out%ExpBreedVal     = In%ExpBreedVal
-          Out%GenSelInt       = In%GenSelInt
-          Out%ExpPopInb       = In%ExpPopInb
-          Out%RatePopInb      = In%RatePopInb
-          Out%PrgInb          = In%PrgInb
+          Out%Criterion = In%Criterion
+          Out%Penalty = In%Penalty
+          Out%ExpBreedVal = In%ExpBreedVal
+          Out%GenSelInt = In%GenSelInt
+          Out%FutureCoancestryRanMate = In%FutureCoancestryRanMate
+          Out%CoancestryRateRanMate = In%CoancestryRateRanMate
+          Out%PrgInb = In%PrgInb
           if (allocated(In%GenericIndVal)) then
             allocate(Out%GenericIndVal(size(In%GenericIndVal)))
             Out%GenericIndVal = In%GenericIndVal
@@ -1557,22 +1624,22 @@ module AlphaMateModule
             allocate(Out%GenericMatVal(size(In%GenericMatVal)))
             Out%GenericMatVal = In%GenericMatVal
           end if
-          Out%Cost            = In%Cost
+          Out%Cost = In%Cost
           if (allocated(In%nVec)) then
             allocate(Out%nVec(size(In%nVec)))
-            Out%nVec          = In%nVec
+            Out%nVec = In%nVec
           end if
           if (allocated(In%xVec)) then
             allocate(Out%xVec(size(In%xVec)))
-            Out%xVec          = In%xVec
+            Out%xVec = In%xVec
           end if
           if (allocated(In%MatingPlan)) then
             allocate(Out%MatingPlan(size(In%MatingPlan, dim=1), size(In%MatingPlan, dim=2)))
-            Out%MatingPlan    = In%MatingPlan
+            Out%MatingPlan = In%MatingPlan
           end if
           if (allocated(In%GenomeEdit)) then
             allocate(Out%GenomeEdit(size(In%GenomeEdit)))
-            Out%GenomeEdit    = In%GenomeEdit
+            Out%GenomeEdit = In%GenomeEdit
           end if
         class default
           write(STDERR, "(a)") "ERROR: Both Out and In must be of the AlphaMateSol class for AlphaMate!"
@@ -1601,31 +1668,31 @@ module AlphaMateModule
       !  be the same as in the base class/type)
       select type (Add)
         class is (AlphaMateSol)
-          This%Criterion       = This%Criterion     * kR + Add%Criterion     / n
-          This%Penalty         = This%Penalty       * kR + Add%Penalty       / n
-          This%ExpBreedVal     = This%ExpBreedVal   * kR + Add%ExpBreedVal   / n
-          This%GenSelInt       = This%GenSelInt     * kR + Add%GenSelInt    / n
-          This%ExpPopInb       = This%ExpPopInb     * kR + Add%ExpPopInb     / n
-          This%RatePopInb      = This%RatePopInb    * kR + Add%RatePopInb    / n
-          This%PrgInb          = This%PrgInb        * kR + Add%PrgInb        / n
+          This%Criterion                 = This%Criterion                 * kR + Add%Criterion                 / n
+          This%Penalty                   = This%Penalty                   * kR + Add%Penalty                   / n
+          This%ExpBreedVal               = This%ExpBreedVal               * kR + Add%ExpBreedVal               / n
+          This%GenSelInt                 = This%GenSelInt                 * kR + Add%GenSelInt                 / n
+          This%FutureCoancestryRanMate = This%FutureCoancestryRanMate * kR + Add%FutureCoancestryRanMate / n
+          This%CoancestryRateRanMate            = This%CoancestryRateRanMate            * kR + Add%CoancestryRateRanMate            / n
+          This%PrgInb                    = This%PrgInb                    * kR + Add%PrgInb                    / n
           if (allocated(This%GenericIndVal)) then
-            This%GenericIndVal = This%GenericIndVal * kR + Add%GenericIndVal / n
+            This%GenericIndVal           = This%GenericIndVal             * kR + Add%GenericIndVal             / n
           end if
           if (allocated(This%GenericMatVal)) then
-            This%GenericMatVal = This%GenericMatVal * kR + Add%GenericMatVal / n
+            This%GenericMatVal           = This%GenericMatVal             * kR + Add%GenericMatVal             / n
           end if
-          This%Cost            = This%Cost          * kR + Add%Cost          / n
+          This%Cost                      = This%Cost                      * kR + Add%Cost                      / n
           if (allocated(This%nVec)) then
-            This%nVec          = This%nVec          * kR + Add%nVec          / n
+            This%nVec                    = This%nVec                      * kR + Add%nVec                      / n
           end if
           if (allocated(This%xVec)) then
-            This%xVec          = This%xVec          * kR + Add%xVec          / n
+            This%xVec                    = This%xVec                      * kR + Add%xVec                      / n
           end if
           if (allocated(This%MatingPlan)) then
-            This%MatingPlan    = This%MatingPlan    * kR + Add%MatingPlan    / n
+            This%MatingPlan              = This%MatingPlan                * kR + Add%MatingPlan                / n
           end if
           if (allocated(This%GenomeEdit)) then
-            This%GenomeEdit    = This%GenomeEdit    * kR + Add%GenomeEdit    / n
+            This%GenomeEdit              = This%GenomeEdit                * kR + Add%GenomeEdit                / n
           end if
         class default
           write(STDERR, "(a)") "ERROR: Both This and Add must be of the AlphaMateSol class for AlphaMate!"
@@ -1669,7 +1736,7 @@ module AlphaMateModule
       ! - mate male 4 with the third  available female (rank 1.0)
       ! - edit male 2
 
-      ! TODO: consider spliting the Chrom() vector internally into a type with
+      ! @todo consider spliting the Chrom() vector internally into a type with
       !       separate vectors to simplify the code, e.g.,
       ! Chrom2%ContPar1
       ! Chrom2%ContPar2
@@ -1687,7 +1754,7 @@ module AlphaMateModule
       ! interegrised values gives nMat. If values bellow 0.5 are found, they are
       ! changed to 1 contribution. If this still does not give nMat, then we start
 
-! TODO: least contributing? Those that already contribute or thos that do not contribute at all?
+      ! @todo least contributing? Those that already contribute or thos that do not contribute at all?
 
       ! adding on contribution to each parent (starting from least contributing
       ! parents to avoid local minima) until we reach nMat. How to treat values
@@ -1710,7 +1777,7 @@ module AlphaMateModule
       if (.not.(EqualizePar1 .and. (nPar1 == nPotPar1))) then
         Rank(1:nPotPar1) = MrgRnk(Chrom(1:nPotPar1))
         Rank(1:nPotPar1) = Rank(nPotPar1:1:-1) ! MrgRnk ranks small to large
-! TODO: decreasing option in MrgRnk?
+        !@todo decreasing option in MrgRnk?
       end if
       ! ... handle cases with equalized contributions
       if (EqualizePar1) then
@@ -1720,7 +1787,7 @@ module AlphaMateModule
         else
           ! ... set integers to the top values
           Chrom(Rank(1:nPar1)) = dble(nMat * g) / nPar1
-          ! TODO: anything better to preserve the order of non contributing individuals? See below!
+          !@todo anything better to preserve the order of non contributing individuals? See below!
           Chrom(Rank((nPar1+1):nPotPar1)) = 0.0d0
           ! Chrom(Rank((nPar1+1):nPotPar1)) = -1.0d0
         end if
@@ -1776,7 +1843,7 @@ module AlphaMateModule
           !     Chrom(Rank(i:nPotPar1)) = Chrom(Rank(i:nPotPar1)) - abs(TmpR)
           ! end if
           ! ... negative (random so no order)
-          ! do j = i, nPotPar1 ! TODO: really need this loop?
+          ! do j = i, nPotPar1 ! @todo really need this loop?
           !   call random_number(RanNum)
           !   Chrom(Rank(j)) = -1.0d0 * RanNum
           ! end do
@@ -1820,7 +1887,7 @@ module AlphaMateModule
           else
             ! ... set integers to the top values
             Chrom(nPotPar1+Rank(1:nPar2)) = dble(nMat) / nPar2
-            ! TODO: anything better to preserve the order of non contributing individuals? See below!
+            ! @todo anything better to preserve the order of non contributing individuals? See below!
             Chrom(nPotPar1+Rank((nPar2+1):nPotPar2)) = 0.0d0
             ! Chrom(nPotPar1+Rank((nPar2+1):nPotPar2)) = -1.0d0
           end if
@@ -1876,7 +1943,7 @@ module AlphaMateModule
             !     Chrom(nPotPar1+(Rank(i:nPotPar2))) = Chrom(nPotPar1+(Rank(i:nPotPar2))) - abs(TmpR)
             ! end if
             ! ... negative (random so no order)
-            ! do j = i, nPotPar2 ! TODO: really need this loop?
+            ! do j = i, nPotPar2 ! @todo really need this loop?
             !   call random_number(RanNum)
             !   Chrom(nPotPar1+Rank(j)) = -1.0d0 * RanNum
             ! end do
@@ -2080,43 +2147,45 @@ module AlphaMateModule
 
       ! --- Contribution variance coefficient & rate of inbreeding ---
 
-      ! x'A
+      ! x'C
       do i = 1, nInd
-        TmpVec(i, 1) = dot_product(This%xVec, RelMtx(:, i))
+        TmpVec(i, 1) = dot_product(This%xVec, CoaMtx(:, i))
       end do
-      ! TODO: consider using matmul instead of repeated dot_product?
-      ! TODO: consider using BLAS/LAPACK - perhaps non-symmetric is more optimised?
+      ! @todo consider using matmul instead of repeated dot_product?
+      ! @todo consider using BLAS/LAPACK - perhaps non-symmetric is more optimised?
       ! Matrix multiplication with a symmetric matrix using BLAS routine
       ! (it was ~5x slower than the above with 1.000 individuals, might be benefical with larger cases)
       ! http://www.netlib.org/lapack/explore-html/d1/d54/group__double__blas__level3.html#ga253c8edb8b21d1b5b1783725c2a6b692
-      ! call dsymm(side="l", uplo="l", m=nInd, n=1, alpha=1.0d0, A=RelMtx, lda=nInd, b=This%xVec, ldb=nInd, beta=0, c=TmpVec, ldc=nInd)
-      ! call dsymm(     "l",      "l",   nInd,   1,       1.0d0,   RelMtx,     nInd,   This%xVec,     nInd,      0,   TmpVec,     nInd)
+      ! call dsymm(side="l", uplo="l", m=nInd, n=1, alpha=1.0d0, A=CoaMtx, lda=nInd, b=This%xVec, ldb=nInd, beta=0, c=TmpVec, ldc=nInd)
+      ! call dsymm(     "l",      "l",   nInd,   1,       1.0d0,   CoaMtx,     nInd,   This%xVec,     nInd,      0,   TmpVec,     nInd)
 
-      ! x'Ax
-      This%ExpPopInb = 0.5d0 * dot_product(TmpVec(:, 1), This%xVec)
+      ! x'Cx
+!TODO
+      This%FutureCoancestryRanMate = dot_product(TmpVec(:, 1), This%xVec)
 
       ! dF = (F_t+1 - F_t) / (1 - F_t)
-      This%RatePopInb = (This%ExpPopInb - PopInbOld) / (1.0d0 - PopInbOld)
+!TODO
+      This%CoancestryRateRanMate = (This%FutureCoancestryRanMate - CurrentInbreedingRandom) / (1.0d0 - CurrentInbreedingRandom)
 
       if      (CritType == "min" .or. CritType == "ran") then
-        This%Criterion = This%Criterion - This%ExpPopInb
+        This%Criterion = This%Criterion - This%FutureCoancestryRanMate
       else if (CritType == "opt") then
         ! We know the targeted inbreeding so we can work with relative values,
-        ! which makes the PopInbWeight generic for ~any scenario.
-        TmpR = This%RatePopInb / RatePopInbTarget
+        ! which makes the CoancestryWeight generic for ~any scenario.
+        TmpR = This%CoancestryRateRanMate / TargetCoancestryRate
         if (TmpR > 1.0d0) then
           ! Rate of inbreeding for the solution is higher than the target
-          TmpR = PopInbWeight * abs(1.0d0 - TmpR)
+          TmpR = CoancestryWeight * abs(1.0d0 - TmpR)
         else
           ! Rate of inbreeding for the solution is lower than the target
-          if (PopInbWeightBellow) then
-            TmpR = PopInbWeight * abs(1.0d0 - abs(TmpR)) ! the second abs is to handle negative inbreeding cases
+          if (CoancestryWeightBellow) then
+            TmpR = CoancestryWeight * abs(1.0d0 - abs(TmpR)) ! the second abs is to handle negative inbreeding cases
           else
             TmpR = 0.0d0
           end if
         end if
         This%Criterion = This%Criterion + TmpR
-        if (PopInbWeight < 0.0d0) then
+        if (CoancestryWeight < 0.0d0) then
           This%Penalty = This%Penalty + abs(TmpR)
         end if
       else
@@ -2127,13 +2196,13 @@ module AlphaMateModule
 
       ! --- Progeny inbreeding (=inbreeding of a mating) ---
 
-      !print*, "TODO: need to check progeny inbreeding in light of genomic relatedness matrix!!!"
+      !print*, "@todo need to check progeny inbreeding in light of genomic coancestry matrix!!!"
       TmpR = 0.0d0
       do j = 1, nMat
         ! Lower triangle to speedup lookup
         TmpMax = maxval(This%MatingPlan(:, j))
         TmpMin = minval(This%MatingPlan(:, j))
-        TmpR = TmpR + 0.5d0 * RelMtx(TmpMax, TmpMin)
+        TmpR = TmpR + 0.5d0 * CoaMtx(TmpMax, TmpMin)
       end do
       This%PrgInb = TmpR / nMat
       TmpR = PrgInbWeight * This%PrgInb
@@ -2168,7 +2237,7 @@ module AlphaMateModule
         end do
       end if
 
-      ! TODO: how should we handle costs?
+      ! @todo how should we handle costs?
     end subroutine
 
     !###########################################################################
@@ -2192,29 +2261,29 @@ module AlphaMateModule
       real(real64), intent(in)             :: AcceptRate
       if (GenericIndValAvailable) then
         if (GenericMatValAvailable) then
-          write(STDOUT, FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%ExpPopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal, This%GenericMatVal
+          write(STDOUT, FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%PrgInb, This%GenericIndVal, This%GenericMatVal
         else
-          write(STDOUT, FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%ExpPopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal
+          write(STDOUT, FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%PrgInb, This%GenericIndVal
         end if
       else
         if (GenericMatValAvailable) then
-          write(STDOUT, FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%ExpPopInb, This%RatePopInb, This%PrgInb,                     This%GenericMatVal
+          write(STDOUT, FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%PrgInb,                     This%GenericMatVal
         else
-          write(STDOUT, FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%ExpPopInb, This%RatePopInb, This%PrgInb
+          write(STDOUT, FMTLOGSTDOUT)  Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%PrgInb
         end if
       end if
       if (present(LogUnit)) then
         if (GenericIndValAvailable) then
           if (GenericMatValAvailable) then
-            write(LogUnit, FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%ExpPopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal, This%GenericMatVal
+            write(LogUnit, FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%PrgInb, This%GenericIndVal, This%GenericMatVal
           else
-            write(LogUnit, FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%ExpPopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal
+            write(LogUnit, FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%PrgInb, This%GenericIndVal
           end if
         else
           if (GenericMatValAvailable) then
-            write(LogUnit, FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%ExpPopInb, This%RatePopInb, This%PrgInb,                     This%GenericMatVal
+            write(LogUnit, FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%PrgInb,                     This%GenericMatVal
           else
-            write(LogUnit, FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%ExpPopInb, This%RatePopInb, This%PrgInb
+            write(LogUnit, FMTLOGUNIT) Gen, AcceptRate, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%PrgInb
           end if
         end if
       end if
@@ -2239,15 +2308,15 @@ module AlphaMateModule
 
       if (GenericIndValAvailable) then
         if (GenericMatValAvailable) then
-          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%ExpPopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal, This%GenericMatVal
+          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%PrgInb, This%GenericIndVal, This%GenericMatVal
         else
-          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%ExpPopInb, This%RatePopInb, This%PrgInb, This%GenericIndVal
+          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%PrgInb, This%GenericIndVal
         end if
       else
         if (GenericMatValAvailable) then
-          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%ExpPopInb, This%RatePopInb, This%PrgInb,                     This%GenericMatVal
+          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%PrgInb,                     This%GenericMatVal
         else
-          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%ExpPopInb, This%RatePopInb, This%PrgInb
+          write(LogPopUnit, FMTLOGPOPUNIT) Gen, i, This%Criterion, This%Penalty, This%ExpBreedVal, This%GenSelInt, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%PrgInb
         end if
       end if
     end subroutine
