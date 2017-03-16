@@ -73,12 +73,19 @@ module AlphaMateModule
     ! Biological specifications
     real(real64) :: TargetCoancestryRate
     real(real64) :: TargetInbreedingRate
+    real(real64) :: CoancestryWeight, InbreedingWeight, SelfingWeight
+    real(real64) :: LimitPar1Min, LimitPar1Max, LimitPar2Min, LimitPar2Max, LimitPar1Weight, LimitPar2Weight
+    real(real64), allocatable :: GenericIndValWeight(:), GenericMatValWeight(:)
+    logical :: SelfingAllowed, CoancestryWeightBellow, InbreedingWeightBellow
     integer(int32) :: PAGEPar1Max, PAGEPar2Max
     real(real64) :: PAGEPar1Cost, PAGEPar2Cost
+    ! Search specifications
     integer(int32) :: nFrontierSteps
-    ! Search algorithm specifications
+    logical :: EvaluateFrontier
+    ! Algorithm specifications
     integer(int32) :: EvolAlgNSol, EvolAlgNGen, EvolAlgNGenBurnIn, EvolAlgNGenStop, EvolAlgNGenPrint, RanAlgStricter
     real(real64) :: EvolAlgStopTol, EvolAlgCRBurnIn, EvolAlgCRLate, EvolAlgFBase, EvolAlgFHigh1, EvolAlgFHigh2
+    logical :: EvolAlgLogPop
   end type
 
   !> @brief AlphaMate data
@@ -134,14 +141,10 @@ module AlphaMateModule
   type(AlphaMateSpec) :: Spec
   type(AlphaMateData) :: Data
 
-  real(real64) :: LimitPar1Min, LimitPar1Max, LimitPar2Min, LimitPar2Max
-  real(real64) :: CoancestryWeight, InbreedingWeight, SelfingWeight, LimitPar1Weight, LimitPar2Weight
-  real(real64), allocatable :: GenericIndValWeight(:), GenericMatValWeight(:)
   real(real64), allocatable :: TargetCoancestryRateFrontier(:), GenericIndValTmp(:), GenericMatValTmp(:)
 
   logical :: NrmInsteadOfCoancestry
   logical :: ModeMin, ModeRan, ModeOpt, SelCriterionAvailable, GenderMatters, EqualizePar1, EqualizePar2
-  logical :: SelfingAllowed, CoancestryWeightBellow, InbreedingWeightBellow, EvolAlgLogPop, EvaluateFrontier
   logical :: PAGE, PAGEPar1, PAGEPar2, GenericIndValAvailable, GenericMatValAvailable
 
   CHARACTER(len=100), PARAMETER :: FMTREAL2CHAR = "(f11.5)"
@@ -549,9 +552,9 @@ module AlphaMateModule
       ! --- LimitParentContributions ---
 
       read(SpecUnit, *) DumC, DumC
-      LimitPar1Min = 1.0d0
-      LimitPar1Max = huge(LimitPar1Max) - 1.0d0
-      LimitPar1Weight = 0.0d0
+      Spec%LimitPar1Min = 1.0d0
+      Spec%LimitPar1Max = huge(Spec%LimitPar1Max) - 1.0d0
+      Spec%LimitPar1Weight = 0.0d0
       if (.not.GenderMatters) then
         if      (ToLower(trim(DumC)) == "yes") then
           if (EqualizePar1) then
@@ -560,10 +563,10 @@ module AlphaMateModule
             write(STDOUT, "(a)") " "
           else
             backspace(SpecUnit)
-            read(SpecUnit, *) DumC, DumC, LimitPar1Min, LimitPar1Max, LimitPar1Weight
-            write(STDOUT, "(a)") "LimitParentContributions: yes, min "//trim(Int2Char(nint(LimitPar1Min)))//", max "//&
-              trim(Int2Char(nint(LimitPar1Max)))//", penalty weight "//trim(Real2Char(LimitPar1Weight, fmt=FMTREAL2CHAR))
-            if (LimitPar1Weight > 0.0) then
+            read(SpecUnit, *) DumC, DumC, Spec%LimitPar1Min, Spec%LimitPar1Max, Spec%LimitPar1Weight
+            write(STDOUT, "(a)") "LimitParentContributions: yes, min "//trim(Int2Char(nint(Spec%LimitPar1Min)))//", max "//&
+              trim(Int2Char(nint(Spec%LimitPar1Max)))//", penalty weight "//trim(Real2Char(Spec%LimitPar1Weight, fmt=FMTREAL2CHAR))
+            if (Spec%LimitPar1Weight > 0.0) then
               write(STDERR, "(a)") "ERROR: Penalty weight for limiting parent contributions should be zero or negative!"
               write(STDERR, "(a)") " "
               stop 1
@@ -589,10 +592,10 @@ module AlphaMateModule
             write(STDOUT, "(a)") " "
           else
             backspace(SpecUnit)
-            read(SpecUnit, *) DumC, DumC, LimitPar1Min, LimitPar1Max, LimitPar1Weight
-            write(STDOUT, "(a)") "LimitMaleParentContributions: yes, min "//trim(Int2Char(nint(LimitPar1Min)))//", max "//&
-              trim(Int2Char(nint(LimitPar1Max)))//", penalty weight "//trim(Real2Char(LimitPar1Weight, fmt=FMTREAL2CHAR))
-            if (LimitPar1Weight > 0.0) then
+            read(SpecUnit, *) DumC, DumC, Spec%LimitPar1Min, Spec%LimitPar1Max, Spec%LimitPar1Weight
+            write(STDOUT, "(a)") "LimitMaleParentContributions: yes, min "//trim(Int2Char(nint(Spec%LimitPar1Min)))//", max "//&
+              trim(Int2Char(nint(Spec%LimitPar1Max)))//", penalty weight "//trim(Real2Char(Spec%LimitPar1Weight, fmt=FMTREAL2CHAR))
+            if (Spec%LimitPar1Weight > 0.0) then
               write(STDERR, "(a)") "ERROR: Penalty weight for limiting parent contributions should be zero or negative!"
               write(STDERR, "(a)") " "
               stop 1
@@ -610,9 +613,9 @@ module AlphaMateModule
       ! --- LimitFemaleParentContributions ---
 
       read(SpecUnit, *) DumC, DumC
-      LimitPar2Min = 1.0d0
-      LimitPar2Max = huge(LimitPar2Max) - 1.0d0
-      LimitPar2Weight = 0.0d0
+      Spec%LimitPar2Min = 1.0d0
+      Spec%LimitPar2Max = huge(Spec%LimitPar2Max) - 1.0d0
+      Spec%LimitPar2Weight = 0.0d0
       if (GenderMatters) then
         if      (ToLower(trim(DumC)) == "yes") then
           if (EqualizePar2) then
@@ -621,10 +624,10 @@ module AlphaMateModule
             write(STDOUT, "(a)") " "
           else
             backspace(SpecUnit)
-            read(SpecUnit, *) DumC, DumC, LimitPar2Min, LimitPar2Max, LimitPar2Weight
-            write(STDOUT, "(a)") "LimitFemaleParentContributions: yes, min "//trim(Int2Char(nint(LimitPar2Min)))//", max "//&
-              trim(Int2Char(nint(LimitPar2Max)))//", penalty weight "//trim(Real2Char(LimitPar2Weight, fmt=FMTREAL2CHAR))
-            if (LimitPar2Weight > 0.0) then
+            read(SpecUnit, *) DumC, DumC, Spec%LimitPar2Min, Spec%LimitPar2Max, Spec%LimitPar2Weight
+            write(STDOUT, "(a)") "LimitFemaleParentContributions: yes, min "//trim(Int2Char(nint(Spec%LimitPar2Min)))//", max "//&
+              trim(Int2Char(nint(Spec%LimitPar2Max)))//", penalty weight "//trim(Real2Char(Spec%LimitPar2Weight, fmt=FMTREAL2CHAR))
+            if (Spec%LimitPar2Weight > 0.0) then
               write(STDERR, "(a)") "ERROR: Penalty weight for limiting parent contributions should be zero or negative!"
               write(STDERR, "(a)") " "
               stop 1
@@ -643,7 +646,7 @@ module AlphaMateModule
 
       read(SpecUnit, *) DumC, DumC
       if      (ToLower(trim(DumC)) == "yes") then
-        SelfingAllowed = .true.
+        Spec%SelfingAllowed = .true.
         write(STDOUT, "(a)") "AllowSelfing: Yes"
         if (GenderMatters) then
           write(STDOUT, "(a)") "ERROR: When gender matters, AlphaMate can not perform selfing! See the manual for a solution."
@@ -651,12 +654,12 @@ module AlphaMateModule
           stop 1
         end if
       else if (ToLower(trim(DumC)) == "no") then
-        SelfingAllowed = .false.
+        Spec%SelfingAllowed = .false.
         if (.not.GenderMatters) then
           backspace(SpecUnit)
-          read(SpecUnit, *) DumC, DumC, SelfingWeight
-          write(STDOUT, "(a)") "AllowSelfing: no, penalty weight "//trim(Real2Char(SelfingWeight, fmt=FMTREAL2CHAR))
-          if (SelfingWeight > 0.0) then
+          read(SpecUnit, *) DumC, DumC, Spec%SelfingWeight
+          write(STDOUT, "(a)") "AllowSelfing: no, penalty weight "//trim(Real2Char(Spec%SelfingWeight, fmt=FMTREAL2CHAR))
+          if (Spec%SelfingWeight > 0.0) then
             write(STDERR, "(a)") "ERROR: Penalty weight for selfing should be zero or negative!"
             write(STDERR, "(a)") " "
             stop 1
@@ -766,13 +769,13 @@ module AlphaMateModule
 
       ! --- TargetedRateOfCoancestry ---
 
-      read(SpecUnit, *) DumC, Spec%TargetCoancestryRate, CoancestryWeight, DumC
+      read(SpecUnit, *) DumC, Spec%TargetCoancestryRate, Spec%CoancestryWeight, DumC
       write(STDOUT, "(a)") "TargetedRateOfCoancestry: "//trim(Real2Char(Spec%TargetCoancestryRate, fmt=FMTREAL2CHAR))//&
-        ", penalty weight "//trim(Real2Char(CoancestryWeight, fmt=FMTREAL2CHAR))//", mode "//trim(DumC)
+        ", penalty weight "//trim(Real2Char(Spec%CoancestryWeight, fmt=FMTREAL2CHAR))//", mode "//trim(DumC)
       if      (ToLower(trim(DumC)) == "above") then
-        CoancestryWeightBellow = .false.
+        Spec%CoancestryWeightBellow = .false.
       else if (ToLower(trim(DumC)) == "aboveandbellow") then
-        CoancestryWeightBellow = .true.
+        Spec%CoancestryWeightBellow = .true.
       else
         write(STDERR, "(a)") "ERROR: CoancestryWeightMode must be: Above or AboveAndBellow!"
         write(STDERR, "(a)") " "
@@ -783,7 +786,7 @@ module AlphaMateModule
         write(STDERR, "(a)") " "
         stop 1
       end if
-      if (CoancestryWeight > 0.0) then
+      if (Spec%CoancestryWeight > 0.0) then
         write(STDERR, "(a)") "ERROR: Penalty weight for the targeted rate of coancestry should be zero or negative!"
         write(STDERR, "(a)") " "
         stop 1
@@ -791,13 +794,13 @@ module AlphaMateModule
 
       ! --- TargetedRateOfInbreeding (=inbreeding of a mating) ---
 
-      read(SpecUnit, *) DumC, Spec%TargetInbreedingRate, InbreedingWeight, DumC
+      read(SpecUnit, *) DumC, Spec%TargetInbreedingRate, Spec%InbreedingWeight, DumC
       write(STDOUT, "(a)") "TargetedRateOfInbreeding: "//trim(Real2Char(Spec%TargetInbreedingRate, fmt=FMTREAL2CHAR))//&
-        ", penalty weight "//trim(Real2Char(InbreedingWeight, fmt=FMTREAL2CHAR))//", mode "//trim(DumC)
+        ", penalty weight "//trim(Real2Char(Spec%InbreedingWeight, fmt=FMTREAL2CHAR))//", mode "//trim(DumC)
       if      (ToLower(trim(DumC)) == "above") then
-        InbreedingWeightBellow = .false.
+        Spec%InbreedingWeightBellow = .false.
       else if (ToLower(trim(DumC)) == "aboveandbellow") then
-        InbreedingWeightBellow = .true.
+        Spec%InbreedingWeightBellow = .true.
       else
         write(STDERR, "(a)") "ERROR: InbreedingWeightMode must be: Above or AboveAndBellow!"
         write(STDERR, "(a)") " "
@@ -808,7 +811,7 @@ module AlphaMateModule
         write(STDERR, "(a)") " "
         stop 1
       end if
-      if (InbreedingWeight > 0.0) then
+      if (Spec%InbreedingWeight > 0.0) then
         write(STDERR, "(a)") "ERROR: Penalty weight for the targeted rate of inbreeding should be zero or negative!"
         write(STDERR, "(a)") " "
         stop 1
@@ -819,10 +822,10 @@ module AlphaMateModule
       ! @todo Should this be part of TargetedCoancestryRate??
       read(SpecUnit, *) DumC, DumC
       if      (ToLower(trim(DumC)) == "no") then
-        EvaluateFrontier = .false.
+        Spec%EvaluateFrontier = .false.
         !write(STDOUT, "(a)") "EvaluateFrontier: no"
       else if (ToLower(trim(DumC)) == "yes") then
-        EvaluateFrontier = .true.
+        Spec%EvaluateFrontier = .true.
         backspace(SpecUnit)
         read(SpecUnit, *) DumC, DumC, Spec%nFrontierSteps
         allocate(TargetCoancestryRateFrontier(Spec%nFrontierSteps))
@@ -843,7 +846,7 @@ module AlphaMateModule
 
       ! --- EvolutionaryAlgorithmIterations ---
 
-      read(SpecUnit, *) DumC, Spec%EvolAlgNSol, Spec%EvolAlgNGen, Spec%EvolAlgNGenBurnIn, Spec%EvolAlgNGenStop, Spec%EvolAlgStopTol, Spec%EvolAlgNGenPrint, EvolAlgLogPop
+      read(SpecUnit, *) DumC, Spec%EvolAlgNSol, Spec%EvolAlgNGen, Spec%EvolAlgNGenBurnIn, Spec%EvolAlgNGenStop, Spec%EvolAlgStopTol, Spec%EvolAlgNGenPrint, Spec%EvolAlgLogPop
 
       ! --- EvolutionaryAlgorithmParameters ---
 
@@ -878,10 +881,10 @@ module AlphaMateModule
         GenericIndValAvailable = .true.
         backspace(SpecUnit)
         read(SpecUnit, *) DumC, GenericIndValFile, Data%nGenericIndVal
-        allocate(GenericIndValWeight(Data%nGenericIndVal))
-        read(SpecUnit, *) DumC, GenericIndValWeight(:)
+        allocate(Spec%GenericIndValWeight(Data%nGenericIndVal))
+        read(SpecUnit, *) DumC, Spec%GenericIndValWeight(:)
         write(STDOUT, "("//Int2Char(1 + Data%nGenericIndVal)//"a)") "GenericIndividualValuesFile: "//trim(GenericIndValFile)//&
-          ", weight(s): ", (trim(Real2Char(GenericIndValWeight(i), fmt=FMTREAL2CHAR)), i = 1, Data%nGenericIndVal)
+          ", weight(s): ", (trim(Real2Char(Spec%GenericIndValWeight(i), fmt=FMTREAL2CHAR)), i = 1, Data%nGenericIndVal)
       end if
 
       ! --- GenericMatingValuesFile ---
@@ -896,10 +899,10 @@ module AlphaMateModule
         GenericMatValAvailable = .true.
         backspace(SpecUnit)
         read(SpecUnit, *) DumC, GenericMatValFile, Data%nGenericMatVal
-        allocate(GenericMatValWeight(Data%nGenericMatVal))
-        read(SpecUnit, *) DumC, GenericMatValWeight(:)
+        allocate(Spec%GenericMatValWeight(Data%nGenericMatVal))
+        read(SpecUnit, *) DumC, Spec%GenericMatValWeight(:)
         write(STDOUT, "("//Int2Char(1 + Data%nGenericMatVal)//"a)") "GenericMatingValuesFile: "//trim(GenericMatValFile)//&
-          ", weight(s): ", (trim(Real2Char(GenericMatValWeight(i), fmt=FMTREAL2CHAR)), i = 1, Data%nGenericMatVal)
+          ", weight(s): ", (trim(Real2Char(Spec%GenericMatValWeight(i), fmt=FMTREAL2CHAR)), i = 1, Data%nGenericMatVal)
       end if
 
       write(STDOUT, "(a)") " "
@@ -1208,7 +1211,7 @@ module AlphaMateModule
         Data%nPotMat = Data%nPotPar1 * Data%nPotPar2
       else
         Data%nPotMat = real(Data%nPotPar1 * Data%nPotPar1) / 2
-        if (SelfingAllowed) then
+        if (Spec%SelfingAllowed) then
           Data%nPotMat = nint(Data%nPotMat + real(Data%nPotPar1) / 2)
         else
           Data%nPotMat = nint(Data%nPotMat - real(Data%nPotPar1) / 2)
@@ -1221,7 +1224,7 @@ module AlphaMateModule
           write(STDOUT, "(a)") "NOTE: = all males with all females"
           write(STDOUT, "(a)") "NOTE: = no. of males ("//trim(Int2Char(Data%nPotPar1))//") * no. of females ("//trim(Int2Char(Data%nPotPar2))//")"
         else
-          if (SelfingAllowed) then
+          if (Spec%SelfingAllowed) then
             write(STDOUT, "(a)") "NOTE: = half-diallel including selfing"
             write(STDOUT, "(a)") "NOTE: = no. of individuals * no. of individuals / 2 + individuals / 2"
           else
@@ -1341,7 +1344,7 @@ module AlphaMateModule
             write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(Data%GenericMatValStat(k)%All%Min,  fmt=FMTREAL2CHAR))
             write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(Data%GenericMatValStat(k)%All%Max,  fmt=FMTREAL2CHAR))
           else
-            if (SelfingAllowed) then
+            if (Spec%SelfingAllowed) then
               Data%GenericMatValStat(k) = DescStatLowTriMatrix(Data%GenericMatVal(:, :, k))
               write(STDOUT, "(a)") "    - average: "//trim(Real2Char(Data%GenericMatValStat(k)%All%Mean, fmt=FMTREAL2CHAR))
               write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(Data%GenericMatValStat(k)%All%SD,   fmt=FMTREAL2CHAR))
@@ -1470,7 +1473,7 @@ module AlphaMateModule
         InitEqual(:, :) = 1.0d0 ! A couple of solutions that would give equal contributions for everybody
 
         call DifferentialEvolution(nParam=nParam, nSol=Spec%EvolAlgNSol, Init=InitEqual, nGen=Spec%EvolAlgNGen, nGenBurnIn=Spec%EvolAlgNGenBurnIn, &
-          nGenStop=Spec%EvolAlgNGenStop, StopTolerance=Spec%EvolAlgStopTol, nGenPrint=Spec%EvolAlgNGenPrint, LogFile=LogFile, LogPop=EvolAlgLogPop, LogPopFile=LogPopFile, &
+          nGenStop=Spec%EvolAlgNGenStop, StopTolerance=Spec%EvolAlgStopTol, nGenPrint=Spec%EvolAlgNGenPrint, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
           CritType="min", CRBurnIn=Spec%EvolAlgCRBurnIn, CRLate=Spec%EvolAlgCRLate, FBase=Spec%EvolAlgFBase, FHigh1=Spec%EvolAlgFHigh1, FHigh2=Spec%EvolAlgFHigh2, &
           BestSol=SolMin)
 
@@ -1512,7 +1515,7 @@ module AlphaMateModule
         !       - decreasing contributions with decreasing value
         !       - SDP solution, ...?
         call DifferentialEvolution(nParam=nParam, nSol=Spec%EvolAlgNSol, nGen=Spec%EvolAlgNGen, nGenBurnIn=Spec%EvolAlgNGenBurnIn, &
-          nGenStop=Spec%EvolAlgNGenStop, StopTolerance=Spec%EvolAlgStopTol, nGenPrint=Spec%EvolAlgNGenPrint, LogFile=LogFile, LogPop=EvolAlgLogPop, LogPopFile=LogPopFile, &
+          nGenStop=Spec%EvolAlgNGenStop, StopTolerance=Spec%EvolAlgStopTol, nGenPrint=Spec%EvolAlgNGenPrint, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
           CritType="opt", CRBurnIn=Spec%EvolAlgCRBurnIn, CRLate=Spec%EvolAlgCRLate, FBase=Spec%EvolAlgFBase, FHigh1=Spec%EvolAlgFHigh1, FHigh2=Spec%EvolAlgFHigh2, &
           BestSol=SolOpt)
 
@@ -1521,11 +1524,11 @@ module AlphaMateModule
 
       ! --- Evaluate the full frontier ---
 
-      if (EvaluateFrontier) then
+      if (Spec%EvaluateFrontier) then
         write(STDOUT, "(a)") "--- Evaluate the frontier ---"
         write(STDOUT, "(a)") " "
 
-        CoancestryWeightBellow = .true. ! we want to target certain rates of coancestry
+        Spec%CoancestryWeightBellow = .true. ! we want to target certain rates of coancestry
 
         open(newunit=FrontierUnit, file="Frontier.txt", status="unknown")
         !                                     1234567890123456789012
@@ -1573,7 +1576,7 @@ module AlphaMateModule
           MatingFile  = "MatingResultsFrontier"//trim(Int2Char(k))//".txt"
 
           call DifferentialEvolution(nParam=nParam, nSol=Spec%EvolAlgNSol, nGen=Spec%EvolAlgNGen, nGenBurnIn=Spec%EvolAlgNGenBurnIn, &
-            nGenStop=Spec%EvolAlgNGenStop, StopTolerance=Spec%EvolAlgStopTol, nGenPrint=Spec%EvolAlgNGenPrint, LogFile=LogFile, LogPop=EvolAlgLogPop, LogPopFile=LogPopFile, &
+            nGenStop=Spec%EvolAlgNGenStop, StopTolerance=Spec%EvolAlgStopTol, nGenPrint=Spec%EvolAlgNGenPrint, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
             CritType="opt", CRBurnIn=Spec%EvolAlgCRBurnIn, CRLate=Spec%EvolAlgCRLate, FBase=Spec%EvolAlgFBase, FHigh1=Spec%EvolAlgFHigh1, FHigh2=Spec%EvolAlgFHigh2, &
             BestSol=Sol)
 
@@ -1935,12 +1938,12 @@ module AlphaMateModule
         do i = 1, Data%nPar1
           j = Rank(i)
           ! ... these would have "zero" contributions and if we hit them then they need at least minimum contrib
-          if (Chrom(j) < LimitPar1Min) then
-            Chrom(j) = LimitPar1Min
+          if (Chrom(j) < Spec%LimitPar1Min) then
+            Chrom(j) = Spec%LimitPar1Min
           end if
           ! ... but not above max allowed
-          if (Chrom(j) > LimitPar1Max) then
-            Chrom(j) = LimitPar1Max
+          if (Chrom(j) > Spec%LimitPar1Max) then
+            Chrom(j) = Spec%LimitPar1Max
           end if
           ! ... accumulate and check if we reached Data%nMat
           nCumMat = nCumMat + nint(Chrom(j)) ! internally real, externally integer
@@ -1948,10 +1951,10 @@ module AlphaMateModule
             ! ... there should be exactly Data%nMat contributions
             if (nCumMat > Data%nMat * g) then
               Chrom(j) = Chrom(j) - dble(nCumMat - Data%nMat * g)
-              if (nint(Chrom(j)) < LimitPar1Min) then
-                TmpR = LimitPar1Weight * (LimitPar1Min - nint(Chrom(j)))
+              if (nint(Chrom(j)) < Spec%LimitPar1Min) then
+                TmpR = Spec%LimitPar1Weight * (Spec%LimitPar1Min - nint(Chrom(j)))
                 This%Criterion = This%Criterion + TmpR
-                if (LimitPar1Weight < 0.0d0) then
+                if (Spec%LimitPar1Weight < 0.0d0) then
                   This%Penalty = This%Penalty + abs(TmpR)
                 end if
               end if
@@ -2035,12 +2038,12 @@ module AlphaMateModule
           do i = 1, Data%nPar2
             j = Data%nPotPar1 + Rank(i)
             ! ... these would have "zero" contributions and if we hit them then they need at least minimum contrib
-            if (Chrom(j) < LimitPar2Min) then
-              Chrom(j) = LimitPar2Min
+            if (Chrom(j) < Spec%LimitPar2Min) then
+              Chrom(j) = Spec%LimitPar2Min
             end if
             ! ... but not above max allowed
-            if (Chrom(j) > LimitPar2Max) then
-              Chrom(j) = LimitPar2Max
+            if (Chrom(j) > Spec%LimitPar2Max) then
+              Chrom(j) = Spec%LimitPar2Max
             end if
             ! ... accumulate and check if we reached Data%nMat
             nCumMat = nCumMat + nint(Chrom(j)) ! internally real, externally integer
@@ -2048,10 +2051,10 @@ module AlphaMateModule
               ! ... there should be exactly Data%nMat contributions
               if (nCumMat > Data%nMat) then
                 Chrom(j) = Chrom(j) - dble(nCumMat - Data%nMat)
-                if (nint(Chrom(j)) < LimitPar2Min) then
-                  TmpR = LimitPar2Weight * (LimitPar2Min - nint(Chrom(j)))
+                if (nint(Chrom(j)) < Spec%LimitPar2Min) then
+                  TmpR = Spec%LimitPar2Weight * (Spec%LimitPar2Min - nint(Chrom(j)))
                   This%Criterion = This%Criterion + TmpR
-                  if (LimitPar2Weight < 0.0d0) then
+                  if (Spec%LimitPar2Weight < 0.0d0) then
                     This%Penalty = This%Penalty + abs(TmpR)
                   end if
                 end if
@@ -2211,7 +2214,7 @@ module AlphaMateModule
 
       ! Pair the contributions (=Mating plan)
       k = Data%nMat ! MrgRnk ranks small to large
-      if (GenderMatters .or. SelfingAllowed) then
+      if (GenderMatters .or. Spec%SelfingAllowed) then
         ! When gender matters selfing can not happen (we have two distinct sets of parents,
         ! unless the user adds individuals of one sex in both sets) and when SelfingAllowed
         ! we do not need to care about it - faster code
@@ -2239,9 +2242,9 @@ module AlphaMateModule
                 end if
               end do
               if (l < 1) then ! Above loop ran out without finding a swap
-                This%Criterion = This%Criterion + SelfingWeight
-                if (SelfingWeight < 0.0d0) then
-                  This%Penalty = This%Penalty + abs(SelfingWeight)
+                This%Criterion = This%Criterion + Spec%SelfingWeight
+                if (Spec%SelfingWeight < 0.0d0) then
+                  This%Penalty = This%Penalty + abs(Spec%SelfingWeight)
                 end if
               end if
             end if
@@ -2274,9 +2277,9 @@ module AlphaMateModule
         do j = 1, Data%nGenericIndVal
           TmpR = dot_product(This%xVec, Data%GenericIndVal(:, j))
           This%GenericIndVal(j) = TmpR
-          TmpR = GenericIndValWeight(j) * This%GenericIndVal(j)
+          TmpR = Spec%GenericIndValWeight(j) * This%GenericIndVal(j)
           This%Criterion = This%Criterion + TmpR
-          if (GenericIndValWeight(j) .lt. 0.0) then
+          if (Spec%GenericIndValWeight(j) .lt. 0.0) then
             This%Penalty = This%Penalty + abs(TmpR)
           end if
         end do
@@ -2312,17 +2315,17 @@ module AlphaMateModule
         TmpR = This%CoancestryRateRanMate / Spec%TargetCoancestryRate
         if (TmpR > 1.0d0) then
           ! Rate of coancestry for the solution is higher than the target
-          TmpR = CoancestryWeight * abs(1.0d0 - TmpR)
+          TmpR = Spec%CoancestryWeight * abs(1.0d0 - TmpR)
         else
           ! Rate of coancestry for the solution is lower than the target
-          if (CoancestryWeightBellow) then
-            TmpR = CoancestryWeight * abs(1.0d0 - abs(TmpR)) ! the second abs is to handle negative coancestry cases
+          if (Spec%CoancestryWeightBellow) then
+            TmpR = Spec%CoancestryWeight * abs(1.0d0 - abs(TmpR)) ! the second abs is to handle negative coancestry cases
           else
             TmpR = 0.0d0
           end if
         end if
         This%Criterion = This%Criterion + TmpR
-        if (CoancestryWeight < 0.0d0) then
+        if (Spec%CoancestryWeight < 0.0d0) then
           This%Penalty = This%Penalty + abs(TmpR)
         end if
       else
@@ -2348,17 +2351,17 @@ module AlphaMateModule
       TmpR = This%InbreedingRate / Spec%TargetInbreedingRate
       if (TmpR > 1.0d0) then
         ! Rate of inbreeding for the solution is higher than the target
-        TmpR = InbreedingWeight * abs(1.0d0 - TmpR)
+        TmpR = Spec%InbreedingWeight * abs(1.0d0 - TmpR)
       else
         ! Rate of inbreeding for the solution is lower than the target
-        if (InbreedingWeightBellow) then
-          TmpR = InbreedingWeight * abs(1.0d0 - abs(TmpR)) ! the second abs is to handle negative inbreeding cases
+        if (Spec%InbreedingWeightBellow) then
+          TmpR = Spec%InbreedingWeight * abs(1.0d0 - abs(TmpR)) ! the second abs is to handle negative inbreeding cases
         else
           TmpR = 0.0d0
         end if
       end if
       This%Criterion = This%Criterion + TmpR
-      if (InbreedingWeight < 0.0d0) then
+      if (Spec%InbreedingWeight < 0.0d0) then
         This%Penalty = This%Penalty + abs(TmpR)
       end if
 
@@ -2381,9 +2384,9 @@ module AlphaMateModule
             end do
           end if
           This%GenericMatVal(k) = TmpR / Data%nMat
-          TmpR = GenericMatValWeight(k) * This%GenericMatVal(k)
+          TmpR = Spec%GenericMatValWeight(k) * This%GenericMatVal(k)
           This%Criterion = This%Criterion + TmpR
-          if (GenericMatValWeight(k) < 0.0) then
+          if (Spec%GenericMatValWeight(k) < 0.0) then
             This%Penalty = This%Penalty + abs(TmpR)
           end if
         end do
