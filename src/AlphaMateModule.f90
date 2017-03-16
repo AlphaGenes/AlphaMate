@@ -74,10 +74,15 @@ module AlphaMateModule
 
   !> @brief AlphaMate data
   type AlphaMateData
+    ! Raw data
+    type(RelMat) :: Coancestry
+    type(InbVec) :: Inbreeding
+    ! Data summaries
     type(DescStatReal64) :: InbreedingStat, SelCriterionStat, SelCriterionPAGEStat
     type(DescStatReal64), allocatable :: GenericIndValStat(:)
     type(DescStatMatrixReal64) :: CoancestryStat, CoancestryStatGenderDiff, CoancestryStatGender1, CoancestryStatGender2
     type(DescStatMatrixReal64), allocatable :: GenericMatValStat(:)
+    ! Derived data
   end type
 
   !> @brief AlphaMate solution
@@ -128,9 +133,6 @@ module AlphaMateModule
   real(real64), allocatable :: SelCriterion(:), SelCriterionStand(:), SelCriterionPAGE(:), SelCriterionPAGEStand(:)
   real(real64), allocatable :: TargetCoancestryRateFrontier(:), GenericIndValTmp(:), GenericMatValTmp(:)
   real(real64), allocatable :: GenericIndVal(:, :), GenericMatVal(:, :, :)
-
-  type(RelMat) :: Coancestry
-  type(InbVec) :: Inbreeding
 
   logical :: NrmInsteadOfCoancestry
   logical :: ModeMin, ModeRan, ModeOpt, SelCriterionAvailable, GenderMatters, EqualizePar1, EqualizePar2
@@ -905,23 +907,23 @@ module AlphaMateModule
 
       write(STDOUT, "(a)") "Coancestry (average identity of the four genome combinations of two individuals)"
 
-      call Coancestry%Read(File=CoaMtxFile)
-      if (Coancestry%nInd < nInd) then
+      call Data%Coancestry%Read(File=CoaMtxFile)
+      if (Data%Coancestry%nInd < nInd) then
         write(STDERR, "(a)") "ERROR: The coancestry matrix file has less rows than there are defined number of individuals!"
         write(STDERR, "(a)") "ERROR: Number of defined individuals:                       "//trim(Int2Char(nInd))
-        write(STDERR, "(a)") "ERROR: Number of individuals in the coancestry matrix file: "//trim(Int2Char(Coancestry%nInd))
+        write(STDERR, "(a)") "ERROR: Number of individuals in the coancestry matrix file: "//trim(Int2Char(Data%Coancestry%nInd))
         write(STDERR, "(a)") " "
       end if
       if (NrmInsteadOfCoancestry) then
-        call Coancestry%Nrm2Coancestry
+        call Data%Coancestry%Nrm2Coancestry
       end if
 
-      Data%CoancestryStat = DescStatSymMatrix(Coancestry%Value(1:, 1:))
+      Data%CoancestryStat = DescStatSymMatrix(Data%Coancestry%Value(1:, 1:))
       if (GenderMatters) then
 ! TODO
-        Data%CoancestryStatGenderDiff = DescStatSymMatrix(Coancestry%Value(1:, 1:))
-        Data%CoancestryStatGender1    = DescStatSymMatrix(Coancestry%Value(1:, 1:))
-        Data%CoancestryStatGender2    = DescStatSymMatrix(Coancestry%Value(1:, 1:))
+        Data%CoancestryStatGenderDiff = DescStatSymMatrix(Data%Coancestry%Value(1:, 1:))
+        Data%CoancestryStatGender1    = DescStatSymMatrix(Data%Coancestry%Value(1:, 1:))
+        Data%CoancestryStatGender2    = DescStatSymMatrix(Data%Coancestry%Value(1:, 1:))
       end if
 
       ! Current
@@ -991,10 +993,10 @@ module AlphaMateModule
       write(STDOUT, "(a)") " "
       write(STDOUT, "(a)") "Inbreeding (identity between the two genomes of an individual)"
 
-      call Coancestry%Inbreeding(Out=Inbreeding, Nrm=.false.)
+      call Data%Coancestry%Inbreeding(Out=Data%Inbreeding, Nrm=.false.)
 
       ! Current
-      Data%InbreedingStat = DescStat(Inbreeding%Value(1:))
+      Data%InbreedingStat = DescStat(Data%Inbreeding%Value(1:))
       CurrentInbreeding = Data%InbreedingStat%Mean
 
       ! Obtain limit/target based on given rates
@@ -1041,7 +1043,7 @@ module AlphaMateModule
           else
             read(SelCriterionUnit, *) IdCTmp, SelCriterionTmp
           end if
-          j = FindLoc(IdCTmp, Coancestry%OriginalId(1:))
+          j = FindLoc(IdCTmp, Data%Coancestry%OriginalId(1:))
           if (j == 0) then
             write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the selection criterion file not present in the coancestry matrix file!"
             write(STDERR, "(a)") " "
@@ -1125,7 +1127,7 @@ module AlphaMateModule
             write(STDERR, "(a)") " "
             stop 1
           end if
-          j = FindLoc(IdCTmp, Coancestry%OriginalId(1:))
+          j = FindLoc(IdCTmp, Data%Coancestry%OriginalId(1:))
           if (j == 0) then
             write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the gender file not present in the coancestry matrix file!"
             write(STDERR, "(a)") " "
@@ -1245,7 +1247,7 @@ module AlphaMateModule
         open(newunit=GenericIndValUnit, file=GenericIndValFile, status="unknown")
         do i = 1, nInd
           read(GenericIndValUnit, *) IdCTmp, GenericIndValTmp(:)
-          j = FindLoc(IdCTmp, Coancestry%OriginalId(1:))
+          j = FindLoc(IdCTmp, Data%Coancestry%OriginalId(1:))
           if (j == 0) then
             write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the generic individual values file not present in the coancestry matrix file!"
             write(STDERR, "(a)") " "
@@ -1285,13 +1287,13 @@ module AlphaMateModule
         open(newunit=GenericMatValUnit, file=GenericMatValFile, status="unknown")
         do i = 1, nPotMat
           read(GenericMatValUnit, *) IdCTmp, IdCTmp2, GenericMatValTmp(:)
-          j = FindLoc(IdCTmp, Coancestry%OriginalId(1:))
+          j = FindLoc(IdCTmp, Data%Coancestry%OriginalId(1:))
           if (j == 0) then
             write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the generic mating values file not present in the coancestry matrix file!"
             write(STDERR, "(a)") " "
             stop 1
           end if
-          k = FindLoc(IdCTmp2, Coancestry%OriginalId(1:))
+          k = FindLoc(IdCTmp2, Data%Coancestry%OriginalId(1:))
           if (k == 0) then
             write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp2)//" from the generic mating values file not present in the coancestry matrix file!"
             write(STDERR, "(a)") " "
@@ -1626,8 +1628,8 @@ module AlphaMateModule
                                                 "     nMating"
         do i = nInd, 1, -1 ! MrgRnk ranks small to large
           j = Rank(i)
-          write(ContribUnit, FMTCONTRIBUTION) Coancestry%OriginalId(j), Gender(j), SelCriterion(j), &
-                                              sum(Coancestry%Value(1:, j)) / nInd, &
+          write(ContribUnit, FMTCONTRIBUTION) Data%Coancestry%OriginalId(j), Gender(j), SelCriterion(j), &
+                                              sum(Data%Coancestry%Value(1:, j)) / nInd, &
                                               Sol%xVec(j), Sol%nVec(j)
         end do
       else
@@ -1642,8 +1644,8 @@ module AlphaMateModule
                                                     " EditedValue"
         do i = nInd, 1, -1 ! MrgRnk ranks small to large
           j = Rank(i)
-          write(ContribUnit, FMTCONTRIBUTIONEDIT) Coancestry%OriginalId(j), Gender(j), SelCriterion(j), &
-                                                  sum(Coancestry%Value(1:, j)) / nInd, &
+          write(ContribUnit, FMTCONTRIBUTIONEDIT) Data%Coancestry%OriginalId(j), Gender(j), SelCriterion(j), &
+                                                  sum(Data%Coancestry%Value(1:, j)) / nInd, &
                                                   Sol%xVec(j), Sol%nVec(j), &
                                                   nint(Sol%GenomeEdit(j)), SelCriterion(j) + Sol%GenomeEdit(j) * SelCriterionPAGE(j)
         end do
@@ -1656,7 +1658,7 @@ module AlphaMateModule
                                        "     Parent1", &
                                        "     Parent2"
       do i = 1, nMat
-        write(MatingUnit, FMTMATING) i, Coancestry%OriginalId(Sol%MatingPlan(1, i)), Coancestry%OriginalId(Sol%MatingPlan(2, i))
+        write(MatingUnit, FMTMATING) i, Data%Coancestry%OriginalId(Sol%MatingPlan(1, i)), Data%Coancestry%OriginalId(Sol%MatingPlan(2, i))
       end do
       close(MatingUnit)
     end subroutine
@@ -2279,7 +2281,7 @@ module AlphaMateModule
 
       ! x'C
       do i = 1, nInd
-        TmpVec(i, 1) = dot_product(This%xVec, Coancestry%Value(1:, i))
+        TmpVec(i, 1) = dot_product(This%xVec, Data%Coancestry%Value(1:, i))
       end do
       ! @todo consider using matmul instead of repeated dot_product?
       ! @todo consider using BLAS/LAPACK - perhaps non-symmetric is more optimised?
@@ -2332,7 +2334,7 @@ module AlphaMateModule
         ! Lower triangle to speedup lookup
         TmpMax = maxval(This%MatingPlan(:, j))
         TmpMin = minval(This%MatingPlan(:, j))
-        TmpR = TmpR + 0.5d0 * Coancestry%Value(TmpMax, TmpMin)
+        TmpR = TmpR + 0.5d0 * Data%Coancestry%Value(TmpMax, TmpMin)
       end do
       This%FutureInbreeding = TmpR / nMat
       This%InbreedingRate = (This%FutureInbreeding - CurrentInbreeding) / (1.0d0 - CurrentInbreeding)
