@@ -53,7 +53,8 @@
 !-------------------------------------------------------------------------------
 module AlphaMateModule
   use ISO_Fortran_Env, STDIN => input_unit, STDOUT => output_unit, STDERR => error_unit
-  use IFPort, only : SystemQQ
+  use ConstantModule, only : FILELENGTH, SPECOPTIONLENGTH, IDLENGTH, IDINTLENGTH
+! TODO: use IDLENGTH and IDINTLENGTH
   use OrderPackModule, only : MrgRnk
   use AlphaHouseMod, only : CountLines, Int2Char, Real2Char, RandomOrder, SetSeed, ToLower, FindLoc
   use AlphaStatMod, only : DescStat, DescStatReal64, DescStatMatrix, DescStatMatrixReal64, DescStatSymMatrix, DescStatLowTriMatrix
@@ -70,6 +71,10 @@ module AlphaMateModule
 
   !> @brief AlphaMate specifications
   type AlphaMateSpec
+    ! Files
+    character(len=FILELENGTH) :: CoaMtxFile, SelCriterionFile, GenderFile, SeedFile
+    character(len=FILELENGTH) :: GenericIndValFile, GenericMatValFile
+
     ! Biological specifications
     logical :: NrmInsteadOfCoancestry
     real(real64) :: TargetCoancestryRate
@@ -83,11 +88,13 @@ module AlphaMateModule
     logical :: PAGE, PAGEPar1, PAGEPar2
     integer(int32) :: PAGEPar1Max, PAGEPar2Max
     real(real64) :: PAGEPar1Cost, PAGEPar2Cost
+
     ! Search specifications
     logical :: ModeMin, ModeRan, ModeOpt
     logical :: EvaluateFrontier
     integer(int32) :: nFrontierSteps
     real(real64), allocatable :: TargetCoancestryRateFrontier(:)
+
     ! Algorithm specifications
     integer(int32) :: EvolAlgNSol, EvolAlgNIter, EvolAlgNIterBurnIn, EvolAlgNIterStop, EvolAlgNIterPrint, RanAlgStricter
     real(real64) :: EvolAlgStopTol, EvolAlgCRBurnIn, EvolAlgCRLate, EvolAlgFBase, EvolAlgFHigh1, EvolAlgFHigh2
@@ -414,8 +421,6 @@ module AlphaMateModule
       real(real64) :: SelCriterionTmp, SelCriterionTmp2
       real(real64), allocatable :: GenericIndValTmp(:), GenericMatValTmp(:)
 
-      character(len=1000) :: CoaMtxFile, SelCriterionFile, GenderFile, SeedFile
-      character(len=1000) :: GenericIndValFile, GenericMatValFile
       character(len=100) :: DumC, IdCTmp, IdCTmp2
 
       write(STDOUT, "(a)") "--- Specifications ---"
@@ -451,32 +456,32 @@ module AlphaMateModule
 
       ! --- CoancestryMatrixFile ---
 
-      ! read(SpecUnit, *) DumC, CoaMtxFile
-      ! write(STDOUT, "(a)") "CoancestryMatrixFile: "//trim(CoaMtxFile)
+      ! read(SpecUnit, *) DumC, Spec%CoaMtxFile
+      ! write(STDOUT, "(a)") "CoancestryMatrixFile: "//trim(Spec%CoaMtxFile)
       ! Spec%NrmInsteadOfCoancestry = .false.
 
       ! --- NrmMatrixFile ---
 
-      read(SpecUnit, *) DumC, CoaMtxFile
-      write(STDOUT, "(a)") "NrmMatrixFile: "//trim(CoaMtxFile)
+      read(SpecUnit, *) DumC, Spec%CoaMtxFile
+      write(STDOUT, "(a)") "NrmMatrixFile: "//trim(Spec%CoaMtxFile)
       Spec%NrmInsteadOfCoancestry = .true.
 
       ! --- SelCriterionFile ---
 
-      read(SpecUnit, *) DumC, SelCriterionFile
-      if (ToLower(trim(SelCriterionFile)) /= "none") then
+      read(SpecUnit, *) DumC, Spec%SelCriterionFile
+      if (ToLower(trim(Spec%SelCriterionFile)) /= "none") then
         Spec%SelCriterionAvailable = .true.
-        write(STDOUT, "(a)") "SelCriterionFile: "//trim(SelCriterionFile)
+        write(STDOUT, "(a)") "SelCriterionFile: "//trim(Spec%SelCriterionFile)
       else
         Spec%SelCriterionAvailable = .false.
       end if
 
       ! --- GenderFile ---
 
-      read(SpecUnit, *) DumC, GenderFile
-      if (ToLower(trim(GenderFile)) /= "none") then
+      read(SpecUnit, *) DumC, Spec%GenderFile
+      if (ToLower(trim(Spec%GenderFile)) /= "none") then
         Spec%GenderMatters = .true.
-        write(STDOUT, "(a)") "GenderFile: "//trim(GenderFile)
+        write(STDOUT, "(a)") "GenderFile: "//trim(Spec%GenderFile)
       else
         Spec%GenderMatters = .false.
       end if
@@ -930,13 +935,13 @@ module AlphaMateModule
       ! --- Seed ---
 
       read(SpecUnit, *) DumC, DumC
-      SeedFile = "Seed.txt"
+      Spec%SeedFile = "Seed.txt"
       if ((ToLower(trim(DumC)) == "unknown") .or. (ToLower(trim(DumC)) == "none")) then
-        call SetSeed(SeedFile=SeedFile, Out=Seed)
+        call SetSeed(SeedFile=Spec%SeedFile, Out=Seed)
       else
         backspace(SpecUnit)
         read(SpecUnit, *) DumC, DumI
-        call SetSeed(Seed=DumI, SeedFile=SeedFile, Out=Seed)
+        call SetSeed(Seed=DumI, SeedFile=Spec%SeedFile, Out=Seed)
       end if
       write(STDOUT, "(a)") "Seed: "//trim(Int2Char(Seed))
 
@@ -944,17 +949,17 @@ module AlphaMateModule
       ! --- GenericIndividualValuesWeight ---
 
       Data%nGenericIndVal = 0
-      read(SpecUnit, *) DumC, GenericIndValFile
-      if (ToLower(trim(GenericIndValFile)) == "none") then
+      read(SpecUnit, *) DumC, Spec%GenericIndValFile
+      if (ToLower(trim(Spec%GenericIndValFile)) == "none") then
         Spec%GenericIndValAvailable = .false.
         read(SpecUnit, *) DumC
       else
         Spec%GenericIndValAvailable = .true.
         backspace(SpecUnit)
-        read(SpecUnit, *) DumC, GenericIndValFile, Data%nGenericIndVal
+        read(SpecUnit, *) DumC, Spec%GenericIndValFile, Data%nGenericIndVal
         allocate(Spec%GenericIndValWeight(Data%nGenericIndVal))
         read(SpecUnit, *) DumC, Spec%GenericIndValWeight(:)
-        write(STDOUT, "("//Int2Char(1 + Data%nGenericIndVal)//"a)") "GenericIndividualValuesFile: "//trim(GenericIndValFile)//&
+        write(STDOUT, "("//Int2Char(1 + Data%nGenericIndVal)//"a)") "GenericIndividualValuesFile: "//trim(Spec%GenericIndValFile)//&
           ", weight(s): ", (trim(Real2Char(Spec%GenericIndValWeight(i), fmt=FMTREAL2CHAR)), i = 1, Data%nGenericIndVal)
       end if
 
@@ -962,17 +967,17 @@ module AlphaMateModule
       ! --- GenericMatingValuesWeight ---
 
       Data%nGenericMatVal = 0
-      read(SpecUnit, *) DumC, GenericMatValFile
-      if (ToLower(trim(GenericMatValFile)) == "none") then
+      read(SpecUnit, *) DumC, Spec%GenericMatValFile
+      if (ToLower(trim(Spec%GenericMatValFile)) == "none") then
         Spec%GenericMatValAvailable = .false.
         read(SpecUnit, *) DumC
       else
         Spec%GenericMatValAvailable = .true.
         backspace(SpecUnit)
-        read(SpecUnit, *) DumC, GenericMatValFile, Data%nGenericMatVal
+        read(SpecUnit, *) DumC, Spec%GenericMatValFile, Data%nGenericMatVal
         allocate(Spec%GenericMatValWeight(Data%nGenericMatVal))
         read(SpecUnit, *) DumC, Spec%GenericMatValWeight(:)
-        write(STDOUT, "("//Int2Char(1 + Data%nGenericMatVal)//"a)") "GenericMatingValuesFile: "//trim(GenericMatValFile)//&
+        write(STDOUT, "("//Int2Char(1 + Data%nGenericMatVal)//"a)") "GenericMatingValuesFile: "//trim(Spec%GenericMatValFile)//&
           ", weight(s): ", (trim(Real2Char(Spec%GenericMatValWeight(i), fmt=FMTREAL2CHAR)), i = 1, Data%nGenericMatVal)
       end if
 
@@ -986,7 +991,7 @@ module AlphaMateModule
 
       write(STDOUT, "(a)") "Coancestry (average identity of the four genome combinations of two individuals)"
 
-      call Data%Coancestry%Read(File=CoaMtxFile)
+      call Data%Coancestry%Read(File=Spec%CoaMtxFile)
       if (Data%Coancestry%nInd < Data%nInd) then
         write(STDERR, "(a)") "ERROR: The coancestry matrix file has less rows than there are defined number of individuals!"
         write(STDERR, "(a)") "ERROR: Number of defined individuals:                       "//trim(Int2Char(Data%nInd))
@@ -1107,7 +1112,7 @@ module AlphaMateModule
         Data%SelCriterionStand(:) = 0.0d0
       else
         write(STDOUT, "(a)") "Selection criterion"
-        nIndTmp = CountLines(SelCriterionFile)
+        nIndTmp = CountLines(Spec%SelCriterionFile)
         if (nIndTmp /= Data%nInd) then
           write(STDERR, "(a)") "ERROR: Number of individuals in the selection criterion file and the coancestry matrix file is not the same!"
           write(STDERR, "(a)") "ERROR: Number of individuals in the coancestry matrix file:   "//trim(Int2Char(Data%nInd))
@@ -1115,7 +1120,7 @@ module AlphaMateModule
           write(STDERR, "(a)") " "
           stop 1
         end if
-        open(newunit=SelCriterionUnit, file=trim(SelCriterionFile), status="old")
+        open(newunit=SelCriterionUnit, file=Spec%SelCriterionFile, status="old")
         do i = 1, Data%nInd
           if (Spec%PAGE) then
             read(SelCriterionUnit, *) IdCTmp, SelCriterionTmp, SelCriterionTmp2
@@ -1181,7 +1186,7 @@ module AlphaMateModule
       Data%Gender(:) = 0
       if (Spec%GenderMatters) then
         write(STDOUT, "(a)") "Gender"
-        nIndTmp = CountLines(GenderFile)
+        nIndTmp = CountLines(Spec%GenderFile)
         if (nIndTmp /= Data%nInd) then
           write(STDERR, "(a)") "ERROR: Number of individuals in the gender file and the coancestry matrix file is not the same!"
           write(STDERR, "(a)") "ERROR: Number of individuals in the coancestry matrix file: "//trim(Int2Char(Data%nInd))
@@ -1193,7 +1198,7 @@ module AlphaMateModule
         Data%nMal = 0
         Data%nFem = 0
 
-        open(newunit=GenderUnit, file=trim(GenderFile), status="old")
+        open(newunit=GenderUnit, file=Spec%GenderFile, status="old")
         do i = 1, Data%nInd
           read(GenderUnit, *) IdCTmp, GenderTmp
           if      (GenderTmp == 1) then
@@ -1312,7 +1317,7 @@ module AlphaMateModule
 
       if (Spec%GenericIndValAvailable) then
         write(STDOUT, "(a)") "Generic individual values"
-        nIndTmp = CountLines(GenericIndValFile)
+        nIndTmp = CountLines(Spec%GenericIndValFile)
         if (nIndTmp /= Data%nInd) then
           write(STDERR, "(a)") "ERROR: Number of individuals in the generic individual values file and the coancestry matrix file is not the same!"
           write(STDERR, "(a)") "ERROR: Number of individuals in the coancestry matrix file:         "//trim(Int2Char(Data%nInd))
@@ -1323,7 +1328,7 @@ module AlphaMateModule
         allocate(Data%GenericIndVal(Data%nInd, Data%nGenericIndVal))
         allocate(GenericIndValTmp(Data%nGenericIndVal))
         Data%GenericIndVal(:, :) = 0.0d0
-        open(newunit=GenericIndValUnit, file=GenericIndValFile, status="unknown")
+        open(newunit=GenericIndValUnit, file=Spec%GenericIndValFile, status="unknown")
         do i = 1, Data%nInd
           read(GenericIndValUnit, *) IdCTmp, GenericIndValTmp(:)
           j = FindLoc(IdCTmp, Data%Coancestry%OriginalId(1:))
@@ -1352,7 +1357,7 @@ module AlphaMateModule
 
       if (Spec%GenericMatValAvailable) then
         write(STDOUT, "(a)") "Generic mating values"
-        DumI = CountLines(GenericMatValFile)
+        DumI = CountLines(Spec%GenericMatValFile)
         if (DumI /= Data%nPotMat) then
           write(STDERR, "(a)") "ERROR: Number of matings in the generic mating values file and the number of all potential matings is not the same!"
           write(STDERR, "(a)") "ERROR: Number of all potential matings:                         "//trim(Int2Char(Data%nPotMat))
@@ -1363,7 +1368,7 @@ module AlphaMateModule
         allocate(Data%GenericMatVal(Data%nPotPar1, Data%nPotPar2, Data%nGenericMatVal))
         allocate(GenericMatValTmp(Data%nGenericMatVal))
         Data%GenericMatVal(:, :, :) = 0.0d0
-        open(newunit=GenericMatValUnit, file=GenericMatValFile, status="unknown")
+        open(newunit=GenericMatValUnit, file=Spec%GenericMatValFile, status="unknown")
         do i = 1, Data%nPotMat
           read(GenericMatValUnit, *) IdCTmp, IdCTmp2, GenericMatValTmp(:)
           j = FindLoc(IdCTmp, Data%Coancestry%OriginalId(1:))
