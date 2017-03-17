@@ -92,6 +92,9 @@ module AlphaMateModule
     integer(int32) :: EvolAlgNSol, EvolAlgNIter, EvolAlgNIterBurnIn, EvolAlgNIterStop, EvolAlgNIterPrint, RanAlgStricter
     real(real64) :: EvolAlgStopTol, EvolAlgCRBurnIn, EvolAlgCRLate, EvolAlgFBase, EvolAlgFHigh1, EvolAlgFHigh2
     logical :: EvolAlgLogPop
+    contains
+      procedure :: Init => InitAlphaMateSpec
+      procedure :: Read => ReadAlphaMateSpec
   end type
 
   !> @brief AlphaMate data
@@ -115,6 +118,8 @@ module AlphaMateModule
     real(real64) :: CurrentInbreeding
     real(real64) :: TargetCoancestryRanMate, TargetCoancestryRanMateNoSelf, TargetCoancestryGenderMate
     real(real64) :: TargetInbreeding
+    contains
+      procedure :: Read => ReadAlphaMateData
   end type
 
   !> @brief AlphaMate solution
@@ -182,19 +187,19 @@ module AlphaMateModule
 
     !###########################################################################
 
-! TODO: make this clearer with objective being dG - l * dF etc.
+    ! TODO: make this clearer with objective being dG - l * dF etc.
 
-! With two individuals there are four genome combinations, hence four coefficients
-! that measure similarity between the two individuals. The COEFFICIENT OF COANCESTRY
-! is an average of these four coefficients, f_i,j = 1/4 (f_i1,j1 + f_i1,j2 + f_i2,j1 + f_i2,j2).
-! When the two individuals in comparison is just one individual, there are only
-! two genomes to compare, hence f_i,i = 1/4 (f_i1,i1 + f_i1,i2 + f_i2,i1 + f_i2,i2) =
-! 1/4 (1 + f_i1,i2 + f_i2,i1 + 1) = 1/4 (2 + 2f_i1,i2) = 1/2 (1 + f_i1,i2). The
-! coefficient f_i1,i2 is the COEFFICIENT OF INBREEDING.
+    ! With two individuals there are four genome combinations, hence four coefficients
+    ! that measure similarity between the two individuals. The COEFFICIENT OF COANCESTRY
+    ! is an average of these four coefficients, f_i,j = 1/4 (f_i1,j1 + f_i1,j2 + f_i2,j1 + f_i2,j2).
+    ! When the two individuals in comparison is just one individual, there are only
+    ! two genomes to compare, hence f_i,i = 1/4 (f_i1,i1 + f_i1,i2 + f_i2,i1 + f_i2,i2) =
+    ! 1/4 (1 + f_i1,i2 + f_i2,i1 + 1) = 1/4 (2 + 2f_i1,i2) = 1/2 (1 + f_i1,i2). The
+    ! coefficient f_i1,i2 is the COEFFICIENT OF INBREEDING.
 
-!       Also Coancestry is expected future inbreeding = average coancestry between
-!       the parents (selection/mate candidates we have at hand). When working
-!       with dF we then need to evaluate average coancestry in the new generation.
+    !       Also Coancestry is expected future inbreeding = average coancestry between
+    !       the parents (selection/mate candidates we have at hand). When working
+    !       with dF we then need to evaluate average coancestry in the new generation.
 
     ! This note is just to make clear what the objective function and its components are.
     !
@@ -302,8 +307,69 @@ module AlphaMateModule
     !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date   March 16, 2017
     !-------------------------------------------------------------------------
-    pure subroutine InitAlphaMateSpec
-! TODO
+    pure subroutine InitAlphaMateSpec(This)
+      implicit none
+      class(AlphaMateSpec), intent(out) :: This !< AlphaMateSpec holder
+
+      ! Inputs
+      This%NrmInsteadOfCoancestry = .false.
+      This%SelCriterionAvailable = .false.
+      This%GenericIndValAvailable = .false.
+      This%GenericMatValAvailable = .false.
+
+      ! Biological specifications
+      This%TargetCoancestryRate = 0.01d0
+      This%TargetInbreedingRate = 0.01d0
+      ! This%TargetCoancestryRateFrontier(:) ! allocatable so skip here
+      This%CoancestryWeight = 0.5d0
+      This%CoancestryWeightBellow = .false.
+      This%InbreedingWeight =  0.5d0
+      This%InbreedingWeightBellow = .false.
+      This%SelfingWeight = 0.0d0
+      ! This%GenericIndValWeight(:) ! allocatable so skip here
+      ! This%GenericMatValWeight(:) ! allocatable so skip here
+
+      This%GenderMatters = .false.
+      This%EqualizePar1 = .false.
+      This%EqualizePar2 = .false.
+      This%SelfingAllowed = .false.
+
+      This%LimitPar1Min = 1.0d0
+      This%LimitPar1Max = huge(Spec%LimitPar1Max) - 1.0d0
+      This%LimitPar2Min = 1.0d0
+      This%LimitPar2Max = huge(Spec%LimitPar1Max) - 1.0d0
+      This%LimitPar1Weight = 0.0d0
+      This%LimitPar2Weight = 0.0d0
+
+      This%PAGE = .false.
+      This%PAGEPar1 = .false.
+      This%PAGEPar2 = .false.
+      This%PAGEPar1Max = 0
+      This%PAGEPar2Max = 0
+      This%PAGEPar1Cost = 0.0d0
+      This%PAGEPar2Cost = 0.0d0
+
+      ! Search mode specifications
+      This%ModeMin = .false.
+      This%ModeRan = .false.
+      This%ModeOpt = .false.
+      This%EvaluateFrontier = .false.
+      This%nFrontierSteps = 0
+
+      ! Search algorithm specifications
+      This%EvolAlgNSol = 100
+      This%EvolAlgNIter = 10000
+      This%EvolAlgNIterBurnIn = 500
+      This%EvolAlgNIterStop = 1000
+      This%EvolAlgNIterPrint = 100
+      This%RanAlgStricter = 10
+      This%EvolAlgStopTol = 0.001d0
+      This%EvolAlgCRBurnIn = 0.4d0
+      This%EvolAlgCRLate = 0.2d0
+      This%EvolAlgFBase = 0.1d0
+      This%EvolAlgFHigh1 = 1.0d0
+      This%EvolAlgFHigh2 = 4.0d0
+      This%EvolAlgLogPop = .false.
     end subroutine
 
     !###########################################################################
@@ -313,8 +379,13 @@ module AlphaMateModule
     !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date   March 16, 2017
     !-------------------------------------------------------------------------
-    subroutine ReadAlphaMateSpec ! not pure due to IO
-! TODO
+    subroutine ReadAlphaMateSpec(This, SpecFile) ! not pure due to IO
+      implicit none
+      class(AlphaMateSpec), intent(out) :: This     !< AlphaMateSpec holder
+      character(len=*), intent(in)      :: SpecFile !< Spec file; when missing, a stub with defaults is created
+
+      call This%Init
+      ! TODO
     end subroutine
 
     !###########################################################################
@@ -324,14 +395,15 @@ module AlphaMateModule
     !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date   March 16, 2017
     !-------------------------------------------------------------------------
-    subroutine ReadAlphaMateData ! not pure due to IO
-! TODO
+    subroutine ReadAlphaMateData(This) ! not pure due to IO
+      implicit none
+      class(AlphaMateData), intent(inout) :: This !< AlphaMateData holder
+      ! TODO
     end subroutine
 
     !###########################################################################
 
     subroutine ReadSpecAndDataForAlphaMate ! not pure due to IO
-
       implicit none
 
       integer(int32) :: i, j, k, l, m, DumI, jMal, jFem, nIndTmp, GenderTmp, Seed
