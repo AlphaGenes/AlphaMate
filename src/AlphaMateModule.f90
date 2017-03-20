@@ -54,10 +54,15 @@
 module AlphaMateModule
   use ISO_Fortran_Env, STDIN => input_unit, STDOUT => output_unit, STDERR => error_unit
   use ConstantModule, only : FILELENGTH, SPECOPTIONLENGTH, IDLENGTH, IDINTLENGTH
+
 ! TODO: use IDLENGTH and IDINTLENGTH
+
   use OrderPackModule, only : MrgRnk
-  use AlphaHouseMod, only : CountLines, Int2Char, Real2Char, RandomOrder, SetSeed, ToLower, FindLoc
-  use AlphaStatMod, only : DescStat, DescStatReal64, DescStatMatrix, DescStatMatrixReal64, DescStatSymMatrix, DescStatLowTriMatrix
+  use AlphaHouseMod, only : CountLines, Char2Int, Char2Double, Int2Char, Real2Char, &
+                            RandomOrder, SetSeed, ToLower, FindLoc, &
+                            ParseToFirstWhitespace, SplitLineIntoTwoParts
+  use AlphaStatMod, only : DescStat, DescStatReal64, DescStatMatrix, DescStatMatrixReal64, &
+                           DescStatSymMatrix, DescStatLowTriMatrix
   use AlphaEvolveModule, only : AlphaEvolveSol, DifferentialEvolution, RandomSearch
   use AlphaRelateModule
 
@@ -67,37 +72,42 @@ module AlphaMateModule
   ! Types
   public :: AlphaMateSpec, AlphaMateData, AlphaMateSol
   ! Functions
-  public :: AlphaMateTitle, ReadSpecAndDataForAlphaMate, SetupColNamesAndFormats, AlphaMateSearch
+  public :: AlphaMateTitle, ReadAlphaMateSpec, ReadAlphaMateData, SetupColNamesAndFormats, AlphaMateSearch
 
   !> @brief AlphaMate specifications
   type AlphaMateSpec
     ! Files
-    character(len=FILELENGTH) :: CoaMtxFile, SelCriterionFile, GenderFile, SeedFile
-    character(len=FILELENGTH) :: GenericIndValFile, GenericMatValFile
+    character(len=FILELENGTH) :: SpecFile, RelMtxFile, SelCriterionFile, GenderFile, SeedFile
+    character(len=FILELENGTH) :: GenericIndCritFile, GenericMatCritFile
+    character(len=FILELENGTH) :: OutputBasename
+    logical :: RelMtxFileGiven, SelCriterionFileGiven, GenderFileGiven, SeedFileGiven, GenericIndCritFileGiven, GenericMatCritFileGiven
 
     ! Biological specifications
     logical :: NrmInsteadOfCoancestry
     real(real64) :: TargetCoancestryRate
     real(real64) :: TargetInbreedingRate
-    real(real64) :: CoancestryWeight, InbreedingWeight, SelfingWeight
-    logical :: SelCriterionAvailable, GenderMatters, EqualizePar1, EqualizePar2
-    real(real64) :: LimitPar1Min, LimitPar1Max, LimitPar2Min, LimitPar2Max, LimitPar1Weight, LimitPar2Weight
-    logical :: GenericIndValAvailable, GenericMatValAvailable
-    real(real64), allocatable :: GenericIndValWeight(:), GenericMatValWeight(:)
-    logical :: SelfingAllowed, CoancestryWeightBellow, InbreedingWeightBellow
-    logical :: PAGE, PAGEPar1, PAGEPar2
-    integer(int32) :: PAGEPar1Max, PAGEPar2Max
-    real(real64) :: PAGEPar1Cost, PAGEPar2Cost
+    real(real64) :: TargetCoancestryRateWeight, TargetInbreedingRateWeight, SelfingWeight
+    integer(int32) :: nMat, nPar, nPar1, nPar2
+    logical :: EqualizePar, EqualizePar1, EqualizePar2, LimitPar, LimitPar1, LimitPar2
+    real(real64) :: LimitParMin, LimitPar1Min, LimitPar2Min, LimitParMax, LimitPar1Max, LimitPar2Max, LimitParMinWeight, LimitPar1MinWeight, LimitPar2MinWeight
+    integer(int32) :: nGenericIndCrit, nGenericMatCrit
+    logical :: GenericIndCritGiven, GenericMatCritGiven
+    real(real64), allocatable :: GenericIndCritWeight(:), GenericMatCritWeight(:)
+    logical :: SelfingAllowed, TargetCoancestryRateWeightBelow, TargetInbreedingRateWeightBelow
+    logical :: PAGEPar, PAGEPar1, PAGEPar2
+    integer(int32) :: PAGEParMax, PAGEPar1Max, PAGEPar2Max
+    real(real64) :: PAGEParCost, PAGEPar1Cost, PAGEPar2Cost
 
     ! Search specifications
+    logical :: SeedGiven
     logical :: ModeMin, ModeRan, ModeOpt
     logical :: EvaluateFrontier
-    integer(int32) :: nFrontierSteps
+    integer(int32) :: Seed, nFrontierPoints
     real(real64), allocatable :: TargetCoancestryRateFrontier(:)
 
     ! Algorithm specifications
     integer(int32) :: EvolAlgNSol, EvolAlgNIter, EvolAlgNIterBurnIn, EvolAlgNIterStop, EvolAlgNIterPrint, RanAlgStricter
-    real(real64) :: EvolAlgStopTol, EvolAlgCRBurnIn, EvolAlgCRLate, EvolAlgFBase, EvolAlgFHigh1, EvolAlgFHigh2
+    real(real64) :: EvolAlgStopTol, EvolAlgParamCrBurnIn, EvolAlgParamCr, EvolAlgParamFBase, EvolAlgParamFHigh1, EvolAlgParamFHigh2
     logical :: EvolAlgLogPop
     contains
       procedure :: Init => InitAlphaMateSpec
@@ -111,16 +121,15 @@ module AlphaMateModule
     type(InbVec) :: Inbreeding
     real(real64), allocatable :: SelCriterion(:), SelCriterionStand(:), SelCriterionPAGE(:), SelCriterionPAGEStand(:)
     integer(int32), allocatable :: Gender(:)
-    real(real64), allocatable :: GenericIndVal(:, :), GenericMatVal(:, :, :)
+    real(real64), allocatable :: GenericIndCrit(:, :), GenericMatCrit(:, :, :)
     ! Data summaries
     type(DescStatReal64) :: InbreedingStat, SelCriterionStat, SelCriterionPAGEStat
-    type(DescStatReal64), allocatable :: GenericIndValStat(:)
+    type(DescStatReal64), allocatable :: GenericIndCritStat(:)
     type(DescStatMatrixReal64) :: CoancestryStat, CoancestryStatGenderDiff, CoancestryStatGender1, CoancestryStatGender2
-    type(DescStatMatrixReal64), allocatable :: GenericMatValStat(:)
+    type(DescStatMatrixReal64), allocatable :: GenericMatCritStat(:)
     ! Derived data
-    integer(int32) :: nInd, nMat, nPotMat, nPar, nPotPar1, nPotPar2, nMal, nFem, nPar1, nPar2
+    integer(int32) :: nInd, nPotMat, nPotPar1, nPotPar2, nMal, nFem
     integer(int32), allocatable :: IdPotPar1(:), IdPotPar2(:), IdPotParSeq(:)
-    integer(int32) :: nGenericIndVal, nGenericMatVal
     real(real64) :: CurrentCoancestryRanMate, CurrentCoancestryRanMateNoSelf, CurrentCoancestryGenderMate
     real(real64) :: CurrentInbreeding
     real(real64) :: TargetCoancestryRanMate, TargetCoancestryRanMateNoSelf, TargetCoancestryGenderMate
@@ -138,8 +147,8 @@ module AlphaMateModule
     real(real64)                :: CoancestryRateRanMate
     real(real64)                :: FutureInbreeding
     real(real64)                :: InbreedingRate
-    real(real64), allocatable   :: GenericIndVal(:)
-    real(real64), allocatable   :: GenericMatVal(:)
+    real(real64), allocatable   :: GenericIndCrit(:)
+    real(real64), allocatable   :: GenericMatCrit(:)
     real(real64)                :: Cost
     integer(int32), allocatable :: nVec(:)
     real(real64), allocatable   :: xVec(:)
@@ -319,64 +328,91 @@ module AlphaMateModule
       class(AlphaMateSpec), intent(out) :: This !< AlphaMateSpec holder
 
       ! Inputs
+
+      This%SpecFile = ""
+      This%RelMtxFile = ""
+      This%SelCriterionFile = ""
+      This%GenderFile = ""
+      This%GenericIndCritFile = ""
+      This%nGenericIndCrit = 0
+      This%GenericMatCritFile = ""
+      This%nGenericMatCrit = 0
+      This%SeedFile = ""
+
+      This%RelMtxFileGiven = .false.
+      This%SelCriterionFileGiven = .false.
+      This%GenderFileGiven = .false.
+      This%GenericIndCritGiven = .false.
+      This%GenericMatCritGiven = .false.
+      This%SeedFileGiven = .false.
+      This%SeedGiven = .false.
       This%NrmInsteadOfCoancestry = .false.
-      This%SelCriterionAvailable = .false.
-      This%GenericIndValAvailable = .false.
-      This%GenericMatValAvailable = .false.
 
       ! Biological specifications
+
       This%TargetCoancestryRate = 0.01d0
       This%TargetInbreedingRate = 0.01d0
       ! This%TargetCoancestryRateFrontier(:) ! allocatable so skip here
-      This%CoancestryWeight = 0.5d0
-      This%CoancestryWeightBellow = .false.
-      This%InbreedingWeight =  0.5d0
-      This%InbreedingWeightBellow = .false.
+      This%TargetCoancestryRateWeight = 0.5d0
+      This%TargetCoancestryRateWeightBelow = .false.
+      This%TargetInbreedingRateWeight =  0.5d0
+      This%TargetInbreedingRateWeightBelow = .false.
       This%SelfingWeight = 0.0d0
-      ! This%GenericIndValWeight(:) ! allocatable so skip here
-      ! This%GenericMatValWeight(:) ! allocatable so skip here
+      ! This%GenericIndCritWeight(:) ! allocatable so skip here
+      ! This%GenericMatCritWeight(:) ! allocatable so skip here
 
-      This%GenderMatters = .false.
-      This%EqualizePar1 = .false.
-      This%EqualizePar2 = .false.
       This%SelfingAllowed = .false.
 
-      This%LimitPar1Min = 1.0d0
-      This%LimitPar1Max = huge(Spec%LimitPar1Max) - 1.0d0
-      This%LimitPar2Min = 1.0d0
-      This%LimitPar2Max = huge(Spec%LimitPar1Max) - 1.0d0
-      This%LimitPar1Weight = 0.0d0
-      This%LimitPar2Weight = 0.0d0
+      This%EqualizePar  = .false.
+      This%EqualizePar1 = .false.
+      This%EqualizePar2 = .false.
 
-      This%PAGE = .false.
+      This%LimitPar  = .false.
+      This%LimitPar1 = .false.
+      This%LimitPar2 = .false.
+      This%LimitParMin  = 1.0d0
+      This%LimitPar1Min = 1.0d0
+      This%LimitPar2Min = 1.0d0
+      This%LimitParMax  = huge(Spec%LimitParMax)  - 1.0d0
+      This%LimitPar1Max = huge(Spec%LimitPar1Max) - 1.0d0
+      This%LimitPar2Max = huge(Spec%LimitPar2Max) - 1.0d0
+      This%LimitParMinWeight  = 0.0d0
+      This%LimitPar1MinWeight = 0.0d0
+      This%LimitPar2MinWeight = 0.0d0
+
+      This%PAGEPar  = .false.
       This%PAGEPar1 = .false.
       This%PAGEPar2 = .false.
+      This%PAGEParMax  = 0
       This%PAGEPar1Max = 0
       This%PAGEPar2Max = 0
+      This%PAGEParCost  = 0.0d0
       This%PAGEPar1Cost = 0.0d0
       This%PAGEPar2Cost = 0.0d0
 
       ! Search mode specifications
+
       This%ModeMin = .false.
       This%ModeRan = .false.
       This%ModeOpt = .false.
       This%EvaluateFrontier = .false.
-      This%nFrontierSteps = 0
+      This%nFrontierPoints = 0
 
       ! Search algorithm specifications
+
       This%EvolAlgNSol = 100
       This%EvolAlgNIter = 10000
       This%EvolAlgNIterBurnIn = 500
       This%EvolAlgNIterStop = 1000
       This%EvolAlgNIterPrint = 100
-      This%RanAlgStricter = 10
       This%EvolAlgStopTol = 0.001d0
-      This%EvolAlgCRBurnIn = 0.4d0
-      This%EvolAlgCRLate = 0.2d0
-      This%EvolAlgFBase = 0.1d0
-      This%EvolAlgFHigh1 = 1.0d0
-      This%EvolAlgFHigh2 = 4.0d0
+      This%EvolAlgParamCrBurnIn = 0.4d0
+      This%EvolAlgParamCr = 0.2d0
+      This%EvolAlgParamFBase = 0.1d0
+      This%EvolAlgParamFHigh1 = 1.0d0
+      This%EvolAlgParamFHigh2 = 4.0d0
       This%EvolAlgLogPop = .false.
+      This%RanAlgStricter = 10
     end subroutine
 
     !###########################################################################
@@ -386,13 +422,1099 @@ module AlphaMateModule
     !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date   March 16, 2017
     !-------------------------------------------------------------------------
-    subroutine ReadAlphaMateSpec(This, SpecFile) ! not pure due to IO
+    subroutine ReadAlphaMateSpec(This, SpecFile, LogStdout) ! not pure due to IO
       implicit none
-      class(AlphaMateSpec), intent(out) :: This     !< AlphaMateSpec holder
-      character(len=*), intent(in)      :: SpecFile !< Spec file; when missing, a stub with defaults is created
+      class(AlphaMateSpec), intent(out) :: This      !< AlphaMateSpec holder
+      character(len=*), intent(in)      :: SpecFile  !< Spec file; when missing, a stub with defaults is created
+      logical, optional                 :: LogStdout !< Log process on stdout (default .false.)
 
+      ! Other
+      character(len=:), allocatable :: DumString
+      character(len=SPECOPTIONLENGTH) :: Line
+      character(len=SPECOPTIONLENGTH) :: First
+      character(len=SPECOPTIONLENGTH), allocatable, dimension(:) :: Second
+
+      integer(int32) :: SpecUnit, Stat, nFrontierPoint, nGenericIndCrit, nGenericMatCrit
+
+      logical :: LogStdoutInternal
+
+      if (present(LogStdout)) then
+        LogStdoutInternal = LogStdout
+      else
+        LogStdoutInternal = .false.
+      end if
+
+      ! Defaults
       call This%Init
-      ! TODO
+
+      This%SpecFile = SpecFile
+      open(newunit=SpecUnit, file=This%SpecFile, action="read", status="old")
+
+      Stat = 0
+      ReadSpec: do while (Stat .eq. 0)
+        read(SpecUnit, "(a)", iostat=Stat) Line
+        if (len_trim(Line) .eq. 0) then
+          cycle
+        end if
+        call SplitLineIntoTwoParts(trim(adjustl(Line)), First, Second)
+        DumString = ParseToFirstWhitespace(First)
+        ! @todo why (len_trim(Line) .eq. 0)? if we use (len_trim(Line) .eq. 0) above
+        if (First(1:1) .eq. "=" .or. len_trim(Line) .eq. 0) then
+          cycle
+        else
+          select case (ToLower(trim(DumString)))
+
+            case ("outputbasename")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .ne. "none") then
+                  write(This%OutputBasename, *) trim(adjustl(Second(1)))
+                  This%OutputBasename = adjustl(This%OutputBasename)
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Output basename: "//trim(This%OutputBasename)
+                  end if
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a string for OutputBasename, i.e., OutputBasename, AnalysisX"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("modemin")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                  This%ModeMin = .true.
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " ModeMin"
+                  end if
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for ModeMin, i.e., ModeMin, Yes"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("moderan")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                  This%ModeRan = .true.
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " ModeRan"
+                  end if
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for ModeRan, i.e., ModeRan, Yes"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("modeopt")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                  This%ModeOpt = .true.
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " ModeOpt"
+                  end if
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for ModeOpt, i.e., ModeOpt, Yes"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("coancestrymatrixfile")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .ne. "none") then
+                  write(This%RelMtxFile, *) trim(adjustl(Second(1)))
+                  This%RelMtxFile = adjustl(This%RelMtxFile)
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Coancestry matrix file: "//trim(This%RelMtxFile)
+                  end if
+                  This%RelMtxFileGiven = .true.
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a file for CoancestryMatrixFile, i.e., CoancestryMatrixFile, CoaMtx.txt"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("nrmmatrixfile")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .ne. "none") then
+                  write(This%RelMtxFile, *) trim(adjustl(Second(1)))
+                  This%RelMtxFile = adjustl(This%RelMtxFile)
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Numerator relationship matrix file: "//trim(This%RelMtxFile)
+                  end if
+                  This%RelMtxFileGiven = .true.
+                  This%NrmInsteadOfCoancestry = .true.
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify a file for NrmMatrixFile, i.e., NrmMatrixFile, NrmMtx.txt"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a file for NrmMatrixFile, i.e., NrmMatrixFile, NrmMtx.txt"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("selcriterionfile")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .ne. "none") then
+                  write(This%SelCriterionFile, *) trim(adjustl(Second(1)))
+                  This%SelCriterionFile = adjustl(This%SelCriterionFile)
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Selection criterion file: "//trim(This%SelCriterionFile)
+                  end if
+                  This%SelCriterionFileGiven = .true.
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a file for SelCriterionFile, i.e., SelCriterionFile, SelCrit.txt"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("genderfile")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .ne. "none") then
+                  write(This%GenderFile, *) trim(adjustl(Second(1)))
+                  This%GenderFile = adjustl(This%GenderFile)
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Gender file: "//trim(This%GenderFile)
+                  end if
+                  This%GenderFileGiven = .true.
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a file for GenderFile, i.e., GenderFile, Gender.txt"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("genericindividualcriterionfile")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .ne. "none") then
+                  write(This%GenericIndCritFile, *) trim(adjustl(Second(1)))
+                  This%GenericIndCritFile = adjustl(This%GenericIndCritFile)
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Generic individual criterion file: "//trim(This%GenericIndCritFile)
+                  end if
+                  This%GenericIndCritGiven = .true.
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a file for GenericIndividualCriterionFile, i.e., GenericIndividualCriterionFile, IndividualCriterion.txt"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("genericindividualcriterioncolumns")
+              if (This%GenericIndCritFileGiven) then
+                if (allocated(Second)) then
+                  This%nGenericIndCrit = Char2Int(trim(adjustl(Second(1))))
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Generic individual criterion - number of columns: "//trim(Int2Char(This%nGenericIndCrit))
+                  end if
+                  allocate(This%GenericIndCritWeight(This%nGenericIndCrit))
+                  nGenericIndCrit = 0
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify a number for GenericIndividualCriterionColumns, i.e., GenericIndividualCriterionColumns, 2"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                end if
+              end if
+
+            case ("genericindividualcriterionweight")
+              if (This%GenericIndCritFileGiven) then
+                if (allocated(Second)) then
+                  nGenericIndCrit = nGenericIndCrit + 1
+                  This%GenericIndCritWeight(nGenericIndCrit) = Char2Double(trim(adjustl(Second(1))))
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Generic individual criterion - weight ("//trim(Int2Char(nGenericIndCrit))//"): "//trim(Real2Char(This%GenericIndCritWeight(nGenericIndCrit), fmt=FMTREAL2CHAR))
+                  end if
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify a value for GenericIndividualCriterionWeight, i.e., GenericIndividualCriterionWeight, 2"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                end if
+              end if
+
+            case ("genericmatingcriterionfile")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .ne. "none") then
+                  write(This%GenericMatCritFile, *) trim(adjustl(Second(1)))
+                  This%GenericMatCritFile = adjustl(This%GenericMatCritFile)
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Generic mating criterion file: "//trim(This%GenericMatCritFile)
+                  end if
+                  This%GenericMatCritGiven = .true.
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a file for GenericMatingCriterionFile, i.e., GenericMatingCriterionFile, MatingCriterion.txt"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("genericmatingcriterioncolumns")
+              if (This%GenericMatCritFileGiven) then
+                if (allocated(Second)) then
+                  This%nGenericMatCrit = Char2Int(trim(adjustl(Second(1))))
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Generic mating criterion - number of columns: "//trim(Int2Char(This%nGenericMatCrit))
+                  end if
+                  allocate(This%GenericMatCritWeight(This%nGenericMatCrit))
+                  nGenericMatCrit = 0
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify a number for GenericMatingCriterionColumns, i.e., GenericMatingCriterionColumns, 2"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                end if
+              end if
+
+            case ("genericmatingcriterionweight")
+              if (This%GenericMatCritFileGiven) then
+                if (allocated(Second)) then
+                  nGenericMatCrit = nGenericMatCrit + 1
+                  This%GenericMatCritWeight(nGenericMatCrit) = Char2Double(trim(adjustl(Second(1))))
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Generic mating criterion - weight ("//trim(Int2Char(nGenericMatCrit))//"): "//trim(Real2Char(This%GenericMatCritWeight(nGenericMatCrit), fmt=FMTREAL2CHAR))
+                  end if
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify a value for GenericMatingCriterionWeight, i.e., GenericMatingCriterionWeight, 2"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                end if
+              end if
+
+            case ("numberofmatings")
+              if (allocated(Second)) then
+                This%nMat = Char2Int(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Number of matings: "//trim(Int2Char(This%nMat))
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a number for NumberOfMatings, i.e., NumberOfMatings, 10"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("numberofparents")
+              if (allocated(Second)) then
+                This%nPar = Char2Int(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Number of targeted parents: "//trim(Int2Char(This%nPar))
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a number for NumberOfParents, i.e., NumberOfParents, 20"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("numberofmaleparents")
+              if (allocated(Second)) then
+                This%nPar1 = Char2Int(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Number of targeted male parents: "//trim(Int2Char(This%nPar1))
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a number for NumberOfMaleParents, i.e., NumberOfMaleParents, 10"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("numberoffemaleparents")
+              if (allocated(Second)) then
+                This%nPar2 = Char2Int(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Number of targeted female parents: "//trim(Int2Char(This%nPar2))
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a number for NumberOfFemaleParents, i.e., NumberOfFemaleParents, 10"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("targetcoancestryrate")
+              if (allocated(Second)) then
+                This%TargetCoancestryRate = Char2Double(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Targeted rate of coancestry: "//trim(Real2Char(This%TargetCoancestryRate, fmt=FMTREAL2CHAR))
+                end if
+                if (This%TargetCoancestryRate .eq. 0.0) then
+                  write(STDERR, "(a)") "ERROR: Can not work with the targeted rate of coancestry exactly equal to zero - it is numerically unstable!"
+                  write(STDERR, "(a)") " "
+                  stop 1
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a value for TargetedRateOfCoancestry, i.e., TargetedRateOfCoancestry, 0.01"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("targetcoancestryrateweight")
+              if (allocated(Second)) then
+                This%TargetCoancestryRateWeight = Char2Double(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Targeted rate of coancestry - weight: "//trim(Real2Char(This%TargetCoancestryRateWeight, fmt=FMTREAL2CHAR))
+                end if
+                if (This%TargetCoancestryRateWeight .gt. 0.0d0) then
+                  write(STDOUT, "(a)") " NOTE: Positive weight for targeted rate of coancestry, i.e., encourage higher rate. Was this intended?"
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a value for TargetCoancestryRateWeight, i.e., TargetCoancestryRateWeight, 0.01"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("targetcoancestryrateweightbelow")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                  This%TargetCoancestryRateWeightBelow = .true.
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Targeted rate of coancestry - weight also values below the target"
+                  end if
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for TargetCoancestryRateWeightBelow, i.e., TargetCoancestryRateWeightBelow, No"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("targetinbreedingrate")
+              if (allocated(Second)) then
+                This%TargetInbreedingRate = Char2Double(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Targeted rate of inbreeding: "//trim(Real2Char(This%TargetInbreedingRate, fmt=FMTREAL2CHAR))
+                end if
+                if (This%TargetInbreedingRate .eq. 0.0) then
+                  write(STDERR, "(a)") "ERROR: Can not work with the targeted rate of inbreeding exactly equal to zero - it is numerically unstable!"
+                  write(STDERR, "(a)") " "
+                  stop 1
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a value for TargetInbreedingRate, i.e., TargetInbreedingRate, 0.01"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("targetinbreedingrateweight")
+              if (allocated(Second)) then
+                This%TargetInbreedingRateWeight = Char2Double(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Targeted rate of inbreeding - weight: "//trim(Real2Char(This%TargetInbreedingRateWeight, fmt=FMTREAL2CHAR))
+                end if
+                if (This%TargetInbreedingRateWeight .gt. 0.0d0) then
+                  write(STDOUT, "(a)") " NOTE: Positive weight for targeted rate of inbreeding, i.e., encourage higher rate. Was this intended?"
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a value for TargetInbreedingRateWeight, i.e., TargetInbreedingRateWeight, 0.01"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("targetinbreedingrateweightbelow")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                  This%TargetInbreedingRateWeightBelow = .true.
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Targeted rate of inbreeding - weight also values below the target"
+                  end if
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for TargetInbreedingRateWeightBelow, i.e., TargetInbreedingRateWeightBelow, No"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("evaluatefrontier")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                  This%EvaluateFrontier = .true.
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Evaluate selection/coancestry frontier"
+                  end if
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for EvaluateFrontier, i.e., EvaluateFrontier, Yes"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("evaluatefrontiernumberofpoints")
+              if (This%EvaluateFrontier) then
+                if (allocated(Second)) then
+                  This%nFrontierPoints = Char2Int(trim(adjustl(Second(1))))
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Evaluate selection/coancestry frontier - number of points: "//trim(Int2Char(This%nFrontierPoints))
+                  end if
+                  allocate(This%TargetCoancestryRateFrontier(This%nFrontierPoints))
+                  nFrontierPoint = 0
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify a number for EvaluateFrontierNumberOfPoints, i.e., EvaluateFrontierNumberOfPoints, 3"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                end if
+              end if
+
+            case ("evaluatefrontiertargetcoancestryrate")
+              if (This%EvaluateFrontier) then
+                if (allocated(Second)) then
+                  nFrontierPoint = nFrontierPoint + 1
+                  This%TargetCoancestryRateFrontier(nFrontierPoint) = Char2Double(trim(adjustl(Second(1))))
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Evaluate selection/coancestry frontier - coancestry rate ("//trim(Int2Char(nFrontierPoint))//"): "//trim(Real2Char(This%TargetCoancestryRateFrontier(nFrontierPoint), fmt=FMTREAL2CHAR))
+                  end if
+                  if (This%TargetCoancestryRateFrontier(nFrontierPoint) .eq. 0.0) then
+                    write(STDERR, "(a)") "ERROR: Can not work with the targeted rate of coancestry exactly equal to zero - it is numerically unstable!"
+                    write(STDERR, "(a)") " "
+                    stop 1
+                  end if
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify a value for EvaluateFrontierTargetCoancestryRate, i.e., EvaluateFrontierTargetCoancestryRate, 0.001"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                end if
+              end if
+
+            case ("equalizecontributions")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                  This%EqualizePar = .true.
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Equalize contributions"
+                  end if
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for EqualizeContributions, i.e., EqualizeContributions, Yes"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("equalizemalecontributions")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                  This%EqualizePar  = .true.
+                  This%EqualizePar1 = .true.
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Equalize contributions of males"
+                  end if
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for EqualizeMaleContributions, i.e., EqualizeMaleContributions, Yes"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("equalizefemalecontributions")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                  This%EqualizePar  = .true.
+                  This%EqualizePar2 = .true.
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Equalize contributions of females"
+                  end if
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for EqualizeFemaleContributions, i.e., EqualizeFemaleContributions, Yes"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("limitcontributions")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                  This%LimitPar = .true.
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Limit contributions"
+                  end if
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for LimitContributions, i.e., LimitContributions, Yes"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("limitcontributionsmin")
+              if (This%LimitPar) then
+                if (allocated(Second)) then
+                  This%LimitParMin = Char2Double(trim(adjustl(Second(1)))) ! real because of continous solution representation
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Limit contributions - minimum: "//trim(Int2Char(nint(This%LimitParMin))) ! nint because of continous solution representation
+                  end if
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify a number for LimitContributionsMin, i.e., LimitContributionsMin, 1"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                end if
+              end if
+
+            case ("limitcontributionsmax")
+              if (This%LimitPar) then
+                if (allocated(Second)) then
+                  This%LimitParMax = Char2Double(trim(adjustl(Second(1)))) ! Real because of continous solution representation
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Limit contributions - maximum: "//trim(Int2Char(nint(This%LimitParMax))) ! nint because of continous solution representation
+                  end if
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify a number for LimitContributionsMax, i.e., LimitContributionsMax, 10"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                end if
+              end if
+
+            case ("limitcontributionsminweight")
+              if (This%LimitPar) then
+                if (allocated(Second)) then
+                  This%LimitParMinWeight = Char2Double(trim(adjustl(Second(1))))
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Limit contributions - weight for contributions bellow minimum: "//trim(Real2Char(This%LimitParMinWeight, fmt=FMTREAL2CHAR))
+                  end if
+                  if (This%LimitParMinWeight .gt. 0.0d0) then
+                    write(STDOUT, "(a)") " NOTE: Positive weight for limit on minimum contributions, i.e., encourage smaller contributions than defined minimum. Was this intended?"
+                  end if
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify a value for LimitContributionsMinWeight, i.e., LimitContributionsMinWeight, -0.01"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                end if
+              end if
+
+            case ("limitmalecontributions")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                  This%LimitPar  = .true.
+                  This%LimitPar1 = .true.
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Limit contributions of males"
+                  end if
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for LimitMaleContributions, i.e., LimitMaleContributions, Yes"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("limitmalecontributionsmin")
+              if (This%LimitPar1) then
+                if (allocated(Second)) then
+                  This%LimitPar1Min = Char2Double(trim(adjustl(Second(1)))) ! Real because of continous solution representation
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Limit contributions of males - minimum: "//trim(Int2Char(nint(This%LimitPar1Min))) ! nint because of continous solution representation
+                  end if
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify a number for LimitMaleContributionsMin, i.e., LimitMaleContributionsMin, 1"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                end if
+              end if
+
+            case ("limitmalecontributionsmax")
+              if (This%LimitPar1) then
+                if (allocated(Second)) then
+                  This%LimitPar1Max = Char2Double(trim(adjustl(Second(1)))) ! Real because of continous solution representation
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Limit contributions of males - maximum: "//trim(Int2Char(nint(This%LimitPar1Max))) ! nint because of continous solution representation
+                  end if
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify a number for LimitMaleContributionsMax, i.e., LimitMaleContributionsMax, 10"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                end if
+              end if
+
+            case ("limitmalecontributionsminweight")
+              if (This%LimitPar1) then
+                if (allocated(Second)) then
+                  This%LimitPar1MinWeight = Char2Double(trim(adjustl(Second(1))))
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Limit contributions of males - weight for contributions bellow minimum: "//trim(Real2Char(This%LimitPar1MinWeight, fmt=FMTREAL2CHAR))
+                  end if
+                  if (This%LimitPar1MinWeight .gt. 0.0d0) then
+                    write(STDOUT, "(a)") " NOTE: Positive weight for limit on minimum contributions, i.e., encourage smaller contributions than defined minimum. Was this intended?"
+                  end if
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify a value for LimitMaleContributionsMinWeight, i.e., LimitMaleContributionsMinWeight, -0.01"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                end if
+              end if
+
+            case ("limitfemalecontributions")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                  This%LimitPar  = .true.
+                  This%LimitPar2 = .true.
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Limit contributions of females"
+                  end if
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for LimitFemaleContributions, i.e., LimitFemaleContributions, Yes"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("limitfemalecontributionsmin")
+              if (This%LimitPar2) then
+                if (allocated(Second)) then
+                  This%LimitPar2Min = Char2Double(trim(adjustl(Second(1)))) ! Real because of continous solution representation
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Limit contributions of females - minimum: "//trim(Int2Char(nint(This%LimitPar2Min))) ! nint because of continous solution representation
+                  end if
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify a number for LimitFemaleContributionsMin, i.e., LimitFemaleContributionsMin, 1"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                end if
+              end if
+
+            case ("limitfemalecontributionsmax")
+              if (This%LimitPar2) then
+                if (allocated(Second)) then
+                  This%LimitPar2Max = Char2Double(trim(adjustl(Second(1)))) ! Real because of continous solution representation
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Limit contributions of females - maximum: "//trim(Int2Char(nint(This%LimitPar2Max))) ! nint because of continous solution representation
+                  end if
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify a number for LimitFemaleContributionsMax, i.e., LimitFemaleContributionsMax, 10"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                end if
+              end if
+
+            case ("limitfemalecontributionsminweight")
+              if (This%LimitPar2) then
+                if (allocated(Second)) then
+                  This%LimitPar2MinWeight = Char2Double(trim(adjustl(Second(1))))
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Limit contributions of females - weight for contributions bellow minimum:: "//trim(Real2Char(This%LimitPar2MinWeight, fmt=FMTREAL2CHAR))
+                  end if
+                  if (This%LimitPar2MinWeight .gt. 0.0d0) then
+                    write(STDOUT, "(a)") " NOTE: Positive weight for limit on minimum contributions, i.e., encourage smaller contributions than defined minimum. Was this intended?"
+                  end if
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify a value for LimitFemaleContributionsMinWeight, i.e., LimitFemaleContributionsMinWeight, -0.01"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                end if
+              end if
+
+            case ("allowselfing")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                  This%SelfingAllowed = .true.
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Allow selfing"
+                  end if
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for AllowSelfing, i.e., AllowSelfing, Yes"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("selfingweight")
+              if (This%SelfingAllowed) then
+                if (allocated(Second)) then
+                  This%SelfingWeight = Char2Double(trim(adjustl(Second(1))))
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") "Selfing - weight: "//trim(Real2Char(This%SelfingWeight, fmt=FMTREAL2CHAR))
+                  end if
+                  if (This%SelfingWeight .gt. 0.0d0) then
+                    write(STDOUT, "(a)") " NOTE: Positive weight for selfing, i.e., encourage selfing. Was this intended?"
+                  end if
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify a value for SelfingWeight, i.e., SelfingWeight, -0.01"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                end if
+              end if
+
+            case ("page")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                  This%PAGEPar = .true.
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Promotion of Alleles by Genome Editing (PAGE)"
+                  end if
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for PAGE, i.e., PAGE, Yes"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("pagemax")
+              if (This%PAGEPar) then
+                if (allocated(Second)) then
+                  This%PAGEParMax = Char2Int(trim(adjustl(Second(1))))
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Promotion of Alleles by Genome Editing (PAGE) - maximum number of individuals: "//trim(Int2Char(This%PAGEParMax))
+                  end if
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify number for for PAGEMax, i.e., PAGEMax, 10"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                end if
+              end if
+
+            case ("pagecost")
+              if (This%PAGEPar) then
+                if (allocated(Second)) then
+                  This%PAGEParCost = Char2Double(trim(adjustl(Second(1))))
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Promotion of Alleles by Genome Editing (PAGE) - cost: "//trim(Real2Char(This%PAGEParCost, fmt=FMTREAL2CHAR))
+                  end if
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify a value for PAGECost, i.e., PAGECost, Value"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                end if
+              end if
+
+            case ("pagemales")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                  This%PAGEPar  = .true.
+                  This%PAGEPar1 = .true.
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Promotion of Alleles by Genome Editing (PAGE) in males"
+                  end if
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for PAGEMales, i.e., PAGEMales, Yes"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("pagemalesmax")
+              if (This%PAGEPar1) then
+                if (allocated(Second)) then
+                  This%PAGEPar1Max = Char2Int(trim(adjustl(Second(1))))
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Promotion of Alleles by Genome Editing (PAGE) in males - maxium number of individuals : "//trim(Int2Char(This%PAGEPar1Max))
+                  end if
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify number for for PAGEMalesMax, i.e., PAGEMalesMax, 10"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                end if
+              end if
+
+            case ("pagemalescost")
+              if (This%PAGEPar1) then
+                if (allocated(Second)) then
+                  This%PAGEPar1Cost = Char2Double(trim(adjustl(Second(1))))
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Promotion of Alleles by Genome Editing (PAGE) in males - cost: "//trim(Real2Char(This%PAGEPar1Cost, fmt=FMTREAL2CHAR))
+                  end if
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify a value for PAGEMalesCost, i.e., PAGEMalesCost, Value"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                end if
+              end if
+
+            case ("pagefemales")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                  This%PAGEPar  = .true.
+                  This%PAGEPar2 = .true.
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Promotion of Alleles by Genome Editing (PAGE) in females"
+                  end if
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for PAGEFemales, i.e., PAGEFemales, Yes"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("pagefemalesmax")
+              if (This%PAGEPar2) then
+                if (allocated(Second)) then
+                  This%PAGEPar2Max = Char2Int(trim(adjustl(Second(1))))
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Promotion of Alleles by Genome Editing (PAGE) in females - maximum number of individuals: "//trim(Int2Char(This%PAGEPar2Max))
+                  end if
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify number for for PAGEFemalesMax, i.e., PAGEFemalesMax, 10"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                end if
+              end if
+
+            case ("pagefemalescost")
+              if (This%PAGEPar2) then
+                if (allocated(Second)) then
+                  This%PAGEPar2Cost = Char2Double(trim(adjustl(Second(1))))
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Promotion of Alleles by Genome Editing (PAGE) in females - cost: "//trim(Real2Char(This%PAGEPar2Cost, fmt=FMTREAL2CHAR))
+                  end if
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify a value for PAGEFemalesCost, i.e., PAGEFemalesCost, Value"
+                  write(STDERR, "(a)") ""
+                  stop 1
+                end if
+              end if
+
+            case ("seedfile")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .ne. "none") then
+                  write(This%SeedFile, *) trim(adjustl(Second(1)))
+                  This%SeedFileGiven = .true.
+                  This%SeedFile = adjustl(This%SeedFile)
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Seed file: "//trim(This%SeedFile)
+                  end if
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a file for SeedFile, i.e., SeedFile, Seed.txt"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("seed")
+              if (allocated(Second)) then
+                This%SeedGiven = .true.
+                This%Seed = Char2Int(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Seed: "//trim(Int2Char(This%Seed))
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a number for Seed, i.e., Seed, 19791123"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("evolalgnumberofsolutions")
+              if (allocated(Second)) then
+                This%EvolAlgNSol = Char2Int(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Evolutionary algorithm - number of solutions: "//trim(Int2Char(This%EvolAlgNSol))
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a number for EvolAlgNumberOfSolutions, i.e., EvolAlgNumberOfSolutions, 100"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("evolalgnumberofiterations")
+              if (allocated(Second)) then
+                This%EvolAlgNIter = Char2Int(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Evolutionary algorithm - number of iterations: "//trim(Int2Char(This%EvolAlgNIter))
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a number for EvolAlgNumberOfIterations, i.e., EvolAlgNumberOfIterations, 10000"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("evolalgnumberofiterationsburnin")
+              if (allocated(Second)) then
+                This%EvolAlgNIterBurnIn = Char2Int(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Evolutionary algorithm - number of warming iterations (burn-in): "//trim(Int2Char(This%EvolAlgNIterBurnIn))
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a number for EvolAlgNumberOfIterationsBurnin, i.e., EvolAlgNumberOfIterationsBurnin, 1000"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("evolalgnumberofiterationsprint")
+              if (allocated(Second)) then
+                This%EvolAlgNIterPrint = Char2Int(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Evolutionary algorithm - number of iterations to print optimisation status: "//trim(Int2Char(This%EvolAlgNIterPrint))
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a number for EvolAlgNumberOfIterationsPrint, i.e., EvolAlgNumberOfIterationsPrint, 100"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("evolalgnumberofiterationsstop")
+              if (allocated(Second)) then
+                This%EvolAlgNIterStop = Char2Int(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Evolutionary algorithm - number of iterations to stop upon no improvement of objective: "//trim(Int2Char(This%EvolAlgNIterStop))
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a number for EvolAlgNumberOfIterationsStop, i.e., EvolAlgNumberOfIterationsStop, 100"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("evolalgstoptolerance")
+              if (allocated(Second)) then
+                This%EvolAlgStopTol = Char2Double(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Evolutionary algorithm - stopping tolerance: "//trim(Real2Char(This%EvolAlgStopTol, fmt=FMTREAL2CHAR))
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a value for EvolAlgStopTolerance, i.e., EvolAlgStopTolerance, 0.01"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("evolalglogallsolutions")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                  This%EvolAlgLogPop = .true.
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Evolutionary algorithm - log all evaluated solutions"
+                  end if
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for EvolAlgLogAllSolutions, i.e., EvolAlgLogAllSolutions, Yes"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("evolalgparametercrburnin")
+              if (allocated(Second)) then
+                This%EvolAlgParamCrBurnIn = Char2Double(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Evolutionary algorithm - cross-over parameter for warmup (burn-in): "//trim(Real2Char(This%EvolAlgParamCrBurnIn, fmt=FMTREAL2CHAR))
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a value for EvolAlgParameterCrBurnin, i.e., EvolAlgParameterCrBurnin, 0.4"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("evolalgparametercr")
+              if (allocated(Second)) then
+                This%EvolAlgParamCr = Char2Double(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Evolutionary algorithm - cross-over parameter: "//trim(Real2Char(This%EvolAlgParamCr, fmt=FMTREAL2CHAR))
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a value for EvolAlgParameterCr, i.e., EvolAlgParameterCr, 0.2"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("evolalgparameterfbase")
+              if (allocated(Second)) then
+                This%EvolAlgParamFBase = Char2Double(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Evolutionary algorithm - parameter F (base value): "//trim(Real2Char(This%EvolAlgParamFBase, fmt=FMTREAL2CHAR))
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a value for EvolAlgParameterFBase, i.e., EvolAlgParameterFBase, 0.1"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("evolalgparameterfhigh1")
+              if (allocated(Second)) then
+                This%EvolAlgParamFHigh1 = Char2Double(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Evolutionary algorithm - parameter F (high value 1): "//trim(Real2Char(This%EvolAlgParamFHigh1, fmt=FMTREAL2CHAR))
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a value for EvolAlgParameterFHigh1, i.e., EvolAlgParameterFHigh1, 1.0"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("evolalgparameterfhigh2")
+              if (allocated(Second)) then
+                This%EvolAlgParamFHigh2 = Char2Double(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Evolutionary algorithm - parameter F (high value 2): "//trim(Real2Char(This%EvolAlgParamFHigh2, fmt=FMTREAL2CHAR))
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a value for EvolAlgParameterFHigh2, i.e., EvolAlgParameterFHigh2, 4.0"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("randomsearchstricter")
+              if (allocated(Second)) then
+                This%RanAlgStricter = Char2Double(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Random search - perform k times more iterations that with the evolutionary algorithm: k="//trim(Int2Char(This%RanAlgStricter))
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a number for RandomSearchStricter, i.e., RandomSearchStricter, 10"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("stop")
+              if (LogStdoutInternal) then
+                write(STDOUT, "(3a)") " NOTE: Encountered Stop specification - the rest of specifications will be ignored"
+                write(STDOUT, "(a)") " "
+              end if
+              exit
+
+            case default
+              if (LogStdoutInternal) then
+                write(STDOUT, "(3a)") " NOTE: Specification '", trim(Line), "' was ignored"
+                write(STDOUT, "(a)") " "
+              end if
+          end select
+        end if
+      end do ReadSpec
+      close(SpecUnit)
+
+      if (.not. This%RelMtxFileGiven) then
+        write(STDERR, "(a)") " ERROR: Must specify CoancestryMatrixFile or NrmMatrixFile!"
+        write(STDERR, "(a)") ""
+        stop 1
+      end if
+
+      if (This%LimitPar .and. This%EqualizePar) then
+        write(STDOUT, "(a)") " NOTE: The specification Equalize*Contributions has priority over Limit*Contributions."
+        write(STDOUT, "(a)") " "
+        ! ... therefore reset all limit specifications to default values
+        This%LimitPar  = .false.
+        This%LimitPar1 = .false.
+        This%LimitPar2 = .false.
+        This%LimitParMin  = 1.0d0
+        This%LimitPar1Min = 1.0d0
+        This%LimitPar2Min = 1.0d0
+        This%LimitParMax  = huge(Spec%LimitParMax)  - 1.0d0
+        This%LimitPar1Max = huge(Spec%LimitPar1Max) - 1.0d0
+        This%LimitPar2Max = huge(Spec%LimitPar2Max) - 1.0d0
+        This%LimitParMinWeight  = 0.0d0
+        This%LimitPar1MinWeight = 0.0d0
+        This%LimitPar2MinWeight = 0.0d0
+      end if
+
+      if (.not. This%GenderFileGiven) then
+        This%nPar1 = This%nPar
+        This%EqualizePar1 = This%EqualizePar
+        This%LimitPar1 = This%LimitPar
+        This%PAGEPar1 = This%PAGEPar
+      end if
+
+      if (This%GenderFileGiven) then
+        This%nPar = This%nPar1 + This%nPar2
+      end if
+
+      if (This%GenderFileGiven .and. This%SelfingAllowed) then
+        write(STDERR, "(a)") " ERROR: When gender matters, AlphaMate can not perform selfing! See the manual for a solution."
+        ! @todo: what is the solution? Provide the same individual both as male and a female?
+        write(STDERR, "(a)") " "
+        stop 1
+      end if
+
+      if ((.not. This%SelCriterionFileGiven) .and. This%PAGEPar) then
+        write(STDERR, "(a)") " ERROR: Can not use PAGE when selection criterion file is not given!"
+        ! @todo: what about using the GenericIndCrit values?
+        write(STDERR, "(a)") " "
+        stop 1
+      end if
+
+      if (This%SeedFileGiven .and. This%SeedGiven) then
+        write(STDOUT, "(a)") " NOTE: The specification Seed has priority over SeedFile."
+        write(STDOUT, "(a)") " "
+        This%SeedFile = ""
+        This%SeedFileGiven = .false.
+      end if
     end subroutine
 
     !###########################################################################
@@ -402,1040 +1524,33 @@ module AlphaMateModule
     !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date   March 16, 2017
     !-------------------------------------------------------------------------
-    subroutine ReadAlphaMateData(This) ! not pure due to IO
+    subroutine ReadAlphaMateData(This, Spec, LogStdout) ! not pure due to IO
       implicit none
       class(AlphaMateData), intent(inout) :: This !< AlphaMateData holder
+      type(AlphaMateSpec), intent(in)     :: Spec !< AlphaMateSpec holder
+      logical, optional                   :: LogStdout !< Log process on stdout (default .false.)
+
+      logical :: LogStdoutInternal
+      if (present(LogStdout)) then
+        LogStdoutInternal = LogStdout
+      else
+        LogStdoutInternal = .false.
+      end if
       ! TODO
-    end subroutine
 
-    !###########################################################################
 
-    subroutine ReadSpecAndDataForAlphaMate ! not pure due to IO
-      implicit none
+! RNG Seed
+      ! read(SpecUnit, *) DumC, DumC
+      ! Spec%SeedFile = "Seed.txt"
+      ! if ((ToLower(trim(DumC)) == "unknown") .or. (ToLower(trim(DumC)) == "none")) then
+      !   call SetSeed(SeedFile=Spec%SeedFile, Out=Seed)
+      ! else
+      !   backspace(SpecUnit)
+      !   read(SpecUnit, *) DumC, DumI
+      !   call SetSeed(Seed=DumI, SeedFile=Spec%SeedFile, Out=Seed)
+      ! end if
+      ! write(STDOUT, "(a)") "Seed: "//trim(Int2Char(Seed))
 
-      integer(int32) :: i, j, k, l, m, DumI, jMal, jFem, nIndTmp, GenderTmp, Seed
-      integer(int32) :: SpecUnit, SelCriterionUnit, GenderUnit, AvgCoancestryUnit, AvgInbreedingUnit
-      integer(int32) :: GenericIndValUnit, GenericMatValUnit
-      ! integer(int32), allocatable :: Order(:)
-
-      real(real64) :: SelCriterionTmp, SelCriterionTmp2
-      real(real64), allocatable :: GenericIndValTmp(:), GenericMatValTmp(:)
-
-      character(len=100) :: DumC, IdCTmp, IdCTmp2
-
-      write(STDOUT, "(a)") "--- Specifications ---"
-      write(STDOUT, "(a)") " "
-
-      open(newunit=SpecUnit, file="AlphaMateSpec.txt", status="old")
-      write(STDOUT, "(a)") "SpecFile: AlphaMateSpec.txt"
-
-      ! --- Mode ---
-
-      Spec%ModeMin = .false.
-      Spec%ModeRan = .false.
-      Spec%ModeOpt = .false.
-
-      read(SpecUnit, *) DumC, DumC
-      if (index(ToLower(trim(DumC)), "min") > 0) then
-        Spec%ModeMin = .true.
-        write(STDOUT, "(a)") "Mode: Min"
-      end if
-      if (index(ToLower(trim(DumC)), "ran") > 0) then
-        Spec%ModeRan = .true.
-        write(STDOUT, "(a)") "Mode: Ran"
-      end if
-      if (index(ToLower(trim(DumC)), "opt") > 0) then
-        Spec%ModeOpt = .true.
-        write(STDOUT, "(a)") "Mode: Opt"
-      end if
-      if (.not.Spec%ModeMin .and. .not.Spec%ModeRan .and. .not.Spec%ModeOpt) then
-        write(STDERR, "(a)") "ERROR: Mode must be: Min, Ran, Opt, or a combination of the three, e.g., MinOpt, RanOpt, ...!"
-        write(STDERR, "(a)") " "
-        stop 1
-      end if
-
-      ! --- CoancestryMatrixFile ---
-
-      ! read(SpecUnit, *) DumC, Spec%CoaMtxFile
-      ! write(STDOUT, "(a)") "CoancestryMatrixFile: "//trim(Spec%CoaMtxFile)
-      ! Spec%NrmInsteadOfCoancestry = .false.
-
-      ! --- NrmMatrixFile ---
-
-      read(SpecUnit, *) DumC, Spec%CoaMtxFile
-      write(STDOUT, "(a)") "NrmMatrixFile: "//trim(Spec%CoaMtxFile)
-      Spec%NrmInsteadOfCoancestry = .true.
-
-      ! --- SelCriterionFile ---
-
-      read(SpecUnit, *) DumC, Spec%SelCriterionFile
-      if (ToLower(trim(Spec%SelCriterionFile)) /= "none") then
-        Spec%SelCriterionAvailable = .true.
-        write(STDOUT, "(a)") "SelCriterionFile: "//trim(Spec%SelCriterionFile)
-      else
-        Spec%SelCriterionAvailable = .false.
-      end if
-
-      ! --- GenderFile ---
-
-      read(SpecUnit, *) DumC, Spec%GenderFile
-      if (ToLower(trim(Spec%GenderFile)) /= "none") then
-        Spec%GenderMatters = .true.
-        write(STDOUT, "(a)") "GenderFile: "//trim(Spec%GenderFile)
-      else
-        Spec%GenderMatters = .false.
-      end if
-
-      ! --- NumberOfIndividuals ---
-
-      read(SpecUnit, *) DumC, Data%nInd
-      write(STDOUT, "(a)") "NumberOfIndividuals: "//trim(Int2Char(Data%nInd))
-
-      ! --- NumberOfMatings ---
-
-      read(SpecUnit, *) DumC, Data%nMat
-      write(STDOUT, "(a)") "NumberOfMatings: "//trim(Int2Char(Data%nMat))
-
-      ! --- NumberOfParents ---
-
-      read(SpecUnit, *) DumC, Data%nPar
-      write(STDOUT, "(a)") "NumberOfParents: "//trim(Int2Char(Data%nPar))
-      if (Data%nPar > Data%nInd) then
-        write(STDERR, "(a)") "ERROR: The number of parents can not be larger than the number of individuals!"
-        write(STDERR, "(a)") "ERROR: Number of     parents: "//trim(Int2Char(Data%nPar))
-        write(STDERR, "(a)") "ERROR: Number of individuals: "//trim(Int2Char(Data%nInd))
-        write(STDERR, "(a)") " "
-        stop 1
-      end if
-      if (Data%nMat > Data%nPar) then
-        write(STDOUT, "(a)") "NOTE: The number of matings is larger than the number of parents! Was this really the intention?"
-        write(STDOUT, "(a)") "NOTE: Number of matings: "//trim(Int2Char(Data%nMat))
-        write(STDOUT, "(a)") "NOTE: Number of parents: "//trim(Int2Char(Data%nPar))
-        write(STDOUT, "(a)") " "
-      end if
-
-      ! --- NumberOfMaleParents ---
-
-      read(SpecUnit, *) DumC, Data%nPar1
-
-      ! --- NumberOfFemaleParents ---
-
-      read(SpecUnit, *) DumC, Data%nPar2
-
-      if (.not.Spec%GenderMatters) then
-        Data%nPar1 = Data%nPar
-      else
-        write(STDOUT, "(a)") "NumberOfMaleParents:   "//trim(Int2Char(Data%nPar1))
-        write(STDOUT, "(a)") "NumberOfFemaleParents: "//trim(Int2Char(Data%nPar2))
-      end if
-      if (Spec%GenderMatters) then
-        if ((Data%nPar1 + Data%nPar2) > Data%nInd) then
-          write(STDERR, "(a)") "ERROR: The number of parents can not be larger than the number of individuals!"
-          write(STDERR, "(a)") "ERROR: Number of        parents: "//trim(Int2Char(Data%nPar1 + Data%nPar2))
-          write(STDERR, "(a)") "ERROR: Number of   male parents: "//trim(Int2Char(Data%nPar1))
-          write(STDERR, "(a)") "ERROR: Number of female parents: "//trim(Int2Char(Data%nPar2))
-          write(STDERR, "(a)") "ERROR: Number of    individuals: "//trim(Int2Char(Data%nInd))
-          write(STDERR, "(a)") " "
-          stop 1
-        end if
-        if ((Data%nPar1 + Data%nPar2) /= Data%nPar) then
-          write(STDOUT, "(a)") "NOTE: The number of male and female parents does not match with the total number of parents - redefined!"
-          write(STDOUT, "(a)") "NOTE: Number of   male parents: "//trim(Int2Char(Data%nPar1))
-          write(STDOUT, "(a)") "NOTE: Number of female parents: "//trim(Int2Char(Data%nPar2))
-          write(STDOUT, "(a)") "NOTE: Number of        parents: "//trim(Int2Char(Data%nPar))//" (defined)"
-          Data%nPar = Data%nPar1 + Data%nPar2
-          write(STDOUT, "(a)") "NOTE: Number of        parents: "//trim(Int2Char(Data%nPar))//" (redefined)"
-          write(STDOUT, "(a)") " "
-        end if
-        if ((Data%nMat > Data%nPar1) .and. (Data%nMat > Data%nPar2)) then
-          write(STDOUT, "(a)") "NOTE: The number of matings is larger than the number of male and female parents! Was this really the intention?"
-          write(STDOUT, "(a)") "NOTE: Number of        matings: "//trim(Int2Char(Data%nMat))
-          write(STDOUT, "(a)") "NOTE: Number of   male parents: "//trim(Int2Char(Data%nPar1))
-          write(STDOUT, "(a)") "NOTE: Number of female parents: "//trim(Int2Char(Data%nPar2))
-          write(STDOUT, "(a)") " "
-        end if
-      end if
-
-      ! --- EqualizeParentContributions ---
-
-      read(SpecUnit, *) DumC, DumC
-      if (.not.Spec%GenderMatters) then
-        if      (ToLower(trim(DumC)) == "yes") then
-          Spec%EqualizePar1 = .true.
-          write(STDOUT, "(a)") "EqualizeParentContributions: yes"
-        else if (ToLower(trim(DumC)) == "no") then
-          Spec%EqualizePar1 = .false.
-          !write(STDOUT, "(a)") "EqualizeParentContributions: no"
-        else
-          write(STDERR, "(a)") "ERROR: EqualizeParentContributions must be: Yes or no!"
-          write(STDERR, "(a)") " "
-          stop 1
-        end if
-      end if
-
-      ! --- EqualizeMaleParentContributions ---
-
-      read(SpecUnit, *) DumC, DumC
-      if (Spec%GenderMatters) then
-        if      (ToLower(trim(DumC)) == "yes") then
-          Spec%EqualizePar1 = .true.
-          write(STDOUT, "(a)") "EqualizeMaleParentContributions: yes"
-          if (mod(Data%nMat, Data%nPar1) /= 0) then
-            ! @todo might consider handling this better at some point
-            write(STDERR, "(a)") "ERROR: When contributions are equalized the number of matings needs to divide into the number of parents"
-            write(STDERR, "(a)") "ERROR: Number of       matings: "//trim(Int2Char(Data%nMat))
-            write(STDERR, "(a)") "ERROR: Number of  male parents: "//trim(Int2Char(Data%nPar1))
-            write(STDERR, "(a)") "ERROR: Modulo (should be zero): "//trim(Int2Char(mod(Data%nMat, Data%nPar1)))
-            write(STDERR, "(a)") " "
-            stop 1
-          end if
-        else if (ToLower(trim(DumC)) == "no") then
-          Spec%EqualizePar1 = .false.
-          !write(STDOUT, "(a)") "EqualizeMaleParentContributions: no"
-        else
-          write(STDERR, "(a)") "ERROR: EqualizeMaleParentContributions must be: Yes or No!"
-          write(STDERR, "(a)") " "
-          stop 1
-        end if
-      end if
-
-      ! --- EqualizeFemaleParentContributions ---
-
-      read(SpecUnit, *) DumC, DumC
-      if (Spec%GenderMatters) then
-        if      (ToLower(trim(DumC)) == "yes") then
-          Spec%EqualizePar2 = .true.
-          write(STDOUT, "(a)") "EqualizeFemaleParentContributions: yes"
-          if (mod(Data%nMat, Data%nPar2) /= 0) then
-            ! @todo might consider handling this better at some point
-            write(STDERR, "(a)") "ERROR: When contributions are equalized the number of matings needs to divide into the number of parents"
-            write(STDERR, "(a)") "ERROR: Number of        matings: "//trim(Int2Char(Data%nMat))
-            write(STDERR, "(a)") "ERROR: Number of female parents: "//trim(Int2Char(Data%nPar2))
-            write(STDERR, "(a)") "ERROR: Modulo  (should be zero): "//trim(Int2Char(mod(Data%nMat, Data%nPar2)))
-            write(STDERR, "(a)") " "
-            stop 1
-          end if
-        else if (ToLower(trim(DumC)) == "no") then
-          Spec%EqualizePar2 = .false.
-          !write(STDOUT, "(a)") "EqualizeFemaleParentContributions: no"
-        else
-          write(STDERR, "(a)") "ERROR: EqualizeFemaleParentContributions must be: Yes or No!"
-          write(STDERR, "(a)") " "
-          stop 1
-        end if
-      end if
-
-      ! --- LimitParentContributions ---
-
-      read(SpecUnit, *) DumC, DumC
-      Spec%LimitPar1Min = 1.0d0
-      Spec%LimitPar1Max = huge(Spec%LimitPar1Max) - 1.0d0
-      Spec%LimitPar1Weight = 0.0d0
-      if (.not.Spec%GenderMatters) then
-        if      (ToLower(trim(DumC)) == "yes") then
-          if (Spec%EqualizePar1) then
-            write(STDOUT, "(a)") "LimitParentContributions: no"
-            write(STDOUT, "(a)") "NOTE: Limit parent contributions option ignored when contributions are to be equalized!"
-            write(STDOUT, "(a)") " "
-          else
-            backspace(SpecUnit)
-            read(SpecUnit, *) DumC, DumC, Spec%LimitPar1Min, Spec%LimitPar1Max, Spec%LimitPar1Weight
-            write(STDOUT, "(a)") "LimitParentContributions: yes, min "//trim(Int2Char(nint(Spec%LimitPar1Min)))//", max "//&
-              trim(Int2Char(nint(Spec%LimitPar1Max)))//", penalty weight "//trim(Real2Char(Spec%LimitPar1Weight, fmt=FMTREAL2CHAR))
-            if (Spec%LimitPar1Weight > 0.0) then
-              write(STDERR, "(a)") "ERROR: Penalty weight for limiting parent contributions should be zero or negative!"
-              write(STDERR, "(a)") " "
-              stop 1
-            end if
-          end if
-        else if (ToLower(trim(DumC)) == "no") then
-          !write(STDOUT, "(a)") "LimitParentContributions: no"
-        else
-          write(STDERR, "(a)") "ERROR: LimitParentContributions must be: Yes or No!"
-          write(STDERR, "(a)") " "
-          stop 1
-        end if
-      end if
-
-      ! --- LimitMaleParentContributions ---
-
-      read(SpecUnit, *) DumC, DumC
-      if (Spec%GenderMatters) then
-        if      (ToLower(trim(DumC)) == "yes") then
-          if (Spec%EqualizePar1) then
-            write(STDOUT, "(a)") "LimitMaleParentContributions: no"
-            write(STDOUT, "(a)") "NOTE: Limit male parent contributions option ignored when contributions are to be equalized!"
-            write(STDOUT, "(a)") " "
-          else
-            backspace(SpecUnit)
-            read(SpecUnit, *) DumC, DumC, Spec%LimitPar1Min, Spec%LimitPar1Max, Spec%LimitPar1Weight
-            write(STDOUT, "(a)") "LimitMaleParentContributions: yes, min "//trim(Int2Char(nint(Spec%LimitPar1Min)))//", max "//&
-              trim(Int2Char(nint(Spec%LimitPar1Max)))//", penalty weight "//trim(Real2Char(Spec%LimitPar1Weight, fmt=FMTREAL2CHAR))
-            if (Spec%LimitPar1Weight > 0.0) then
-              write(STDERR, "(a)") "ERROR: Penalty weight for limiting parent contributions should be zero or negative!"
-              write(STDERR, "(a)") " "
-              stop 1
-            end if
-          end if
-        else if (ToLower(trim(DumC)) == "no") then
-          !write(STDOUT, "(a)") "LimitMaleParentContributions: no"
-        else
-          write(STDERR, "(a)") "ERROR: LimitMaleParentContributions must be: Yes or No!"
-          write(STDERR, "(a)") " "
-          stop 1
-        end if
-      end if
-
-      ! --- LimitFemaleParentContributions ---
-
-      read(SpecUnit, *) DumC, DumC
-      Spec%LimitPar2Min = 1.0d0
-      Spec%LimitPar2Max = huge(Spec%LimitPar2Max) - 1.0d0
-      Spec%LimitPar2Weight = 0.0d0
-      if (Spec%GenderMatters) then
-        if      (ToLower(trim(DumC)) == "yes") then
-          if (Spec%EqualizePar2) then
-            write(STDOUT, "(a)") "LimitFemaleParentContributions: no"
-            write(STDOUT, "(a)") "NOTE: Limit female parent contributions option ignored when contributions are to be equalized!"
-            write(STDOUT, "(a)") " "
-          else
-            backspace(SpecUnit)
-            read(SpecUnit, *) DumC, DumC, Spec%LimitPar2Min, Spec%LimitPar2Max, Spec%LimitPar2Weight
-            write(STDOUT, "(a)") "LimitFemaleParentContributions: yes, min "//trim(Int2Char(nint(Spec%LimitPar2Min)))//", max "//&
-              trim(Int2Char(nint(Spec%LimitPar2Max)))//", penalty weight "//trim(Real2Char(Spec%LimitPar2Weight, fmt=FMTREAL2CHAR))
-            if (Spec%LimitPar2Weight > 0.0) then
-              write(STDERR, "(a)") "ERROR: Penalty weight for limiting parent contributions should be zero or negative!"
-              write(STDERR, "(a)") " "
-              stop 1
-            end if
-          end if
-        else if (ToLower(trim(DumC)) == "no") then
-          !write(STDOUT, "(a)") "LimitFemaleParentContributions: no"
-        else
-          write(STDERR, "(a)") "ERROR: LimitFemaleParentContributions must be: Yes or No!"
-          write(STDERR, "(a)") " "
-          stop 1
-        end if
-      end if
-
-      ! --- AllowSelfing ---
-
-      read(SpecUnit, *) DumC, DumC
-      if      (ToLower(trim(DumC)) == "yes") then
-        Spec%SelfingAllowed = .true.
-        write(STDOUT, "(a)") "AllowSelfing: Yes"
-        if (Spec%GenderMatters) then
-          write(STDOUT, "(a)") "ERROR: When gender matters, AlphaMate can not perform selfing! See the manual for a solution."
-          write(STDOUT, "(a)") " "
-          stop 1
-        end if
-      else if (ToLower(trim(DumC)) == "no") then
-        Spec%SelfingAllowed = .false.
-        if (.not.Spec%GenderMatters) then
-          backspace(SpecUnit)
-          read(SpecUnit, *) DumC, DumC, Spec%SelfingWeight
-          write(STDOUT, "(a)") "AllowSelfing: no, penalty weight "//trim(Real2Char(Spec%SelfingWeight, fmt=FMTREAL2CHAR))
-          if (Spec%SelfingWeight > 0.0) then
-            write(STDERR, "(a)") "ERROR: Penalty weight for selfing should be zero or negative!"
-            write(STDERR, "(a)") " "
-            stop 1
-          end if
-        end if
-      else
-        write(STDERR, "(a)") "ERROR: AllowSelfing must be: Yes or No!"
-        write(STDERR, "(a)") " "
-        stop 1
-      end if
-
-      ! --- PAGE ---
-
-      read(SpecUnit, *) DumC, DumC
-      if (.not.Spec%GenderMatters) then
-        if      (ToLower(trim(DumC)) == "yes") then
-          Spec%PAGEPar1 = .true.
-          backspace(SpecUnit)
-          read(SpecUnit, *) DumC, DumC, Spec%PAGEPar1Max!, Spec%PAGEPar1Cost
-          write(STDOUT, "(a)") "PAGE: yes, no. of individuals "//trim(Int2Char(Spec%PAGEPar1Max))//", cost "//trim(Real2Char(Spec%PAGEPar1Cost, fmt=FMTREAL2CHAR))
-          if (.not.Spec%SelCriterionAvailable) then
-            write(STDERR, "(a)") "ERROR: Can not use PAGE when selection criterion file is not given!"
-            write(STDERR, "(a)") " "
-            stop 1
-          end if
-          if (Spec%PAGEPar1Max > Data%nPar) then
-            write(STDERR, "(a)") "ERROR: The max number of individuals to edit must not be greater than the total number of parents!"
-            write(STDERR, "(a)") "ERROR: Number of             parents: "//trim(Int2Char(Data%nPar))
-            write(STDERR, "(a)") "ERROR: Number of individuals to edit: "//trim(Int2Char(Spec%PAGEPar1Max))
-            write(STDERR, "(a)") " "
-          end if
-        else if (ToLower(trim(DumC)) == "no") then
-          Spec%PAGEPar1 = .false.
-          !write(STDOUT, "(a)") "PAGE: no"
-        else
-          write(STDERR, "(a)") "ERROR: PAGE must be: Yes or No!"
-          write(STDERR, "(a)") " "
-          stop 1
-        end if
-      end if
-
-      ! --- PAGEMales ---
-
-      read(SpecUnit, *) DumC, DumC
-      if (Spec%GenderMatters) then
-        if      (ToLower(trim(DumC)) == "yes") then
-          Spec%PAGEPar1 = .true.
-          backspace(SpecUnit)
-          read(SpecUnit, *) DumC, DumC, Spec%PAGEPar1Max!, Spec%PAGEPar1Cost
-          write(STDOUT, "(a)") "PAGEMales: yes, no. of individuals "//trim(Int2Char(Spec%PAGEPar1Max))//", cost "//trim(Real2Char(Spec%PAGEPar1Cost, fmt=FMTREAL2CHAR))
-          if (.not.Spec%SelCriterionAvailable) then
-            write(STDERR, "(a)") "ERROR: Can not use PAGE when selection criterion file is not given!"
-            write(STDERR, "(a)") " "
-            stop 1
-          end if
-          if (Spec%PAGEPar1Max > Data%nPar1) then
-            write(STDERR, "(a)") "ERROR: The max number of male individuals to edit must not be greater than the total number of male parents!"
-            write(STDERR, "(a)") "ERROR: Number of male             parents: "//trim(Int2Char(Data%nPar1))
-            write(STDERR, "(a)") "ERROR: Number of male individuals to edit: "//trim(Int2Char(Spec%PAGEPar1Max))
-            write(STDERR, "(a)") " "
-          end if
-        else if (ToLower(trim(DumC)) == "no") then
-          Spec%PAGEPar1 = .false.
-          !write(STDOUT, "(a)") "PAGEMales: no"
-        else
-          write(STDERR, "(a)") "ERROR: PAGEMales must be: Yes or No!"
-          write(STDERR, "(a)") " "
-          stop 1
-        end if
-      end if
-
-      ! --- PAGEFemales ---
-
-      read(SpecUnit, *) DumC, DumC
-      if (Spec%GenderMatters) then
-        if      (ToLower(trim(DumC)) == "yes") then
-          Spec%PAGEPar2 = .false.
-          backspace(SpecUnit)
-          read(SpecUnit, *) DumC, DumC, Spec%PAGEPar2Max!, Spec%PAGEPar2Cost
-          write(STDOUT, "(a)") "PAGEFemales: yes, no. of individuals "//trim(Int2Char(Spec%PAGEPar2Max))//", cost "//trim(Real2Char(Spec%PAGEPar2Cost, fmt=FMTREAL2CHAR))
-          if (.not.Spec%SelCriterionAvailable) then
-            write(STDERR, "(a)") "ERROR: Can not use PAGE when selection criterion file is not given!"
-            write(STDERR, "(a)") " "
-            stop 1
-          end if
-          if (Spec%PAGEPar2Max > Data%nPar2) then
-            write(STDERR, "(a)") "ERROR: The max number of female individuals to edit must not be greater than the total number of female parents!"
-            write(STDERR, "(a)") "ERROR: Number of female             parents: "//trim(Int2Char(Data%nPar2))
-            write(STDERR, "(a)") "ERROR: Number of female individuals to edit: "//trim(Int2Char(Spec%PAGEPar2Max))
-            write(STDERR, "(a)") " "
-          end if
-        else if (ToLower(trim(DumC)) == "no") then
-          Spec%PAGEPar2 = .false.
-          !write(STDOUT, "(a)") "PAGEFemales: no"
-        else
-          write(STDERR, "(a)") "ERROR: PAGEFemales must be: Yes or No!"
-          write(STDERR, "(a)") " "
-          stop 1
-        end if
-      end if
-
-      if (Spec%PAGEPar1 .or. Spec%PAGEPar2) then
-        Spec%PAGE = .true.
-      else
-        Spec%PAGE = .false.
-      end if
-
-      ! --- TargetedRateOfCoancestry ---
-
-      read(SpecUnit, *) DumC, Spec%TargetCoancestryRate, Spec%CoancestryWeight, DumC
-      write(STDOUT, "(a)") "TargetedRateOfCoancestry: "//trim(Real2Char(Spec%TargetCoancestryRate, fmt=FMTREAL2CHAR))//&
-        ", penalty weight "//trim(Real2Char(Spec%CoancestryWeight, fmt=FMTREAL2CHAR))//", mode "//trim(DumC)
-      if      (ToLower(trim(DumC)) == "above") then
-        Spec%CoancestryWeightBellow = .false.
-      else if (ToLower(trim(DumC)) == "aboveandbellow") then
-        Spec%CoancestryWeightBellow = .true.
-      else
-        write(STDERR, "(a)") "ERROR: CoancestryWeightMode must be: Above or AboveAndBellow!"
-        write(STDERR, "(a)") " "
-        stop 1
-      end if
-      if (Spec%TargetCoancestryRate == 0.0) then
-        write(STDERR, "(a)") "ERROR: Can not work with the targeted rate of coancestry exactly equal to zero - it is numerically unstable!"
-        write(STDERR, "(a)") " "
-        stop 1
-      end if
-      if (Spec%CoancestryWeight > 0.0) then
-        write(STDERR, "(a)") "ERROR: Penalty weight for the targeted rate of coancestry should be zero or negative!"
-        write(STDERR, "(a)") " "
-        stop 1
-      end if
-
-      ! --- TargetedRateOfInbreeding (=inbreeding of a mating) ---
-
-      read(SpecUnit, *) DumC, Spec%TargetInbreedingRate, Spec%InbreedingWeight, DumC
-      write(STDOUT, "(a)") "TargetedRateOfInbreeding: "//trim(Real2Char(Spec%TargetInbreedingRate, fmt=FMTREAL2CHAR))//&
-        ", penalty weight "//trim(Real2Char(Spec%InbreedingWeight, fmt=FMTREAL2CHAR))//", mode "//trim(DumC)
-      if      (ToLower(trim(DumC)) == "above") then
-        Spec%InbreedingWeightBellow = .false.
-      else if (ToLower(trim(DumC)) == "aboveandbellow") then
-        Spec%InbreedingWeightBellow = .true.
-      else
-        write(STDERR, "(a)") "ERROR: InbreedingWeightMode must be: Above or AboveAndBellow!"
-        write(STDERR, "(a)") " "
-        stop 1
-      end if
-      if (Spec%TargetInbreedingRate == 0.0) then
-        write(STDERR, "(a)") "ERROR: Can not work with the targeted rate of inbreeding exactly equal to zero - it is numerically unstable!"
-        write(STDERR, "(a)") " "
-        stop 1
-      end if
-      if (Spec%InbreedingWeight > 0.0) then
-        write(STDERR, "(a)") "ERROR: Penalty weight for the targeted rate of inbreeding should be zero or negative!"
-        write(STDERR, "(a)") " "
-        stop 1
-      end if
-
-      ! --- EvaluateFrontier ---
-
-      ! @todo Should this be part of TargetedCoancestryRate??
-      read(SpecUnit, *) DumC, DumC
-      if      (ToLower(trim(DumC)) == "no") then
-        Spec%EvaluateFrontier = .false.
-        !write(STDOUT, "(a)") "EvaluateFrontier: no"
-      else if (ToLower(trim(DumC)) == "yes") then
-        Spec%EvaluateFrontier = .true.
-        backspace(SpecUnit)
-        read(SpecUnit, *) DumC, DumC, Spec%nFrontierSteps
-        allocate(Spec%TargetCoancestryRateFrontier(Spec%nFrontierSteps))
-        backspace(SpecUnit)
-        read(SpecUnit, *) DumC, DumC, Spec%nFrontierSteps, Spec%TargetCoancestryRateFrontier(:)
-        write(STDOUT, "("//Int2Char(1+Spec%nFrontierSteps)//"a)") "EvaluateFrontier: yes, #steps: "//trim(Int2Char(Spec%nFrontierSteps))//&
-          ", rates of coancestry: ", (trim(Real2Char(Spec%TargetCoancestryRateFrontier(i), fmt=FMTREAL2CHAR)), i = 1, Spec%nFrontierSteps)
-        if (any(Spec%TargetCoancestryRateFrontier(:) == 0.0)) then
-          write(STDERR, "(a)") "ERROR: Can not work with TargetCoancestryRateFrontier equal to zero - it is numerically unstable!"
-          write(STDERR, "(a)") " "
-          stop 1
-        end if
-      else
-        write(STDERR, "(a)") "ERROR: EvaluateFrontier must be: Yes or No!"
-        write(STDERR, "(a)") " "
-        stop 1
-      end if
-
-      ! --- EvolutionaryAlgorithmIterations ---
-
-      read(SpecUnit, *) DumC, Spec%EvolAlgNSol, Spec%EvolAlgNIter, Spec%EvolAlgNIterBurnIn, Spec%EvolAlgNIterStop, Spec%EvolAlgStopTol, Spec%EvolAlgNIterPrint, Spec%EvolAlgLogPop
-
-      ! --- EvolutionaryAlgorithmParameters ---
-
-      read(SpecUnit, *) DumC, Spec%EvolAlgCRBurnIn, Spec%EvolAlgCRLate, Spec%EvolAlgFBase, Spec%EvolAlgFHigh1, Spec%EvolAlgFHigh2
-
-      ! --- RandomSearchIterationsStricter ---
-
-      read(SpecUnit, *) DumC, Spec%RanAlgStricter
-
-      ! --- Seed ---
-
-      read(SpecUnit, *) DumC, DumC
-      Spec%SeedFile = "Seed.txt"
-      if ((ToLower(trim(DumC)) == "unknown") .or. (ToLower(trim(DumC)) == "none")) then
-        call SetSeed(SeedFile=Spec%SeedFile, Out=Seed)
-      else
-        backspace(SpecUnit)
-        read(SpecUnit, *) DumC, DumI
-        call SetSeed(Seed=DumI, SeedFile=Spec%SeedFile, Out=Seed)
-      end if
-      write(STDOUT, "(a)") "Seed: "//trim(Int2Char(Seed))
-
-      ! --- GenericIndividualValuesFile ---
-      ! --- GenericIndividualValuesWeight ---
-
-      Data%nGenericIndVal = 0
-      read(SpecUnit, *) DumC, Spec%GenericIndValFile
-      if (ToLower(trim(Spec%GenericIndValFile)) == "none") then
-        Spec%GenericIndValAvailable = .false.
-        read(SpecUnit, *) DumC
-      else
-        Spec%GenericIndValAvailable = .true.
-        backspace(SpecUnit)
-        read(SpecUnit, *) DumC, Spec%GenericIndValFile, Data%nGenericIndVal
-        allocate(Spec%GenericIndValWeight(Data%nGenericIndVal))
-        read(SpecUnit, *) DumC, Spec%GenericIndValWeight(:)
-        write(STDOUT, "("//Int2Char(1 + Data%nGenericIndVal)//"a)") "GenericIndividualValuesFile: "//trim(Spec%GenericIndValFile)//&
-          ", weight(s): ", (trim(Real2Char(Spec%GenericIndValWeight(i), fmt=FMTREAL2CHAR)), i = 1, Data%nGenericIndVal)
-      end if
-
-      ! --- GenericMatingValuesFile ---
-      ! --- GenericMatingValuesWeight ---
-
-      Data%nGenericMatVal = 0
-      read(SpecUnit, *) DumC, Spec%GenericMatValFile
-      if (ToLower(trim(Spec%GenericMatValFile)) == "none") then
-        Spec%GenericMatValAvailable = .false.
-        read(SpecUnit, *) DumC
-      else
-        Spec%GenericMatValAvailable = .true.
-        backspace(SpecUnit)
-        read(SpecUnit, *) DumC, Spec%GenericMatValFile, Data%nGenericMatVal
-        allocate(Spec%GenericMatValWeight(Data%nGenericMatVal))
-        read(SpecUnit, *) DumC, Spec%GenericMatValWeight(:)
-        write(STDOUT, "("//Int2Char(1 + Data%nGenericMatVal)//"a)") "GenericMatingValuesFile: "//trim(Spec%GenericMatValFile)//&
-          ", weight(s): ", (trim(Real2Char(Spec%GenericMatValWeight(i), fmt=FMTREAL2CHAR)), i = 1, Data%nGenericMatVal)
-      end if
-
-      write(STDOUT, "(a)") " "
-      close(SpecUnit)
-
-      write(STDOUT, "(a)") "--- Data ---"
-      write(STDOUT, "(a)") " "
-
-      ! --- Coancestry ---
-
-      write(STDOUT, "(a)") "Coancestry (average identity of the four genome combinations of two individuals)"
-
-      call Data%Coancestry%Read(File=Spec%CoaMtxFile)
-      if (Data%Coancestry%nInd < Data%nInd) then
-        write(STDERR, "(a)") "ERROR: The coancestry matrix file has less rows than there are defined number of individuals!"
-        write(STDERR, "(a)") "ERROR: Number of defined individuals:                       "//trim(Int2Char(Data%nInd))
-        write(STDERR, "(a)") "ERROR: Number of individuals in the coancestry matrix file: "//trim(Int2Char(Data%Coancestry%nInd))
-        write(STDERR, "(a)") " "
-      end if
-      if (Spec%NrmInsteadOfCoancestry) then
-        call Data%Coancestry%Nrm2Coancestry
-      end if
-
-      Data%CoancestryStat = DescStatSymMatrix(Data%Coancestry%Value(1:, 1:))
-      if (Spec%GenderMatters) then
-        ! TODO
-        Data%CoancestryStatGenderDiff = DescStatSymMatrix(Data%Coancestry%Value(1:, 1:))
-        Data%CoancestryStatGender1    = DescStatSymMatrix(Data%Coancestry%Value(1:, 1:))
-        Data%CoancestryStatGender2    = DescStatSymMatrix(Data%Coancestry%Value(1:, 1:))
-      end if
-
-      ! Current
-      Data%CurrentCoancestryRanMate       = Data%CoancestryStat%All%Mean
-      Data%CurrentCoancestryRanMateNoSelf = Data%CoancestryStat%OffDiag%Mean
-      if (Spec%GenderMatters) then
-        Data%CurrentCoancestryGenderMate  = Data%CoancestryStatGenderDiff%All%Mean
-      end if
-
-      ! Obtain limit/target based on given rates
-      ! F_t = DeltaF + (1 - DeltaF) * F_t-1
-      Data%TargetCoancestryRanMate       = Spec%TargetCoancestryRate + (1.0d0 - Spec%TargetCoancestryRate) * Data%CurrentCoancestryRanMate
-      Data%TargetCoancestryRanMateNoSelf = Spec%TargetCoancestryRate + (1.0d0 - Spec%TargetCoancestryRate) * Data%CurrentCoancestryRanMateNoSelf
-      if (Spec%GenderMatters) then
-        Data%TargetCoancestryGenderMate  = Spec%TargetCoancestryRate + (1.0d0 - Spec%TargetCoancestryRate) * Data%CurrentCoancestryGenderMate
-      end if
-
-      write(STDOUT, "(a)") "  - coancestry among individuals (including self-coancestry)"
-      write(STDOUT, "(a)") "    (expected inbreeding under random mating, including selfing)"
-      write(STDOUT, "(a)") "    - average: "//trim(Real2Char(Data%CoancestryStat%All%Mean, fmt=FMTREAL2CHAR))//", limit/target: "//trim(Real2Char(Data%TargetCoancestryRanMate, fmt=FMTREAL2CHAR))
-      write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(Data%CoancestryStat%All%SD,   fmt=FMTREAL2CHAR))
-      write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(Data%CoancestryStat%All%Min,  fmt=FMTREAL2CHAR))
-      write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(Data%CoancestryStat%All%Max,  fmt=FMTREAL2CHAR))
-
-      write(STDOUT, "(a)") ""
-      write(STDOUT, "(a)") "  - coancestry between individuals"
-      write(STDOUT, "(a)") "    (expected inbreeding under random mating, excluding selfing)"
-      write(STDOUT, "(a)") "    - average: "//trim(Real2Char(Data%CoancestryStat%OffDiag%Mean, fmt=FMTREAL2CHAR))//", limit/target: "//trim(Real2Char(Data%TargetCoancestryRanMateNoSelf, fmt=FMTREAL2CHAR))
-      write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(Data%CoancestryStat%OffDiag%SD,   fmt=FMTREAL2CHAR))
-      write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(Data%CoancestryStat%OffDiag%Min,  fmt=FMTREAL2CHAR))
-      write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(Data%CoancestryStat%OffDiag%Max,  fmt=FMTREAL2CHAR))
-
-      if (Spec%GenderMatters) then
-        write(STDOUT, "(a)") ""
-        write(STDOUT, "(a)") "  - coancestry between individuals of different gender"
-        write(STDOUT, "(a)") "    (expected inbreeding under random mating, excluding selfing and equal-gender mating)"
-        write(STDOUT, "(a)") "    - average: "//trim(Real2Char(Data%CoancestryStatGenderDiff%All%Mean, fmt=FMTREAL2CHAR))//", limit/target: "//trim(Real2Char(Data%TargetCoancestryGenderMate, fmt=FMTREAL2CHAR))
-        write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(Data%CoancestryStatGenderDiff%All%SD,   fmt=FMTREAL2CHAR))
-        write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(Data%CoancestryStatGenderDiff%All%Min,  fmt=FMTREAL2CHAR))
-        write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(Data%CoancestryStatGenderDiff%All%Max,  fmt=FMTREAL2CHAR))
-
-        write(STDOUT, "(a)") ""
-        write(STDOUT, "(a)") "  - coancestry between individuals of gender 1"
-        write(STDOUT, "(a)") "    - average: "//trim(Real2Char(Data%CoancestryStatGender1%All%Mean, fmt=FMTREAL2CHAR))
-        write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(Data%CoancestryStatGender1%All%SD,   fmt=FMTREAL2CHAR))
-        write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(Data%CoancestryStatGender1%All%Min,  fmt=FMTREAL2CHAR))
-        write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(Data%CoancestryStatGender1%All%Max,  fmt=FMTREAL2CHAR))
-
-        write(STDOUT, "(a)") ""
-        write(STDOUT, "(a)") "  - coancestry between individuals of gender 2"
-        write(STDOUT, "(a)") "    - average: "//trim(Real2Char(Data%CoancestryStatGender2%All%Mean, fmt=FMTREAL2CHAR))
-        write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(Data%CoancestryStatGender2%All%SD,   fmt=FMTREAL2CHAR))
-        write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(Data%CoancestryStatGender2%All%Min,  fmt=FMTREAL2CHAR))
-        write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(Data%CoancestryStatGender2%All%Max,  fmt=FMTREAL2CHAR))
-      end if
-
-      ! Report
-      open(newunit=AvgCoancestryUnit, file="AverageCoancestry.txt", status="unknown")
-      write(AvgCoancestryUnit, "(a, f)") "Current (random mating),                  ", Data%CurrentCoancestryRanMate
-      write(AvgCoancestryUnit, "(a, f)") "Current (random mating, no selfing),      ", Data%CurrentCoancestryRanMateNoSelf
-      write(AvgCoancestryUnit, "(a, f)") "Limit/Target (random mating),             ", Data%TargetCoancestryRanMate
-      write(AvgCoancestryUnit, "(a, f)") "Limit/Target (random mating, no selfing), ", Data%TargetCoancestryRanMateNoSelf
-      close(AvgCoancestryUnit)
-
-      ! --- Inbreeding ---
-
-      write(STDOUT, "(a)") " "
-      write(STDOUT, "(a)") "Inbreeding (identity between the two genomes of an individual)"
-
-      call Data%Coancestry%Inbreeding(Out=Data%Inbreeding, Nrm=.false.)
-
-      ! Current
-      Data%InbreedingStat = DescStat(Data%Inbreeding%Value(1:))
-      Data%CurrentInbreeding = Data%InbreedingStat%Mean
-
-      ! Obtain limit/target based on given rates
-      ! F_t = DeltaF + (1 - DeltaF) * F_t-1
-      Data%TargetInbreeding = Spec%TargetInbreedingRate + (1.0d0 - Spec%TargetInbreedingRate) * Data%CurrentInbreeding
-
-      write(STDOUT, "(a)") "  - average: "//trim(Real2Char(Data%InbreedingStat%Mean, fmt=FMTREAL2CHAR))//", limit/target: "//trim(Real2Char(Data%TargetInbreeding, fmt=FMTREAL2CHAR))
-      write(STDOUT, "(a)") "  - st.dev.: "//trim(Real2Char(Data%InbreedingStat%SD,   fmt=FMTREAL2CHAR))
-      write(STDOUT, "(a)") "  - minimum: "//trim(Real2Char(Data%InbreedingStat%Min,  fmt=FMTREAL2CHAR))
-      write(STDOUT, "(a)") "  - maximum: "//trim(Real2Char(Data%InbreedingStat%Max,  fmt=FMTREAL2CHAR))
-      write(STDOUT, "(a)") " "
-
-      open(newunit=AvgInbreedingUnit, file="AverageInbreeding.txt", status="unknown")
-      write(AvgInbreedingUnit, "(a, f)") "Current,      ", Data%CurrentInbreeding
-      write(AvgInbreedingUnit, "(a, f)") "Limit/Target, ", Data%TargetInbreeding
-      close(AvgInbreedingUnit)
-
-      ! --- Selection criterion ---
-
-      allocate(Data%SelCriterion(Data%nInd))
-      allocate(Data%SelCriterionStand(Data%nInd))
-      if (Spec%PAGE) then
-        allocate(Data%SelCriterionPAGE(Data%nInd))
-        allocate(Data%SelCriterionPAGEStand(Data%nInd))
-      end if
-
-      if (.not.Spec%SelCriterionAvailable) then
-        Data%SelCriterion(:) = 0.0d0
-        Data%SelCriterionStand(:) = 0.0d0
-      else
-        write(STDOUT, "(a)") "Selection criterion"
-        nIndTmp = CountLines(Spec%SelCriterionFile)
-        if (nIndTmp /= Data%nInd) then
-          write(STDERR, "(a)") "ERROR: Number of individuals in the selection criterion file and the coancestry matrix file is not the same!"
-          write(STDERR, "(a)") "ERROR: Number of individuals in the coancestry matrix file:   "//trim(Int2Char(Data%nInd))
-          write(STDERR, "(a)") "ERROR: Number of individuals in the selection criterion file: "//trim(Int2Char(nIndTmp))
-          write(STDERR, "(a)") " "
-          stop 1
-        end if
-        open(newunit=SelCriterionUnit, file=Spec%SelCriterionFile, status="old")
-        do i = 1, Data%nInd
-          if (Spec%PAGE) then
-            read(SelCriterionUnit, *) IdCTmp, SelCriterionTmp, SelCriterionTmp2
-          else
-            read(SelCriterionUnit, *) IdCTmp, SelCriterionTmp
-          end if
-          j = FindLoc(IdCTmp, Data%Coancestry%OriginalId(1:))
-          if (j == 0) then
-            write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the selection criterion file not present in the coancestry matrix file!"
-            write(STDERR, "(a)") " "
-            stop 1
-          end if
-          Data%SelCriterion(j) = SelCriterionTmp
-          if (Spec%PAGE) then
-            Data%SelCriterionPAGE(j) = SelCriterionTmp2
-          end if
-        end do
-        close(SelCriterionUnit)
-
-        Data%SelCriterionStat = DescStat(Data%SelCriterion)
-        Data%SelCriterionStand(:) = (Data%SelCriterion(:) - Data%SelCriterionStat%Mean) / Data%SelCriterionStat%SD
-        write(STDOUT, "(a)") "  - average: "//trim(Real2Char(Data%SelCriterionStat%Mean, fmt=FMTREAL2CHAR))
-        write(STDOUT, "(a)") "  - st.dev.: "//trim(Real2Char(Data%SelCriterionStat%SD,   fmt=FMTREAL2CHAR))
-        write(STDOUT, "(a)") "  - minimum: "//trim(Real2Char(Data%SelCriterionStat%Min,  fmt=FMTREAL2CHAR))
-        write(STDOUT, "(a)") "  - maximum: "//trim(Real2Char(Data%SelCriterionStat%Max,  fmt=FMTREAL2CHAR))
-        write(STDOUT, "(a)") " "
-
-        if (Data%SelCriterionStat%SD == 0.0) then
-          write(STDERR, "(a)") "ERROR: There is no variation in values!"
-          write(STDERR, "(a)") "ERROR: Is this intentional?"
-          write(STDERR, "(a)") " "
-          stop 1
-        end if
-
-        if (Spec%PAGE) then
-          ! must have the same scaling as selection criterion!!!!
-          Data%SelCriterionPAGEStand(:) = (Data%SelCriterionPAGE(:) - Data%SelCriterionStat%Mean) / Data%SelCriterionStat%SD
-          ! only the PAGE bit of SelCriterion
-          Data%SelCriterionPAGE(:) = Data%SelCriterionPAGE(:) - Data%SelCriterion(:)
-          Data%SelCriterionPAGEStand(:) = Data%SelCriterionPAGEStand(:) - Data%SelCriterionStand(:)
-          Data%SelCriterionPAGEStat = DescStat(Data%SelCriterionPAGE)
-          write(STDOUT, "(a)") "Genome editing increments"
-          write(STDOUT, "(a)") "  - average: "//trim(Real2Char(Data%SelCriterionPAGEStat%Mean, fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") "  - st.dev.: "//trim(Real2Char(Data%SelCriterionPAGEStat%SD,   fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") "  - minimum: "//trim(Real2Char(Data%SelCriterionPAGEStat%Min,  fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") "  - maximum: "//trim(Real2Char(Data%SelCriterionPAGEStat%Max,  fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") " "
-        end if
-
-        if (Data%SelCriterionPAGEStat%SD == 0.0) then
-          write(STDERR, "(a)") "ERROR: There is no variation in values!"
-          write(STDERR, "(a)") "ERROR: Is this intentional?"
-          write(STDERR, "(a)") " "
-          stop 1
-        end if
-
-      end if
-
-      ! --- Gender ---
-
-      allocate(Data%Gender(Data%nInd))
-
-      Data%Gender(:) = 0
-      if (Spec%GenderMatters) then
-        write(STDOUT, "(a)") "Gender"
-        nIndTmp = CountLines(Spec%GenderFile)
-        if (nIndTmp /= Data%nInd) then
-          write(STDERR, "(a)") "ERROR: Number of individuals in the gender file and the coancestry matrix file is not the same!"
-          write(STDERR, "(a)") "ERROR: Number of individuals in the coancestry matrix file: "//trim(Int2Char(Data%nInd))
-          write(STDERR, "(a)") "ERROR: Number of individuals in the gender file:            "//trim(Int2Char(nIndTmp))
-          write(STDERR, "(a)") " "
-          stop 1
-        end if
-
-        Data%nMal = 0
-        Data%nFem = 0
-
-        open(newunit=GenderUnit, file=Spec%GenderFile, status="old")
-        do i = 1, Data%nInd
-          read(GenderUnit, *) IdCTmp, GenderTmp
-          if      (GenderTmp == 1) then
-            Data%nMal = Data%nMal + 1
-          else if (GenderTmp == 2) then
-            Data%nFem = Data%nFem + 1
-          else
-            write(STDERR, "(a)") "ERROR: Gender code must be either 1 for male individuals or 2 for female individuals!"
-            write(STDERR, "(a)") "ERROR: "//trim(Int2Char(i))//" "//trim(IdCTmp)//" "//trim(Int2Char(GenderTmp))
-            write(STDERR, "(a)") " "
-            stop 1
-          end if
-          j = FindLoc(IdCTmp, Data%Coancestry%OriginalId(1:))
-          if (j == 0) then
-            write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the gender file not present in the coancestry matrix file!"
-            write(STDERR, "(a)") " "
-            stop 1
-          end if
-          Data%Gender(j) = GenderTmp
-        end do
-        close(GenderUnit)
-
-        write(STDOUT, "(a)") "  - number of   males in data: "//trim(Int2Char(Data%nMal))
-        write(STDOUT, "(a)") "  - number of females in data: "//trim(Int2Char(Data%nFem))
-        write(STDOUT, "(a)") " "
-
-        if (Data%nPar1 > Data%nMal) then
-          write(STDERR, "(a)") "ERROR: The number of male parents can not be larger than the number of males"
-          write(STDERR, "(a)") "ERROR: Number of male parents: "//trim(Int2Char(Data%nPar1))
-          write(STDERR, "(a)") "ERROR: Number of        males: "//trim(Int2Char(Data%nMal))
-          write(STDERR, "(a)") " "
-          stop 1
-        end if
-        if (Data%nPar2 > Data%nFem) then
-          write(STDERR, "(a)") "ERROR: The number of female parents can not be larger than the number of females"
-          write(STDERR, "(a)") "ERROR: Number of female parents: "//trim(Int2Char(Data%nPar2))
-          write(STDERR, "(a)") "ERROR: Number of        females: "//trim(Int2Char(Data%nFem))
-          write(STDERR, "(a)") " "
-          stop 1
-        end if
-      end if
-
-      ! --- Define potential parents ---
-
-      if (.not.Spec%GenderMatters) then
-        Data%nPotPar1 = Data%nInd
-        Data%nPotPar2 = Data%nInd
-        allocate(Data%IdPotPar1(Data%nPotPar1))
-        do i = 1, Data%nInd
-          Data%IdPotPar1(i) = i
-        end do
-      else
-        Data%nPotPar1 = Data%nMal
-        Data%nPotPar2 = Data%nFem
-        allocate(Data%IdPotPar1(Data%nPotPar1))
-        allocate(Data%IdPotPar2(Data%nPotPar2))
-        allocate(Data%IdPotParSeq(Data%nInd))
-        jMal = 0
-        jFem = 0
-        do i = 1, Data%nInd
-          if (Data%Gender(i) == 1) then
-            jMal = jMal + 1
-            Data%IdPotPar1(jMal) = i
-            Data%IdPotParSeq(i) = jMal
-          else
-            jFem = jFem + 1
-            Data%IdPotPar2(jFem) = i
-            Data%IdPotParSeq(i) = jFem
-          end if
-        end do
-        if (Data%nPar1 > Data%nPotPar1) then
-          Data%nPar1 = Data%nPotPar1
-          write(STDOUT, "(a)") "NOTE: The number of male parents reduced to the number of male individuals!"
-          write(STDOUT, "(a)") " "
-        end if
-        if (Data%nPar2 > Data%nPotPar2) then
-          Data%nPar2 = Data%nPotPar2
-          write(STDOUT, "(a)") "NOTE: The number of female parents reduced to the number of female individuals!"
-          write(STDOUT, "(a)") " "
-        end if
-      end if
-
-      ! --- Number of all potential matings ---
-
-      if (Spec%GenderMatters) then
-        Data%nPotMat = Data%nPotPar1 * Data%nPotPar2
-      else
-        Data%nPotMat = real(Data%nPotPar1 * Data%nPotPar1) / 2
-        if (Spec%SelfingAllowed) then
-          Data%nPotMat = nint(Data%nPotMat + real(Data%nPotPar1) / 2)
-        else
-          Data%nPotMat = nint(Data%nPotMat - real(Data%nPotPar1) / 2)
-        end if
-      end if
-      if (Data%nMat > Data%nPotMat) then
-        write(STDOUT, "(a)") "NOTE: The number of matings is larger than the number of all potential matings!"
-        write(STDOUT, "(a)") "NOTE: Number of all potential matings: "//trim(Int2Char(Data%nPotMat))
-        if (Spec%GenderMatters) then
-          write(STDOUT, "(a)") "NOTE: = all males with all females"
-          write(STDOUT, "(a)") "NOTE: = no. of males ("//trim(Int2Char(Data%nPotPar1))//") * no. of females ("//trim(Int2Char(Data%nPotPar2))//")"
-        else
-          if (Spec%SelfingAllowed) then
-            write(STDOUT, "(a)") "NOTE: = half-diallel including selfing"
-            write(STDOUT, "(a)") "NOTE: = no. of individuals * no. of individuals / 2 + individuals / 2"
-          else
-            write(STDOUT, "(a)") "NOTE: = half-diallel excluding selfing"
-            write(STDOUT, "(a)") "NOTE: = no. of individuals * no. of individuals / 2 - individuals / 2"
-          end if
-          write(STDOUT, "(a)") "NOTE:   (no. of individuals = "//trim(Int2Char(Data%nPotPar1))//")"
-        end if
-        write(STDOUT, "(a)") "NOTE: Number of              matings: "//trim(Int2Char(Data%nMat))
-        write(STDOUT, "(a)") " "
-      end if
-
-      ! --- Generic individual values ---
-
-      if (Spec%GenericIndValAvailable) then
-        write(STDOUT, "(a)") "Generic individual values"
-        nIndTmp = CountLines(Spec%GenericIndValFile)
-        if (nIndTmp /= Data%nInd) then
-          write(STDERR, "(a)") "ERROR: Number of individuals in the generic individual values file and the coancestry matrix file is not the same!"
-          write(STDERR, "(a)") "ERROR: Number of individuals in the coancestry matrix file:         "//trim(Int2Char(Data%nInd))
-          write(STDERR, "(a)") "ERROR: Number of individuals in the generic individual values file: "//trim(Int2Char(nIndTmp))
-          write(STDERR, "(a)") " "
-          stop 1
-        end if
-        allocate(Data%GenericIndVal(Data%nInd, Data%nGenericIndVal))
-        allocate(GenericIndValTmp(Data%nGenericIndVal))
-        Data%GenericIndVal(:, :) = 0.0d0
-        open(newunit=GenericIndValUnit, file=Spec%GenericIndValFile, status="unknown")
-        do i = 1, Data%nInd
-          read(GenericIndValUnit, *) IdCTmp, GenericIndValTmp(:)
-          j = FindLoc(IdCTmp, Data%Coancestry%OriginalId(1:))
-          if (j == 0) then
-            write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the generic individual values file not present in the coancestry matrix file!"
-            write(STDERR, "(a)") " "
-            stop 1
-          end if
-          Data%GenericIndVal(j, :) = GenericIndValTmp(:)
-        end do
-        close(GenericIndValUnit)
-
-        allocate(Data%GenericIndValStat(Data%nGenericIndVal))
-        do j = 1, Data%nGenericIndVal
-          write(STDOUT, "(a)") "  - column "//trim(Int2Char(j))
-          Data%GenericIndValStat(i) = DescStat(Data%GenericIndVal(:, j))
-          write(STDOUT, "(a)") "    - average: "//trim(Real2Char(Data%GenericIndValStat(i)%Mean, fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(Data%GenericIndValStat(i)%SD,   fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(Data%GenericIndValStat(i)%Min,  fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(Data%GenericIndValStat(i)%Max,  fmt=FMTREAL2CHAR))
-        end do
-        write(STDOUT, "(a)") " "
-      end if
-
-      ! --- Generic mating values ---
-
-      if (Spec%GenericMatValAvailable) then
-        write(STDOUT, "(a)") "Generic mating values"
-        DumI = CountLines(Spec%GenericMatValFile)
-        if (DumI /= Data%nPotMat) then
-          write(STDERR, "(a)") "ERROR: Number of matings in the generic mating values file and the number of all potential matings is not the same!"
-          write(STDERR, "(a)") "ERROR: Number of all potential matings:                         "//trim(Int2Char(Data%nPotMat))
-          write(STDERR, "(a)") "ERROR: Number of individuals in the generic mating values file: "//trim(Int2Char(DumI))
-          write(STDERR, "(a)") " "
-          stop 1
-        end if
-        allocate(Data%GenericMatVal(Data%nPotPar1, Data%nPotPar2, Data%nGenericMatVal))
-        allocate(GenericMatValTmp(Data%nGenericMatVal))
-        Data%GenericMatVal(:, :, :) = 0.0d0
-        open(newunit=GenericMatValUnit, file=Spec%GenericMatValFile, status="unknown")
-        do i = 1, Data%nPotMat
-          read(GenericMatValUnit, *) IdCTmp, IdCTmp2, GenericMatValTmp(:)
-          j = FindLoc(IdCTmp, Data%Coancestry%OriginalId(1:))
-          if (j == 0) then
-            write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the generic mating values file not present in the coancestry matrix file!"
-            write(STDERR, "(a)") " "
-            stop 1
-          end if
-          k = FindLoc(IdCTmp2, Data%Coancestry%OriginalId(1:))
-          if (k == 0) then
-            write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp2)//" from the generic mating values file not present in the coancestry matrix file!"
-            write(STDERR, "(a)") " "
-            stop 1
-          end if
-          if (Spec%GenderMatters) then
-            l = FindLoc(j, Data%IdPotPar1)
-            if (l == 0) then
-              write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp)//" from the first column in the generic mating values file should be a male!"
-              write(STDERR, "(a)") "ERROR: Generic mating values file (line "//trim(Int2Char(i))//"): "//trim(IdCTmp)//" "//trim(IdCTmp2)
-              write(STDERR, "(a)") " "
-              stop 1
-            end if
-            m = FindLoc(k, Data%IdPotPar2)
-            if (l == 0) then
-              write(STDERR, "(a)") "ERROR: Individual "//trim(IdCTmp2)//" from the second column in the generic mating values file should be a female!"
-              write(STDERR, "(a)") "ERROR: Generic mating values file (line "//trim(Int2Char(i))//"): "//trim(IdCTmp)//" "//trim(IdCTmp2)
-              write(STDERR, "(a)") " "
-              stop 1
-            end if
-            ! fill full-matrix
-            ! - l and m tell respectively the position within IdPotPar1 and IdPotPar2
-            ! - values in IdPotPar1 and IdPotPar2 are "joint" Id of males and females
-            ! - values in IdPotParSeq are separate Id of males and females (need these to find matching row and column)
-            Data%GenericMatVal(Data%IdPotParSeq(Data%IdPotPar1(l)), Data%IdPotParSeq(Data%IdPotPar2(m)), :) = GenericMatValTmp(:)
-          else
-            ! fill lower-triangle (half-diallel)
-            Data%GenericMatVal(maxval([j, k]), minval([j, k]), :) = GenericMatValTmp(:)
-          end if
-        end do
-        close(GenericMatValUnit)
-
-        allocate(Data%GenericMatValStat(Data%nGenericMatVal))
-        do k = 1, Data%nGenericMatVal
-          write(STDOUT, "(a)") "  - column "//trim(Int2Char(k))
-          if (Spec%GenderMatters) then
-            Data%GenericMatValStat(k) = DescStatMatrix(Data%GenericMatVal(:, :, k))
-            write(STDOUT, "(a)") "    - average: "//trim(Real2Char(Data%GenericMatValStat(k)%All%Mean, fmt=FMTREAL2CHAR))
-            write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(Data%GenericMatValStat(k)%All%SD,   fmt=FMTREAL2CHAR))
-            write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(Data%GenericMatValStat(k)%All%Min,  fmt=FMTREAL2CHAR))
-            write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(Data%GenericMatValStat(k)%All%Max,  fmt=FMTREAL2CHAR))
-          else
-            if (Spec%SelfingAllowed) then
-              Data%GenericMatValStat(k) = DescStatLowTriMatrix(Data%GenericMatVal(:, :, k))
-              write(STDOUT, "(a)") "    - average: "//trim(Real2Char(Data%GenericMatValStat(k)%All%Mean, fmt=FMTREAL2CHAR))
-              write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(Data%GenericMatValStat(k)%All%SD,   fmt=FMTREAL2CHAR))
-              write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(Data%GenericMatValStat(k)%All%Min,  fmt=FMTREAL2CHAR))
-              write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(Data%GenericMatValStat(k)%All%Max,  fmt=FMTREAL2CHAR))
-            end if
-              Data%GenericMatValStat(k) = DescStatLowTriMatrix(Data%GenericMatVal(:, :, k), Diag=.false.)
-              write(STDOUT, "(a)") "    - average: "//trim(Real2Char(Data%GenericMatValStat(k)%OffDiag%Mean, fmt=FMTREAL2CHAR))
-              write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(Data%GenericMatValStat(k)%OffDiag%SD,   fmt=FMTREAL2CHAR))
-              write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(Data%GenericMatValStat(k)%OffDiag%Min,  fmt=FMTREAL2CHAR))
-              write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(Data%GenericMatValStat(k)%OffDiag%Max,  fmt=FMTREAL2CHAR))
-          end if
-        end do
-        write(STDOUT, "(a)") " "
-      end if
     end subroutine
 
     !###########################################################################
@@ -1452,11 +1567,11 @@ module AlphaMateModule
       ! --- Optimisation log ---
 
       nCol = 10
-      if (Spec%GenericIndValAvailable) then
-        nCol = nCol + Data%nGenericIndVal
+      if (Spec%GenericIndCritGiven) then
+        nCol = nCol + Spec%nGenericIndCrit
       end if
-      if (Spec%GenericMatValAvailable) then
-        nCol = nCol + Data%nGenericMatVal
+      if (Spec%GenericMatCritGiven) then
+        nCol = nCol + Spec%nGenericMatCrit
       end if
       allocate(COLNAMELOGUNIT(nCol))
       allocate(COLNAMELOGSTDOUT(nCol))
@@ -1473,17 +1588,17 @@ module AlphaMateModule
       COLNAMELOGUNIT(9)  = "            Inbreeding"
       COLNAMELOGUNIT(10) = "        InbreedingRate"
       nColTmp = nCol
-      if (Spec%GenericIndValAvailable) then
-        do i = 1, Data%nGenericIndVal
+      if (Spec%GenericIndCritGiven) then
+        do i = 1, Spec%nGenericIndCrit
           nColTmp = nColTmp + 1
-          COLNAMELOGUNIT(nColTmp) = "GenIndVal"//trim(Int2Char(i))
+          COLNAMELOGUNIT(nColTmp) = "GenIndCrit"//trim(Int2Char(i))
           COLNAMELOGUNIT(nColTmp) = adjustr(COLNAMELOGUNIT(nColTmp))
         end do
       end if
-      if (Spec%GenericMatValAvailable) then
-        do i = 1, Data%nGenericMatVal
+      if (Spec%GenericMatCritGiven) then
+        do i = 1, Spec%nGenericMatCrit
           nColTmp = nColTmp + 1
-          COLNAMELOGUNIT(nColTmp) = "GenMatVal"//trim(Int2Char(i))
+          COLNAMELOGUNIT(nColTmp) = "GenMatCrit"//trim(Int2Char(i))
           COLNAMELOGUNIT(nColTmp) = adjustr(COLNAMELOGUNIT(nColTmp))
         end do
       end if
@@ -1524,13 +1639,13 @@ module AlphaMateModule
 
       ! --- Number of parameters to optimise ---
 
-      if (Spec%GenderMatters) then
-        nParam = Data%nPotPar1 + Data%nPotPar2 + Data%nMat
+      if (Spec%GenderFileGiven) then
+        nParam = Data%nPotPar1 + Data%nPotPar2 + Spec%nMat
       else
-        nParam = Data%nPotPar1 + Data%nMat
+        nParam = Data%nPotPar1 + Spec%nMat
       end if
 
-      if (Spec%PAGE) then
+      if (Spec%PAGEPar) then
         nParam = nParam + Data%nInd
       end if
 
@@ -1551,7 +1666,7 @@ module AlphaMateModule
         call DifferentialEvolution(nParam=nParam, nSol=Spec%EvolAlgNSol, Init=InitEqual, &
           nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%EvolAlgNIterBurnIn, nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint, &
           LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
-          CritType="min", CRBurnIn=Spec%EvolAlgCRBurnIn, CRLate=Spec%EvolAlgCRLate, FBase=Spec%EvolAlgFBase, FHigh1=Spec%EvolAlgFHigh1, FHigh2=Spec%EvolAlgFHigh2, &
+          CritType="min", CRBurnIn=Spec%EvolAlgParamCrBurnIn, CRLate=Spec%EvolAlgParamCr, FBase=Spec%EvolAlgParamFBase, FHigh1=Spec%EvolAlgParamFHigh1, FHigh2=Spec%EvolAlgParamFHigh2, &
           BestSol=SolMin)
 
         deallocate(InitEqual)
@@ -1594,7 +1709,7 @@ module AlphaMateModule
         call DifferentialEvolution(nParam=nParam, nSol=Spec%EvolAlgNSol, nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%EvolAlgNIterBurnIn, &
           nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint,&
           LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
-          CritType="opt", CRBurnIn=Spec%EvolAlgCRBurnIn, CRLate=Spec%EvolAlgCRLate, FBase=Spec%EvolAlgFBase, FHigh1=Spec%EvolAlgFHigh1, FHigh2=Spec%EvolAlgFHigh2, &
+          CritType="opt", CRBurnIn=Spec%EvolAlgParamCrBurnIn, CRLate=Spec%EvolAlgParamCr, FBase=Spec%EvolAlgParamFBase, FHigh1=Spec%EvolAlgParamFHigh1, FHigh2=Spec%EvolAlgParamFHigh2, &
           BestSol=SolOpt)
 
         call SolOpt%Write(Data, Spec, ContribFile, MatingFile)
@@ -1606,7 +1721,7 @@ module AlphaMateModule
         write(STDOUT, "(a)") "--- Evaluate the frontier ---"
         write(STDOUT, "(a)") " "
 
-        Spec%CoancestryWeightBellow = .true. ! we want to target certain rates of coancestry
+        Spec%TargetCoancestryRateWeightBelow = .true. ! we want to target certain rates of coancestry
 
         open(newunit=FrontierUnit, file="Frontier.txt", status="unknown")
         call Sol%LogHead(FrontierUnit, String="Bla", StringNum=10)
@@ -1628,11 +1743,11 @@ module AlphaMateModule
         HoldTargetCoancestryRate = Spec%TargetCoancestryRate
 
         ! Evaluate
-        do k = 1, Spec%nFrontierSteps
+        do k = 1, Spec%nFrontierPoints
           Spec%TargetCoancestryRate = Spec%TargetCoancestryRateFrontier(k)
           ! F_t = DeltaF + (1 - DeltaF) * F_t-1
           Data%TargetCoancestryRanMate = Spec%TargetCoancestryRate + (1.0d0 - Spec%TargetCoancestryRate) * Data%CurrentCoancestryRanMate
-          write(STDOUT, "(a)") "Step "//trim(Int2Char(k))//" out of "//trim(Int2Char(Spec%nFrontierSteps))//&
+          write(STDOUT, "(a)") "Step "//trim(Int2Char(k))//" out of "//trim(Int2Char(Spec%nFrontierPoints))//&
                                " for the rate of coancestry "//trim(Real2Char(Spec%TargetCoancestryRate, fmt=FMTREAL2CHAR))//&
                                " (=targeted coancestry "//trim(Real2Char(Data%TargetCoancestryRanMate, fmt=FMTREAL2CHAR))//")"
           write(STDOUT, "(a)") ""
@@ -1645,14 +1760,14 @@ module AlphaMateModule
           call DifferentialEvolution(nParam=nParam, nSol=Spec%EvolAlgNSol, nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%EvolAlgNIterBurnIn, &
             nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint,&
             LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
-            CritType="opt", CRBurnIn=Spec%EvolAlgCRBurnIn, CRLate=Spec%EvolAlgCRLate, FBase=Spec%EvolAlgFBase, FHigh1=Spec%EvolAlgFHigh1, FHigh2=Spec%EvolAlgFHigh2, &
+            CritType="opt", CRBurnIn=Spec%EvolAlgParamCrBurnIn, CRLate=Spec%EvolAlgParamCr, FBase=Spec%EvolAlgParamFBase, FHigh1=Spec%EvolAlgParamFHigh1, FHigh2=Spec%EvolAlgParamFHigh2, &
             BestSol=Sol)
 
           DumC = "Frontier"//trim(Int2Char(k))
           call Sol%Log(FrontierUnit, Iteration=-1, AcceptRate=-1.0d0, String=DumC, StringNum=10)
           call Sol%Write(Data, Spec, ContribFile, MatingFile)
 
-          if ((Spec%TargetCoancestryRate - Sol%CoancestryRateRanMate) > 0.01d0) then
+          if ((Spec%TargetCoancestryRate - Sol%CoancestryRateRanMate) .gt. 0.01d0) then
             write(STDOUT, "(a)") "NOTE: Could not achieve the rate of coancestry "//trim(Real2Char(Spec%TargetCoancestryRate, fmt=FMTREAL2CHAR))
             write(STDOUT, "(a)") "NOTE: Stopping the frontier evaluation."
             write(STDOUT, "(a)") ""
@@ -1700,7 +1815,7 @@ module AlphaMateModule
         open(newunit=ContribUnit, file=ContribFile, status="unknown")
       end if
       Rank = MrgRnk(This%nVec + Data%SelCriterionStand / 100.0d0) ! @todo is this really good sorting?
-      if (.not.Spec%PAGE) then
+      if (.not.Spec%PAGEPar) then
         !                                        1234567890123456789012
         write(ContribUnit, FMTCONTRIBUTIONHEAD) "          Id", &
                                                 "      Gender", &
@@ -1743,7 +1858,7 @@ module AlphaMateModule
       write(MatingUnit, FMTMATINGHEAD) "      Mating", &
                                        "     Parent1", &
                                        "     Parent2"
-      do i = 1, Data%nMat
+      do i = 1, Spec%nMat
         write(MatingUnit, FMTMATING) i, Data%Coancestry%OriginalId(This%MatingPlan(1, i)), Data%Coancestry%OriginalId(This%MatingPlan(2, i))
       end do
       if (present(MatingFile)) then
@@ -1773,26 +1888,26 @@ module AlphaMateModule
       This%CoancestryRateRanMate = 0.0d0
       This%FutureInbreeding = 0.0d0
       This%InbreedingRate = 0.0d0
-      if (Spec%GenericIndValAvailable) then
-        allocate(This%GenericIndVal(Data%nGenericIndVal))
-        This%GenericIndVal(:) = 0.0d0
+      if (Spec%GenericIndCritGiven) then
+        allocate(This%GenericIndCrit(Spec%nGenericIndCrit))
+        This%GenericIndCrit(:) = 0.0d0
       else
-        allocate(This%GenericIndVal(0))
+        allocate(This%GenericIndCrit(0))
       end if
-      if (Spec%GenericMatValAvailable) then
-        allocate(This%GenericMatVal(Data%nGenericMatVal))
-        This%GenericMatVal(:) = 0.0d0
+      if (Spec%GenericMatCritGiven) then
+        allocate(This%GenericMatCrit(Spec%nGenericMatCrit))
+        This%GenericMatCrit(:) = 0.0d0
       else
-        allocate(This%GenericMatVal(0))
+        allocate(This%GenericMatCrit(0))
       end if
       This%Cost = 0.0d0
       allocate(This%nVec(Data%nInd))
       This%nVec(:) = 0
       allocate(This%xVec(Data%nInd))
       This%xVec(:) = 0.0d0
-      allocate(This%MatingPlan(2, Data%nMat))
+      allocate(This%MatingPlan(2, Spec%nMat))
       This%MatingPlan(:, :) = 0
-      if (Spec%PAGE) then
+      if (Spec%PAGEPar) then
         allocate(This%GenomeEdit(Data%nInd))
         This%GenomeEdit(:) = 0.0d0
       else
@@ -1827,13 +1942,13 @@ module AlphaMateModule
           Out%CoancestryRateRanMate = In%CoancestryRateRanMate
           Out%FutureInbreeding = In%FutureInbreeding
           Out%InbreedingRate = In%InbreedingRate
-          if (allocated(In%GenericIndVal)) then
-            allocate(Out%GenericIndVal(size(In%GenericIndVal)))
-            Out%GenericIndVal = In%GenericIndVal
+          if (allocated(In%GenericIndCrit)) then
+            allocate(Out%GenericIndCrit(size(In%GenericIndCrit)))
+            Out%GenericIndCrit = In%GenericIndCrit
           end if
-          if (allocated(In%GenericMatVal)) then
-            allocate(Out%GenericMatVal(size(In%GenericMatVal)))
-            Out%GenericMatVal = In%GenericMatVal
+          if (allocated(In%GenericMatCrit)) then
+            allocate(Out%GenericMatCrit(size(In%GenericMatCrit)))
+            Out%GenericMatCrit = In%GenericMatCrit
           end if
           Out%Cost = In%Cost
           if (allocated(In%nVec)) then
@@ -1888,11 +2003,11 @@ module AlphaMateModule
           This%CoancestryRateRanMate     = This%CoancestryRateRanMate     * kR + Add%CoancestryRateRanMate     / n
           This%FutureInbreeding          = This%FutureInbreeding          * kR + Add%FutureInbreeding          / n
           This%InbreedingRate            = This%InbreedingRate            * kR + Add%InbreedingRate            / n
-          if (allocated(This%GenericIndVal)) then
-            This%GenericIndVal           = This%GenericIndVal             * kR + Add%GenericIndVal             / n
+          if (allocated(This%GenericIndCrit)) then
+            This%GenericIndCrit          = This%GenericIndCrit            * kR + Add%GenericIndCrit            / n
           end if
-          if (allocated(This%GenericMatVal)) then
-            This%GenericMatVal           = This%GenericMatVal             * kR + Add%GenericMatVal             / n
+          if (allocated(This%GenericMatCrit)) then
+            This%GenericMatCrit          = This%GenericMatCrit            * kR + Add%GenericMatCrit            / n
           end if
           This%Cost                      = This%Cost                      * kR + Add%Cost                      / n
           if (allocated(This%nVec)) then
@@ -1925,7 +2040,7 @@ module AlphaMateModule
       character(len=*), intent(in), optional :: CritType  ! Type of criterion (Min, Ran, Opt)
 
       ! Other
-      integer(int32) :: i, j, k, l, g, nCumMat, Rank(Data%nInd), ChromInt(Data%nInd), MatPar2(Data%nMat)
+      integer(int32) :: i, j, k, l, g, nCumMat, Rank(Data%nInd), ChromInt(Data%nInd), MatPar2(Spec%nMat)
       integer(int32) :: nVecPar1(Data%nPotPar1), nVecPar2(Data%nPotPar2), TmpMin, TmpMax, TmpI
 
       real(real64) :: TmpVec(Data%nInd, 1), TmpR, RanNum
@@ -1935,12 +2050,12 @@ module AlphaMateModule
 
       ! The solution (based on the mate selection driver) has:
       ! - Data%nInd individual contributions
-      !   - Data%nPotPar1 individual contributions for "parent1" (males   when GenderMatters, all ind when .not. GenderMatters)
-      !   - Data%nPotPar2 individual contributions for "parent2" (females when GenderMatters, meaningful only when GenderMatters)
-      ! - Data%nMat     rankings of parent1 1:Data%nMat matings to pair with 1:Data%nPotPar2 "parent2" (see bellow)
+      !   - Data%nPotPar1 individual contributions for "parent1" (males   when GenderFileGiven, all ind when .not. GenderFileGiven)
+      !   - Data%nPotPar2 individual contributions for "parent2" (females when GenderFileGiven, meaningful only when GenderFileGiven)
+      ! - Spec%nMat     rankings of parent1 1:Spec%nMat matings to pair with 1:Data%nPotPar2 "parent2" (see below)
       ! - Data%nInd edit indicators
-      !   - Data%nPotPar1 edit indicators for "parent1" (males   when GenderMatters, all ind when .not. GenderMatters)
-      !   - Data%nPotPar2 edit indicators for "parent2" (females when GenderMatters, present only when GenderMatters)
+      !   - Data%nPotPar1 edit indicators for "parent1" (males   when GenderFileGiven, all ind when .not. GenderFileGiven)
+      !   - Data%nPotPar2 edit indicators for "parent2" (females when GenderFileGiven, present only when GenderFileGiven)
 
       ! Say we have Chrom=(| 0, 2, 0, 1 | ... | 2.5, 1.5, 1.0 | 0, 1, 0, 0 | ...) then we:
       ! - mate male 2 with the first  available female (rank 2.5)
@@ -1949,27 +2064,27 @@ module AlphaMateModule
       ! - edit male 2
 
       ! @todo consider spliting the Chrom() vector internally into a type with
-      !       separate vectors to simplify the code, e.g.,
-      ! Chrom2%ContPar1
-      ! Chrom2%ContPar2
-      ! Chrom2%MateRank
-      ! Chrom2%EditPar1
-      ! Chrom2%EditPar2
-      !       and then at the end combine it back. Since I modify some elements
-      !       it would have to be put back.
+      !   separate vectors to simplify the code, e.g.,
+      !   - Chrom2%ContPar1
+      !   - Chrom2%ContPar2
+      !   - Chrom2%MateRank
+      !   - Chrom2%EditPar1
+      !   - Chrom2%EditPar2
+      !   and then at the end combine it back en extit - since we modify/fix some
+      !   elements of a solution, we need to combine before exit!
 
       ! --- Parse the mate selection driver (=Is the solution valid?) ---
 
-      ! The approach below assures that we have Data%nMat contributions for each of
+      ! The approach below assures that we have Spec%nMat contributions for each of
       ! the two parent sets. It does this by ranking internal solution values and
       ! traverses from top to the defined number of parents checking when the sum of
-      ! interegrised values gives Data%nMat. If values bellow 0.5 are found, they are
-      ! changed to 1 contribution. If this still does not give Data%nMat, then we start
+      ! interegrised values gives Spec%nMat. If values below 0.5 are found, they are
+      ! changed to 1 contribution. If this still does not give Spec%nMat, then we start
 
       ! @todo least contributing? Those that already contribute or thos that do not contribute at all?
 
       ! adding on contribution to each parent (starting from least contributing
-      ! parents to avoid local minima) until we reach Data%nMat. How to treat values
+      ! parents to avoid local minima) until we reach Spec%nMat. How to treat values
       ! for the individuals that do not contribute is unlcear. None of the tested
       ! methods seemed to be very different. Intuitively, using properly ordered
       ! negative values should inform optim. alg. which individuals should less
@@ -1980,67 +2095,68 @@ module AlphaMateModule
       ! order is that this gives more randomness and more solutions being explored.
 
       ! "Parent1"
-      if (Spec%GenderMatters) then
+      if (Spec%GenderFileGiven) then
         g = 1
       else
         g = 2
       end if
       ! ... find ranks to find the top values
-      if (.not.(Spec%EqualizePar1 .and. (Data%nPar1 == Data%nPotPar1))) then
+      if (.not.(Spec%EqualizePar1 .and. (Spec%nPar1 .eq. Data%nPotPar1))) then
         Rank(1:Data%nPotPar1) = MrgRnk(Chrom(1:Data%nPotPar1))
         Rank(1:Data%nPotPar1) = Rank(Data%nPotPar1:1:-1) ! MrgRnk ranks small to large
         !@todo decreasing option in MrgRnk?
       end if
       ! ... handle cases with equalized contributions
       if (Spec%EqualizePar1) then
-        if (Data%nPar1 == Data%nPotPar1) then
+        if (Spec%nPar1 .eq. Data%nPotPar1) then
           ! ... set integers to all the values (no need for sorting here)
-          Chrom(1:Data%nPotPar1) = dble(Data%nMat * g) / Data%nPar1
+          Chrom(1:Data%nPotPar1) = dble(Spec%nMat * g) / Spec%nPar1
         else
           ! ... set integers to the top values
-          Chrom(Rank(1:Data%nPar1)) = dble(Data%nMat * g) / Data%nPar1
+          Chrom(Rank(1:Spec%nPar1)) = dble(Spec%nMat * g) / Spec%nPar1
           !@todo anything better to preserve the order of non contributing individuals? See below!
-          Chrom(Rank((Data%nPar1+1):Data%nPotPar1)) = 0.0d0
-          ! Chrom(Rank((Data%nPar1+1):Data%nPotPar1)) = -1.0d0
+          Chrom(Rank((Spec%nPar1+1):Data%nPotPar1)) = 0.0d0
+          ! Chrom(Rank((Spec%nPar1+1):Data%nPotPar1)) = -1.0d0
         end if
       else
         ! ... handle cases with unequal contributions
         ! ... work for the defined number or parents
         nCumMat = 0
-        do i = 1, Data%nPar1
+        do i = 1, Spec%nPar1
           j = Rank(i)
           ! ... these would have "zero" contributions and if we hit them then they need at least minimum contrib
-          if (Chrom(j) < Spec%LimitPar1Min) then
-            Chrom(j) = Spec%LimitPar1Min
+          if (Chrom(j) .lt. Spec%LimitPar1Min) then
+            Chrom(j) = Spec%LimitPar1Min ! set/fix to minimum usage @todo could consider penalising solution instead?
           end if
           ! ... but not above max allowed
-          if (Chrom(j) > Spec%LimitPar1Max) then
-            Chrom(j) = Spec%LimitPar1Max
+          if (Chrom(j) .gt. Spec%LimitPar1Max) then
+            Chrom(j) = Spec%LimitPar1Max ! set/fix to maximum usage @todo could consider penalising solution instead?
           end if
-          ! ... accumulate and check if we reached Data%nMat
+          ! ... accumulate and check if we reached Spec%nMat
           nCumMat = nCumMat + nint(Chrom(j)) ! internally real, externally integer
-          if (nCumMat >= Data%nMat * g) then
-            ! ... there should be exactly Data%nMat contributions
-            if (nCumMat > Data%nMat * g) then
-              Chrom(j) = Chrom(j) - dble(nCumMat - Data%nMat * g)
-              if (nint(Chrom(j)) < Spec%LimitPar1Min) then
-                TmpR = Spec%LimitPar1Weight * (Spec%LimitPar1Min - nint(Chrom(j)))
+          if (nCumMat .ge. Spec%nMat * g) then
+            ! ... there should be exactly Spec%nMat contributions
+            if (nCumMat .gt. Spec%nMat * g) then
+              Chrom(j) = Chrom(j) - dble(nCumMat - Spec%nMat * g)
+              ! ... did we go below the minimum usage limit?
+              if (nint(Chrom(j)) .lt. Spec%LimitPar1Min) then
+                TmpR = Spec%LimitPar1MinWeight * (Spec%LimitPar1Min - nint(Chrom(j)))
                 This%Criterion = This%Criterion + TmpR
-                if (Spec%LimitPar1Weight < 0.0d0) then
+                if (Spec%LimitPar1MinWeight .lt. 0.0d0) then
                   This%Penalty = This%Penalty + abs(TmpR)
                 end if
               end if
-              nCumMat = Data%nMat * g
+              nCumMat = Spec%nMat * g
             end if
             exit
           end if
         end do
-        ! ... increment i if we have hit the exit, do loop would have ended with i=Data%nPar1 + 1
-        if (i <= Data%nPar1) then
+        ! ... increment i if we have hit the exit, do loop would have ended with i=Spec%nPar1 + 1
+        if (i .le. Spec%nPar1) then
           i = i + 1
         end if
         ! ... the other individuals do not contribute
-        if (i <= Data%nPotPar1) then ! "=" to capture incremented i+1 on the do loop exit
+        if (i .le. Data%nPotPar1) then ! "=" to capture incremented i+1 on the do loop exit
           ! ... zero (the same for all ind so no order)
           Chrom(Rank(i:Data%nPotPar1)) = 0.0d0
           ! ... negative (the same for all ind so no order)
@@ -2051,7 +2167,7 @@ module AlphaMateModule
           ! Chrom(Rank(i:Data%nPotPar1)) = sign(Chrom(Rank(i:Data%nPotPar1)), -1.0d0)
           ! ... negative and properly decreasing
           ! TmpR = maxval(Chrom(Rank(i:Data%nPotPar1)))
-          ! if (TmpR > 0.0d0) then
+          ! if (TmpR .gt. 0.0d0) then
           !     Chrom(Rank(i:Data%nPotPar1)) = Chrom(Rank(i:Data%nPotPar1)) - abs(TmpR)
           ! end if
           ! ... negative (random so no order)
@@ -2060,19 +2176,19 @@ module AlphaMateModule
           !   Chrom(Rank(j)) = -1.0d0 * RanNum
           ! end do
         end if
-        ! ... Data%nMat still not reached?
-        do while (nCumMat < Data%nMat * g)
+        ! ... Spec%nMat still not reached?
+        do while (nCumMat .lt. Spec%nMat * g)
           ! ... add more contributions
-          do i = Data%nPar1, 1, -1 ! to bottom ranked selected individuals (to avoid local optima)
+          do i = Spec%nPar1, 1, -1 ! start with the lowest ranked individuals selected as parents (to avoid local optima)
             j = Rank(i)
             Chrom(j) = Chrom(j) + 1.0d0
-            ! ... accumulate and check if we reached Data%nMat
+            ! ... accumulate and check if we reached Spec%nMat
             nCumMat = nCumMat + 1
-            if (nCumMat >= Data%nMat * g) then
+            if (nCumMat .ge. Spec%nMat * g) then
               ! To cater for real vs. integer issues
-              TmpI = sum(nint(Chrom(Rank(1:Data%nPar1))))
-              if (TmpI /= Data%nMat * g) then
-                if (TmpI > Data%nMat * g) then
+              TmpI = sum(nint(Chrom(Rank(1:Spec%nPar1))))
+              if (TmpI /= Spec%nMat * g) then
+                if (TmpI .gt. Spec%nMat * g) then
                   Chrom(j) = dble(nint(Chrom(j)) - 1)
                 else
                   Chrom(j) = dble(nint(Chrom(j)) + 1)
@@ -2085,62 +2201,63 @@ module AlphaMateModule
       end if
 
       ! "Parent2"
-      if (Spec%GenderMatters) then
+      if (Spec%GenderFileGiven) then
         ! ... find ranks to find the top values
-        if (.not.(Spec%EqualizePar2 .and. (Data%nPar2 == Data%nPotPar2))) then
+        if (.not.(Spec%EqualizePar2 .and. (Spec%nPar2 .eq. Data%nPotPar2))) then
           Rank(1:Data%nPotPar2) = MrgRnk(Chrom((Data%nPotPar1+1):(Data%nPotPar1+Data%nPotPar2)))
           Rank(1:Data%nPotPar2) = Rank(Data%nPotPar2:1:-1) ! MrgRnk ranks small to large
         end if
         ! ... handle cases with equalized contributions
         if (Spec%EqualizePar2) then
-          if (Data%nPar2 == Data%nPotPar2) then
+          if (Spec%nPar2 .eq. Data%nPotPar2) then
             ! ... set integers to all the values (no need for sorting here)
-            Chrom((Data%nPotPar1+1):(Data%nPotPar1+Data%nPotPar2)) = dble(Data%nMat) / Data%nPar2
+            Chrom((Data%nPotPar1+1):(Data%nPotPar1+Data%nPotPar2)) = dble(Spec%nMat) / Spec%nPar2
           else
             ! ... set integers to the top values
-            Chrom(Data%nPotPar1+Rank(1:Data%nPar2)) = dble(Data%nMat) / Data%nPar2
+            Chrom(Data%nPotPar1+Rank(1:Spec%nPar2)) = dble(Spec%nMat) / Spec%nPar2
             ! @todo anything better to preserve the order of non contributing individuals? See below!
-            Chrom(Data%nPotPar1+Rank((Data%nPar2+1):Data%nPotPar2)) = 0.0d0
-            ! Chrom(Data%nPotPar1+Rank((Data%nPar2+1):Data%nPotPar2)) = -1.0d0
+            Chrom(Data%nPotPar1+Rank((Spec%nPar2+1):Data%nPotPar2)) = 0.0d0
+            ! Chrom(Data%nPotPar1+Rank((Spec%nPar2+1):Data%nPotPar2)) = -1.0d0
           end if
         else
           ! ... handle cases with unequal contributions
           ! ... work for the defined number or parents
           nCumMat = 0
-          do i = 1, Data%nPar2
+          do i = 1, Spec%nPar2
             j = Data%nPotPar1 + Rank(i)
             ! ... these would have "zero" contributions and if we hit them then they need at least minimum contrib
-            if (Chrom(j) < Spec%LimitPar2Min) then
-              Chrom(j) = Spec%LimitPar2Min
+            if (Chrom(j) .lt. Spec%LimitPar2Min) then
+              Chrom(j) = Spec%LimitPar2Min ! set/fix to minimum usage @todo could consider penalising solution instead?
             end if
             ! ... but not above max allowed
-            if (Chrom(j) > Spec%LimitPar2Max) then
-              Chrom(j) = Spec%LimitPar2Max
+            if (Chrom(j) .gt. Spec%LimitPar2Max) then
+              Chrom(j) = Spec%LimitPar2Max ! set/fix to maximum usage @todo could consider penalising solution instead?
             end if
-            ! ... accumulate and check if we reached Data%nMat
+            ! ... accumulate and check if we reached Spec%nMat
             nCumMat = nCumMat + nint(Chrom(j)) ! internally real, externally integer
-            if (nCumMat >= Data%nMat) then
-              ! ... there should be exactly Data%nMat contributions
-              if (nCumMat > Data%nMat) then
-                Chrom(j) = Chrom(j) - dble(nCumMat - Data%nMat)
-                if (nint(Chrom(j)) < Spec%LimitPar2Min) then
-                  TmpR = Spec%LimitPar2Weight * (Spec%LimitPar2Min - nint(Chrom(j)))
+            if (nCumMat .ge. Spec%nMat) then
+              ! ... there should be exactly Spec%nMat contributions
+              if (nCumMat .gt. Spec%nMat) then
+                Chrom(j) = Chrom(j) - dble(nCumMat - Spec%nMat)
+                ! ... did we go below the minimum usage limit?
+                if (nint(Chrom(j)) .lt. Spec%LimitPar2Min) then
+                  TmpR = Spec%LimitPar2MinWeight * (Spec%LimitPar2Min - nint(Chrom(j)))
                   This%Criterion = This%Criterion + TmpR
-                  if (Spec%LimitPar2Weight < 0.0d0) then
+                  if (Spec%LimitPar2MinWeight .lt. 0.0d0) then
                     This%Penalty = This%Penalty + abs(TmpR)
                   end if
                 end if
-                nCumMat = Data%nMat
+                nCumMat = Spec%nMat
               end if
               exit
             end if
           end do
-          ! ... increment i if we have hit the exit, do loop would have ended with i=Data%nPar2+1
-          if (i <= Data%nPar2) then
+          ! ... increment i if we have hit the exit, do loop would have ended with i=Spec%nPar2+1
+          if (i .le. Spec%nPar2) then
             i = i + 1
           end if
           ! ... the other individuals do not contribute
-          if (i <= Data%nPotPar2) then ! "="" to capture incremented i+1 on the do loop exit
+          if (i .le. Data%nPotPar2) then ! "="" to capture incremented i+1 on the do loop exit
             ! ... zero (the same for all ind so no order)
             Chrom(Data%nPotPar1+(Rank(i:Data%nPotPar2))) = 0.0d0
             ! ... negative (the same for all ind so no order)
@@ -2151,7 +2268,7 @@ module AlphaMateModule
             ! Chrom(Data%nPotPar1+(Rank(i:Data%nPotPar2))) = sign(Chrom(Data%nPotPar1+(Rank(i:Data%nPotPar2))), -1.0d0)
             ! ... negative and properly decreasing
             ! TmpR = maxval(Chrom(Data%nPotPar1+(Rank(i:Data%nPotPar2))))
-            ! if (TmpR > 0.0d0) then
+            ! if (TmpR .gt. 0.0d0) then
             !     Chrom(Data%nPotPar1+(Rank(i:Data%nPotPar2))) = Chrom(Data%nPotPar1+(Rank(i:Data%nPotPar2))) - abs(TmpR)
             ! end if
             ! ... negative (random so no order)
@@ -2160,19 +2277,19 @@ module AlphaMateModule
             !   Chrom(Data%nPotPar1+Rank(j)) = -1.0d0 * RanNum
             ! end do
           end if
-          ! ... Data%nMat still not reached?
-          do while (nCumMat < Data%nMat)
+          ! ... Spec%nMat still not reached?
+          do while (nCumMat .lt. Spec%nMat)
             ! ... add more contributions
-            do i = Data%nPar2, 1, -1 ! to bottom ranked selected individuals (to avoid local optima)
+            do i = Spec%nPar2, 1, -1 ! to bottom ranked selected individuals (to avoid local optima)
               j = Data%nPotPar1 + Rank(i)
               Chrom(j) = Chrom(j) + 1.0d0
-              ! ... accumulate and check if we reached Data%nMat
+              ! ... accumulate and check if we reached Spec%nMat
               nCumMat = nCumMat + 1
-              if (nCumMat == Data%nMat) then
+              if (nCumMat .eq. Spec%nMat) then
                 ! To cater for real vs. integer issues
-                TmpI = sum(nint(Chrom(Data%nPotPar1+Rank(1:Data%nPar2))))
-                if (TmpI /= Data%nMat) then
-                  if (TmpI > Data%nMat) then
+                TmpI = sum(nint(Chrom(Data%nPotPar1+Rank(1:Spec%nPar2))))
+                if (TmpI /= Spec%nMat) then
+                  if (TmpI .gt. Spec%nMat) then
                     Chrom(j) = dble(nint(Chrom(j)) - 1)
                   else
                     Chrom(j) = dble(nint(Chrom(j)) + 1)
@@ -2194,26 +2311,26 @@ module AlphaMateModule
       ChromInt(1:Data%nPotPar1) = nint(Chrom(1:Data%nPotPar1))
       ! ... remove negatives
       do i = 1, Data%nPotPar1
-        if (ChromInt(i) < 0) then
+        if (ChromInt(i) .lt. 0) then
           ChromInt(i) = 0
         end if
       end do
       ! ... map internal to external order
       nVecPar1(:) = ChromInt(1:Data%nPotPar1)
-      if (.not.Spec%GenderMatters) then
+      if (.not.Spec%GenderFileGiven) then
         This%nVec(:) = nVecPar1(:)
       else
         This%nVec(Data%IdPotPar1) = nVecPar1(:)
       end if
 
       ! "Parent2"
-      if (Spec%GenderMatters) then
+      if (Spec%GenderFileGiven) then
         nVecPar2(:) = 0
         ! ... get integer values
         ChromInt(1:Data%nPotPar2) = nint(Chrom((Data%nPotPar1+1):(Data%nPotPar1+Data%nPotPar2)))
         ! ... remove negatives
         do i = 1, Data%nPotPar2
-          if (ChromInt(i) < 0) then
+          if (ChromInt(i) .lt. 0) then
             ChromInt(i) = 0
           end if
         end do
@@ -2222,21 +2339,21 @@ module AlphaMateModule
         This%nVec(Data%IdPotPar2) = nVecPar2(:)
       end if
 
-      This%xVec(:) = dble(This%nVec(:)) / (2 * Data%nMat)
+      This%xVec(:) = dble(This%nVec(:)) / (2 * Spec%nMat)
 
       ! --- PAGE ---
 
-      if (Spec%PAGE) then
-        if (.not.Spec%GenderMatters) then
-          Rank(1:Data%nInd) = MrgRnk(Chrom((Data%nPotPar1+Data%nMat+1):(Data%nPotPar1+Data%nMat+Data%nInd)))
+      if (Spec%PAGEPar) then
+        if (.not.Spec%GenderFileGiven) then
+          Rank(1:Data%nInd) = MrgRnk(Chrom((Data%nPotPar1+Spec%nMat+1):(Data%nPotPar1+Spec%nMat+Data%nInd)))
           This%GenomeEdit(Rank(Data%nInd:(Data%nInd-Spec%PAGEPar1Max+1):-1)) = 1.0d0 ! MrgRnk ranks small to large
         else
           if (Spec%PAGEPar1) then
-            Rank(1:Data%nPotPar1) = MrgRnk(Chrom((Data%nPotPar1+Data%nPotPar2+Data%nMat+1):(Data%nPotPar1+Data%nPotPar2+Data%nMat+Data%nPotPar1)))
+            Rank(1:Data%nPotPar1) = MrgRnk(Chrom((Data%nPotPar1+Data%nPotPar2+Spec%nMat+1):(Data%nPotPar1+Data%nPotPar2+Spec%nMat+Data%nPotPar1)))
             This%GenomeEdit(Data%IdPotPar1(Rank(Data%nPotPar1:(Data%nPotPar1-Spec%PAGEPar1Max+1):-1))) = 1.0d0 ! MrgRnk ranks small to large
           end if
           if (Spec%PAGEPar2) then
-            Rank(1:Data%nPotPar2) = MrgRnk(Chrom((Data%nPotPar1+Data%nPotPar2+Data%nMat+Data%nPotPar1+1):(Data%nPotPar1+Data%nPotPar2+Data%nMat+Data%nPotPar1+Data%nPotPar2)))
+            Rank(1:Data%nPotPar2) = MrgRnk(Chrom((Data%nPotPar1+Data%nPotPar2+Spec%nMat+Data%nPotPar1+1):(Data%nPotPar1+Data%nPotPar2+Spec%nMat+Data%nPotPar1+Data%nPotPar2)))
             This%GenomeEdit(Data%IdPotPar2(Rank(Data%nPotPar2:(Data%nPotPar2-Spec%PAGEPar2Max+1):-1))) = 1.0d0 ! MrgRnk ranks small to large
           end if
         end if
@@ -2245,7 +2362,7 @@ module AlphaMateModule
       ! --- Mate allocation ---
 
       MatPar2(:) = 0
-      if (Spec%GenderMatters) then
+      if (Spec%GenderFileGiven) then
         ! Distribute parent2 (=female) contributions into matings
         k = 0
         do i = 1, Data%nPotPar2 ! need to loop whole nVecPar2 as some entries are zero
@@ -2255,22 +2372,22 @@ module AlphaMateModule
           end do
         end do
         ! Reorder parent2 contributions according to the rank of matings
-        Rank(1:Data%nMat) = MrgRnk(Chrom((Data%nPotPar1+Data%nPotPar2+1):(Data%nPotPar1+Data%nPotPar2+Data%nMat)))
-        MatPar2(:) = MatPar2(Rank(1:Data%nMat))
+        Rank(1:Spec%nMat) = MrgRnk(Chrom((Data%nPotPar1+Data%nPotPar2+1):(Data%nPotPar1+Data%nPotPar2+Spec%nMat)))
+        MatPar2(:) = MatPar2(Rank(1:Spec%nMat))
       else
         ! Distribute one half of contributions into matings
         k = 0
-        do while (k < Data%nMat)
+        do while (k .lt. Spec%nMat)
           do i = 1, Data%nPotPar1 ! need to loop whole nVecPar1 as some entries are zero
             l = nVecPar1(i) / 2
-            if (mod(nVecPar1(i), 2) == 1) then
+            if (mod(nVecPar1(i), 2) .eq. 1) then
               call random_number(RanNum)
-              if (RanNum > 0.5) then
+              if (RanNum .gt. 0.5) then
                 l = l + 1
               end if
             end if
             do j = 1, l
-              if (k == Data%nMat) then
+              if (k .eq. Spec%nMat) then
                 exit
               end if
               k = k + 1
@@ -2280,19 +2397,19 @@ module AlphaMateModule
           end do
         end do
         ! Reorder one half of contributions according to the rank of matings
-        Rank(1:Data%nMat) = MrgRnk(Chrom((Data%nPotPar1+1):(Data%nPotPar1+Data%nMat)))
-        MatPar2(:) = MatPar2(Rank(1:Data%nMat))
+        Rank(1:Spec%nMat) = MrgRnk(Chrom((Data%nPotPar1+1):(Data%nPotPar1+Spec%nMat)))
+        MatPar2(:) = MatPar2(Rank(1:Spec%nMat))
       end if
 
       ! Pair the contributions (=Mating plan)
-      k = Data%nMat ! MrgRnk ranks small to large
-      if (Spec%GenderMatters .or. Spec%SelfingAllowed) then
+      k = Spec%nMat ! MrgRnk ranks small to large
+      if (Spec%GenderFileGiven .or. Spec%SelfingAllowed) then
         ! When gender matters selfing can not happen (we have two distinct sets of parents,
         ! unless the user adds individuals of one sex in both sets) and when SelfingAllowed
         ! we do not need to care about it - faster code
         do i = 1, Data%nPotPar1
           do j = 1, nVecPar1(i)
-            !if (k<2) print*, k, i, j, nVecPar1(i), Data%nMat, sum(nVecPar1(:))
+            !if (k<2) print*, k, i, j, nVecPar1(i), Spec%nMat, sum(nVecPar1(:))
             This%MatingPlan(1, k) = Data%IdPotPar1(i)
             This%MatingPlan(2, k) = MatPar2(k)
             k = k - 1
@@ -2304,7 +2421,7 @@ module AlphaMateModule
         do i = 1, Data%nPotPar1
           do j = 1, nVecPar1(i)
             This%MatingPlan(1, k) = Data%IdPotPar1(i)
-            if (MatPar2(k) == Data%IdPotPar1(i)) then
+            if (MatPar2(k) .eq. Data%IdPotPar1(i)) then
               ! Try to avoid selfing by swapping the MatPar2 and Rank elements
               do l = k, 1, -1
                 if (MatPar2(l) /= Data%IdPotPar1(i)) then
@@ -2313,9 +2430,9 @@ module AlphaMateModule
                   exit
                 end if
               end do
-              if (l < 1) then ! Above loop ran out without finding a swap
+              if (l .lt. 1) then ! Above loop ran out without finding a swap
                 This%Criterion = This%Criterion + Spec%SelfingWeight
-                if (Spec%SelfingWeight < 0.0d0) then
+                if (Spec%SelfingWeight .lt. 0.0d0) then
                   This%Penalty = This%Penalty + abs(Spec%SelfingWeight)
                 end if
               end if
@@ -2328,30 +2445,30 @@ module AlphaMateModule
 
       ! --- Contribution value ---
 
-      if (Spec%SelCriterionAvailable) then
+      if (Spec%SelCriterionFileGiven) then
         !@todo save SelCriterion mean and sd in the data object and then compute this dot_product only once and
         !      compute This%SelCriterion as This%SelCriterion = This%SelIntensity * SelCriterionSD + SelCriterionMean
         This%SelCriterion = dot_product(This%xVec, Data%SelCriterion)
         This%SelIntensity = dot_product(This%xVec, Data%SelCriterionStand)
-        if (Spec%PAGE) then
+        if (Spec%PAGEPar) then
           !@todo as above
           This%SelCriterion = This%SelCriterion + dot_product(This%xVec, Data%SelCriterionPAGE(:)      * This%GenomeEdit(:))
           This%SelIntensity = This%SelIntensity + dot_product(This%xVec, Data%SelCriterionPAGEStand(:) * This%GenomeEdit(:))
         end if
-        if (CritType == "opt") then
+        if (CritType .eq. "opt") then
           This%Criterion = This%Criterion + This%SelIntensity
         end if
       end if
 
       ! --- Generic individual values ---
 
-      if (Spec%GenericIndValAvailable) then
-        do j = 1, Data%nGenericIndVal
-          TmpR = dot_product(This%xVec, Data%GenericIndVal(:, j))
-          This%GenericIndVal(j) = TmpR
-          TmpR = Spec%GenericIndValWeight(j) * This%GenericIndVal(j)
+      if (Spec%GenericIndCritGiven) then
+        do j = 1, Spec%nGenericIndCrit
+          TmpR = dot_product(This%xVec, Data%GenericIndCrit(:, j))
+          This%GenericIndCrit(j) = TmpR
+          TmpR = Spec%GenericIndCritWeight(j) * This%GenericIndCrit(j)
           This%Criterion = This%Criterion + TmpR
-          if (Spec%GenericIndValWeight(j) .lt. 0.0) then
+          if (Spec%GenericIndCritWeight(j) .lt. 0.0) then
             This%Penalty = This%Penalty + abs(TmpR)
           end if
         end do
@@ -2377,25 +2494,25 @@ module AlphaMateModule
       ! dF = (F_t+1 - F_t) / (1 - F_t)
       This%CoancestryRateRanMate = (This%FutureCoancestryRanMate - Data%CurrentCoancestryRanMate) / (1.0d0 - Data%CurrentCoancestryRanMate)
 
-      if      (CritType == "min" .or. CritType == "ran") then
+      if      (CritType .eq. "min" .or. CritType .eq. "ran") then
         This%Criterion = This%Criterion - This%FutureCoancestryRanMate
-      else if (CritType == "opt") then
+      else if (CritType .eq. "opt") then
         ! We know the targeted rate of coancestry so we can work with relative values,
-        ! which makes the CoancestryWeight generic for ~any scenario.
+        ! which makes the TargetCoancestryRateWeight generic for ~any scenario.
         TmpR = This%CoancestryRateRanMate / Spec%TargetCoancestryRate
-        if (TmpR > 1.0d0) then
+        if (TmpR .gt. 1.0d0) then
           ! Rate of coancestry for the solution is higher than the target
-          TmpR = Spec%CoancestryWeight * abs(1.0d0 - TmpR)
+          TmpR = Spec%TargetCoancestryRateWeight * abs(1.0d0 - TmpR)
         else
           ! Rate of coancestry for the solution is lower than the target
-          if (Spec%CoancestryWeightBellow) then
-            TmpR = Spec%CoancestryWeight * abs(1.0d0 - abs(TmpR)) ! the second abs is to handle negative coancestry cases
+          if (Spec%TargetCoancestryRateWeightBelow) then
+            TmpR = Spec%TargetCoancestryRateWeight * abs(1.0d0 - abs(TmpR)) ! the second abs is to handle negative coancestry cases
           else
             TmpR = 0.0d0
           end if
         end if
         This%Criterion = This%Criterion + TmpR
-        if (Spec%CoancestryWeight < 0.0d0) then
+        if (Spec%TargetCoancestryRateWeight .lt. 0.0d0) then
           This%Penalty = This%Penalty + abs(TmpR)
         end if
       else
@@ -2408,57 +2525,57 @@ module AlphaMateModule
 
       !print*, "@todo need to check progeny inbreeding in light of genomic coancestry matrix!!!"
       TmpR = 0.0d0
-      do j = 1, Data%nMat
+      do j = 1, Spec%nMat
         ! Lower triangle to speedup lookup
         TmpMax = maxval(This%MatingPlan(:, j))
         TmpMin = minval(This%MatingPlan(:, j))
         TmpR = TmpR + Data%Coancestry%Value(TmpMax, TmpMin)
       end do
       ! TODO: different number of progeny per mating???
-      This%FutureInbreeding = TmpR / Data%nMat
+      This%FutureInbreeding = TmpR / Spec%nMat
       ! dF = (F_t+1 - F_t) / (1 - F_t)
       This%InbreedingRate = (This%FutureInbreeding - Data%CurrentInbreeding) / (1.0d0 - Data%CurrentInbreeding)
       ! We know the targeted rate of inbreeding so we can work with relative values,
-      ! which makes the InbreedingWeight generic for ~any scenario.
+      ! which makes the TargetInbreedingRateWeight generic for ~any scenario.
       TmpR = This%InbreedingRate / Spec%TargetInbreedingRate
-      if (TmpR > 1.0d0) then
+      if (TmpR .gt. 1.0d0) then
         ! Rate of inbreeding for the solution is higher than the target
-        TmpR = Spec%InbreedingWeight * abs(1.0d0 - TmpR)
+        TmpR = Spec%TargetInbreedingRateWeight * abs(1.0d0 - TmpR)
       else
         ! Rate of inbreeding for the solution is lower than the target
-        if (Spec%InbreedingWeightBellow) then
-          TmpR = Spec%InbreedingWeight * abs(1.0d0 - abs(TmpR)) ! the second abs is to handle negative inbreeding cases
+        if (Spec%TargetInbreedingRateWeightBelow) then
+          TmpR = Spec%TargetInbreedingRateWeight * abs(1.0d0 - abs(TmpR)) ! the second abs is to handle negative inbreeding cases
         else
           TmpR = 0.0d0
         end if
       end if
       This%Criterion = This%Criterion + TmpR
-      if (Spec%InbreedingWeight < 0.0d0) then
+      if (Spec%TargetInbreedingRateWeight .lt. 0.0d0) then
         This%Penalty = This%Penalty + abs(TmpR)
       end if
 
       ! --- Generic mating values ---
 
-      if (Spec%GenericMatValAvailable) then
-        do k = 1, Data%nGenericMatVal
+      if (Spec%GenericMatCritGiven) then
+        do k = 1, Spec%nGenericMatCrit
           TmpR = 0.0d0
-          if (Spec%GenderMatters) then
-            do j = 1, Data%nMat
-              TmpR = TmpR + Data%GenericMatVal(Data%IdPotParSeq(This%MatingPlan(1, j)), &
-                                               Data%IdPotParSeq(This%MatingPlan(2, j)), k)
+          if (Spec%GenderFileGiven) then
+            do j = 1, Spec%nMat
+              TmpR = TmpR + Data%GenericMatCrit(Data%IdPotParSeq(This%MatingPlan(1, j)), &
+                                                Data%IdPotParSeq(This%MatingPlan(2, j)), k)
             end do
           else
-            do j = 1, Data%nMat
+            do j = 1, Spec%nMat
               ! Speedup lookup
               TmpMax = maxval(This%MatingPlan(:, j))
               TmpMin = minval(This%MatingPlan(:, j))
-              TmpR = TmpR + Data%GenericMatVal(TmpMax, TmpMin, k)
+              TmpR = TmpR + Data%GenericMatCrit(TmpMax, TmpMin, k)
             end do
           end if
-          This%GenericMatVal(k) = TmpR / Data%nMat
-          TmpR = Spec%GenericMatValWeight(k) * This%GenericMatVal(k)
+          This%GenericMatCrit(k) = TmpR / Spec%nMat
+          TmpR = Spec%GenericMatCritWeight(k) * This%GenericMatCrit(k)
           This%Criterion = This%Criterion + TmpR
-          if (Spec%GenericMatValWeight(k) < 0.0) then
+          if (Spec%GenericMatCritWeight(k) .lt. 0.0) then
             This%Penalty = This%Penalty + abs(TmpR)
           end if
         end do
@@ -2531,24 +2648,24 @@ module AlphaMateModule
           StringFmt = "(a)"
         end if
       end if
-      if (Spec%GenericIndValAvailable) then
-        if (Spec%GenericMatValAvailable) then
+      if (Spec%GenericIndCritGiven) then
+        if (Spec%GenericMatCritGiven) then
           if (present(String)) then
             write(Unit, StringFmt, Advance="No") trim(adjustl(String))
           end if
-          write(Unit, Fmt) Iteration, AcceptRate, This%Criterion, This%Penalty, This%SelCriterion, This%SelIntensity, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%FutureInbreeding, This%InbreedingRate, This%GenericIndVal, This%GenericMatVal
+          write(Unit, Fmt) Iteration, AcceptRate, This%Criterion, This%Penalty, This%SelCriterion, This%SelIntensity, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%FutureInbreeding, This%InbreedingRate, This%GenericIndCrit, This%GenericMatCrit
         else
           if (present(String)) then
             write(Unit, StringFmt, Advance="No") trim(adjustl(String))
           end if
-          write(Unit, Fmt) Iteration, AcceptRate, This%Criterion, This%Penalty, This%SelCriterion, This%SelIntensity, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%FutureInbreeding, This%InbreedingRate, This%GenericIndVal
+          write(Unit, Fmt) Iteration, AcceptRate, This%Criterion, This%Penalty, This%SelCriterion, This%SelIntensity, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%FutureInbreeding, This%InbreedingRate, This%GenericIndCrit
         end if
       else
-        if (Spec%GenericMatValAvailable) then
+        if (Spec%GenericMatCritGiven) then
           if (present(String)) then
             write(Unit, StringFmt, Advance="No") trim(adjustl(String))
           end if
-          write(Unit, Fmt) Iteration, AcceptRate, This%Criterion, This%Penalty, This%SelCriterion, This%SelIntensity, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%FutureInbreeding, This%InbreedingRate,                     This%GenericMatVal
+          write(Unit, Fmt) Iteration, AcceptRate, This%Criterion, This%Penalty, This%SelCriterion, This%SelIntensity, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%FutureInbreeding, This%InbreedingRate,                      This%GenericMatCrit
         else
           if (present(String)) then
             write(Unit, StringFmt, Advance="No") trim(adjustl(String))
@@ -2596,15 +2713,15 @@ module AlphaMateModule
       else
         Unit = STDOUT
       end if
-      if (Spec%GenericIndValAvailable) then
-        if (Spec%GenericMatValAvailable) then
-          write(Unit, FMTLOGPOPUNIT) Iteration, i, This%Criterion, This%Penalty, This%SelCriterion, This%SelIntensity, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%FutureInbreeding, This%InbreedingRate, This%GenericIndVal, This%GenericMatVal
+      if (Spec%GenericIndCritGiven) then
+        if (Spec%GenericMatCritGiven) then
+          write(Unit, FMTLOGPOPUNIT) Iteration, i, This%Criterion, This%Penalty, This%SelCriterion, This%SelIntensity, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%FutureInbreeding, This%InbreedingRate, This%GenericIndCrit, This%GenericMatCrit
         else
-          write(Unit, FMTLOGPOPUNIT) Iteration, i, This%Criterion, This%Penalty, This%SelCriterion, This%SelIntensity, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%FutureInbreeding, This%InbreedingRate, This%GenericIndVal
+          write(Unit, FMTLOGPOPUNIT) Iteration, i, This%Criterion, This%Penalty, This%SelCriterion, This%SelIntensity, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%FutureInbreeding, This%InbreedingRate, This%GenericIndCrit
         end if
       else
-        if (Spec%GenericMatValAvailable) then
-          write(Unit, FMTLOGPOPUNIT) Iteration, i, This%Criterion, This%Penalty, This%SelCriterion, This%SelIntensity, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%FutureInbreeding, This%InbreedingRate,                     This%GenericMatVal
+        if (Spec%GenericMatCritGiven) then
+          write(Unit, FMTLOGPOPUNIT) Iteration, i, This%Criterion, This%Penalty, This%SelCriterion, This%SelIntensity, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%FutureInbreeding, This%InbreedingRate,                      This%GenericMatCrit
         else
           write(Unit, FMTLOGPOPUNIT) Iteration, i, This%Criterion, This%Penalty, This%SelCriterion, This%SelIntensity, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%FutureInbreeding, This%InbreedingRate
         end if

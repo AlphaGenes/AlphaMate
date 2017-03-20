@@ -52,51 +52,42 @@
 !
 !-------------------------------------------------------------------------------
 
-!@todo make spec type
-!@todo make data type
-!@todo etc
-!  use ConstantModule, only : FILELENGTH
-!  integer(int32) :: nArg
-!  character(len=FILELENGTH) :: SpecFile
-!  type(AlphaRelateSpec) :: Spec
-!  type(AlphaRelateData) :: Data
-
-!  write(STDOUT, "(a)") ""
-!  write(STDOUT, "(a)") " Processing specifications ..."
-!  nArg = command_argument_count()
-!  if (nArg > 0) then
-!    call get_command_argument(1, SpecFile)
-!  else
-!    SpecFile = "AlphaRelateSpec.txt"
-!  end if
-!  write(STDOUT, "(2a)") " Using specification file: ", trim(SpecFile)
-!  call Spec%Read(SpecFile=trim(SpecFile))
-
-!  write(STDOUT, "(a)") ""
-!  write(STDOUT, "(a)") " Processing data ..."
-!  call Data%Read(Spec=Spec)
-!  if (Spec%PedigreeGiven) then
-!    call Data%RecPed%Write(File=trim(Spec%OutputBasename)//trim(Spec%PedigreeFile)//"_Recoded.txt")
-!  end if
-
 program AlphaMate
-  use ISO_Fortran_Env, STDIN => input_unit, STDOUT => output_unit, STDERR => error_unit
-  use IFPort, only : SystemQQ
-  use AlphaHouseMod, only : Int2Char, PrintElapsedTime
+  use ISO_Fortran_env, STDIN => input_unit, STDOUT => output_unit, STDERR => error_unit
+  use ConstantModule, only : FILELENGTH
+  use AlphaHouseMod, only : PrintElapsedTime
   use AlphaMateModule
 
   implicit none
 
+  integer(int32) :: nArg
   real(real32) :: StartTime, EndTime
-
-  ! logical :: Success
+  character(len=FILELENGTH) :: SpecFile
+  type(AlphaMateSpec) :: Spec
+  type(AlphaMateData) :: Data
 
   call cpu_time(StartTime)
   call AlphaMateTitle
 
-  call ReadSpecAndDataForAlphaMate
-  call SetupColNamesAndFormats
-  call AlphaMateSearch
+  write(STDOUT, "(a)") ""
+  write(STDOUT, "(a)") " Processing specifications ..."
+  nArg = command_argument_count()
+  if (nArg > 0) then
+    call get_command_argument(1, SpecFile)
+  else
+    SpecFile = "AlphaMateSpec.txt"
+  end if
+  write(STDOUT, "(2a)") " Using specification file: ", trim(SpecFile)
+  call Spec%Read(SpecFile=SpecFile, LogStdout=.true.)
+
+  write(STDOUT, "(a)") ""
+  write(STDOUT, "(a)") " Processing data ..."
+  ! call Data%Read(Spec=Spec)
+
+
+  ! call ReadSpecAndDataForAlphaMate
+  ! call SetupColNamesAndFormats
+  ! call AlphaMateSearch
 
   call cpu_time(EndTime)
   call AlphaMateTitle
