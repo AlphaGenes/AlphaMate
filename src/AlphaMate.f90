@@ -70,7 +70,7 @@ program AlphaMate
   call AlphaMateTitle
 
   write(STDOUT, "(a)") ""
-  write(STDOUT, "(a)") " Processing specifications ..."
+  write(STDOUT, "(a)") " Specifications ..."
   nArg = command_argument_count()
   if (nArg > 0) then
     call get_command_argument(1, SpecFile)
@@ -81,9 +81,8 @@ program AlphaMate
   call Spec%Read(SpecFile=SpecFile, LogStdout=.true.)
 
   write(STDOUT, "(a)") ""
-  write(STDOUT, "(a)") " Processing data ..."
-  ! call Data%Read(Spec=Spec)
-
+  write(STDOUT, "(a)") " Data ..."
+  call Data%Read(Spec=Spec, LogStdout=.true.)
 
   ! call ReadSpecAndDataForAlphaMate
   ! call SetupColNamesAndFormats

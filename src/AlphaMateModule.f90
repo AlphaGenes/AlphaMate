@@ -293,11 +293,11 @@ module AlphaMateModule
 
     !###########################################################################
 
-    !-------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     !> @brief  Print AlphaMate title
     !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date   March 16, 2017
-    !-------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     subroutine AlphaMateTitle ! not pure due to IO
       implicit none
       write(STDOUT, "(a)") ""
@@ -318,11 +318,11 @@ module AlphaMateModule
 
     !###########################################################################
 
-    !-------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     !> @brief  Initialize AlphaMate specifications
     !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date   March 16, 2017
-    !-------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     pure subroutine InitAlphaMateSpec(This)
       implicit none
       class(AlphaMateSpec), intent(out) :: This !< AlphaMateSpec holder
@@ -417,11 +417,11 @@ module AlphaMateModule
 
     !###########################################################################
 
-    !-------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     !> @brief  Read AlphaMate specifications from a file
     !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date   March 16, 2017
-    !-------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     subroutine ReadAlphaMateSpec(This, SpecFile, LogStdout) ! not pure due to IO
       implicit none
       class(AlphaMateSpec), intent(out) :: This      !< AlphaMateSpec holder
@@ -442,6 +442,10 @@ module AlphaMateModule
         LogStdoutInternal = LogStdout
       else
         LogStdoutInternal = .false.
+      end if
+
+      if (LogStdoutInternal) then
+        write(STDOUT, "(a)") " "
       end if
 
       ! Defaults
@@ -1519,16 +1523,23 @@ module AlphaMateModule
 
     !###########################################################################
 
-    !-------------------------------------------------------------------------
-    !> @brief  Read AlphaMate data from a file
+    !---------------------------------------------------------------------------
+    !> @brief  Read AlphaMate data from a file and summarize it for further use
     !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date   March 16, 2017
-    !-------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     subroutine ReadAlphaMateData(This, Spec, LogStdout) ! not pure due to IO
       implicit none
-      class(AlphaMateData), intent(inout) :: This !< AlphaMateData holder
-      type(AlphaMateSpec), intent(in)     :: Spec !< AlphaMateSpec holder
-      logical, optional                   :: LogStdout !< Log process on stdout (default .false.)
+      class(AlphaMateData), intent(out)  :: This      !< AlphaMateData holder
+      type(AlphaMateSpec), intent(inout) :: Spec      !< AlphaMateSpec holder
+      logical, optional                  :: LogStdout !< Log process on stdout (default .false.)
+
+      integer(int32) :: i, j, nIndTmp, GenderTmp
+      integer(int32) :: SelCriterionUnit, GenderUnit, SeedUnit
+
+      real(real64) :: SelCriterionTmp, SelCriterionTmp2
+
+      character(len=IDLENGTH) :: IdCTmp
 
       logical :: LogStdoutInternal
       if (present(LogStdout)) then
@@ -1536,30 +1547,160 @@ module AlphaMateModule
       else
         LogStdoutInternal = .false.
       end if
-      ! TODO
 
+      if (LogStdoutInternal) then
+        write(STDOUT, "(a)") " "
+      end if
 
-! RNG Seed
-      ! read(SpecUnit, *) DumC, DumC
-      ! Spec%SeedFile = "Seed.txt"
-      ! if ((ToLower(trim(DumC)) == "unknown") .or. (ToLower(trim(DumC)) == "none")) then
-      !   call SetSeed(SeedFile=Spec%SeedFile, Out=Seed)
-      ! else
-      !   backspace(SpecUnit)
-      !   read(SpecUnit, *) DumC, DumI
-      !   call SetSeed(Seed=DumI, SeedFile=Spec%SeedFile, Out=Seed)
-      ! end if
-      ! write(STDOUT, "(a)") "Seed: "//trim(Int2Char(Seed))
+      ! --- Coancestry or Numerator Relationship Matrix ---
+
+      call This%Coancestry%Read(File=Spec%RelMtxFile)
+      if (Spec%NrmInsteadOfCoancestry) then
+        call This%Coancestry%Nrm2Coancestry
+      end if
+      This%nInd = This%Coancestry%nInd
+
+      if (LogStdoutInternal) then
+        write(STDOUT, "(a)") " Number of individuals in the coancestry matrix file: "//trim(Int2Char(This%nInd))
+      end if
+
+      ! --- Selection criterion ---
+
+      allocate(This%SelCriterion(This%nInd))
+      allocate(This%SelCriterionStand(This%nInd))
+      if (Spec%PAGEPar) then
+        allocate(This%SelCriterionPAGE(This%nInd))
+        allocate(This%SelCriterionPAGEStand(This%nInd))
+      end if
+
+      if (.not. Spec%SelCriterionFileGiven) then
+        This%SelCriterion(:) = 0.0d0
+        This%SelCriterionStand(:) = 0.0d0
+      else
+        nIndTmp = CountLines(Spec%SelCriterionFile)
+        if (LogStdoutInternal) then
+          write(STDOUT, "(a)") " Number of individuals in the selection criterion file: "//trim(Int2Char(nIndTmp))
+        end if
+        if (nIndTmp .ne. This%nInd) then
+          write(STDERR, "(a)") " ERROR: Number of individuals in the selection criterion file and the coancestry matrix file is not the same!"
+          write(STDERR, "(a)") " ERROR: Number of individuals in the coancestry matrix file:   "//trim(Int2Char(This%nInd))
+          write(STDERR, "(a)") " ERROR: Number of individuals in the selection criterion file: "//trim(Int2Char(nIndTmp))
+          write(STDERR, "(a)") " "
+          stop 1
+        end if
+        open(newunit=SelCriterionUnit, file=Spec%SelCriterionFile, status="old")
+        do i = 1, This%nInd
+          if (Spec%PAGEPar) then
+            read(SelCriterionUnit, *) IdCTmp, SelCriterionTmp, SelCriterionTmp2
+          else
+            read(SelCriterionUnit, *) IdCTmp, SelCriterionTmp
+          end if
+          j = FindLoc(IdCTmp, This%Coancestry%OriginalId(1:))
+          if (j .eq. 0) then
+            write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp)//" from the selection criterion file not present in the coancestry matrix file!"
+            write(STDERR, "(a)") " "
+            stop 1
+          end if
+          This%SelCriterion(j) = SelCriterionTmp
+          if (Spec%PAGEPar) then
+            This%SelCriterionPAGE(j) = SelCriterionTmp2
+          end if
+        end do
+        close(SelCriterionUnit)
+      end if
+
+        ! --- Gender ---
+
+        allocate(This%Gender(This%nInd))
+        This%Gender(:) = 0
+        if (Spec%GenderFileGiven) then
+          nIndTmp = CountLines(Spec%GenderFile)
+          if (LogStdoutInternal) then
+            write(STDOUT, "(a)") " Number of individuals in the gender file: "//trim(Int2Char(nIndTmp))
+          end if
+          if (nIndTmp .ne. This%nInd) then
+            write(STDERR, "(a)") " ERROR: Number of individuals in the gender file and the coancestry matrix file is not the same!"
+            write(STDERR, "(a)") " ERROR: Number of individuals in the coancestry matrix file: "//trim(Int2Char(This%nInd))
+            write(STDERR, "(a)") " ERROR: Number of individuals in the gender file:            "//trim(Int2Char(nIndTmp))
+            write(STDERR, "(a)") " "
+            stop 1
+          end if
+
+          This%nMal = 0
+          This%nFem = 0
+
+          open(newunit=GenderUnit, file=Spec%GenderFile, status="old")
+          do i = 1, This%nInd
+            read(GenderUnit, *) IdCTmp, GenderTmp
+            if      (GenderTmp .eq. 1) then
+              This%nMal = This%nMal + 1
+            else if (GenderTmp .eq. 2) then
+              This%nFem = This%nFem + 1
+            else
+              write(STDERR, "(a)") " ERROR: Gender code must be either 1 for male individuals or 2 for female individuals!"
+              write(STDERR, "(a)") " ERROR: "//trim(Int2Char(i))//" "//trim(IdCTmp)//" "//trim(Int2Char(GenderTmp))
+              write(STDERR, "(a)") " "
+              stop 1
+            end if
+            j = FindLoc(IdCTmp, This%Coancestry%OriginalId(1:))
+            if (j == 0) then
+              write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp)//" from the gender file not present in the coancestry matrix file!"
+              write(STDERR, "(a)") " "
+              stop 1
+            end if
+            This%Gender(j) = GenderTmp
+          end do
+          close(GenderUnit)
+
+          write(STDOUT, "(a)") " Number of   males: "//trim(Int2Char(This%nMal))
+          write(STDOUT, "(a)") " Number of females: "//trim(Int2Char(This%nFem))
+          write(STDOUT, "(a)") " "
+
+          if (Spec%nPar1 > This%nMal) then
+            write(STDERR, "(a)") " ERROR: The number of male parents can not be larger than the number of males"
+            write(STDERR, "(a)") " ERROR: Number of male parents: "//trim(Int2Char(Spec%nPar1))
+            write(STDERR, "(a)") " ERROR: Number of        males: "//trim(Int2Char(This%nMal))
+            write(STDERR, "(a)") " "
+            stop 1
+          end if
+          if (Spec%nPar2 > This%nFem) then
+            write(STDERR, "(a)") " ERROR: The number of female parents can not be larger than the number of females"
+            write(STDERR, "(a)") " ERROR: Number of female parents: "//trim(Int2Char(Spec%nPar2))
+            write(STDERR, "(a)") " ERROR: Number of        females: "//trim(Int2Char(This%nFem))
+            write(STDERR, "(a)") " "
+            stop 1
+          end if
+        end if
+
+! TODO
+
+        ! --- Seed ---
+
+        if (.not. (Spec%SeedGiven .or. Spec%SeedFileGiven)) then
+          call SetSeed(Out=Spec%Seed)
+        else
+          if ((.not. Spec%SeedGiven) .and. Spec%SeedFileGiven) then
+            open(newunit=SeedUnit, file=Spec%SeedFile, status="old")
+            read(SeedUnit, *) Spec%Seed
+            close(SeedUnit)
+          end if
+        end if
+        open(newunit=SeedUnit, file="SeedUsed.txt", status="unknown")
+        write(SeedUnit, *) Spec%Seed
+        close(SeedUnit)
+        if (LogStdoutInternal) then
+          write(STDOUT, "(a)") " RNG seed: "//trim(Int2Char(Spec%Seed))
+        end if
 
     end subroutine
 
     !###########################################################################
 
-    !-------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     !> @brief  Setup colnames and formats for output
     !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date   March 16, 2017
-    !-------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     subroutine SetupColNamesAndFormats ! not pure due to setting module-wise variables
       implicit none
       integer(int32) :: nCol, nColTmp, i
@@ -1618,11 +1759,11 @@ module AlphaMateModule
 
     !###########################################################################
 
-    !-------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     !> @brief  Call various optimisations for AlphaMate
     !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date   March 16, 2017
-    !-------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     subroutine AlphaMateSearch ! not pure due to IO
 
       implicit none
@@ -1786,11 +1927,11 @@ module AlphaMateModule
 
     !###########################################################################
 
-    !-------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     !> @brief  Write AlphaMate solution to files or standard output
     !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date   March 16, 2017
-    !-------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     subroutine WriteAlphaMateSol(This, Data, Spec, ContribFile, MatingFile) ! not pure due to IO
       implicit none
 
@@ -1868,11 +2009,11 @@ module AlphaMateModule
 
     !###########################################################################
 
-    !-------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     !> @brief  Initialize AlphaMate solution
     !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date   March 16, 2017
-    !-------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     pure subroutine InitialiseAlphaMateSol(This)
       implicit none
 
@@ -1917,11 +2058,11 @@ module AlphaMateModule
 
     !###########################################################################
 
-    !-------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     !> @brief  Assign one AlphaMate solution to another
     !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date   March 16, 2017
-    !-------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     pure subroutine AssignAlphaMateSol(Out, In)
       implicit none
 
@@ -1972,11 +2113,11 @@ module AlphaMateModule
 
     !###########################################################################
 
-    !-------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     !> @brief  Update mean of AlphaMate solution (when performing random search)
     !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date   March 16, 2017
-    !-------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     pure subroutine UpdateMeanAlphaMateSol(This, Add, n)
       implicit none
 
@@ -2027,11 +2168,12 @@ module AlphaMateModule
 
     !###########################################################################
 
-    !-------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     !> @brief  AlphaMate evaluate function plus much MORE (this is the core!!!!)
     !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date   March 16, 2017
-    !-------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+! TODO: how will I pass Data and Spec here??????
     subroutine FixSolEtcMateAndEvaluate(This, Chrom, CritType)
       implicit none
       ! Arguments
@@ -2187,7 +2329,7 @@ module AlphaMateModule
             if (nCumMat .ge. Spec%nMat * g) then
               ! To cater for real vs. integer issues
               TmpI = sum(nint(Chrom(Rank(1:Spec%nPar1))))
-              if (TmpI /= Spec%nMat * g) then
+              if (TmpI .ne. Spec%nMat * g) then
                 if (TmpI .gt. Spec%nMat * g) then
                   Chrom(j) = dble(nint(Chrom(j)) - 1)
                 else
@@ -2288,7 +2430,7 @@ module AlphaMateModule
               if (nCumMat .eq. Spec%nMat) then
                 ! To cater for real vs. integer issues
                 TmpI = sum(nint(Chrom(Data%nPotPar1+Rank(1:Spec%nPar2))))
-                if (TmpI /= Spec%nMat) then
+                if (TmpI .ne. Spec%nMat) then
                   if (TmpI .gt. Spec%nMat) then
                     Chrom(j) = dble(nint(Chrom(j)) - 1)
                   else
@@ -2424,7 +2566,7 @@ module AlphaMateModule
             if (MatPar2(k) .eq. Data%IdPotPar1(i)) then
               ! Try to avoid selfing by swapping the MatPar2 and Rank elements
               do l = k, 1, -1
-                if (MatPar2(l) /= Data%IdPotPar1(i)) then
+                if (MatPar2(l) .ne. Data%IdPotPar1(i)) then
                   MatPar2([k, l]) = MatPar2([l, k])
                   Chrom(Data%nPotPar1+Rank([k, l])) = Chrom(Data%nPotPar1+Rank([l, k]))
                   exit
@@ -2586,11 +2728,11 @@ module AlphaMateModule
 
     !###########################################################################
 
-    !-------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     !> @brief  Write head of the AlphaMate log
     !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date   March 16, 2017
-    !-------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     subroutine LogHeadAlphaMateSol(LogUnit, String, StringNum) ! not pure due to IO
       implicit none
       integer(int32), intent(in), optional   :: LogUnit !< Unit to write to (default STDOUT)
@@ -2619,11 +2761,11 @@ module AlphaMateModule
 
     !###########################################################################
 
-    !-------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     !> @brief  Write the AlphaMate log
     !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date   March 16, 2017
-    !-------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     subroutine LogAlphaMateSol(This, LogUnit, Iteration, AcceptRate, String, StringNum) ! not pure due to IO
       implicit none
       class(AlphaMateSol), intent(in)        :: This       !< AlphaMateSol holder
@@ -2677,11 +2819,11 @@ module AlphaMateModule
 
     !###########################################################################
 
-    !-------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     !> @brief  Write head of the AlphaMate log - for the swarm/population of solutions
     !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date   March 16, 2017
-    !-------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     subroutine LogPopHeadAlphaMateSol(LogPopUnit) ! not pure due to IO
       implicit none
       integer(int32), intent(in), optional :: LogPopUnit  !< log file unit (default STDOUT)
@@ -2696,11 +2838,11 @@ module AlphaMateModule
 
     !###########################################################################
 
-    !-------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     !> @brief  Write the AlphaMate log - for the swarm/population of solutions
     !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date   March 16, 2017
-    !-------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     subroutine LogPopAlphaMateSol(This, LogPopUnit, Iteration, i) ! not pure due to IO
       implicit none
       class(AlphaMateSol), intent(in)      :: This       !< AlphaMateSol holder
