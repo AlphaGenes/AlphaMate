@@ -704,7 +704,7 @@ module AlphaMateModule
               if (allocated(Second)) then
                 This%nPar = Char2Int(trim(adjustl(Second(1))))
                 if (LogStdoutInternal) then
-                  write(STDOUT, "(a)") " Number of targeted parents: "//trim(Int2Char(This%nPar))
+                  write(STDOUT, "(a)") " Number of parents: "//trim(Int2Char(This%nPar))
                 end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify a number for NumberOfParents, i.e., NumberOfParents, 20"
@@ -716,7 +716,7 @@ module AlphaMateModule
               if (allocated(Second)) then
                 This%nPar1 = Char2Int(trim(adjustl(Second(1))))
                 if (LogStdoutInternal) then
-                  write(STDOUT, "(a)") " Number of targeted male parents: "//trim(Int2Char(This%nPar1))
+                  write(STDOUT, "(a)") " Number of male parents: "//trim(Int2Char(This%nPar1))
                 end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify a number for NumberOfMaleParents, i.e., NumberOfMaleParents, 10"
@@ -728,7 +728,7 @@ module AlphaMateModule
               if (allocated(Second)) then
                 This%nPar2 = Char2Int(trim(adjustl(Second(1))))
                 if (LogStdoutInternal) then
-                  write(STDOUT, "(a)") " Number of targeted female parents: "//trim(Int2Char(This%nPar2))
+                  write(STDOUT, "(a)") " Number of female parents: "//trim(Int2Char(This%nPar2))
                 end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify a number for NumberOfFemaleParents, i.e., NumberOfFemaleParents, 10"
@@ -1465,14 +1465,16 @@ module AlphaMateModule
       close(SpecUnit)
 
       if (.not. This%RelMtxFileGiven) then
-        write(STDERR, "(a)") " ERROR: Must specify CoancestryMatrixFile or NrmMatrixFile!"
+        write(STDERR, "(a)") " ERROR: One of CoancestryMatrixFile or NrmMatrixFile must be specified!"
         write(STDERR, "(a)") ""
         stop 1
       end if
 
       if (This%LimitPar .and. This%EqualizePar) then
-        write(STDOUT, "(a)") " NOTE: The specification Equalize*Contributions has priority over Limit*Contributions."
-        write(STDOUT, "(a)") " "
+        if (LogStdoutInternal) then
+          write(STDOUT, "(a)") " NOTE: The specification Equalize*Contributions has priority over Limit*Contributions."
+          write(STDOUT, "(a)") " "
+        end if
         ! ... therefore reset all limit specifications to default values
         This%LimitPar  = .false.
         This%LimitPar1 = .false.
@@ -1499,6 +1501,35 @@ module AlphaMateModule
         This%nPar = This%nPar1 + This%nPar2
       end if
 
+      if (This%nMat .le. 0) then
+        write(STDERR, "(a)") " ERROR: Number of matings must be larger than zero!"
+        write(STDERR, "(a)") " "
+        stop 1
+      end if
+
+      if (.not. This%GenderFileGiven .and. (This%nPar .le. 0)) then
+        write(STDERR, "(a)") " ERROR: Number of parents must be larger than zero!"
+        write(STDERR, "(a)") " "
+        stop 1
+      end if
+
+      if (This%GenderFileGiven .and. ((This%nPar1 .le. 0) .or. (This%nPar2 .le. 0))) then
+        write(STDERR, "(a)") " ERROR: Number of parents must be larger than zero!"
+        write(STDERR, "(a)") " ERROR: Number of   male parents: "//trim(Int2Char(This%nPar1))
+        write(STDERR, "(a)") " ERROR: Number of female parents: "//trim(Int2Char(This%nPar2))
+        write(STDERR, "(a)") " "
+        stop 1
+      end if
+
+      if (This%nMat > This%nPar) then
+        if (LogStdoutInternal) then
+          write(STDOUT, "(a)") " NOTE: Number of matings is larger than the number of parents! Was this intented?"
+          write(STDOUT, "(a)") " NOTE: Number of matings: "//trim(Int2Char(This%nMat))
+          write(STDOUT, "(a)") " NOTE: Number of parents: "//trim(Int2Char(This%nPar))
+          write(STDOUT, "(a)") " "
+        end if
+      end if
+
       if (This%GenderFileGiven .and. This%SelfingAllowed) then
         write(STDERR, "(a)") " ERROR: When gender matters, AlphaMate can not perform selfing! See the manual for a solution."
         ! @todo: what is the solution? Provide the same individual both as male and a female?
@@ -1513,9 +1544,35 @@ module AlphaMateModule
         stop 1
       end if
 
+      if (This%PAGEPar) then
+        if (This%GenderFileGiven) then
+          if (This%PAGEPar1Max .gt. This%nPar1) then
+            write(STDERR, "(a)") " ERROR: Can not PAGE more males than there are male parents!"
+            write(STDERR, "(a)") " ERROR: Number of      male parents: "//trim(Int2Char(This%nPar1))
+            write(STDERR, "(a)") " ERROR: Max number of male for PAGE: "//trim(Int2Char(This%PAGEPar1Max))
+            write(STDERR, "(a)") " "
+          end if
+          if (This%PAGEPar2Max .gt. This%nPar2) then
+            write(STDERR, "(a)") " ERROR: Can not PAGE more females than there are female parents!"
+            write(STDERR, "(a)") " ERROR: Number of      female parents: "//trim(Int2Char(This%nPar2))
+            write(STDERR, "(a)") " ERROR: Max number of female for PAGE: "//trim(Int2Char(This%PAGEPar2Max))
+            write(STDERR, "(a)") " "
+          end if
+        else
+          if (This%PAGEParMax .gt. This%nPar) then
+            write(STDERR, "(a)") " ERROR: Can not PAGE more individuals than there are parents!"
+            write(STDERR, "(a)") " ERROR: Number of                  parents: "//trim(Int2Char(This%nPar))
+            write(STDERR, "(a)") " ERROR: Max number of individuals for PAGE: "//trim(Int2Char(This%PAGEParMax))
+            write(STDERR, "(a)") " "
+          end if
+        end if
+      end if
+
       if (This%SeedFileGiven .and. This%SeedGiven) then
-        write(STDOUT, "(a)") " NOTE: The specification Seed has priority over SeedFile."
-        write(STDOUT, "(a)") " "
+        if (LogStdoutInternal) then
+          write(STDOUT, "(a)") " NOTE: The specification Seed has priority over SeedFile."
+          write(STDOUT, "(a)") " "
+        end if
         This%SeedFile = ""
         This%SeedFileGiven = .false.
       end if
@@ -1524,7 +1581,8 @@ module AlphaMateModule
     !###########################################################################
 
     !---------------------------------------------------------------------------
-    !> @brief  Read AlphaMate data from a file and summarize it for further use
+    !> @brief  Read AlphaMate data from a file, check specifications against the
+    !!         data, and summarize data for further use
     !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date   March 16, 2017
     !---------------------------------------------------------------------------
@@ -1534,7 +1592,7 @@ module AlphaMateModule
       type(AlphaMateSpec), intent(inout) :: Spec      !< AlphaMateSpec holder
       logical, optional                  :: LogStdout !< Log process on stdout (default .false.)
 
-      integer(int32) :: i, j, nIndTmp, GenderTmp
+      integer(int32) :: Ind, IndLoc, nIndTmp, GenderTmp
       integer(int32) :: SelCriterionUnit, GenderUnit, SeedUnit
 
       real(real64) :: SelCriterionTmp, SelCriterionTmp2
@@ -1564,6 +1622,14 @@ module AlphaMateModule
         write(STDOUT, "(a)") " Number of individuals in the coancestry matrix file: "//trim(Int2Char(This%nInd))
       end if
 
+      if (This%nInd .lt. Spec%nPar) then
+        write(STDERR, "(a)") "ERROR: Number of individuals can not be smaller than number of parents!"
+        write(STDERR, "(a)") "ERROR: Number of individuals: "//trim(Int2Char(This%nInd))
+        write(STDERR, "(a)") "ERROR: Number of     parents: "//trim(Int2Char(Spec%nPar))
+        write(STDERR, "(a)") " "
+        stop 1
+      end if
+
       ! --- Selection criterion ---
 
       allocate(This%SelCriterion(This%nInd))
@@ -1589,108 +1655,176 @@ module AlphaMateModule
           stop 1
         end if
         open(newunit=SelCriterionUnit, file=Spec%SelCriterionFile, status="old")
-        do i = 1, This%nInd
+        do Ind = 1, This%nInd
           if (Spec%PAGEPar) then
             read(SelCriterionUnit, *) IdCTmp, SelCriterionTmp, SelCriterionTmp2
           else
             read(SelCriterionUnit, *) IdCTmp, SelCriterionTmp
           end if
-          j = FindLoc(IdCTmp, This%Coancestry%OriginalId(1:))
-          if (j .eq. 0) then
+          IndLoc = FindLoc(IdCTmp, This%Coancestry%OriginalId(1:))
+          if (IndLoc .eq. 0) then
             write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp)//" from the selection criterion file not present in the coancestry matrix file!"
             write(STDERR, "(a)") " "
             stop 1
           end if
-          This%SelCriterion(j) = SelCriterionTmp
+          This%SelCriterion(IndLoc) = SelCriterionTmp
           if (Spec%PAGEPar) then
-            This%SelCriterionPAGE(j) = SelCriterionTmp2
+            This%SelCriterionPAGE(IndLoc) = SelCriterionTmp2
           end if
         end do
         close(SelCriterionUnit)
       end if
 
-        ! --- Gender ---
+      ! --- Gender ---
 
-        allocate(This%Gender(This%nInd))
-        This%Gender(:) = 0
-        if (Spec%GenderFileGiven) then
-          nIndTmp = CountLines(Spec%GenderFile)
-          if (LogStdoutInternal) then
-            write(STDOUT, "(a)") " Number of individuals in the gender file: "//trim(Int2Char(nIndTmp))
-          end if
-          if (nIndTmp .ne. This%nInd) then
-            write(STDERR, "(a)") " ERROR: Number of individuals in the gender file and the coancestry matrix file is not the same!"
-            write(STDERR, "(a)") " ERROR: Number of individuals in the coancestry matrix file: "//trim(Int2Char(This%nInd))
-            write(STDERR, "(a)") " ERROR: Number of individuals in the gender file:            "//trim(Int2Char(nIndTmp))
-            write(STDERR, "(a)") " "
-            stop 1
-          end if
-
-          This%nMal = 0
-          This%nFem = 0
-
-          open(newunit=GenderUnit, file=Spec%GenderFile, status="old")
-          do i = 1, This%nInd
-            read(GenderUnit, *) IdCTmp, GenderTmp
-            if      (GenderTmp .eq. 1) then
-              This%nMal = This%nMal + 1
-            else if (GenderTmp .eq. 2) then
-              This%nFem = This%nFem + 1
-            else
-              write(STDERR, "(a)") " ERROR: Gender code must be either 1 for male individuals or 2 for female individuals!"
-              write(STDERR, "(a)") " ERROR: "//trim(Int2Char(i))//" "//trim(IdCTmp)//" "//trim(Int2Char(GenderTmp))
-              write(STDERR, "(a)") " "
-              stop 1
-            end if
-            j = FindLoc(IdCTmp, This%Coancestry%OriginalId(1:))
-            if (j == 0) then
-              write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp)//" from the gender file not present in the coancestry matrix file!"
-              write(STDERR, "(a)") " "
-              stop 1
-            end if
-            This%Gender(j) = GenderTmp
-          end do
-          close(GenderUnit)
-
-          write(STDOUT, "(a)") " Number of   males: "//trim(Int2Char(This%nMal))
-          write(STDOUT, "(a)") " Number of females: "//trim(Int2Char(This%nFem))
-          write(STDOUT, "(a)") " "
-
-          if (Spec%nPar1 > This%nMal) then
-            write(STDERR, "(a)") " ERROR: The number of male parents can not be larger than the number of males"
-            write(STDERR, "(a)") " ERROR: Number of male parents: "//trim(Int2Char(Spec%nPar1))
-            write(STDERR, "(a)") " ERROR: Number of        males: "//trim(Int2Char(This%nMal))
-            write(STDERR, "(a)") " "
-            stop 1
-          end if
-          if (Spec%nPar2 > This%nFem) then
-            write(STDERR, "(a)") " ERROR: The number of female parents can not be larger than the number of females"
-            write(STDERR, "(a)") " ERROR: Number of female parents: "//trim(Int2Char(Spec%nPar2))
-            write(STDERR, "(a)") " ERROR: Number of        females: "//trim(Int2Char(This%nFem))
-            write(STDERR, "(a)") " "
-            stop 1
-          end if
+      allocate(This%Gender(This%nInd))
+      This%Gender(:) = 0
+      if (Spec%GenderFileGiven) then
+        nIndTmp = CountLines(Spec%GenderFile)
+        if (LogStdoutInternal) then
+          write(STDOUT, "(a)") " Number of individuals in the gender file: "//trim(Int2Char(nIndTmp))
         end if
+        if (nIndTmp .ne. This%nInd) then
+          write(STDERR, "(a)") " ERROR: Number of individuals in the gender file and the coancestry matrix file is not the same!"
+          write(STDERR, "(a)") " ERROR: Number of individuals in the coancestry matrix file: "//trim(Int2Char(This%nInd))
+          write(STDERR, "(a)") " ERROR: Number of individuals in the gender file:            "//trim(Int2Char(nIndTmp))
+          write(STDERR, "(a)") " "
+          stop 1
+        end if
+
+        This%nMal = 0
+        This%nFem = 0
+
+        open(newunit=GenderUnit, file=Spec%GenderFile, status="old")
+        do Ind = 1, This%nInd
+          read(GenderUnit, *) IdCTmp, GenderTmp
+          if      (GenderTmp .eq. 1) then
+            This%nMal = This%nMal + 1
+          else if (GenderTmp .eq. 2) then
+            This%nFem = This%nFem + 1
+          else
+            write(STDERR, "(a)") " ERROR: Gender code must be either 1 for male individuals or 2 for female individuals!"
+            write(STDERR, "(a)") " ERROR: "//trim(Int2Char(Ind))//" "//trim(IdCTmp)//" "//trim(Int2Char(GenderTmp))
+            write(STDERR, "(a)") " "
+            stop 1
+          end if
+          IndLoc = FindLoc(IdCTmp, This%Coancestry%OriginalId(1:))
+          if (IndLoc .eq. 0) then
+            write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp)//" from the gender file not present in the coancestry matrix file!"
+            write(STDERR, "(a)") " "
+            stop 1
+          end if
+          This%Gender(IndLoc) = GenderTmp
+        end do
+        close(GenderUnit)
+
+        write(STDOUT, "(a)") " Number of   males: "//trim(Int2Char(This%nMal))
+        write(STDOUT, "(a)") " Number of females: "//trim(Int2Char(This%nFem))
+
+        if (Spec%nPar1 > This%nMal) then
+          write(STDERR, "(a)") " ERROR: Number of male parents can not be larger than number of males"
+          write(STDERR, "(a)") " ERROR: Number of male parents: "//trim(Int2Char(Spec%nPar1))
+          write(STDERR, "(a)") " ERROR: Number of        males: "//trim(Int2Char(This%nMal))
+          write(STDERR, "(a)") " "
+          stop 1
+        end if
+        if (Spec%nPar2 > This%nFem) then
+          write(STDERR, "(a)") " ERROR: Number of female parents can not be larger than number of females"
+          write(STDERR, "(a)") " ERROR: Number of female parents: "//trim(Int2Char(Spec%nPar2))
+          write(STDERR, "(a)") " ERROR: Number of        females: "//trim(Int2Char(This%nFem))
+          write(STDERR, "(a)") " "
+          stop 1
+        end if
+      end if
+
+      ! --- Define potential parents ---
+
+      if (.not. Spec%GenderFileGiven) then
+        This%nPotPar1 = This%nInd
+        This%nPotPar2 = This%nInd
+        allocate(This%IdPotPar1(This%nPotPar1))
+        do Ind = 1, This%nInd
+          This%IdPotPar1(Ind) = Ind
+        end do
+      else
+        This%nPotPar1 = This%nMal
+        This%nPotPar2 = This%nFem
+        allocate(This%IdPotPar1(This%nPotPar1))
+        allocate(This%IdPotPar2(This%nPotPar2))
+        allocate(This%IdPotParSeq(This%nInd))
+        block
+          integer(int32) :: jMal, jFem
+          jMal = 0
+          jFem = 0
+          do Ind = 1, This%nInd
+            if (This%Gender(Ind) .eq. 1) then
+              jMal = jMal + 1
+              This%IdPotPar1(jMal) = Ind
+              This%IdPotParSeq(Ind) = jMal
+            else
+              jFem = jFem + 1
+              This%IdPotPar2(jFem) = Ind
+              This%IdPotParSeq(Ind) = jFem
+            end if
+          end do
+        end block
+      end if
+
+
+      ! --- Number of all potential matings ---
+
+      if (Spec%GenderFileGiven) then
+        This%nPotMat = This%nPotPar1 * This%nPotPar2
+      else
+        This%nPotMat = real(This%nPotPar1 * This%nPotPar1) / 2
+        if (Spec%SelfingAllowed) then
+          This%nPotMat = nint(This%nPotMat + real(This%nPotPar1) / 2)
+        else
+          This%nPotMat = nint(This%nPotMat - real(This%nPotPar1) / 2)
+        end if
+      end if
+
+      if (Spec%nMat .gt. This%nPotMat) then
+        ! @todo what about MOET, AI, JIVET, ... etc?
+        write(STDERR, "(a)") " ERROR: Number of specified matings is larger than the number of all potential matings!"
+        write(STDERR, "(a)") " ERROR: Number of all potential matings: "//trim(Int2Char(This%nPotMat))
+        write(STDERR, "(a)") " ERROR: Number of     specified matings: "//trim(Int2Char(Spec%nMat))
+        if (Spec%GenderFileGiven) then
+          write(STDERR, "(a)") " ERROR: = no. of males * no. of females"
+          write(STDERR, "(a)") " ERROR: = (no. of males = "//trim(Int2Char(This%nPotPar1))//", no. of females = "//trim(Int2Char(This%nPotPar2))
+        else
+          if (Spec%SelfingAllowed) then
+            write(STDERR, "(a)") " ERROR: = half-diallel including selfing"
+            write(STDERR, "(a)") " ERROR: = no. of individuals * no. of individuals / 2 + individuals / 2"
+          else
+            write(STDERR, "(a)") " ERROR: = half-diallel excluding selfing"
+            write(STDERR, "(a)") " ERROR: = no. of individuals * no. of individuals / 2 - individuals / 2"
+          end if
+          write(STDERR, "(a)") " ERROR:   (no. of individuals = "//trim(Int2Char(This%nPotPar1))//")"
+        end if
+        write(STDERR, "(a)") " "
+        stop 1
+      end if
 
 ! TODO
 
-        ! --- Seed ---
+      ! --- Seed ---
 
-        if (.not. (Spec%SeedGiven .or. Spec%SeedFileGiven)) then
-          call SetSeed(Out=Spec%Seed)
-        else
-          if ((.not. Spec%SeedGiven) .and. Spec%SeedFileGiven) then
-            open(newunit=SeedUnit, file=Spec%SeedFile, status="old")
-            read(SeedUnit, *) Spec%Seed
-            close(SeedUnit)
-          end if
+      if (.not. (Spec%SeedGiven .or. Spec%SeedFileGiven)) then
+        call SetSeed(Out=Spec%Seed)
+      else
+        if ((.not. Spec%SeedGiven) .and. Spec%SeedFileGiven) then
+          open(newunit=SeedUnit, file=Spec%SeedFile, status="old")
+          read(SeedUnit, *) Spec%Seed
+          close(SeedUnit)
         end if
-        open(newunit=SeedUnit, file="SeedUsed.txt", status="unknown")
-        write(SeedUnit, *) Spec%Seed
-        close(SeedUnit)
-        if (LogStdoutInternal) then
-          write(STDOUT, "(a)") " RNG seed: "//trim(Int2Char(Spec%Seed))
-        end if
+      end if
+      open(newunit=SeedUnit, file="SeedUsed.txt", status="unknown")
+      write(SeedUnit, *) Spec%Seed
+      close(SeedUnit)
+      if (LogStdoutInternal) then
+        write(STDOUT, "(a)") " RNG seed: "//trim(Int2Char(Spec%Seed))
+      end if
 
     end subroutine
 
