@@ -1705,7 +1705,7 @@ module AlphaMateModule
       type(AlphaMateSpec), intent(inout) :: Spec      !< AlphaMateSpec holder
       logical, optional                  :: LogStdout !< Log process on stdout (default .false.)
 
-      integer(int32) :: Ind, IndLoc, IndLoc2, nIndTmp, Mat, nMatTmp, GenderTmp, l, m, IndPair(2)
+      integer(int32) :: Ind, IndLoc, IndLoc2, nIndTmp, Mat, nMatTmp, GenderTmp, l, m, IndPair(2), Crit
       integer(int32) :: SelCriterionUnit, GenderUnit, GenericIndCritUnit, GenericMatCritUnit, SeedUnit
       integer(int32) :: CoancestrySummaryUnit, InbreedingSummaryUnit, CriterionSummaryUnit
       integer(int32) :: GenericIndCritSummaryUnit, GenericMatCritSummaryUnit
@@ -2177,6 +2177,10 @@ module AlphaMateModule
           stop 1
         end if
 
+        open(newunit=CriterionSummaryUnit, file="SelCriterionSummary.txt", status="unknown")
+        write(CriterionSummaryUnit, "(a, f)") "Mean, ", This%SelCriterionStat%Mean
+        close(CriterionSummaryUnit)
+
         if (Spec%PAGEPar) then
           ! must have the same scale as selection criterion!!!!
           This%SelCriterionPAGEStand(:) = (This%SelCriterionPAGE(:) - This%SelCriterionStat%Mean) / This%SelCriterionStat%SD
@@ -2198,8 +2202,79 @@ module AlphaMateModule
             write(STDERR, "(a)") " "
             stop 1
           end if
+
+          open(newunit=CriterionSummaryUnit, file="PAGESummary.txt", status="unknown")
+          write(CriterionSummaryUnit, "(a, f)") "Mean, ", This%SelCriterionPAGEStat%Mean
+          close(CriterionSummaryUnit)
         end if
 
+      end if
+
+      ! --- Generic individual values ---
+
+      if (Spec%GenericIndCritGiven) then
+        if (LogStdoutInternal) then
+          write(STDOUT, "(a)") " "
+          write(STDOUT, "(a)") " Generic individual selection criterion summary"
+        end if
+
+        open(newunit=GenericIndCritSummaryUnit, file="GenericIndCritSummary.txt", status="unknown")
+
+        allocate(This%GenericIndCritStat(Spec%nGenericIndCrit))
+        do Crit = 1, Spec%nGenericIndCrit
+          write(STDOUT, "(a)") " "
+          write(STDOUT, "(a)") "  - criterion "//trim(Int2Char(Crit))
+          This%GenericIndCritStat(Crit) = DescStat(This%GenericIndCrit(:, Crit))
+          write(STDOUT, "(a)") "    - average: "//trim(Real2Char(This%GenericIndCritStat(Crit)%Mean, fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(This%GenericIndCritStat(Crit)%SD,   fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(This%GenericIndCritStat(Crit)%Min,  fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(This%GenericIndCritStat(Crit)%Max,  fmt=FMTREAL2CHAR))
+          write(GenericIndCritSummaryUnit, "(a, f)") "Mean criterion "//trim(Int2Char(Crit)), This%GenericIndCritStat(Crit)%Mean
+        end do
+
+        close(GenericIndCritSummaryUnit)
+      end if
+
+      ! --- Generic mating values ---
+
+      if (Spec%GenericMatCritGiven) then
+        if (LogStdoutInternal) then
+          write(STDOUT, "(a)") " "
+          write(STDOUT, "(a)") " Generic mating selection criterion summary"
+        end if
+
+        open(newunit=GenericMatCritSummaryUnit, file="GenericMatCritSummary.txt", status="unknown")
+
+        allocate(This%GenericMatCritStat(Spec%nGenericMatCrit))
+        do Crit = 1, Spec%nGenericMatCrit
+          write(STDOUT, "(a)") " "
+          write(STDOUT, "(a)") "  - criterion "//trim(Int2Char(Crit))
+          if (Spec%GenderGiven) then
+            Data%GenericMatCritStat(Crit) = DescStatMatrix(This%GenericMatCrit(:, :, Crit))
+            write(STDOUT, "(a)") "    - average: "//trim(Real2Char(This%GenericMatCritStat(Crit)%All%Mean, fmt=FMTREAL2CHAR))
+            write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(This%GenericMatCritStat(Crit)%All%SD,   fmt=FMTREAL2CHAR))
+            write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(This%GenericMatCritStat(Crit)%All%Min,  fmt=FMTREAL2CHAR))
+            write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(This%GenericMatCritStat(Crit)%All%Max,  fmt=FMTREAL2CHAR))
+            write(GenericMatCritSummaryUnit, "(a, f)") "Mean criterion "//trim(Int2Char(Crit)), This%GenericMatCritStat(Crit)%All%Mean
+          else
+            if (Spec%SelfingAllowed) then
+              This%GenericMatCritStat(Crit) = DescStatLowTriMatrix(This%GenericMatCrit(:, :, Crit))
+              write(STDOUT, "(a)") "    - average: "//trim(Real2Char(This%GenericMatCritStat(Crit)%All%Mean, fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(This%GenericMatCritStat(Crit)%All%SD,   fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(This%GenericMatCritStat(Crit)%All%Min,  fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(This%GenericMatCritStat(Crit)%All%Max,  fmt=FMTREAL2CHAR))
+              write(GenericMatCritSummaryUnit, "(a, f)") "Mean criterion "//trim(Int2Char(Crit)), This%GenericMatCritStat(Crit)%All%Mean
+            end if
+              This%GenericMatCritStat(Crit) = DescStatLowTriMatrix(This%GenericMatCrit(:, :, Crit), Diag=.false.)
+              write(STDOUT, "(a)") "    - average: "//trim(Real2Char(This%GenericMatCritStat(Crit)%OffDiag%Mean, fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(This%GenericMatCritStat(Crit)%OffDiag%SD,   fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(This%GenericMatCritStat(Crit)%OffDiag%Min,  fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(This%GenericMatCritStat(Crit)%OffDiag%Max,  fmt=FMTREAL2CHAR))
+              write(GenericMatCritSummaryUnit, "(a, f)") "Mean criterion "//trim(Int2Char(Crit)), This%GenericMatCritStat(Crit)%OffDiag%Mean
+          end if
+        end do
+
+        close(GenericMatCritSummaryUnit)
       end if
 
     end subroutine
