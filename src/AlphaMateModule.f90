@@ -80,7 +80,7 @@ module AlphaMateModule
     character(len=FILELENGTH) :: SpecFile, RelMtxFile, SelCriterionFile, GenderFile, SeedFile
     character(len=FILELENGTH) :: GenericIndCritFile, GenericMatCritFile
     character(len=FILELENGTH) :: OutputBasename
-    logical :: RelMtxFileGiven, SelCriterionFileGiven, GenderFileGiven, SeedFileGiven, GenericIndCritFileGiven, GenericMatCritFileGiven
+    logical :: RelMtxGiven, SelCriterionGiven, GenderGiven, SeedFileGiven, GenericIndCritGiven, GenericMatCritGiven
 
     ! Biological specifications
     logical :: NrmInsteadOfCoancestry
@@ -91,7 +91,6 @@ module AlphaMateModule
     logical :: EqualizePar, EqualizePar1, EqualizePar2, LimitPar, LimitPar1, LimitPar2
     real(real64) :: LimitParMin, LimitPar1Min, LimitPar2Min, LimitParMax, LimitPar1Max, LimitPar2Max, LimitParMinWeight, LimitPar1MinWeight, LimitPar2MinWeight
     integer(int32) :: nGenericIndCrit, nGenericMatCrit
-    logical :: GenericIndCritGiven, GenericMatCritGiven
     real(real64), allocatable :: GenericIndCritWeight(:), GenericMatCritWeight(:)
     logical :: SelfingAllowed, TargetCoancestryRateWeightBelow, TargetInbreedingRateWeightBelow
     logical :: PAGEPar, PAGEPar1, PAGEPar2
@@ -339,9 +338,9 @@ module AlphaMateModule
       This%nGenericMatCrit = 0
       This%SeedFile = ""
 
-      This%RelMtxFileGiven = .false.
-      This%SelCriterionFileGiven = .false.
-      This%GenderFileGiven = .false.
+      This%RelMtxGiven = .false.
+      This%SelCriterionGiven = .false.
+      This%GenderGiven = .false.
       This%GenericIndCritGiven = .false.
       This%GenericMatCritGiven = .false.
       This%SeedFileGiven = .false.
@@ -533,7 +532,7 @@ module AlphaMateModule
                   if (LogStdoutInternal) then
                     write(STDOUT, "(a)") " Coancestry matrix file: "//trim(This%RelMtxFile)
                   end if
-                  This%RelMtxFileGiven = .true.
+                  This%RelMtxGiven = .true.
                 end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify a file for CoancestryMatrixFile, i.e., CoancestryMatrixFile, CoaMtx.txt"
@@ -549,7 +548,7 @@ module AlphaMateModule
                   if (LogStdoutInternal) then
                     write(STDOUT, "(a)") " Numerator relationship matrix file: "//trim(This%RelMtxFile)
                   end if
-                  This%RelMtxFileGiven = .true.
+                  This%RelMtxGiven = .true.
                   This%NrmInsteadOfCoancestry = .true.
                 else
                   write(STDERR, "(a)") " ERROR: Must specify a file for NrmMatrixFile, i.e., NrmMatrixFile, NrmMtx.txt"
@@ -570,7 +569,7 @@ module AlphaMateModule
                   if (LogStdoutInternal) then
                     write(STDOUT, "(a)") " Selection criterion file: "//trim(This%SelCriterionFile)
                   end if
-                  This%SelCriterionFileGiven = .true.
+                  This%SelCriterionGiven = .true.
                 end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify a file for SelCriterionFile, i.e., SelCriterionFile, SelCrit.txt"
@@ -586,7 +585,7 @@ module AlphaMateModule
                   if (LogStdoutInternal) then
                     write(STDOUT, "(a)") " Gender file: "//trim(This%GenderFile)
                   end if
-                  This%GenderFileGiven = .true.
+                  This%GenderGiven = .true.
                 end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify a file for GenderFile, i.e., GenderFile, Gender.txt"
@@ -611,7 +610,7 @@ module AlphaMateModule
               end if
 
             case ("genericindividualcriterioncolumns")
-              if (This%GenericIndCritFileGiven) then
+              if (This%GenericIndCritGiven) then
                 if (allocated(Second)) then
                   This%nGenericIndCrit = Char2Int(trim(adjustl(Second(1))))
                   if (LogStdoutInternal) then
@@ -627,7 +626,7 @@ module AlphaMateModule
               end if
 
             case ("genericindividualcriterionweight")
-              if (This%GenericIndCritFileGiven) then
+              if (This%GenericIndCritGiven) then
                 if (allocated(Second)) then
                   nGenericIndCrit = nGenericIndCrit + 1
                   This%GenericIndCritWeight(nGenericIndCrit) = Char2Double(trim(adjustl(Second(1))))
@@ -658,7 +657,7 @@ module AlphaMateModule
               end if
 
             case ("genericmatingcriterioncolumns")
-              if (This%GenericMatCritFileGiven) then
+              if (This%GenericMatCritGiven) then
                 if (allocated(Second)) then
                   This%nGenericMatCrit = Char2Int(trim(adjustl(Second(1))))
                   if (LogStdoutInternal) then
@@ -674,7 +673,7 @@ module AlphaMateModule
               end if
 
             case ("genericmatingcriterionweight")
-              if (This%GenericMatCritFileGiven) then
+              if (This%GenericMatCritGiven) then
                 if (allocated(Second)) then
                   nGenericMatCrit = nGenericMatCrit + 1
                   This%GenericMatCritWeight(nGenericMatCrit) = Char2Double(trim(adjustl(Second(1))))
@@ -1464,7 +1463,7 @@ module AlphaMateModule
       end do ReadSpec
       close(SpecUnit)
 
-      if (.not. This%RelMtxFileGiven) then
+      if (.not. This%RelMtxGiven) then
         write(STDERR, "(a)") " ERROR: One of CoancestryMatrixFile or NrmMatrixFile must be specified!"
         write(STDERR, "(a)") ""
         stop 1
@@ -1490,14 +1489,14 @@ module AlphaMateModule
         This%LimitPar2MinWeight = 0.0d0
       end if
 
-      if (.not. This%GenderFileGiven) then
+      if (.not. This%GenderGiven) then
         This%nPar1 = This%nPar
         This%EqualizePar1 = This%EqualizePar
         This%LimitPar1 = This%LimitPar
         This%PAGEPar1 = This%PAGEPar
       end if
 
-      if (This%GenderFileGiven) then
+      if (This%GenderGiven) then
         This%nPar = This%nPar1 + This%nPar2
       end if
 
@@ -1507,13 +1506,13 @@ module AlphaMateModule
         stop 1
       end if
 
-      if (.not. This%GenderFileGiven .and. (This%nPar .le. 0)) then
+      if (.not. This%GenderGiven .and. (This%nPar .le. 0)) then
         write(STDERR, "(a)") " ERROR: Number of parents must be larger than zero!"
         write(STDERR, "(a)") " "
         stop 1
       end if
 
-      if (This%GenderFileGiven .and. ((This%nPar1 .le. 0) .or. (This%nPar2 .le. 0))) then
+      if (This%GenderGiven .and. ((This%nPar1 .le. 0) .or. (This%nPar2 .le. 0))) then
         write(STDERR, "(a)") " ERROR: Number of parents must be larger than zero!"
         write(STDERR, "(a)") " ERROR: Number of   male parents: "//trim(Int2Char(This%nPar1))
         write(STDERR, "(a)") " ERROR: Number of female parents: "//trim(Int2Char(This%nPar2))
@@ -1530,14 +1529,14 @@ module AlphaMateModule
         end if
       end if
 
-      if (This%GenderFileGiven .and. This%SelfingAllowed) then
+      if (This%GenderGiven .and. This%SelfingAllowed) then
         write(STDERR, "(a)") " ERROR: When gender matters, AlphaMate can not perform selfing! See the manual for a solution."
         ! @todo: what is the solution? Provide the same individual both as male and a female?
         write(STDERR, "(a)") " "
         stop 1
       end if
 
-      if ((.not. This%SelCriterionFileGiven) .and. This%PAGEPar) then
+      if ((.not. This%SelCriterionGiven) .and. This%PAGEPar) then
         write(STDERR, "(a)") " ERROR: Can not use PAGE when selection criterion file is not given!"
         ! @todo: what about using the GenericIndCrit values?
         write(STDERR, "(a)") " "
@@ -1545,7 +1544,7 @@ module AlphaMateModule
       end if
 
       if (This%PAGEPar) then
-        if (This%GenderFileGiven) then
+        if (This%GenderGiven) then
           if (This%PAGEPar1Max .gt. This%nPar1) then
             write(STDERR, "(a)") " ERROR: Can not PAGE more males than there are male parents!"
             write(STDERR, "(a)") " ERROR: Number of      male parents: "//trim(Int2Char(This%nPar1))
@@ -1592,12 +1591,13 @@ module AlphaMateModule
       type(AlphaMateSpec), intent(inout) :: Spec      !< AlphaMateSpec holder
       logical, optional                  :: LogStdout !< Log process on stdout (default .false.)
 
-      integer(int32) :: Ind, IndLoc, nIndTmp, GenderTmp
-      integer(int32) :: SelCriterionUnit, GenderUnit, SeedUnit
+      integer(int32) :: Ind, IndLoc, IndLoc2, nIndTmp, Mat, nMatTmp, GenderTmp, l, m, IndPair(2)
+      integer(int32) :: SelCriterionUnit, GenderUnit, GenericIndCritUnit, GenericMatCritUnit, SeedUnit
 
       real(real64) :: SelCriterionTmp, SelCriterionTmp2
+      real(real64), allocatable :: GenericIndCritTmp(:), GenericMatCritTmp(:)
 
-      character(len=IDLENGTH) :: IdCTmp
+      character(len=IDLENGTH) :: IdCTmp, IdCTmp2
 
       logical :: LogStdoutInternal
       if (present(LogStdout)) then
@@ -1639,7 +1639,7 @@ module AlphaMateModule
         allocate(This%SelCriterionPAGEStand(This%nInd))
       end if
 
-      if (.not. Spec%SelCriterionFileGiven) then
+      if (.not. Spec%SelCriterionGiven) then
         This%SelCriterion(:) = 0.0d0
         This%SelCriterionStand(:) = 0.0d0
       else
@@ -1679,7 +1679,7 @@ module AlphaMateModule
 
       allocate(This%Gender(This%nInd))
       This%Gender(:) = 0
-      if (Spec%GenderFileGiven) then
+      if (Spec%GenderGiven) then
         nIndTmp = CountLines(Spec%GenderFile)
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " Number of individuals in the gender file: "//trim(Int2Char(nIndTmp))
@@ -1739,7 +1739,7 @@ module AlphaMateModule
 
       ! --- Define potential parents ---
 
-      if (.not. Spec%GenderFileGiven) then
+      if (.not. Spec%GenderGiven) then
         This%nPotPar1 = This%nInd
         This%nPotPar2 = This%nInd
         allocate(This%IdPotPar1(This%nPotPar1))
@@ -1773,7 +1773,7 @@ module AlphaMateModule
 
       ! --- Number of all potential matings ---
 
-      if (Spec%GenderFileGiven) then
+      if (Spec%GenderGiven) then
         This%nPotMat = This%nPotPar1 * This%nPotPar2
       else
         This%nPotMat = real(This%nPotPar1 * This%nPotPar1) / 2
@@ -1789,7 +1789,7 @@ module AlphaMateModule
         write(STDERR, "(a)") " ERROR: Number of specified matings is larger than the number of all potential matings!"
         write(STDERR, "(a)") " ERROR: Number of all potential matings: "//trim(Int2Char(This%nPotMat))
         write(STDERR, "(a)") " ERROR: Number of     specified matings: "//trim(Int2Char(Spec%nMat))
-        if (Spec%GenderFileGiven) then
+        if (Spec%GenderGiven) then
           write(STDERR, "(a)") " ERROR: = no. of males * no. of females"
           write(STDERR, "(a)") " ERROR: = (no. of males = "//trim(Int2Char(This%nPotPar1))//", no. of females = "//trim(Int2Char(This%nPotPar2))
         else
@@ -1806,7 +1806,103 @@ module AlphaMateModule
         stop 1
       end if
 
-! TODO
+      ! --- Generic individual criterion ---
+
+      if (Spec%GenericIndCritGiven) then
+        nIndTmp = CountLines(Spec%GenericIndCritFile)
+        if (LogStdoutInternal) then
+          write(STDOUT, "(a)") " Number of individuals in the generic individual criterion file: "//trim(Int2Char(nIndTmp))
+        end if
+        if (nIndTmp .ne. This%nInd) then
+          write(STDERR, "(a)") " ERROR: Number of individuals in the generic individual criterion file and the coancestry matrix file is not the same!"
+          write(STDERR, "(a)") " ERROR: Number of individuals in the generic individual criterion file: "//trim(Int2Char(nIndTmp))
+          write(STDERR, "(a)") " ERROR: Number of individuals in the coancestry matrix file:            "//trim(Int2Char(This%nInd))
+          write(STDERR, "(a)") " "
+          stop 1
+        end if
+        allocate(This%GenericIndCrit(This%nInd, Spec%nGenericIndCrit))
+        allocate(GenericIndCritTmp(Spec%nGenericIndCrit))
+        This%GenericIndCrit(:, :) = 0.0d0
+        open(newunit=GenericIndCritUnit, file=Spec%GenericIndCritFile, status="unknown")
+        do Ind = 1, This%nInd
+          read(GenericIndCritUnit, *) IdCTmp, GenericIndCritTmp(:)
+          IndLoc = FindLoc(IdCTmp, This%Coancestry%OriginalId(1:))
+          if (IndLoc .eq. 0) then
+            write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp)//" from the generic individual criterion file not present in the coancestry matrix file!"
+            write(STDERR, "(a)") " "
+            stop 1
+          end if
+          This%GenericIndCrit(IndLoc, :) = GenericIndCritTmp(:)
+        end do
+        close(GenericIndCritUnit)
+      end if
+
+      ! --- Generic mating criterion ---
+
+      if (Spec%GenericMatCritGiven) then
+        nMatTmp = CountLines(Spec%GenericMatCritFile)
+        if (LogStdoutInternal) then
+          write(STDOUT, "(a)") " Number of matings in the generic mating criterion file: "//trim(Int2Char(nMatTmp))
+        end if
+        if (nMatTmp .ne. This%nPotMat) then
+          write(STDERR, "(a)") " ERROR: Number of matings in the generic mating criterion file and the number of all potential matings is not the same!"
+          write(STDERR, "(a)") " ERROR: Number of matings in the generic mating criterion file: "//trim(Int2Char(nMatTmp))
+          write(STDERR, "(a)") " ERROR: Number of all potential matings:                        "//trim(Int2Char(This%nPotMat))
+          write(STDERR, "(a)") " "
+          stop 1
+        end if
+        allocate(This%GenericMatCrit(This%nPotPar1, This%nPotPar2, Spec%nGenericMatCrit))
+        allocate(GenericMatCritTmp(Spec%nGenericMatCrit))
+        This%GenericMatCrit(:, :, :) = 0.0d0
+        open(newunit=GenericMatCritUnit, file=Spec%GenericMatCritFile, status="unknown")
+        do Mat = 1, This%nPotMat
+          read(GenericMatCritUnit, *) IdCTmp, IdCTmp2, GenericMatCritTmp(:)
+          IndLoc = FindLoc(IdCTmp, This%Coancestry%OriginalId(1:))
+          if (IndLoc .eq. 0) then
+            write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp)//" from the generic mating criterion file not present in the coancestry matrix file!"
+            write(STDERR, "(a)") " "
+            stop 1
+          end if
+          IndLoc2 = FindLoc(IdCTmp2, This%Coancestry%OriginalId(1:))
+          if (IndLoc2 .eq. 0) then
+            write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp2)//" from the generic mating criterion file not present in the coancestry matrix file!"
+            write(STDERR, "(a)") " "
+            stop 1
+          end if
+          if (Spec%GenderGiven) then
+            l = FindLoc(IndLoc, This%IdPotPar1)
+            if (l .eq. 0) then
+              write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp)//" from the first column in the generic mating criterion file should be a male!"
+              write(STDERR, "(a)") " ERROR: Generic mating criterion file:"
+              write(STDERR, "(a)") " ERROR:   - line:                  "//trim(Int2Char(Mat))
+              write(STDERR, "(a)") " ERROR:   - individual 1   (male): "//trim(IdCTmp)//" gender "//trim(Int2Char(This%Gender(IndLoc)))
+              write(STDERR, "(a)") " ERROR:   - individual 2 (female): "//trim(IdCTmp2)//" gender "//trim(Int2Char(This%Gender(IndLoc2)))
+              write(STDERR, "(a)") " "
+              stop 1
+            end if
+            m = FindLoc(IndLoc2, This%IdPotPar2)
+            if (m .eq. 0) then
+              write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp2)//" from the second column in the generic mating criterion file should be a female!"
+              write(STDERR, "(a)") " ERROR: Generic mating criterion file:"
+              write(STDERR, "(a)") " ERROR:   - line:                  "//trim(Int2Char(Mat))
+              write(STDERR, "(a)") " ERROR:   - individual 1   (male): "//trim(IdCTmp)//" gender "//trim(Int2Char(This%Gender(IndLoc)))
+              write(STDERR, "(a)") " ERROR:   - individual 2 (female): "//trim(IdCTmp2)//" gender "//trim(Int2Char(This%Gender(IndLoc2)))
+              write(STDERR, "(a)") " "
+              stop 1
+            end if
+            ! fill full-matrix
+            ! - l and m tell respectively the position within IdPotPar1 and IdPotPar2
+            ! - values in IdPotPar1 and IdPotPar2 are "joint" Id of males and females
+            ! - values in IdPotParSeq are separate Id of males and females (need these to find matching row and column)
+            This%GenericMatCrit(This%IdPotParSeq(This%IdPotPar1(l)), This%IdPotParSeq(This%IdPotPar2(m)), :) = GenericMatCritTmp(:)
+          else
+            ! fill lower-triangle (half-diallel)
+            IndPair = [IndLoc, IndLoc2]
+            This%GenericMatCrit(maxval(IndPair), minval(IndPair), :) = GenericMatCritTmp(:)
+          end if
+        end do
+        close(GenericMatCritUnit)
+      end if
 
       ! --- Seed ---
 
@@ -1902,7 +1998,7 @@ module AlphaMateModule
 
       implicit none
 
-      integer(int32) :: nParam, k, FrontierUnit
+      integer(int32) :: nParam, Point, FrontierUnit
 
       real(real64) :: HoldTargetCoancestryRanMate, HoldTargetCoancestryRate
       real(real64), allocatable :: InitEqual(:, :)
@@ -1914,7 +2010,7 @@ module AlphaMateModule
 
       ! --- Number of parameters to optimise ---
 
-      if (Spec%GenderFileGiven) then
+      if (Spec%GenderGiven) then
         nParam = Data%nPotPar1 + Data%nPotPar2 + Spec%nMat
       else
         nParam = Data%nPotPar1 + Spec%nMat
@@ -1930,10 +2026,12 @@ module AlphaMateModule
         write(STDOUT, "(a)") "--- Optimise contributions for minimum future coancestry/inbreeding --- "
         write(STDOUT, "(a)") " "
 
+
+! TODO: align with mode names
         LogFile     = "OptimisationLogMinimumInbreeding.txt"
         LogPopFile  = "OptimisationLogPopMinimumInbreeding.txt"
-        ContribFile = "IndividualResultsMinimumInbreeding.txt"
-        MatingFile  = "MatingResultsMinimumInbreeding.txt"
+        ContribFile = "ContributionsMinimumInbreeding.txt"
+        MatingFile  = "MatingPlanMinimumInbreeding.txt"
 
         allocate(InitEqual(nParam, nint(Spec%EvolAlgNSol * 0.1)))
         InitEqual(:, :) = 1.0d0 ! A couple of solutions that would give equal contributions to everybody
@@ -1955,6 +2053,8 @@ module AlphaMateModule
         write(STDOUT, "(a)") "--- Evaluate random mating --- "
         write(STDOUT, "(a)") " "
 
+! TODO: align with mode names
+! TODO: the best random mating?
         LogFile = "OptimisationLogRandomMating.txt"
 
         allocate(InitEqual(nParam, nint(Spec%EvolAlgNSol * 0.1)))
@@ -1972,10 +2072,11 @@ module AlphaMateModule
         write(STDOUT, "(a)") "--- Optimise contributions for maximum value with constraint on future coancestry/inbreeding ---"
         write(STDOUT, "(a)") " "
 
+! TODO: align with mode names
         LogFile     = "OptimisationLogMaximumValue.txt"
         LogPopFile  = "OptimisationLogPopMaximumValue.txt"
-        ContribFile = "IndividualResultsMaximumValue.txt"
-        MatingFile  = "MatingResultsMaximumValue.txt"
+        ContribFile = "ContributionsMaximumValue.txt"
+        MatingFile  = "MatingPlanMaximumValue.txt"
 
         ! @todo add some clever initial values, say:
         !       - equal contributions for top 2/3 or 1/2 of BV distribution,
@@ -1989,6 +2090,10 @@ module AlphaMateModule
 
         call SolOpt%Write(Data, Spec, ContribFile, MatingFile)
       end if
+
+! TODO: MaximumCriterion
+! TODO: MaximumCriterionPercentage
+! TODO: MinimumCoancestryPercentage
 
       ! --- Evaluate the full frontier ---
 
@@ -2018,19 +2123,19 @@ module AlphaMateModule
         HoldTargetCoancestryRate = Spec%TargetCoancestryRate
 
         ! Evaluate
-        do k = 1, Spec%nFrontierPoints
-          Spec%TargetCoancestryRate = Spec%TargetCoancestryRateFrontier(k)
+        do Point = 1, Spec%nFrontierPoints
+          Spec%TargetCoancestryRate = Spec%TargetCoancestryRateFrontier(Point)
           ! F_t = DeltaF + (1 - DeltaF) * F_t-1
           Data%TargetCoancestryRanMate = Spec%TargetCoancestryRate + (1.0d0 - Spec%TargetCoancestryRate) * Data%CurrentCoancestryRanMate
-          write(STDOUT, "(a)") "Step "//trim(Int2Char(k))//" out of "//trim(Int2Char(Spec%nFrontierPoints))//&
+          write(STDOUT, "(a)") "Point "//trim(Int2Char(Point))//" out of "//trim(Int2Char(Spec%nFrontierPoints))//&
                                " for the rate of coancestry "//trim(Real2Char(Spec%TargetCoancestryRate, fmt=FMTREAL2CHAR))//&
                                " (=targeted coancestry "//trim(Real2Char(Data%TargetCoancestryRanMate, fmt=FMTREAL2CHAR))//")"
           write(STDOUT, "(a)") ""
 
-          LogFile     = "OptimisationLogFrontier"//trim(Int2Char(k))//".txt"
-          LogPopFile  = "OptimisationLogPopFrontier"//trim(Int2Char(k))//".txt"
-          ContribFile = "IndividualResultsFrontier"//trim(Int2Char(k))//".txt"
-          MatingFile  = "MatingResultsFrontier"//trim(Int2Char(k))//".txt"
+          LogFile     = "OptimisationLogFrontier"//trim(Int2Char(Point))//".txt"
+          LogPopFile  = "OptimisationLogPopFrontier"//trim(Int2Char(Point))//".txt"
+          ContribFile = "ContributionsFrontier"//trim(Int2Char(Point))//".txt"
+          MatingFile  = "MatingPlanFrontier"//trim(Int2Char(Point))//".txt"
 
           call DifferentialEvolution(nParam=nParam, nSol=Spec%EvolAlgNSol, nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%EvolAlgNIterBurnIn, &
             nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint,&
@@ -2038,7 +2143,7 @@ module AlphaMateModule
             CritType="opt", CRBurnIn=Spec%EvolAlgParamCrBurnIn, CRLate=Spec%EvolAlgParamCr, FBase=Spec%EvolAlgParamFBase, FHigh1=Spec%EvolAlgParamFHigh1, FHigh2=Spec%EvolAlgParamFHigh2, &
             BestSol=Sol)
 
-          DumC = "Frontier"//trim(Int2Char(k))
+          DumC = "Frontier"//trim(Int2Char(Point))
           call Sol%Log(FrontierUnit, Iteration=-1, AcceptRate=-1.0d0, String=DumC, StringNum=10)
           call Sol%Write(Data, Spec, ContribFile, MatingFile)
 
@@ -2326,12 +2431,12 @@ module AlphaMateModule
 
       ! The solution (based on the mate selection driver) has:
       ! - Data%nInd individual contributions
-      !   - Data%nPotPar1 individual contributions for "parent1" (males   when GenderFileGiven, all ind when .not. GenderFileGiven)
-      !   - Data%nPotPar2 individual contributions for "parent2" (females when GenderFileGiven, meaningful only when GenderFileGiven)
+      !   - Data%nPotPar1 individual contributions for "parent1" (males   when GenderGiven, all ind when .not. GenderGiven)
+      !   - Data%nPotPar2 individual contributions for "parent2" (females when GenderGiven, meaningful only when GenderGiven)
       ! - Spec%nMat     rankings of parent1 1:Spec%nMat matings to pair with 1:Data%nPotPar2 "parent2" (see below)
       ! - Data%nInd edit indicators
-      !   - Data%nPotPar1 edit indicators for "parent1" (males   when GenderFileGiven, all ind when .not. GenderFileGiven)
-      !   - Data%nPotPar2 edit indicators for "parent2" (females when GenderFileGiven, present only when GenderFileGiven)
+      !   - Data%nPotPar1 edit indicators for "parent1" (males   when GenderGiven, all ind when .not. GenderGiven)
+      !   - Data%nPotPar2 edit indicators for "parent2" (females when GenderGiven, present only when GenderGiven)
 
       ! Say we have Chrom=(| 0, 2, 0, 1 | ... | 2.5, 1.5, 1.0 | 0, 1, 0, 0 | ...) then we:
       ! - mate male 2 with the first  available female (rank 2.5)
@@ -2371,7 +2476,7 @@ module AlphaMateModule
       ! order is that this gives more randomness and more solutions being explored.
 
       ! "Parent1"
-      if (Spec%GenderFileGiven) then
+      if (Spec%GenderGiven) then
         g = 1
       else
         g = 2
@@ -2477,7 +2582,7 @@ module AlphaMateModule
       end if
 
       ! "Parent2"
-      if (Spec%GenderFileGiven) then
+      if (Spec%GenderGiven) then
         ! ... find ranks to find the top values
         if (.not.(Spec%EqualizePar2 .and. (Spec%nPar2 .eq. Data%nPotPar2))) then
           Rank(1:Data%nPotPar2) = MrgRnk(Chrom((Data%nPotPar1+1):(Data%nPotPar1+Data%nPotPar2)))
@@ -2593,14 +2698,14 @@ module AlphaMateModule
       end do
       ! ... map internal to external order
       nVecPar1(:) = ChromInt(1:Data%nPotPar1)
-      if (.not.Spec%GenderFileGiven) then
+      if (.not.Spec%GenderGiven) then
         This%nVec(:) = nVecPar1(:)
       else
         This%nVec(Data%IdPotPar1) = nVecPar1(:)
       end if
 
       ! "Parent2"
-      if (Spec%GenderFileGiven) then
+      if (Spec%GenderGiven) then
         nVecPar2(:) = 0
         ! ... get integer values
         ChromInt(1:Data%nPotPar2) = nint(Chrom((Data%nPotPar1+1):(Data%nPotPar1+Data%nPotPar2)))
@@ -2620,7 +2725,7 @@ module AlphaMateModule
       ! --- PAGE ---
 
       if (Spec%PAGEPar) then
-        if (.not.Spec%GenderFileGiven) then
+        if (.not.Spec%GenderGiven) then
           Rank(1:Data%nInd) = MrgRnk(Chrom((Data%nPotPar1+Spec%nMat+1):(Data%nPotPar1+Spec%nMat+Data%nInd)))
           This%GenomeEdit(Rank(Data%nInd:(Data%nInd-Spec%PAGEPar1Max+1):-1)) = 1.0d0 ! MrgRnk ranks small to large
         else
@@ -2638,7 +2743,7 @@ module AlphaMateModule
       ! --- Mate allocation ---
 
       MatPar2(:) = 0
-      if (Spec%GenderFileGiven) then
+      if (Spec%GenderGiven) then
         ! Distribute parent2 (=female) contributions into matings
         k = 0
         do i = 1, Data%nPotPar2 ! need to loop whole nVecPar2 as some entries are zero
@@ -2679,7 +2784,7 @@ module AlphaMateModule
 
       ! Pair the contributions (=Mating plan)
       k = Spec%nMat ! MrgRnk ranks small to large
-      if (Spec%GenderFileGiven .or. Spec%SelfingAllowed) then
+      if (Spec%GenderGiven .or. Spec%SelfingAllowed) then
         ! When gender matters selfing can not happen (we have two distinct sets of parents,
         ! unless the user adds individuals of one sex in both sets) and when SelfingAllowed
         ! we do not need to care about it - faster code
@@ -2721,7 +2826,7 @@ module AlphaMateModule
 
       ! --- Contribution value ---
 
-      if (Spec%SelCriterionFileGiven) then
+      if (Spec%SelCriterionGiven) then
         !@todo save SelCriterion mean and sd in the data object and then compute this dot_product only once and
         !      compute This%SelCriterion as This%SelCriterion = This%SelIntensity * SelCriterionSD + SelCriterionMean
         This%SelCriterion = dot_product(This%xVec, Data%SelCriterion)
@@ -2835,7 +2940,7 @@ module AlphaMateModule
       if (Spec%GenericMatCritGiven) then
         do k = 1, Spec%nGenericMatCrit
           TmpR = 0.0d0
-          if (Spec%GenderFileGiven) then
+          if (Spec%GenderGiven) then
             do j = 1, Spec%nMat
               TmpR = TmpR + Data%GenericMatCrit(Data%IdPotParSeq(This%MatingPlan(1, j)), &
                                                 Data%IdPotParSeq(This%MatingPlan(2, j)), k)
