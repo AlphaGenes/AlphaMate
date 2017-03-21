@@ -109,8 +109,9 @@ module AlphaMateModule
     real(real64) :: EvolAlgStopTol, EvolAlgParamCrBurnIn, EvolAlgParamCr, EvolAlgParamFBase, EvolAlgParamFHigh1, EvolAlgParamFHigh2
     logical :: EvolAlgLogPop
     contains
-      procedure :: Init => InitAlphaMateSpec
-      procedure :: Read => ReadAlphaMateSpec
+      procedure :: Init  => InitAlphaMateSpec
+      procedure :: Read  => ReadAlphaMateSpec
+      procedure :: Write => WriteAlphaMateSpec
   end type
 
   !> @brief AlphaMate data
@@ -356,11 +357,10 @@ module AlphaMateModule
       This%TargetCoancestryRateWeightBelow = .false.
       This%TargetInbreedingRateWeight =  0.5d0
       This%TargetInbreedingRateWeightBelow = .false.
+      This%SelfingAllowed = .false.
       This%SelfingWeight = 0.0d0
       ! This%GenericIndCritWeight(:) ! allocatable so skip here
       ! This%GenericMatCritWeight(:) ! allocatable so skip here
-
-      This%SelfingAllowed = .false.
 
       This%EqualizePar  = .false.
       This%EqualizePar1 = .false.
@@ -412,6 +412,120 @@ module AlphaMateModule
       This%EvolAlgParamFHigh2 = 4.0d0
       This%EvolAlgLogPop = .false.
       This%RanAlgStricter = 10
+    end subroutine
+
+    !###########################################################################
+
+    !---------------------------------------------------------------------------
+    !> @brief  Write AlphaMate specifications
+    !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date   March 16, 2017
+    !---------------------------------------------------------------------------
+    subroutine WriteAlphaMateSpec(This, File) ! not pure due to IO
+      implicit none
+      class(AlphaMateSpec), intent(in)       :: This !< AlphaMateSpec holder
+      character(len=*), intent(in), optional :: File !< File that will hold a set of Original Id and internal integer sequence
+
+      integer(int32) :: Unit
+      if (present(File)) then
+        open(newunit=Unit, file=File, action="write", status="unknown")
+      else
+        Unit = STDOUT
+      end if
+
+      write(Unit, *) "SpecFile: ",           trim(This%SpecFile)
+      write(Unit, *) "RelMtxFile: ",         trim(This%RelMtxFile)
+      write(Unit, *) "SelCriterionFile: ",   trim(This%SelCriterionFile)
+      write(Unit, *) "GenderFile: ",         trim(This%GenderFile)
+      write(Unit, *) "GenericIndCritFile: ", trim(This%GenericIndCritFile)
+      write(Unit, *) "nGenericIndCrit: ",         This%nGenericIndCrit
+      write(Unit, *) "GenericMatCritFile: ", trim(This%GenericMatCritFile)
+      write(Unit, *) "nGenericMatCrit: ",         This%nGenericMatCrit
+      write(Unit, *) "SeedFile: ",           trim(This%SeedFile)
+
+      write(Unit, *) "RelMtxGiven: ",            This%RelMtxGiven
+      write(Unit, *) "SelCriterionGiven: ",      This%SelCriterionGiven
+      write(Unit, *) "GenderGiven: ",            This%GenderGiven
+      write(Unit, *) "GenericIndCritGiven: ",    This%GenericIndCritGiven
+      write(Unit, *) "GenericMatCritGiven: ",    This%GenericMatCritGiven
+      write(Unit, *) "SeedFileGiven: ",          This%SeedFileGiven
+      write(Unit, *) "SeedGiven: ",              This%SeedGiven
+      write(Unit, *) "NrmInsteadOfCoancestry: ", This%NrmInsteadOfCoancestry
+
+      write(Unit, *) "TargetCoancestryRate: ",            This%TargetCoancestryRate
+      write(Unit, *) "TargetInbreedingRate: ",            This%TargetInbreedingRate
+      if (allocated(This%TargetCoancestryRateFrontier)) then
+        write(Unit, *) "TargetCoancestryRateFrontier: ", This%TargetCoancestryRateFrontier(:)
+      else
+        write(Unit, *) "TargetCoancestryRateFrontier: not allocated"
+      end if
+      write(Unit, *) "TargetCoancestryRateWeight: ",      This%TargetCoancestryRateWeight
+      write(Unit, *) "TargetCoancestryRateWeightBelow: ", This%TargetCoancestryRateWeightBelow
+      write(Unit, *) "TargetInbreedingRateWeight: ",      This%TargetInbreedingRateWeight
+      write(Unit, *) "TargetInbreedingRateWeightBelow: ", This%TargetInbreedingRateWeightBelow
+      write(Unit, *) "SelfingAllowed: ",                  This%SelfingAllowed
+      write(Unit, *) "SelfingWeight: ",                   This%SelfingWeight
+      if (allocated(This%GenericIndCritWeight)) then
+        write(Unit, *) "GenericIndCritWeight: ", This%GenericIndCritWeight(:)
+      else
+        write(Unit, *) "GenericIndCritWeight: not allocated"
+      end if
+      if (allocated(This%GenericMatCritWeight)) then
+        write(Unit, *) "GenericMatCritWeight: ", This%GenericMatCritWeight(:)
+      else
+        write(Unit, *) "GenericMatCritWeight: not allocated"
+      end if
+
+      write(Unit, *) "EqualizePar:  ", This%EqualizePar
+      write(Unit, *) "EqualizePar1: ", This%EqualizePar1
+      write(Unit, *) "EqualizePar2: ", This%EqualizePar2
+
+      write(Unit, *) "LimitPar:  ",          This%LimitPar
+      write(Unit, *) "LimitPar1: ",          This%LimitPar1
+      write(Unit, *) "LimitPar2: ",          This%LimitPar2
+      write(Unit, *) "LimitParMin: ",        This%LimitParMin
+      write(Unit, *) "LimitPar1Min: ",       This%LimitPar1Min
+      write(Unit, *) "LimitPar2Min: ",       This%LimitPar2Min
+      write(Unit, *) "LimitParMax: ",        This%LimitParMax
+      write(Unit, *) "LimitPar1Max: ",       This%LimitPar1Max
+      write(Unit, *) "LimitPar2Max: ",       This%LimitPar2Max
+      write(Unit, *) "LimitParMinWeight: ",  This%LimitParMinWeight
+      write(Unit, *) "LimitPar1MinWeight: ", This%LimitPar1MinWeight
+      write(Unit, *) "LimitPar2MinWeight: ", This%LimitPar2MinWeight
+
+      write(Unit, *) "PAGEPar: ",      This%PAGEPar
+      write(Unit, *) "PAGEPar1: ",     This%PAGEPar1
+      write(Unit, *) "PAGEPar2: ",     This%PAGEPar2
+      write(Unit, *) "PAGEParMax: ",   This%PAGEParMax
+      write(Unit, *) "PAGEPar1Max: ",  This%PAGEPar1Max
+      write(Unit, *) "PAGEPar2Max: ",  This%PAGEPar2Max
+      write(Unit, *) "PAGEParCost: ",  This%PAGEParCost
+      write(Unit, *) "PAGEPar1Cost: ", This%PAGEPar1Cost
+      write(Unit, *) "PAGEPar2Cost: ", This%PAGEPar2Cost
+
+      write(Unit, *) "ModeMin: ",          This%ModeMin
+      write(Unit, *) "ModeRan: ",          This%ModeRan
+      write(Unit, *) "ModeOpt: ",          This%ModeOpt
+      write(Unit, *) "EvaluateFrontier: ", This%EvaluateFrontier
+      write(Unit, *) "nFrontierPoints: ",  This%nFrontierPoints
+
+      write(Unit, *) "EvolAlgNSol: ",          This%EvolAlgNSol
+      write(Unit, *) "EvolAlgNIter: ",         This%EvolAlgNIter
+      write(Unit, *) "EvolAlgNIterBurnIn: ",   This%EvolAlgNIterBurnIn
+      write(Unit, *) "EvolAlgNIterStop: ",     This%EvolAlgNIterStop
+      write(Unit, *) "EvolAlgNIterPrint: ",    This%EvolAlgNIterPrint
+      write(Unit, *) "EvolAlgStopTol: ",       This%EvolAlgStopTol
+      write(Unit, *) "EvolAlgParamCrBurnIn: ", This%EvolAlgParamCrBurnIn
+      write(Unit, *) "EvolAlgParamCr: ",       This%EvolAlgParamCr
+      write(Unit, *) "EvolAlgParamFBase: ",    This%EvolAlgParamFBase
+      write(Unit, *) "EvolAlgParamFHigh1: ",   This%EvolAlgParamFHigh1
+      write(Unit, *) "EvolAlgParamFHigh2: ",   This%EvolAlgParamFHigh2
+      write(Unit, *) "EvolAlgLogPop: ",        This%EvolAlgLogPop
+      write(Unit, *) "RanAlgStricter: ",       This%RanAlgStricter
+
+      if (present(File)) then
+        close(Unit)
+      end if
     end subroutine
 
     !###########################################################################
@@ -2038,6 +2152,55 @@ module AlphaMateModule
       write(InbreedingSummaryUnit, "(a, f)") "Current, ", This%CurrentInbreeding
       write(InbreedingSummaryUnit, "(a, f)") "Target,  ", This%TargetInbreeding
       close(InbreedingSummaryUnit)
+
+      ! --- Selection criterion summary ---
+
+      if (Spec%SelCriterionGiven) then
+
+        if (LogStdoutInternal) then
+          write(STDOUT, "(a)") " "
+          write(STDOUT, "(a)") " Selection criterion summary"
+        end if
+
+        This%SelCriterionStat = DescStat(This%SelCriterion)
+        This%SelCriterionStand(:) = (This%SelCriterion(:) - This%SelCriterionStat%Mean) / This%SelCriterionStat%SD
+        if (LogStdoutInternal) then
+          write(STDOUT, "(a)") "  - average: "//trim(Real2Char(This%SelCriterionStat%Mean, fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "  - st.dev.: "//trim(Real2Char(This%SelCriterionStat%SD,   fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "  - minimum: "//trim(Real2Char(This%SelCriterionStat%Min,  fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "  - maximum: "//trim(Real2Char(This%SelCriterionStat%Max,  fmt=FMTREAL2CHAR))
+        end if
+
+        if (This%SelCriterionStat%SD .eq. 0.0) then
+          write(STDERR, "(a)") " ERROR: There is no variation in selection criterion!"
+          write(STDERR, "(a)") " "
+          stop 1
+        end if
+
+        if (Spec%PAGEPar) then
+          ! must have the same scale as selection criterion!!!!
+          This%SelCriterionPAGEStand(:) = (This%SelCriterionPAGE(:) - This%SelCriterionStat%Mean) / This%SelCriterionStat%SD
+          ! only the PAGE bit of SelCriterion
+          This%SelCriterionPAGE(:) = This%SelCriterionPAGE(:) - This%SelCriterion(:)
+          This%SelCriterionPAGEStand(:) = This%SelCriterionPAGEStand(:) - This%SelCriterionStand(:)
+          This%SelCriterionPAGEStat = DescStat(This%SelCriterionPAGE)
+          if (LogStdoutInternal) then
+            write(STDOUT, "(a)") " "
+            write(STDOUT, "(a)") "Selection criterion increments with PAGE"
+            write(STDOUT, "(a)") "  - average: "//trim(Real2Char(This%SelCriterionPAGEStat%Mean, fmt=FMTREAL2CHAR))
+            write(STDOUT, "(a)") "  - st.dev.: "//trim(Real2Char(This%SelCriterionPAGEStat%SD,   fmt=FMTREAL2CHAR))
+            write(STDOUT, "(a)") "  - minimum: "//trim(Real2Char(This%SelCriterionPAGEStat%Min,  fmt=FMTREAL2CHAR))
+            write(STDOUT, "(a)") "  - maximum: "//trim(Real2Char(This%SelCriterionPAGEStat%Max,  fmt=FMTREAL2CHAR))
+          end if
+
+          if (Data%SelCriterionPAGEStat%SD .eq. 0.0) then
+            write(STDERR, "(a)") " ERROR: There is no variation in selection criterion increments with PAGE!"
+            write(STDERR, "(a)") " "
+            stop 1
+          end if
+        end if
+
+      end if
 
     end subroutine
 
