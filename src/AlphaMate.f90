@@ -84,9 +84,8 @@ program AlphaMate
   write(STDOUT, "(a)") " Data ..."
   call Data%Read(Spec=Spec, LogStdout=.true.)
 
-  ! call ReadSpecAndDataForAlphaMate
-  ! call SetupColNamesAndFormats
-  ! call AlphaMateSearch
+  call SetupColNamesAndFormats
+  ! call AlphaMateSearch(Spec=Spec, Data=Data, LogStdout=.true.)
 
   call cpu_time(EndTime)
   call AlphaMateTitle

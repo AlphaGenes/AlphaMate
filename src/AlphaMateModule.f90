@@ -124,7 +124,7 @@ module AlphaMateModule
     ! Data summaries
     type(DescStatReal64) :: InbreedingStat, SelCriterionStat, SelCriterionPAGEStat
     type(DescStatReal64), allocatable :: GenericIndCritStat(:)
-    type(DescStatMatrixReal64) :: CoancestryStat, CoancestryStatGenderDiff, CoancestryStatGender1, CoancestryStatGender2
+    type(DescStatMatrixReal64) :: CoancestryStat, CoancestryStatGender1, CoancestryStatGender2, CoancestryStatGenderDiff
     type(DescStatMatrixReal64), allocatable :: GenericMatCritStat(:)
     ! Derived data
     integer(int32) :: nInd, nPotMat, nPotPar1, nPotPar2, nMal, nFem
@@ -1593,6 +1593,8 @@ module AlphaMateModule
 
       integer(int32) :: Ind, IndLoc, IndLoc2, nIndTmp, Mat, nMatTmp, GenderTmp, l, m, IndPair(2)
       integer(int32) :: SelCriterionUnit, GenderUnit, GenericIndCritUnit, GenericMatCritUnit, SeedUnit
+      integer(int32) :: CoancestrySummaryUnit, InbreedingSummaryUnit, CriterionSummaryUnit
+      integer(int32) :: GenericIndCritSummaryUnit, GenericMatCritSummaryUnit
 
       real(real64) :: SelCriterionTmp, SelCriterionTmp2
       real(real64), allocatable :: GenericIndCritTmp(:), GenericMatCritTmp(:)
@@ -1770,7 +1772,6 @@ module AlphaMateModule
         end block
       end if
 
-
       ! --- Number of all potential matings ---
 
       if (Spec%GenderGiven) then
@@ -1891,9 +1892,10 @@ module AlphaMateModule
               stop 1
             end if
             ! fill full-matrix
-            ! - l and m tell respectively the position within IdPotPar1 and IdPotPar2
-            ! - values in IdPotPar1 and IdPotPar2 are "joint" Id of males and females
-            ! - values in IdPotParSeq are separate Id of males and females (need these to find matching row and column)
+            ! - need to locate position in GenericMatCrit that pertains to a particular potential mating
+            ! - l and m are respectively locations within IdPotPar1 and IdPotPar2
+            ! - values in IdPotPar1 and IdPotPar2 are "joint" Id of males and females, i.e., they range from 1:n
+            ! - values in IdPotParSeq are separate Id of males and females, i.e., one ranges from 1:nMal and the other from 1:nFem
             This%GenericMatCrit(This%IdPotParSeq(This%IdPotPar1(l)), This%IdPotParSeq(This%IdPotPar2(m)), :) = GenericMatCritTmp(:)
           else
             ! fill lower-triangle (half-diallel)
@@ -1921,6 +1923,121 @@ module AlphaMateModule
       if (LogStdoutInternal) then
         write(STDOUT, "(a)") " RNG seed: "//trim(Int2Char(Spec%Seed))
       end if
+
+      ! --- Coancestry summary ---
+
+      if (LogStdoutInternal) then
+        write(STDOUT, "(a)") " "
+        write(STDOUT, "(a)") " Coancestry summary (average identity of the four genome combinations of two individuals)"
+      end if
+
+      This%CoancestryStat = DescStatSymMatrix(This%Coancestry%Value(1:, 1:))
+      if (Spec%GenderGiven) then
+        This%CoancestryStatGender1    = DescStatSymMatrix(This%Coancestry%Value(This%IdPotPar1, This%IdPotPar1))
+        This%CoancestryStatGender2    = DescStatSymMatrix(This%Coancestry%Value(This%IdPotPar2, This%IdPotPar2))
+        This%CoancestryStatGenderDiff = DescStatMatrix(This%Coancestry%Value(This%IdPotPar1, This%IdPotPar2))
+      end if
+
+      ! Current
+      This%CurrentCoancestryRanMate       = This%CoancestryStat%All%Mean
+      This%CurrentCoancestryRanMateNoSelf = This%CoancestryStat%OffDiag%Mean
+      if (Spec%GenderGiven) then
+        This%CurrentCoancestryGenderMate  = This%CoancestryStatGenderDiff%All%Mean
+      end if
+
+      ! Obtain limit/target based on given rates
+      ! F_t = DeltaF + (1 - DeltaF) * F_t-1
+      This%TargetCoancestryRanMate       = Spec%TargetCoancestryRate + (1.0d0 - Spec%TargetCoancestryRate) * This%CurrentCoancestryRanMate
+      This%TargetCoancestryRanMateNoSelf = Spec%TargetCoancestryRate + (1.0d0 - Spec%TargetCoancestryRate) * This%CurrentCoancestryRanMateNoSelf
+      if (Spec%GenderGiven) then
+        ! @todo Is this a good target? It does not take into account relatedness between male parents and between female parents
+        This%TargetCoancestryGenderMate  = Spec%TargetCoancestryRate + (1.0d0 - Spec%TargetCoancestryRate) * This%CurrentCoancestryGenderMate
+      end if
+
+      if (LogStdoutInternal) then
+        write(STDOUT, "(a)") " "
+        write(STDOUT, "(a)") "  - coancestry among/between individuals"
+        write(STDOUT, "(a)") "                     Among     Between"
+        write(STDOUT, "(a)") "    - average: "//trim(Real2Char(This%CoancestryStat%All%Mean, fmt=FMTREAL2CHAR))//" "//trim(Real2Char(This%CoancestryStat%OffDiag%Mean,   fmt=FMTREAL2CHAR))
+        write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(This%CoancestryStat%All%SD,   fmt=FMTREAL2CHAR))//" "//trim(Real2Char(This%CoancestryStat%OffDiag%SD,     fmt=FMTREAL2CHAR))
+        write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(This%CoancestryStat%All%Min,  fmt=FMTREAL2CHAR))//" "//trim(Real2Char(This%CoancestryStat%OffDiag%Min,    fmt=FMTREAL2CHAR))
+        write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(This%CoancestryStat%All%Max,  fmt=FMTREAL2CHAR))//" "//trim(Real2Char(This%CoancestryStat%OffDiag%Max,    fmt=FMTREAL2CHAR))
+        write(STDOUT, "(a)") "    - target:  "//trim(Real2Char(This%TargetCoancestryRanMate, fmt=FMTREAL2CHAR))//" "//trim(Real2Char(This%TargetCoancestryRanMateNoSelf, fmt=FMTREAL2CHAR))
+        write(STDOUT, "(a)") "    Among   = coancestry among   individuals (including self-coancestry) = expected inbreeding in their progeny under random mating, including selfing"
+        write(STDOUT, "(a)") "    Between = coancestry between individuals (excluding self-coancestry) = expected inbreeding in their progeny under random mating, eccluding selfing"
+
+        if (Spec%GenderGiven) then
+          write(STDOUT, "(a)") " "
+          write(STDOUT, "(a)") "  - coancestry between males and females"
+          write(STDOUT, "(a)") "    (=expected inbreeding in their progeny under random mating between genders)"
+          write(STDOUT, "(a)") "    - average: "//trim(Real2Char(This%CoancestryStatGenderDiff%All%Mean, fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(This%CoancestryStatGenderDiff%All%SD,   fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(This%CoancestryStatGenderDiff%All%Min,  fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(This%CoancestryStatGenderDiff%All%Max,  fmt=FMTREAL2CHAR))
+          ! write(STDOUT, "(a)") "    - target:  "//trim(Real2Char(This%TargetCoancestryGenderMate,        fmt=FMTREAL2CHAR))
+
+          write(STDOUT, "(a)") " "
+          write(STDOUT, "(a)") "  - coancestry among/between males"
+          write(STDOUT, "(a)") "                     Among     Between"
+          write(STDOUT, "(a)") "    - average: "//trim(Real2Char(This%CoancestryStatGender1%All%Mean, fmt=FMTREAL2CHAR))//" "//trim(Real2Char(This%CoancestryStatGender1%OffDiag%Mean, fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(This%CoancestryStatGender1%All%SD,   fmt=FMTREAL2CHAR))//" "//trim(Real2Char(This%CoancestryStatGender1%OffDiag%SD,   fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(This%CoancestryStatGender1%All%Min,  fmt=FMTREAL2CHAR))//" "//trim(Real2Char(This%CoancestryStatGender1%OffDiag%Min,  fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(This%CoancestryStatGender1%All%Max,  fmt=FMTREAL2CHAR))//" "//trim(Real2Char(This%CoancestryStatGender1%OffDiag%Max,  fmt=FMTREAL2CHAR))
+
+          write(STDOUT, "(a)") " "
+          write(STDOUT, "(a)") "  - coancestry among/between females"
+          write(STDOUT, "(a)") "                     Among     Between"
+          write(STDOUT, "(a)") "    - average: "//trim(Real2Char(This%CoancestryStatGender2%All%Mean, fmt=FMTREAL2CHAR))//" "//trim(Real2Char(This%CoancestryStatGender2%OffDiag%Mean, fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(This%CoancestryStatGender2%All%SD,   fmt=FMTREAL2CHAR))//" "//trim(Real2Char(This%CoancestryStatGender2%OffDiag%SD,   fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(This%CoancestryStatGender2%All%Min,  fmt=FMTREAL2CHAR))//" "//trim(Real2Char(This%CoancestryStatGender2%OffDiag%Min,  fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(This%CoancestryStatGender2%All%Max,  fmt=FMTREAL2CHAR))//" "//trim(Real2Char(This%CoancestryStatGender2%OffDiag%Max,  fmt=FMTREAL2CHAR))
+        end if
+      end if
+
+      ! Save means to a file
+      open(newunit=CoancestrySummaryUnit, file="CoancestrySummary.txt", status="unknown")
+      write(CoancestrySummaryUnit, "(a, f)") "Current (random mating),                 ",   This%CurrentCoancestryRanMate
+      write(CoancestrySummaryUnit, "(a, f)") "Current (random mating, no selfing),     ",   This%CurrentCoancestryRanMateNoSelf
+      ! if (Spec%GenderGiven) then
+      !   write(CoancestrySummaryUnit, "(a, f)") "Current (random mating between genders), ", This%CurrentCoancestryGenderMate
+      ! end if
+      write(CoancestrySummaryUnit, "(a, f)") "Target (random mating),                  ",   This%TargetCoancestryRanMate
+      write(CoancestrySummaryUnit, "(a, f)") "Target (random mating, no selfing),      ",   This%TargetCoancestryRanMateNoSelf
+      ! if (Spec%GenderGiven) then
+      !   write(CoancestrySummaryUnit, "(a, f)") "Target (random mating between genders),  ", This%TargetCoancestryGenderMate
+      ! end if
+      close(CoancestrySummaryUnit)
+
+      ! --- Inbreeding summary ---
+
+      if (LogStdoutInternal) then
+        write(STDOUT, "(a)") " "
+        write(STDOUT, "(a)") " Inbreeding summary (identity between the two genomes of an individual)"
+      end if
+
+      call This%Coancestry%Inbreeding(Out=This%Inbreeding, Nrm=.false.)
+
+      ! Current
+      This%InbreedingStat = DescStat(This%Inbreeding%Value(1:))
+      This%CurrentInbreeding = This%InbreedingStat%Mean
+
+      ! Obtain limit/target based on given rates
+      ! F_t = DeltaF + (1 - DeltaF) * F_t-1
+      This%TargetInbreeding = Spec%TargetInbreedingRate + (1.0d0 - Spec%TargetInbreedingRate) * This%CurrentInbreeding
+
+      if (LogStdoutInternal) then
+        write(STDOUT, "(a)") "  - average: "//trim(Real2Char(This%InbreedingStat%Mean, fmt=FMTREAL2CHAR))
+        write(STDOUT, "(a)") "  - st.dev.: "//trim(Real2Char(This%InbreedingStat%SD,   fmt=FMTREAL2CHAR))
+        write(STDOUT, "(a)") "  - minimum: "//trim(Real2Char(This%InbreedingStat%Min,  fmt=FMTREAL2CHAR))
+        write(STDOUT, "(a)") "  - maximum: "//trim(Real2Char(This%InbreedingStat%Max,  fmt=FMTREAL2CHAR))
+        write(STDOUT, "(a)") "  - target:  "//trim(Real2Char(This%TargetInbreeding,    fmt=FMTREAL2CHAR))
+        write(STDOUT, "(a)") " "
+      end if
+
+      open(newunit=InbreedingSummaryUnit, file="InbreedingSummary.txt", status="unknown")
+      write(InbreedingSummaryUnit, "(a, f)") "Current, ", This%CurrentInbreeding
+      write(InbreedingSummaryUnit, "(a, f)") "Target,  ", This%TargetInbreeding
+      close(InbreedingSummaryUnit)
 
     end subroutine
 
