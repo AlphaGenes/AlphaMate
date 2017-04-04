@@ -72,7 +72,7 @@ program AlphaMate
   write(STDOUT, "(a)") ""
   write(STDOUT, "(a)") " Specifications ..."
   nArg = command_argument_count()
-  if (nArg > 0) then
+  if (nArg .gt. 0) then
     call get_command_argument(1, SpecFile)
   else
     SpecFile = "AlphaMateSpec.txt"
@@ -84,8 +84,9 @@ program AlphaMate
   write(STDOUT, "(a)") " Data ..."
   call Data%Read(Spec=Spec, LogStdout=.true.)
 
-  call SetupColNamesAndFormats
-  ! call AlphaMateSearch(Spec=Spec, Data=Data, LogStdout=.true.)
+  write(STDOUT, "(a)") ""
+  write(STDOUT, "(a)") " Optimisation ..."
+  call AlphaMateSearch(Spec=Spec, Data=Data, LogStdout=.true.)
 
   call cpu_time(EndTime)
   call AlphaMateTitle
