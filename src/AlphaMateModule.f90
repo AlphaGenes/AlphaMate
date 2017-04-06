@@ -1688,6 +1688,18 @@ module AlphaMateModule
             This%LimitPar2MinWeight = This%LimitParMinWeight
           end if
         end if
+        if (This%PAGEPar) then
+          if (.not. This%PAGEPar1) then
+            This%PAGEPar1 = This%PAGEPar
+            This%PAGEPar1Max = This%PAGEParMax
+            This%PAGEPar1Cost = This%PAGEParCost
+          end if
+          if (.not. This%PAGEPar2) then
+            This%PAGEPar2 = This%PAGEPar
+            This%PAGEPar2Max = This%PAGEParMax
+            This%PAGEPar2Cost = This%PAGEParCost
+          end if
+        end if
       end if
 
       if (This%nMat .le. 0) then
