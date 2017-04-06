@@ -141,6 +141,13 @@ module AlphaMateModule
   !> @brief AlphaMate solution
   type, extends(AlphaEvolveSol) :: AlphaMateSol
     real(real64)                :: Penalty
+    real(real64)                :: PenaltyCoancestryRate
+    real(real64)                :: PenaltyInbreedingRate
+    real(real64)                :: PenaltySelfing
+    real(real64)                :: PenaltyLimitPar1
+    real(real64)                :: PenaltyLimitPar2
+    real(real64)                :: PenaltyGenericIndCrit
+    real(real64)                :: PenaltyGenericMatCrit
     real(real64)                :: SelCriterion
     real(real64)                :: SelIntensity
     real(real64)                :: FutureCoancestryRanMate
@@ -346,6 +353,7 @@ module AlphaMateModule
     !> @date   March 16, 2017
     !---------------------------------------------------------------------------
     pure subroutine InitialiseAlphaMateSpec(This)
+
       implicit none
       class(AlphaMateSpec), intent(out)  :: This !< @return AlphaMateSpec holder
 
@@ -379,12 +387,12 @@ module AlphaMateModule
       This%nPar1 = 0
       This%nPar2 = 0
 
-      This%TargetCoancestryRate = 0.00d0
-      This%TargetInbreedingRate = 0.00d0
+      This%TargetCoancestryRate = 0.01d0
+      This%TargetInbreedingRate = 0.01d0
       ! This%TargetCoancestryRateFrontier ! allocatable so skip here
-      This%TargetCoancestryRateWeight = 0.0d0
+      This%TargetCoancestryRateWeight = -100.0d0
       This%TargetCoancestryRateWeightBelow = .false.
-      This%TargetInbreedingRateWeight =  0.0d0
+      This%TargetInbreedingRateWeight =    0.0d0
       This%TargetInbreedingRateWeightBelow = .false.
       This%SelfingAllowed = .false.
       This%SelfingWeight = 0.0d0
@@ -1656,13 +1664,29 @@ module AlphaMateModule
         This%EqualizePar1 = This%EqualizePar
         This%LimitPar1 = This%LimitPar
         This%PAGEPar1 = This%PAGEPar
-      end if
-
-! @todo Make sure that LimitPar kicks both LimitPar1 and LimitPar2 when GenderGiven, the same for EqualizePar
-
-      if (This%GenderGiven) then
+      else
         This%nPar = This%nPar1 + This%nPar2
         if (This%EqualizePar) then
+          if (.not. This%EqualizePar1) then
+            This%EqualizePar1 = This%EqualizePar
+          end if
+          if (.not. This%EqualizePar2) then
+            This%EqualizePar2 = This%EqualizePar
+          end if
+        end if
+        if (This%LimitPar) then
+          if (.not. This%LimitPar1) then
+            This%LimitPar1 = This%LimitPar
+            This%LimitPar1Min = This%LimitParMin
+            This%LimitPar1Max = This%LimitParMax
+            This%LimitPar1MinWeight = This%LimitParMinWeight
+          end if
+          if (.not. This%LimitPar2) then
+            This%LimitPar2 = This%LimitPar
+            This%LimitPar2Min = This%LimitParMin
+            This%LimitPar2Max = This%LimitParMax
+            This%LimitPar2MinWeight = This%LimitParMinWeight
+          end if
         end if
       end if
 
@@ -1672,7 +1696,7 @@ module AlphaMateModule
         stop 1
       end if
 
-      if (.not. This%GenderGiven .and. (This%nPar .le. 0)) then
+      if (This%nPar .le. 0) then
         write(STDERR, "(a)") " ERROR: Number of parents must be larger than zero!"
         write(STDERR, "(a)") " "
         stop 1
@@ -2092,11 +2116,11 @@ module AlphaMateModule
         write(STDOUT, "(a)") " RNG seed: "//trim(Int2Char(Spec%Seed))
       end if
 
-      ! --- Coancestry summary ---
+      ! --- Current coancestry summary ---
 
       if (LogStdoutInternal) then
         write(STDOUT, "(a)") " "
-        write(STDOUT, "(a)") " Coancestry summary (average identity of the four genome combinations of two individuals)"
+        write(STDOUT, "(a)") " Current coancestry summary (average identity of the four genome combinations of two individuals)"
       end if
 
       ! @todo Should we use DescStatMatrix or DescStatLowTriMatrix?
@@ -2188,11 +2212,11 @@ module AlphaMateModule
       ! end if
       close(CoancestrySummaryUnit)
 
-      ! --- Inbreeding summary ---
+      ! --- Current inbreeding summary ---
 
       if (LogStdoutInternal) then
         write(STDOUT, "(a)") " "
-        write(STDOUT, "(a)") " Inbreeding summary (identity between the two genomes of an individual)"
+        write(STDOUT, "(a)") " Current inbreeding summary (identity between the two genomes of an individual)"
       end if
 
       call This%Coancestry%Inbreeding(Out=This%Inbreeding, Nrm=.false.)
@@ -2220,13 +2244,13 @@ module AlphaMateModule
       write(InbreedingSummaryUnit, "(a, f)") "Target,  ", This%TargetInbreeding
       close(InbreedingSummaryUnit)
 
-      ! --- Selection criterion summary ---
+      ! --- Current selection criterion summary ---
 
       if (Spec%SelCriterionGiven) then
 
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " "
-          write(STDOUT, "(a)") " Selection criterion summary"
+          write(STDOUT, "(a)") " Current selection criterion summary"
         end if
 
         This%SelCriterionStat = DescStat(This%SelCriterion)
@@ -2279,12 +2303,12 @@ module AlphaMateModule
 
       end if
 
-      ! --- Generic individual values ---
+      ! --- Current generic individual values ---
 
       if (Spec%GenericIndCritGiven) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " "
-          write(STDOUT, "(a)") " Generic individual selection criterion summary"
+          write(STDOUT, "(a)") " Current generic individual selection criterion summary"
         end if
 
         open(newunit=GenericIndCritSummaryUnit, file="GenericIndCritSummary.txt", status="unknown")
@@ -2953,6 +2977,13 @@ module AlphaMateModule
         write(Unit, *) "Chrom: not allocated"
       end if
       write(Unit, *) "Penalty: ", This%Penalty
+      write(Unit, *) "PenaltyCoancestryRate: ", This%PenaltyCoancestryRate
+      write(Unit, *) "PenaltyInbreedingRate: ", This%PenaltyInbreedingRate
+      write(Unit, *) "PenaltySelfing: ", This%PenaltySelfing
+      write(Unit, *) "PenaltyLimitPar1: ", This%PenaltyLimitPar1
+      write(Unit, *) "PenaltyLimitPar2: ", This%PenaltyLimitPar2
+      write(Unit, *) "PenaltyGenericIndCrit: ", This%PenaltyGenericIndCrit
+      write(Unit, *) "PenaltyGenericMatCrit: ", This%PenaltyGenericMatCrit
       write(Unit, *) "SelCriterion: ", This%SelCriterion
       write(Unit, *) "SelIntensity: ", This%SelIntensity
       write(Unit, *) "FutureCoancestryRanMate: ", This%FutureCoancestryRanMate
@@ -2995,7 +3026,7 @@ module AlphaMateModule
         write(Unit, *) "GenomeEdit: not allocated"
       end if
 
-pause
+      ! pause
 
       if (present(File)) then
         close(Unit)
@@ -3094,14 +3125,13 @@ pause
     !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date   March 16, 2017
     !---------------------------------------------------------------------------
-    pure subroutine InitialiseAlphaMateSol(This, nParam, Chrom, Spec)
+    pure subroutine InitialiseAlphaMateSol(This, Chrom, Spec)
       implicit none
 
       ! Argument
-      class(AlphaMateSol), intent(out)   :: This          !< @return AlphaMateSol holder
-      integer(int32), intent(in)         :: nParam        !< Number of parameters
-      real(real64), intent(in), optional :: Chrom(nParam) !< Provided initial solution
-      class(AlphaEvolveSpec), intent(in) :: Spec          !< AlphaEvolveSpec --> AlphaMateSpec holder
+      class(AlphaMateSol), intent(out)   :: This     !< @return AlphaMateSol holder
+      real(real64), intent(in)           :: Chrom(:) !< Provided initial solution
+      class(AlphaEvolveSpec), intent(in) :: Spec     !< AlphaEvolveSpec --> AlphaMateSpec holder
 
       ! Initialisation
       select type (Spec)
@@ -3110,16 +3140,17 @@ pause
           ! error stop " ERROR: InitialiseAlphaMateSol works only with argument Spec being of type AlphaMateSpec!"
         class is (AlphaMateSpec)
           This%Objective = -huge(This%Objective)
-          This%nParam = nParam
-          if (.not. allocated(This%Chrom)) then
-            allocate(This%Chrom(nParam))
-          end if
-          if (present(Chrom)) then
-            This%Chrom = Chrom
-          else
-            This%Chrom = 0.0d0
-          end if
+          This%nParam = size(Chrom)
+          allocate(This%Chrom(This%nParam))
+          This%Chrom = Chrom
           This%Penalty = 0.0d0
+          This%PenaltyCoancestryRate = 0.0d0
+          This%PenaltyInbreedingRate = 0.0d0
+          This%PenaltySelfing = 0.0d0
+          This%PenaltyLimitPar1 = 0.0d0
+          This%PenaltyLimitPar2 = 0.0d0
+          This%PenaltyGenericIndCrit = 0.0d0
+          This%PenaltyGenericMatCrit = 0.0d0
           This%SelCriterion = 0.0d0
           This%SelIntensity = 0.0d0
           This%FutureCoancestryRanMate = 0.0d0
@@ -3172,6 +3203,13 @@ pause
           Out%nParam = In%nParam
           Out%Chrom = In%Chrom
           Out%Penalty = In%Penalty
+          Out%PenaltyCoancestryRate = In%PenaltyCoancestryRate
+          Out%PenaltyInbreedingRate = In%PenaltyInbreedingRate
+          Out%PenaltySelfing = In%PenaltySelfing
+          Out%PenaltyLimitPar1 = In%PenaltyLimitPar1
+          Out%PenaltyLimitPar2 = In%PenaltyLimitPar2
+          Out%PenaltyGenericIndCrit = In%PenaltyGenericIndCrit
+          Out%PenaltyGenericMatCrit = In%PenaltyGenericMatCrit
           Out%SelCriterion = In%SelCriterion
           Out%SelIntensity = In%SelIntensity
           Out%FutureCoancestryRanMate = In%FutureCoancestryRanMate
@@ -3238,6 +3276,13 @@ pause
           ! This%nParam                    = This%nParam                    * kR + Add%nParam                    / n ! the same all the time
           ! This%Chrom                     = This%Chrom                     * kR + Add%Chrom                     / n ! hmm, do we really want to average over chromosomes?
           This%Penalty                   = This%Penalty                   * kR + Add%Penalty                   / n
+          This%Penalty                   = This%PenaltyCoancestryRate     * kR + Add%PenaltyCoancestryRate     / n
+          This%Penalty                   = This%PenaltyInbreedingRate     * kR + Add%PenaltyInbreedingRate     / n
+          This%Penalty                   = This%PenaltySelfing            * kR + Add%PenaltySelfing            / n
+          This%Penalty                   = This%PenaltyLimitPar1          * kR + Add%PenaltyLimitPar1          / n
+          This%Penalty                   = This%PenaltyLimitPar2          * kR + Add%PenaltyLimitPar2          / n
+          This%Penalty                   = This%PenaltyGenericIndCrit     * kR + Add%PenaltyGenericIndCrit     / n
+          This%Penalty                   = This%PenaltyGenericMatCrit     * kR + Add%PenaltyGenericMatCrit     / n
           This%SelCriterion              = This%SelCriterion              * kR + Add%SelCriterion              / n
           This%SelIntensity              = This%SelIntensity              * kR + Add%SelIntensity              / n
           This%FutureCoancestryRanMate   = This%FutureCoancestryRanMate   * kR + Add%FutureCoancestryRanMate   / n
@@ -3273,12 +3318,13 @@ pause
     !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date   March 16, 2017
     !---------------------------------------------------------------------------
-    subroutine FixSolEtcMateAndEvaluateAlphaMateSol(This, Spec, Data) ! not pure due to RNG
+    subroutine FixSolEtcMateAndEvaluateAlphaMateSol(This, Chrom, Spec, Data) ! not pure due to RNG
       implicit none
       ! Arguments
-      class(AlphaMateSol), intent(inout) :: This !< @return AlphaMateSol holder (out because we fix solution too)
-      class(AlphaEvolveSpec), intent(in) :: Spec !< AlphaEvolveSpec --> AlphaMateSpec holder
-      class(AlphaEvolveData), intent(in) :: Data !< AlphaEvolveData --> AlphaMateData holder
+      class(AlphaMateSol), intent(inout) :: This     !< @return AlphaMateSol holder
+      real(real64), intent(in)           :: Chrom(:) !< A solution
+      class(AlphaEvolveSpec), intent(in) :: Spec     !< AlphaEvolveSpec --> AlphaMateSpec holder
+      class(AlphaEvolveData), intent(in) :: Data     !< AlphaEvolveData --> AlphaMateData holder
 
       ! Other
       integer(int32) :: i, j, k, l, g, nCumMat, TmpMin, TmpMax, TmpI
@@ -3295,14 +3341,16 @@ pause
             class default
               error stop " ERROR: FixSolEtcMateAndEvaluate works only with argument Data being of type AlphaMateData!"
             class is (AlphaMateData)
+
+              call This%Initialise(Chrom=Chrom, Spec=Spec)
+              This%Objective = 0.0d0
+
               allocate(Rank(Data%nInd))
               allocate(ChromInt(Data%nInd))
               allocate(MatPar2(Spec%nMat))
               allocate(nVecPar1(Data%nPotPar1))
               allocate(nVecPar2(Data%nPotPar2))
               allocate(TmpVec(Data%nInd, 1))
-
-              This%Objective = 0.0d0
 
               ! The solution (based on the mate selection driver) has:
               ! - Data%nInd individual contributions
@@ -3398,7 +3446,8 @@ pause
                         TmpR = Spec%LimitPar1MinWeight * (Spec%LimitPar1Min - nint(This%Chrom(j)))
                         This%Objective = This%Objective + TmpR
                         if (Spec%LimitPar1MinWeight .lt. 0.0d0) then
-                          This%Penalty = This%Penalty + abs(TmpR)
+                          This%PenaltyLimitPar1 = This%PenaltyLimitPar1 + TmpR
+                          This%Penalty          = This%Penalty          + TmpR
                         end if
                       end if
                       nCumMat = Spec%nMat * g
@@ -3499,7 +3548,8 @@ pause
                           TmpR = Spec%LimitPar2MinWeight * (Spec%LimitPar2Min - nint(This%Chrom(j)))
                           This%Objective = This%Objective + TmpR
                           if (Spec%LimitPar2MinWeight .lt. 0.0d0) then
-                            This%Penalty = This%Penalty + abs(TmpR)
+                            This%PenaltyLimitPar2 = This%PenaltyLimitPar2 + TmpR
+                            This%Penalty          = This%Penalty          + TmpR
                           end if
                         end if
                         nCumMat = Spec%nMat
@@ -3688,7 +3738,8 @@ pause
                       if (l .lt. 1) then ! Above loop ran out without finding a swap
                         This%Objective = This%Objective + Spec%SelfingWeight
                         if (Spec%SelfingWeight .lt. 0.0d0) then
-                          This%Penalty = This%Penalty + abs(Spec%SelfingWeight)
+                          This%PenaltySelfing = This%PenaltySelfing + Spec%SelfingWeight
+                          This%Penalty        = This%Penalty        + Spec%SelfingWeight
                         end if
                       end if
                     end if
@@ -3707,6 +3758,7 @@ pause
                 end if
                 This%SelCriterion = This%SelIntensity * Data%SelCriterionStat%SD + Data%SelCriterionStat%Mean
                 if (Spec%ModeOpt) then
+!@todo MaxSelCrit mode
                   This%Objective = This%Objective + This%SelIntensity
                 end if
               end if
@@ -3720,7 +3772,8 @@ pause
                   TmpR = Spec%GenericIndCritWeight(j) * This%GenericIndCrit(j)
                   This%Objective = This%Objective + TmpR
                   if (Spec%GenericIndCritWeight(j) .lt. 0.0) then
-                    This%Penalty = This%Penalty + abs(TmpR)
+                    This%PenaltyGenericIndCrit = This%PenaltyGenericIndCrit + TmpR
+                    This%Penalty               = This%Penalty               + TmpR
                   end if
                 end do
               end if
@@ -3748,33 +3801,20 @@ pause
               if      (Spec%ModeMin .or. Spec%ModeRan) then
                 TmpR = Spec%TargetCoancestryRateWeight * This%CoancestryRateRanMate
               else if (Spec%ModeOpt) then
-                ! Diff = (dF_solution - dF_target)^2
                 TmpR = This%CoancestryRateRanMate - Spec%TargetCoancestryRate
-                TmpR = TmpR * TmpR
-                TmpR = abs(TmpR)
-                ! (Diff^2 / dF_target), so that weight need not be sensitive to dF_target
-                TmpR = (TmpR / Spec%TargetCoancestryRate)
-                if (Spec%TargetCoancestryRate .gt. 0.0d0) then
-                  TmpR = Spec%TargetCoancestryRateWeight * TmpR
-                else
-                  TmpR = - Spec%TargetCoancestryRateWeight * TmpR
+                if (.not. Spec%TargetCoancestryRateWeightBelow .and. (This%CoancestryRateRanMate .lt. Spec%TargetCoancestryRate)) then
+                  TmpR = 0.0d0
                 end if
-                if (.not. Spec%TargetCoancestryRateWeightBelow) then
-                  if (This%CoancestryRateRanMate .lt. Spec%TargetCoancestryRate) then
-                    ! Diff = |dF_solution - dF_target| / |df_Target|
-                    TmpR = (abs(This%CoancestryRateRanMate - Spec%TargetCoancestryRate) / abs(Spec%TargetCoancestryRate))
-                    TmpR = abs(Spec%TargetCoancestryRateWeight) * TmpR
-                  end if
-                end if
+                TmpR = Spec%TargetCoancestryRateWeight * TmpR
               end if
               This%Objective = This%Objective + TmpR
               if (TmpR .lt. 0.0d0) then
-                This%Penalty = This%Penalty + abs(TmpR)
+                This%PenaltyCoancestryRate = This%PenaltyCoancestryRate + TmpR
+                This%Penalty               = This%Penalty               + TmpR
               end if
 
               ! --- Progeny inbreeding (=inbreeding of a mating) ---
 
-              !print*, "@todo need to check progeny inbreeding in light of genomic coancestry matrix!!!"
               TmpR = 0.0d0
               do j = 1, Spec%nMat
                 ! Lower triangle to speedup lookup
@@ -3786,23 +3826,29 @@ pause
               This%FutureInbreeding = TmpR / Spec%nMat
               ! dF = (F_t+1 - F_t) / (1 - F_t)
               This%InbreedingRate = (This%FutureInbreeding - Data%CurrentInbreeding) / (1.0d0 - Data%CurrentInbreeding)
-              ! We know the targeted rate of inbreeding so we can work with relative values,
-              ! which makes the TargetInbreedingRateWeight generic for ~any scenario.
-              TmpR = This%InbreedingRate / Spec%TargetInbreedingRate
-              if (TmpR .gt. 1.0d0) then
-                ! Rate of inbreeding for the solution is higher than the target
-                TmpR = Spec%TargetInbreedingRateWeight * abs(1.0d0 - TmpR)
-              else
-                ! Rate of inbreeding for the solution is lower than the target
-                if (Spec%TargetInbreedingRateWeightBelow) then
-                  TmpR = Spec%TargetInbreedingRateWeight * abs(1.0d0 - abs(TmpR)) ! the second abs is to handle negative inbreeding cases
-                else
-                  TmpR = 0.0d0
-                end if
+              TmpR = This%InbreedingRate - Spec%TargetInbreedingRate
+              if (.not. Spec%TargetInbreedingRateWeightBelow .and. (This%InbreedingRate .lt. Spec%TargetInbreedingRate)) then
+                TmpR = 0.0d0
               end if
+              TmpR = Spec%TargetInbreedingRateWeight * TmpR
+              ! ! We know the targeted rate of inbreeding so we can work with relative values,
+              ! ! which makes the TargetInbreedingRateWeight generic for ~any scenario.
+              ! TmpR = This%InbreedingRate / Spec%TargetInbreedingRate
+              ! if (TmpR .gt. 1.0d0) then
+              !   ! Rate of inbreeding for the solution is higher than the target
+              !   TmpR = Spec%TargetInbreedingRateWeight * abs(1.0d0 - TmpR)
+              ! else
+              !   ! Rate of inbreeding for the solution is lower than the target
+              !   if (Spec%TargetInbreedingRateWeightBelow) then
+              !     TmpR = Spec%TargetInbreedingRateWeight * abs(1.0d0 - abs(TmpR)) ! the second abs is to handle negative inbreeding cases
+              !   else
+              !     TmpR = 0.0d0
+              !   end if
+              ! end if
               This%Objective = This%Objective + TmpR
               if (Spec%TargetInbreedingRateWeight .lt. 0.0d0) then
-                This%Penalty = This%Penalty + abs(TmpR)
+                This%PenaltyInbreedingRate = This%PenaltyInbreedingRate + TmpR
+                This%Penalty               = This%Penalty               + TmpR
               end if
 
               ! --- Generic mating criterion ---
@@ -3827,7 +3873,8 @@ pause
                   TmpR = Spec%GenericMatCritWeight(k) * This%GenericMatCrit(k)
                   This%Objective = This%Objective + TmpR
                   if (Spec%GenericMatCritWeight(k) .lt. 0.0) then
-                    This%Penalty = This%Penalty + abs(TmpR)
+                    This%PenaltyGenericMatCrit = This%PenaltyGenericMatCrit + TmpR
+                    This%Penalty               = This%Penalty               + TmpR
                   end if
                 end do
               end if
