@@ -2983,11 +2983,7 @@ module AlphaMateModule
 
       write(Unit, *) "Objective: ", This%Objective
       write(Unit, *) "nParam: ", This%nParam
-      if (allocated(This%Chrom)) then
-        write(Unit, *) "Chrom: ", This%Chrom
-      else
-        write(Unit, *) "Chrom: not allocated"
-      end if
+      write(Unit, *) "Chrom: ", This%Chrom
       write(Unit, *) "Penalty: ", This%Penalty
       write(Unit, *) "PenaltyCoancestryRate: ", This%PenaltyCoancestryRate
       write(Unit, *) "PenaltyInbreedingRate: ", This%PenaltyInbreedingRate
@@ -3002,41 +2998,16 @@ module AlphaMateModule
       write(Unit, *) "CoancestryRateRanMate: ", This%CoancestryRateRanMate
       write(Unit, *) "FutureInbreeding: ", This%FutureInbreeding
       write(Unit, *) "InbreedingRate: ", This%InbreedingRate
-      if (allocated(This%GenericIndCrit)) then
-        write(Unit, *) "GenericIndCrit: ", This%GenericIndCrit
-      else
-        write(Unit, *) "GenericIndCrit: not allocated"
-      end if
-      if (allocated(This%GenericMatCrit)) then
-        write(Unit, *) "GenericMatCrit: ", This%GenericMatCrit
-      else
-        write(Unit, *) "GenericMatCrit: not allocated"
-      end if
+      write(Unit, *) "GenericIndCrit: ", This%GenericIndCrit
+      write(Unit, *) "GenericMatCrit: ", This%GenericMatCrit
       write(Unit, *) "Cost: ", This%Cost
-      if (allocated(This%nVec)) then
-        write(Unit, *) "nVec: ", This%nVec
-      else
-        write(Unit, *) "nVec: not allocated"
-      end if
-      if (allocated(This%xVec)) then
-        write(Unit, *) "xVec: ", This%xVec
-      else
-        write(Unit, *) "xVec: not allocated"
-      end if
-      if (allocated(This%MatingPlan)) then
-        write(Unit, *) "Mating plan:"
-        do Mat = 1, size(This%MatingPlan, dim=2)
-          write(Unit, *) Mat, This%MatingPlan(:, Mat)
-        end do
-      else
-        write(Unit, *) "Mating plan: not allocated"
-      end if
-
-      if (allocated(This%GenomeEdit)) then
-        write(Unit, *) "GenomeEdit: ", This%GenomeEdit
-      else
-        write(Unit, *) "GenomeEdit: not allocated"
-      end if
+      write(Unit, *) "nVec: ", This%nVec
+      write(Unit, *) "xVec: ", This%xVec
+      write(Unit, *) "Mating plan:"
+      do Mat = 1, size(This%MatingPlan, dim=2)
+        write(Unit, *) Mat, This%MatingPlan(:, Mat)
+      end do
+      write(Unit, *) "GenomeEdit: ", This%GenomeEdit
 
       ! pause
 
@@ -3141,9 +3112,9 @@ module AlphaMateModule
       implicit none
 
       ! Argument
-      class(AlphaMateSol), intent(out)   :: This     !< @return AlphaMateSol holder
-      real(real64), intent(in)           :: Chrom(:) !< Provided initial solution
-      class(AlphaEvolveSpec), intent(in) :: Spec     !< AlphaEvolveSpec --> AlphaMateSpec holder
+      class(AlphaMateSol), intent(out)             :: This     !< @return AlphaMateSol holder
+      real(real64), intent(in)                     :: Chrom(:) !< Provided initial solution
+      class(AlphaEvolveSpec), intent(in), optional :: Spec     !< AlphaEvolveSpec --> AlphaMateSpec holder
 
       ! Initialisation
       select type (Spec)
@@ -3237,18 +3208,12 @@ module AlphaMateModule
             Out%GenericMatCrit = In%GenericMatCrit
           end if
           Out%Cost = In%Cost
-          if (allocated(In%nVec)) then
-            allocate(Out%nVec(size(In%nVec)))
-            Out%nVec = In%nVec
-          end if
-          if (allocated(In%xVec)) then
-            allocate(Out%xVec(size(In%xVec)))
-            Out%xVec = In%xVec
-          end if
-          if (allocated(In%MatingPlan)) then
-            allocate(Out%MatingPlan(size(In%MatingPlan, dim=1), size(In%MatingPlan, dim=2)))
-            Out%MatingPlan = In%MatingPlan
-          end if
+          allocate(Out%nVec(size(In%nVec)))
+          Out%nVec = In%nVec
+          allocate(Out%xVec(size(In%xVec)))
+          Out%xVec = In%xVec
+          allocate(Out%MatingPlan(size(In%MatingPlan, dim=1), size(In%MatingPlan, dim=2)))
+          Out%MatingPlan = In%MatingPlan
           if (allocated(In%GenomeEdit)) then
             allocate(Out%GenomeEdit(size(In%GenomeEdit)))
             Out%GenomeEdit = In%GenomeEdit
@@ -3308,15 +3273,9 @@ module AlphaMateModule
             This%GenericMatCrit          = This%GenericMatCrit            * kR + Add%GenericMatCrit            / n
           end if
           This%Cost                      = This%Cost                      * kR + Add%Cost                      / n
-          if (allocated(This%nVec)) then
-            This%nVec                    = This%nVec                      * kR + Add%nVec                      / n
-          end if
-          if (allocated(This%xVec)) then
-            This%xVec                    = This%xVec                      * kR + Add%xVec                      / n
-          end if
-          if (allocated(This%MatingPlan)) then
-            This%MatingPlan              = This%MatingPlan                * kR + Add%MatingPlan                / n
-          end if
+          This%nVec                      = This%nVec                      * kR + Add%nVec                      / n
+          This%xVec                      = This%xVec                      * kR + Add%xVec                      / n
+          This%MatingPlan                = This%MatingPlan                * kR + Add%MatingPlan                / n
           if (allocated(This%GenomeEdit)) then
             This%GenomeEdit              = This%GenomeEdit                * kR + Add%GenomeEdit                / n
           end if
@@ -3333,10 +3292,10 @@ module AlphaMateModule
     subroutine FixSolEtcMateAndEvaluateAlphaMateSol(This, Chrom, Spec, Data) ! not pure due to RNG
       implicit none
       ! Arguments
-      class(AlphaMateSol), intent(inout) :: This     !< @return AlphaMateSol holder
-      real(real64), intent(in)           :: Chrom(:) !< A solution
-      class(AlphaEvolveSpec), intent(in) :: Spec     !< AlphaEvolveSpec --> AlphaMateSpec holder
-      class(AlphaEvolveData), intent(in) :: Data     !< AlphaEvolveData --> AlphaMateData holder
+      class(AlphaMateSol), intent(inout)           :: This     !< @return AlphaMateSol holder
+      real(real64), intent(in)                     :: Chrom(:) !< A solution
+      class(AlphaEvolveSpec), intent(in)           :: Spec     !< AlphaEvolveSpec --> AlphaMateSpec holder
+      class(AlphaEvolveData), intent(in), optional :: Data     !< AlphaEvolveData --> AlphaMateData holder
 
       ! Other
       integer(int32) :: i, j, k, l, g, nCumMat, TmpMin, TmpMax, TmpI
