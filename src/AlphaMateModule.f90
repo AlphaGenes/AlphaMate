@@ -59,7 +59,7 @@ module AlphaMateModule
   use AlphaHouseMod, only : CountLines, Char2Int, Char2Double, Int2Char, Real2Char, &
                             RandomOrder, SetSeed, ToLower, FindLoc, &
                             ParseToFirstWhitespace, SplitLineIntoTwoParts
-  use AlphaStatMod, only : DescStat, DescStatReal64, &
+  use AlphaStatMod, only : Mean, DescStat, DescStatReal64, &
                            DescStatMatrix, DescStatLowTriMatrix, DescStatMatrixReal64
   use AlphaEvolveModule, only : AlphaEvolveSol, AlphaEvolveSpec, AlphaEvolveData, &
                                 DifferentialEvolution, RandomSearch
@@ -104,9 +104,17 @@ module AlphaMateModule
     real(real64), allocatable :: TargetCoancestryRateFrontier(:)
 
     ! Algorithm specifications
-    integer(int32) :: EvolAlgNSol, EvolAlgNIter, EvolAlgNIterBurnIn, EvolAlgNIterStop, EvolAlgNIterPrint, RanAlgStricter
-    real(real64) :: EvolAlgStopTol, EvolAlgParamCrBurnIn, EvolAlgParamCr, EvolAlgParamFBase, EvolAlgParamFHigh1, EvolAlgParamFHigh2
+    ! ... generic evolutionary parameters
+    integer(int32) :: EvolAlgNSol, EvolAlgNIter, EvolAlgNIterStop, EvolAlgNIterPrint
+    real(real64) :: EvolAlgStopTol
     logical :: EvolAlgLogPop
+    character(len=SPECOPTIONLENGTH) :: EvolAlg
+    ! ... differential evolution
+    integer(int32) :: DiffEvolNIterBurnIn
+    real(real64) :: DiffEvolParamCrBurnIn, DiffEvolParamCr, DiffEvolParamFBase, DiffEvolParamFHigh1, DiffEvolParamFHigh2
+    ! ... random search
+    integer(int32) :: RanAlgStricter
+
     contains
       procedure :: Initialise => InitialiseAlphaMateSpec
       procedure :: Read       => ReadAlphaMateSpec
@@ -167,7 +175,8 @@ module AlphaMateModule
       procedure         :: UpdateMean   => UpdateMeanAlphaMateSol
       procedure         :: Evaluate     => FixSolEtcMateAndEvaluateAlphaMateSol
       procedure         :: Write        => WriteAlphaMateSol
-      procedure         :: WriteForUser => WriteForUserAlphaMateSol
+      procedure         :: WriteContributions
+      procedure         :: WriteMatingPlan
       procedure, nopass :: LogHead      => LogHeadAlphaMateSol
       procedure         :: Log          => LogAlphaMateSol
       procedure, nopass :: LogPopHead   => LogPopHeadAlphaMateSol
@@ -439,16 +448,19 @@ module AlphaMateModule
 
       This%EvolAlgNSol = 100
       This%EvolAlgNIter = 100000
-      This%EvolAlgNIterBurnIn = 1000
-      This%EvolAlgNIterStop = 10000
+      This%EvolAlgNIterStop = 1000
       This%EvolAlgNIterPrint = 100
       This%EvolAlgStopTol = 0.0001d0
-      This%EvolAlgParamCrBurnIn = 0.4d0
-      This%EvolAlgParamCr = 0.2d0
-      This%EvolAlgParamFBase = 0.1d0
-      This%EvolAlgParamFHigh1 = 1.0d0
-      This%EvolAlgParamFHigh2 = 4.0d0
       This%EvolAlgLogPop = .false.
+      This%EvolAlg = "DE"
+
+      This%DiffEvolNIterBurnIn = 1000
+      This%DiffEvolParamCrBurnIn = 0.4d0
+      This%DiffEvolParamCr = 0.2d0
+      This%DiffEvolParamFBase = 0.1d0
+      This%DiffEvolParamFHigh1 = 1.0d0
+      This%DiffEvolParamFHigh2 = 4.0d0
+
       This%RanAlgStricter = 10
     end subroutine
 
@@ -561,18 +573,21 @@ module AlphaMateModule
         write(Unit, *) "TargetCoancestryRateFrontier: not allocated"
       end if
 
-      write(Unit, *) "EvolAlgNSol: ",          This%EvolAlgNSol
-      write(Unit, *) "EvolAlgNIter: ",         This%EvolAlgNIter
-      write(Unit, *) "EvolAlgNIterBurnIn: ",   This%EvolAlgNIterBurnIn
-      write(Unit, *) "EvolAlgNIterStop: ",     This%EvolAlgNIterStop
-      write(Unit, *) "EvolAlgNIterPrint: ",    This%EvolAlgNIterPrint
-      write(Unit, *) "EvolAlgStopTol: ",       This%EvolAlgStopTol
-      write(Unit, *) "EvolAlgParamCrBurnIn: ", This%EvolAlgParamCrBurnIn
-      write(Unit, *) "EvolAlgParamCr: ",       This%EvolAlgParamCr
-      write(Unit, *) "EvolAlgParamFBase: ",    This%EvolAlgParamFBase
-      write(Unit, *) "EvolAlgParamFHigh1: ",   This%EvolAlgParamFHigh1
-      write(Unit, *) "EvolAlgParamFHigh2: ",   This%EvolAlgParamFHigh2
-      write(Unit, *) "EvolAlgLogPop: ",        This%EvolAlgLogPop
+      write(Unit, *) "EvolAlgNSol: ",       This%EvolAlgNSol
+      write(Unit, *) "EvolAlgNIter: ",      This%EvolAlgNIter
+      write(Unit, *) "EvolAlgNIterStop: ",  This%EvolAlgNIterStop
+      write(Unit, *) "EvolAlgNIterPrint: ", This%EvolAlgNIterPrint
+      write(Unit, *) "EvolAlgStopTol: ",    This%EvolAlgStopTol
+      write(Unit, *) "EvolAlgLogPop: ",     This%EvolAlgLogPop
+      write(Unit, *) "EvolAlg: ",           This%EvolAlg
+
+      write(Unit, *) "DiffEvolNIterBurnIn: ",   This%DiffEvolNIterBurnIn
+      write(Unit, *) "DiffEvolParamCrBurnIn: ", This%DiffEvolParamCrBurnIn
+      write(Unit, *) "DiffEvolParamCr: ",       This%DiffEvolParamCr
+      write(Unit, *) "DiffEvolParamFBase: ",    This%DiffEvolParamFBase
+      write(Unit, *) "DiffEvolParamFHigh1: ",   This%DiffEvolParamFHigh1
+      write(Unit, *) "DiffEvolParamFHigh2: ",   This%DiffEvolParamFHigh2
+
       write(Unit, *) "RanAlgStricter: ",       This%RanAlgStricter
 
       if (present(File)) then
@@ -1477,18 +1492,6 @@ module AlphaMateModule
                 stop 1
               end if
 
-            case ("evolalgnumberofiterationsburnin")
-              if (allocated(Second)) then
-                This%EvolAlgNIterBurnIn = Char2Int(trim(adjustl(Second(1))))
-                if (LogStdoutInternal) then
-                  write(STDOUT, "(a)") " Evolutionary algorithm - number of warming iterations (burn-in): "//trim(Int2Char(This%EvolAlgNIterBurnIn))
-                end if
-              else
-                write(STDERR, "(a)") " ERROR: Must specify a number for EvolAlgNumberOfIterationsBurnin, i.e., EvolAlgNumberOfIterationsBurnin, 1000"
-                write(STDERR, "(a)") ""
-                stop 1
-              end if
-
             case ("evolalgnumberofiterationsprint")
               if (allocated(Second)) then
                 This%EvolAlgNIterPrint = Char2Int(trim(adjustl(Second(1))))
@@ -1539,62 +1542,94 @@ module AlphaMateModule
                 stop 1
               end if
 
-            case ("evolalgparametercrburnin")
+            case ("evolalg")
               if (allocated(Second)) then
-                This%EvolAlgParamCrBurnIn = Char2Double(trim(adjustl(Second(1))))
-                if (LogStdoutInternal) then
-                  write(STDOUT, "(a)") " Evolutionary algorithm - cross-over parameter for warmup (burn-in): "//trim(Real2Char(This%EvolAlgParamCrBurnIn, fmt=FMTREAL2CHAR))
+                if (ToLower(trim(adjustl(Second(1)))) .ne. "none") then
+                  write(This%EvolAlg, *) trim(adjustl(Second(1)))
+                  This%EvolAlg = adjustl(This%EvolAlg)
+                  if (.not. (This%EvolAlg .eq. "DE")) then
+                    write(STDERR, "(a)") " ERROR: Must specify a valid algorithm [DE/???] for EvolAlg, i.e., EvolAlg, DE"
+                    write(STDERR, "(a)") ""
+                    stop 1
+                  end if
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Evolutionary algorithm: "//trim(This%EvolAlg)
+                  end if
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a value for EvolAlgParameterCrBurnin, i.e., EvolAlgParameterCrBurnin, 0.4"
+                write(STDERR, "(a)") " ERROR: Must specify a algorithm for EvolAlg, i.e., EvolAlg, DE"
                 write(STDERR, "(a)") ""
                 stop 1
               end if
 
-            case ("evolalgparametercr")
+            case ("diffevolnumberofiterationsburnin")
               if (allocated(Second)) then
-                This%EvolAlgParamCr = Char2Double(trim(adjustl(Second(1))))
+                This%DiffEvolNIterBurnIn = Char2Int(trim(adjustl(Second(1))))
                 if (LogStdoutInternal) then
-                  write(STDOUT, "(a)") " Evolutionary algorithm - cross-over parameter: "//trim(Real2Char(This%EvolAlgParamCr, fmt=FMTREAL2CHAR))
+                  write(STDOUT, "(a)") " Differential evolution algorithm - number of warming iterations (burn-in): "//trim(Int2Char(This%DiffEvolNIterBurnIn))
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a value for EvolAlgParameterCr, i.e., EvolAlgParameterCr, 0.2"
+                write(STDERR, "(a)") " ERROR: Must specify a number for EvolAlgNumberOfIterationsBurnin, i.e., EvolAlgNumberOfIterationsBurnin, 1000"
                 write(STDERR, "(a)") ""
                 stop 1
               end if
 
-            case ("evolalgparameterfbase")
+            case ("diffevolparametercrburnin")
               if (allocated(Second)) then
-                This%EvolAlgParamFBase = Char2Double(trim(adjustl(Second(1))))
+                This%DiffEvolParamCrBurnIn = Char2Double(trim(adjustl(Second(1))))
                 if (LogStdoutInternal) then
-                  write(STDOUT, "(a)") " Evolutionary algorithm - parameter F (base value): "//trim(Real2Char(This%EvolAlgParamFBase, fmt=FMTREAL2CHAR))
+                  write(STDOUT, "(a)") " Differential evolution algorithm - cross-over parameter for warmup (burn-in): "//trim(Real2Char(This%DiffEvolParamCrBurnIn, fmt=FMTREAL2CHAR))
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a value for EvolAlgParameterFBase, i.e., EvolAlgParameterFBase, 0.1"
+                write(STDERR, "(a)") " ERROR: Must specify a value for DiffEvolParameterCrBurnin, i.e., DiffEvolParameterCrBurnin, 0.4"
                 write(STDERR, "(a)") ""
                 stop 1
               end if
 
-            case ("evolalgparameterfhigh1")
+            case ("diffevolparametercr")
               if (allocated(Second)) then
-                This%EvolAlgParamFHigh1 = Char2Double(trim(adjustl(Second(1))))
+                This%DiffEvolParamCr = Char2Double(trim(adjustl(Second(1))))
                 if (LogStdoutInternal) then
-                  write(STDOUT, "(a)") " Evolutionary algorithm - parameter F (high value 1): "//trim(Real2Char(This%EvolAlgParamFHigh1, fmt=FMTREAL2CHAR))
+                  write(STDOUT, "(a)") " Differential evolution algorithm - cross-over parameter: "//trim(Real2Char(This%DiffEvolParamCr, fmt=FMTREAL2CHAR))
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a value for EvolAlgParameterFHigh1, i.e., EvolAlgParameterFHigh1, 1.0"
+                write(STDERR, "(a)") " ERROR: Must specify a value for DiffEvolParameterCr, i.e., DiffEvolParameterCr, 0.2"
                 write(STDERR, "(a)") ""
                 stop 1
               end if
 
-            case ("evolalgparameterfhigh2")
+            case ("diffevolparameterfbase")
               if (allocated(Second)) then
-                This%EvolAlgParamFHigh2 = Char2Double(trim(adjustl(Second(1))))
+                This%DiffEvolParamFBase = Char2Double(trim(adjustl(Second(1))))
                 if (LogStdoutInternal) then
-                  write(STDOUT, "(a)") " Evolutionary algorithm - parameter F (high value 2): "//trim(Real2Char(This%EvolAlgParamFHigh2, fmt=FMTREAL2CHAR))
+                  write(STDOUT, "(a)") " Differential evolution algorithm - parameter F (base value): "//trim(Real2Char(This%DiffEvolParamFBase, fmt=FMTREAL2CHAR))
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a value for EvolAlgParameterFHigh2, i.e., EvolAlgParameterFHigh2, 4.0"
+                write(STDERR, "(a)") " ERROR: Must specify a value for DiffEvolParameterFBase, i.e., DiffEvolParameterFBase, 0.1"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("diffevolparameterfhigh1")
+              if (allocated(Second)) then
+                This%DiffEvolParamFHigh1 = Char2Double(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Differential evolution algorithm - parameter F (high value 1): "//trim(Real2Char(This%DiffEvolParamFHigh1, fmt=FMTREAL2CHAR))
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a value for DiffEvolParameterFHigh1, i.e., DiffEvolParameterFHigh1, 1.0"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("diffevolparameterfhigh2")
+              if (allocated(Second)) then
+                This%DiffEvolParamFHigh2 = Char2Double(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Differential evolution algorithm - parameter F (high value 2): "//trim(Real2Char(This%DiffEvolParamFHigh2, fmt=FMTREAL2CHAR))
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a value for DiffEvolParameterFHigh2, i.e., DiffEvolParameterFHigh2, 4.0"
                 write(STDERR, "(a)") ""
                 stop 1
               end if
@@ -1603,7 +1638,7 @@ module AlphaMateModule
               if (allocated(Second)) then
                 This%RanAlgStricter = Char2Double(trim(adjustl(Second(1))))
                 if (LogStdoutInternal) then
-                  write(STDOUT, "(a)") " Random search - perform k times more iterations that with the evolutionary algorithm: k="//trim(Int2Char(This%RanAlgStricter))
+                  write(STDOUT, "(a)") " Random search algorithm - perform k times more iterations than with the evolutionary algorithm: k="//trim(Int2Char(This%RanAlgStricter))
                 end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify a number for RandomSearchStricter, i.e., RandomSearchStricter, 10"
@@ -2719,7 +2754,8 @@ module AlphaMateModule
     !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date   March 16, 2017
     !---------------------------------------------------------------------------
-! TODO Produce an output object @return object that holds SolMin, SolRan, SolOpt, SolFrontier etc?
+! TODO: Produce an output object @return object that holds SolMin, SolRan, SolOpt, SolFrontier etc?
+! TODO: Add a name of mode into each solution, i.e., Sol%String
 ! TODO: MaximumCriterion
 ! TODO: MaximumCriterionPercentage
 ! TODO: MinimumCoancestryPercentage
@@ -2790,15 +2826,18 @@ module AlphaMateModule
         allocate(InitEqual(nParam, nint(Spec%EvolAlgNSol * 0.1)))
         InitEqual = 1.0d0 ! A couple of solutions that would give equal contributions to everybody
 
-        call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, Init=InitEqual, &
-          nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%EvolAlgNIterBurnIn, nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint, &
-          LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
-          CRBurnIn=Spec%EvolAlgParamCrBurnIn, CRLate=Spec%EvolAlgParamCr, FBase=Spec%EvolAlgParamFBase, FHigh1=Spec%EvolAlgParamFHigh1, FHigh2=Spec%EvolAlgParamFHigh2, &
-          BestSol=SolMin)
+        if (trim(Spec%EvolAlg) .eq. "DE") then
+          call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, Init=InitEqual, &
+            nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint, &
+            LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
+            CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate=Spec%DiffEvolParamCr, FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
+            BestSol=SolMin)
+        end if
 
         deallocate(InitEqual)
 
-        call SolMin%WriteForUser(Data, Spec, ContribFile, MatingFile)
+        call SolMin%WriteContributions(Data, Spec, ContribFile)
+        call SolMin%WriteMatingPlan(Data, Spec, MatingFile)
 
         ! Reset
         Spec%ModeRan = HoldModeRan
@@ -2862,13 +2901,16 @@ module AlphaMateModule
         !       - equal contributions for top 2/3 or 1/2 of BV distribution,
         !       - decreasing contributions with decreasing value
         !       - SDP solution, ...?
-        call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%EvolAlgNIterBurnIn, &
-          nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint,&
-          LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
-          CRBurnIn=Spec%EvolAlgParamCrBurnIn, CRLate=Spec%EvolAlgParamCr, FBase=Spec%EvolAlgParamFBase, FHigh1=Spec%EvolAlgParamFHigh1, FHigh2=Spec%EvolAlgParamFHigh2, &
-          BestSol=SolOpt)
+        if (trim(Spec%EvolAlg) .eq. "DE") then
+          call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, &
+            nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint,&
+            LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
+            CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate=Spec%DiffEvolParamCr, FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
+            BestSol=SolOpt)
+        end if
 
-        call SolOpt%WriteForUser(Data, Spec, ContribFile, MatingFile)
+        call SolOpt%WriteContributions(Data, Spec, ContribFile)
+        call SolOpt%WriteMatingPlan(Data, Spec, MatingFile)
 
         ! Reset
         Spec%ModeMin = HoldModeMin
@@ -2929,15 +2971,18 @@ module AlphaMateModule
           ContribFile = "ContributionsFrontier"//trim(Int2Char(Point))//".txt"
           MatingFile  = "MatingPlanFrontier"//trim(Int2Char(Point))//".txt"
 
-          call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%EvolAlgNIterBurnIn, &
-            nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint,&
-            LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
-            CRBurnIn=Spec%EvolAlgParamCrBurnIn, CRLate=Spec%EvolAlgParamCr, FBase=Spec%EvolAlgParamFBase, FHigh1=Spec%EvolAlgParamFHigh1, FHigh2=Spec%EvolAlgParamFHigh2, &
-            BestSol=Sol)
+          if (trim(Spec%EvolAlg) .eq. "DE") then
+            call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, &
+              nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint,&
+              LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
+              CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate=Spec%DiffEvolParamCr, FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
+              BestSol=Sol)
+          end if
 
           DumC = "Frontier"//trim(Int2Char(Point))
           call Sol%Log(FrontierUnit, Iteration=-1, AcceptRate=-1.0d0, String=DumC, StringNum=10)
-          call Sol%WriteForUser(Data, Spec, ContribFile, MatingFile)
+          call Sol%WriteContributions(Data, Spec, ContribFile)
+          call Sol%WriteMatingPlan(Data, Spec, MatingFile)
 
           if ((Spec%TargetCoancestryRate - Sol%CoancestryRateRanMate) .gt. 0.01d0) then
             if (LogStdoutInternal) then
@@ -3018,15 +3063,15 @@ module AlphaMateModule
 
     !###########################################################################
 
+! TODO: push all FORMATS etc into Spec
+
     !---------------------------------------------------------------------------
-    !> @brief  Write AlphaMate solution for user to files or standard output
+    !> @brief  Write contributions to a file or standard output
     !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
-    !> @date   March 16, 2017
-    !> @return Output to files or standard output
+    !> @date   April 7, 2017
+    !> @return Output to file or standard output
     !---------------------------------------------------------------------------
-! @TODO create WriteContributions
-! @TODO create WriteMatingPlan
-    subroutine WriteForUserAlphaMateSol(This, Data, Spec, ContribFile, MatingFile) ! not pure due to IO
+    subroutine WriteContributions(This, Data, Spec, ContribFile) ! not pure due to IO
       implicit none
 
       ! Arguments
@@ -3034,21 +3079,19 @@ module AlphaMateModule
       type(AlphaMateData)        :: Data        !< AlphaMateData holder
       type(AlphaMateSpec)        :: Spec        !< AlphaMateSpec holder
       character(len=*), optional :: ContribFile !< File to write individual contributions to (default STDOUT)
-      character(len=*), optional :: MatingFile  !< File to write mating plan to (default STDOUT)
 
       ! Other
-      integer(int32) :: IndRev, Ind, Mat, ContribUnit, MatingUnit, Rank(Data%nInd)
+      integer(int32) :: IndRev, Ind, ContribUnit, Rank(Data%nInd)
+
       if (.not. present(ContribFile)) then
         ContribUnit = STDOUT
-      end if
-      if (.not. present(MatingFile)) then
-        MatingUnit = STDOUT
       end if
 
       ! @todo should we have constant output no matter which options are switched on?
       if (present(ContribFile)) then
         open(newunit=ContribUnit, file=ContribFile, status="unknown")
       end if
+
       Rank = MrgRnk(This%nVec)
       if (.not. Spec%PAGEPar) then
         !                                        1234567890123456789012
@@ -3061,7 +3104,7 @@ module AlphaMateModule
         do IndRev = Data%nInd, 1, -1 ! MrgRnk ranks small to large
           Ind = Rank(IndRev)
           write(ContribUnit, FMTCONTRIBUTION) Data%Coancestry%OriginalId(Ind), Data%Gender(Ind), Data%SelCriterion(Ind), &
-                                              sum(Data%Coancestry%Value(1:, Ind)) / Data%nInd, &
+                                              mean(Data%Coancestry%Value(1:, Ind)), &
                                               This%xVec(Ind), This%nVec(Ind)
         end do
       else
@@ -3077,18 +3120,45 @@ module AlphaMateModule
         do IndRev = Data%nInd, 1, -1 ! MrgRnk ranks small to large
           Ind = Rank(IndRev)
           write(ContribUnit, FMTCONTRIBUTIONEDIT) Data%Coancestry%OriginalId(Ind), Data%Gender(Ind), Data%SelCriterion(Ind), &
-                                                  sum(Data%Coancestry%Value(1:, Ind)) / Data%nInd, &
+                                                  mean(Data%Coancestry%Value(1:, Ind)), &
                                                   This%xVec(Ind), This%nVec(Ind), &
                                                   nint(This%GenomeEdit(Ind)), Data%SelCriterion(Ind) + This%GenomeEdit(Ind) * Data%SelCriterionPAGE(Ind)
         end do
       end if
+
       if (present(ContribFile)) then
         close(ContribUnit)
+      end if
+    end subroutine
+
+    !###########################################################################
+
+    !---------------------------------------------------------------------------
+    !> @brief  Write mating plan to a file or standard output
+    !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date   April 7, 2017
+    !> @return Output to file or standard output
+    !---------------------------------------------------------------------------
+    subroutine WriteMatingPlan(This, Data, Spec, MatingFile) ! not pure due to IO
+      implicit none
+
+      ! Arguments
+      class(AlphaMateSol)        :: This        !< AlphaMateSol holder
+      type(AlphaMateData)        :: Data        !< AlphaMateData holder
+      type(AlphaMateSpec)        :: Spec        !< AlphaMateSpec holder
+      character(len=*), optional :: MatingFile  !< File to write mating plan to (default STDOUT)
+
+      ! Other
+      integer(int32) :: Mat, MatingUnit
+
+      if (.not. present(MatingFile)) then
+        MatingUnit = STDOUT
       end if
 
       if (present(MatingFile)) then
         open(newunit=MatingUnit, file=MatingFile, status="unknown")
       end if
+
       !                                 12345678901234567890123456789012
       write(MatingUnit, FMTMATINGHEAD) "         Mating", &
                                        "                         Parent1", &
@@ -3096,6 +3166,7 @@ module AlphaMateModule
       do Mat = 1, Spec%nMat
         write(MatingUnit, FMTMATING) Mat, Data%Coancestry%OriginalId(This%MatingPlan(1, Mat)), Data%Coancestry%OriginalId(This%MatingPlan(2, Mat))
       end do
+
       if (present(MatingFile)) then
         close(MatingUnit)
       end if
