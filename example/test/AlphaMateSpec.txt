@@ -1,7 +1,6 @@
 ModeMin                              ,No
 ModeMax                              ,No
 ModeOpt                              ,No
-ModeDegree                           ,No
 ModeRan                              ,No
 ModeFrontier                         ,Yes
 MateAllocation                       ,Yes
@@ -15,21 +14,22 @@ TargetCoancestryRate                 ,0.01
 TargetCoancestryRateWeight           ,-100.00
 TargetCoancestryRateWeightBelow      ,No
 FrontierNumberOfPoints       ,5
-FrontierTargetCoancestryRate ,-0.05
+FrontierTargetCoancestryRate ,-0.005
 FrontierTargetCoancestryRate ,-0.001
-FrontierTargetCoancestryRate ,0.05
-FrontierTargetCoancestryRate ,0.1
-FrontierTargetCoancestryRate ,0.5
+FrontierTargetCoancestryRate ,+0.001
+FrontierTargetCoancestryRate ,+0.005
+FrontierTargetCoancestryRate ,+0.05
 EqualizeMaleContributions            ,Yes
 EqualizeFemaleContributions          ,Yes
 Seed                                 ,817977623
 Stop
 
-
 EvolAlgNumberOfSolutions             ,4
 EvolAlgNumberOfIterations            ,10
 EvolAlgNumberOfIterationsPrint       ,1
 DiffEvolNumberOfIterationsBurnin     ,1
+
+
 
 
 FrontierTargetCoancestryRate ,0.001

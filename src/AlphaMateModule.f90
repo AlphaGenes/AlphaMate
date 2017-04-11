@@ -135,7 +135,7 @@ module AlphaMateModule
 
     ! Search specifications
     logical :: SeedGiven
-    logical :: ModeMin, ModeMax, ModeOpt, ModeDegree, ModeRan, ModeFrontier
+    logical :: ModeMin, ModeMax, ModeOpt, ModeRan, ModeFrontier
     integer(int32) :: Seed, nFrontierPoints
     real(real64), allocatable :: TargetCoancestryRateFrontier(:)
 
@@ -441,7 +441,6 @@ module AlphaMateModule
       This%ModeMin = .false.
       This%ModeMax = .false.
       This%ModeOpt = .false.
-      This%ModeDegree = .false.
       This%ModeRan = .false.
       This%ModeFrontier = .false.
       This%nFrontierPoints = 0
@@ -568,7 +567,6 @@ module AlphaMateModule
       write(Unit, *) "ModeMin: ",          This%ModeMin
       write(Unit, *) "ModeMax: ",          This%ModeMax
       write(Unit, *) "ModeOpt: ",          This%ModeOpt
-      write(Unit, *) "ModeDegree: ",       This%ModeDegree
       write(Unit, *) "ModeRan: ",          This%ModeRan
       write(Unit, *) "ModeFrontier: ",     This%ModeFrontier
       write(Unit, *) "nFrontierPoints: ",  This%nFrontierPoints
@@ -705,20 +703,6 @@ module AlphaMateModule
                 end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify Yes or No for ModeOpt, i.e., ModeOpt, Yes"
-                write(STDERR, "(a)") ""
-                stop 1
-              end if
-
-            case ("modedegree")
-              if (allocated(Second)) then
-                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
-                  This%ModeDegree = .true.
-                  if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " ModeDegree"
-                  end if
-                end if
-              else
-                write(STDERR, "(a)") " ERROR: Must specify Yes or No for ModeDegree, i.e., ModeDegree, Yes"
                 write(STDERR, "(a)") ""
                 stop 1
               end if
@@ -1080,7 +1064,7 @@ module AlphaMateModule
                       stop 1
                     end if
                   else
-                    write(STDOUT, "(a)") " NOTE: Specification '"//trim(Line)//"' was ignored - already read all the frontier points!"
+                    write(STDOUT, "(a)") " NOTE: Specification '"//trim(Line)//"' was ignored - already read all frontier points!"
                     write(STDOUT, "(a)") " "
                   end if
                 else
@@ -1695,13 +1679,13 @@ module AlphaMateModule
       end do ReadSpec
       close(SpecUnit)
 
-      if (.not. (This%ModeMin .or. This%ModeMax .or. This%ModeOpt .or. This%ModeDegree .or. This%ModeRan .or. This%ModeFrontier)) then
-        write(STDERR, "(a)") " ERROR: One of ModeMin, ModeMax, ModeOpt, ModeDegree, ModeRan, or ModeFrontier must be activated!"
+      if (.not. (This%ModeMin .or. This%ModeMax .or. This%ModeOpt .or. This%ModeRan .or. This%ModeFrontier)) then
+        write(STDERR, "(a)") " ERROR: One of ModeMin, ModeMax, ModeOpt, ModeRan, or ModeFrontier must be activated!"
         write(STDERR, "(a)") ""
         stop 1
       end if
 
-      if (This%ModeDegree .or. This%ModeFrontier) then
+      if (This%ModeFrontier) then
         This%ModeMin = .true.
         This%ModeMax = .true.
       end if
@@ -3331,8 +3315,6 @@ module AlphaMateModule
                 end if
                 This%SelCriterion = This%SelIntensity * Data%SelCriterionStat%SD + Data%SelCriterionStat%Mean
                 if (Spec%ModeOpt .or. Spec%ModeMax) then
-!@todo ModeDegree
-!@todo ModeFrontier
                   This%Objective = This%Objective + This%SelIntensity
                 end if
               end if
@@ -3372,16 +3354,18 @@ module AlphaMateModule
               ! dF = (F_t+1 - F_t) / (1 - F_t)
               This%CoancestryRateRanMate = (This%FutureCoancestryRanMate - Data%CurrentCoancestryRanMate) / (1.0d0 - Data%CurrentCoancestryRanMate)
 
-!@todo ModeDegree
 !@todo ModeRan?
-!@todo ModeFrontier
               TmpR = 0.0d0
               if      (Spec%ModeMin) then
                 TmpR = Spec%TargetCoancestryRateWeight * This%CoancestryRateRanMate
               else if (Spec%ModeOpt) then
                 TmpR = This%CoancestryRateRanMate - Spec%TargetCoancestryRate
-                if (.not. Spec%TargetCoancestryRateWeightBelow .and. (This%CoancestryRateRanMate .lt. Spec%TargetCoancestryRate)) then
-                  TmpR = 0.0d0
+                if (This%CoancestryRateRanMate .lt. Spec%TargetCoancestryRate) then
+                  if (Spec%TargetCoancestryRateWeightBelow) then
+                    TmpR = abs(TmpR)
+                  else
+                    TmpR = 0.0d0
+                  end if
                 end if
                 TmpR = Spec%TargetCoancestryRateWeight * TmpR
               end if
@@ -3483,16 +3467,15 @@ module AlphaMateModule
       real(real64), allocatable :: InitEqual(:, :)
 
       logical :: LogStdoutInternal, HoldTargetCoancestryRateWeightBelow
-      logical :: HoldModeMin, HoldModeMax, HoldModeOpt, HoldModeDegree, HoldModeRan, HoldModeFrontier
+      logical :: HoldModeMin, HoldModeMax, HoldModeOpt, HoldModeRan, HoldModeFrontier
 
       character(len=FILELENGTH) :: LogFile, LogPopFile, ContribFile, MatingFile
 
-      type(AlphaMateSol) :: SolMin, SolMax, SolOpt, SolDegree, SolRan, SolFrontier
+      type(AlphaMateSol) :: SolMin, SolMax, SolOpt, SolRan, SolFrontier
 
       HoldModeMin = .false.
       HoldModeMax = .false.
       HoldModeOpt = .false.
-      HoldModeDegree = .false.
       HoldModeRan = .false.
       HoldModeFrontier = .false.
 
@@ -3528,8 +3511,6 @@ module AlphaMateModule
         Spec%ModeMax = .false.
         HoldModeOpt = Spec%ModeOpt
         Spec%ModeOpt = .false.
-        HoldModeDegree = Spec%ModeDegree
-        Spec%ModeDegree = .false.
         HoldModeRan = Spec%ModeRan
         Spec%ModeRan = .false.
         HoldModeFrontier = Spec%ModeFrontier
@@ -3566,7 +3547,6 @@ module AlphaMateModule
         ! Reset
         Spec%ModeMax = HoldModeMax
         Spec%ModeOpt = HoldModeOpt
-        Spec%ModeDegree = HoldModeDegree
         Spec%ModeRan = HoldModeRan
         Spec%ModeFrontier = HoldModeFrontier
         Spec%TargetCoancestryRateWeightBelow = HoldTargetCoancestryRateWeightBelow
@@ -3586,8 +3566,6 @@ module AlphaMateModule
         Spec%ModeMin = .false.
         HoldModeOpt = Spec%ModeOpt
         Spec%ModeOpt = .false.
-        HoldModeDegree = Spec%ModeDegree
-        Spec%ModeDegree = .false.
         HoldModeRan = Spec%ModeRan
         Spec%ModeRan = .false.
         HoldModeFrontier = Spec%ModeFrontier
@@ -3618,7 +3596,6 @@ module AlphaMateModule
         ! Reset
         Spec%ModeMin = HoldModeMin
         Spec%ModeOpt = HoldModeOpt
-        Spec%ModeDegree = HoldModeDegree
         Spec%ModeRan = HoldModeRan
         Spec%ModeFrontier = HoldModeFrontier
       end if
@@ -3637,8 +3614,6 @@ module AlphaMateModule
         Spec%ModeMin = .false.
         HoldModeMax = Spec%ModeMax
         Spec%ModeMax = .false.
-        HoldModeDegree = Spec%ModeDegree
-        Spec%ModeDegree = .false.
         HoldModeRan = Spec%ModeRan
         Spec%ModeRan = .false.
         HoldModeFrontier = Spec%ModeFrontier
@@ -3669,13 +3644,9 @@ module AlphaMateModule
         ! Reset
         Spec%ModeMin = HoldModeMin
         Spec%ModeMax = HoldModeMax
-        Spec%ModeDegree = HoldModeDegree
         Spec%ModeRan = HoldModeRan
         Spec%ModeFrontier = HoldModeFrontier
       end if
-
-      ! --- Degree??? ---
-      ! this mode needs to be after ModeMin and ModeMax!!!
 
       ! --- Random mating ---
 
@@ -3694,8 +3665,6 @@ module AlphaMateModule
         Spec%ModeMax = .false.
         HoldModeOpt = Spec%ModeOpt
         Spec%ModeOpt = .false.
-        HoldModeDegree = Spec%ModeDegree
-        Spec%ModeDegree = .false.
         HoldModeFrontier = Spec%ModeFrontier
         Spec%ModeFrontier = .false.
 
@@ -3718,24 +3687,23 @@ module AlphaMateModule
         Spec%ModeMin = HoldModeMin
         Spec%ModeMax = HoldModeMax
         Spec%ModeOpt = HoldModeOpt
-        Spec%ModeDegree = HoldModeDegree
         Spec%ModeFrontier = HoldModeFrontier
       end if
 
-      ! --- Evaluate the frontier ---
+      ! --- Evaluate frontier ---
       ! this mode needs to be after ModeMin and ModeMax!!!
 
       if (Spec%ModeFrontier) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " "
-          write(STDOUT, "(a)") " Evaluate the frontier"
+          write(STDOUT, "(a)") " Evaluate frontier"
         end if
 
         open(newunit=FrontierUnit, file="Frontier.txt", status="unknown")
-        call SolFrontier%SetupColNamesAndFormats(Spec=Spec)
+        call SolFrontier%SetupColNamesAndFormats(Spec=Spec) ! so we can log any previous results
         call SolFrontier%LogHead(LogUnit=FrontierUnit, String="ModeOrPoint", StringNum=15)
 
-        ! Add any previous results to the frontier
+        ! Add any previous results to frontier
         if (Spec%ModeMin) then
           call SolMin%Log(FrontierUnit, Iteration=-1, AcceptRate=-1.0d0, String="ModeMin", StringNum=15)
         end if
@@ -3744,9 +3712,6 @@ module AlphaMateModule
         end if
         if (Spec%ModeOpt) then
           call SolOpt%Log(FrontierUnit, Iteration=-1, AcceptRate=-1.0d0, String="ModeOpt", StringNum=15)
-        end if
-        if (Spec%ModeDegree) then
-          call SolDegree%Log(FrontierUnit, Iteration=-1, AcceptRate=-1.0d0, String="ModeDegree", StringNum=15)
         end if
         if (Spec%ModeRan) then
           call SolRan%Log(FrontierUnit, Iteration=-1, AcceptRate=-1.0d0, String="ModeRan", StringNum=15)
@@ -3758,9 +3723,7 @@ module AlphaMateModule
         HoldModeMax = Spec%ModeMax
         Spec%ModeMax = .false.
         HoldModeOpt = Spec%ModeOpt
-        Spec%ModeOpt = .false.
-        HoldModeDegree = Spec%ModeDegree
-        Spec%ModeDegree = .false.
+        Spec%ModeOpt = .true. ! we will balance future sel. criterion and coancestry
         HoldModeRan = Spec%ModeRan
         Spec%ModeRan = .false.
 
@@ -3799,6 +3762,9 @@ module AlphaMateModule
               BestSol=SolFrontier)
           end if
 
+          ! call SolFrontier%SetupColNamesAndFormats(Spec=Spec) ! call again as InitialiseAlphaMateSol and AssignAlphaMateSol "nullify" the  above SetupColNamesAndFormats call (ugly, but works ...)
+          ! call SolFrontier%Write
+
           call SolFrontier%Log(FrontierUnit, Iteration=-1, AcceptRate=-1.0d0, String=trim("ModeFrontier"//trim(Int2Char(Point))), StringNum=15)
           call SolFrontier%WriteContributions(Data, ContribFile)
           call SolFrontier%WriteMatingPlan(Data, MatingFile)
@@ -3807,7 +3773,7 @@ module AlphaMateModule
             if (LogStdoutInternal) then
               write(STDOUT, "(a)") ""
               write(STDOUT, "(a)") "NOTE: Could not achieve the rate of coancestry "//trim(Real2Char(Spec%TargetCoancestryRate, fmt=FMTREAL2CHAR))
-              write(STDOUT, "(a)") "NOTE: Stopping the frontier evaluation."
+              write(STDOUT, "(a)") "NOTE: Stopping frontier evaluation."
               write(STDOUT, "(a)") ""
             end if
             exit
@@ -3818,7 +3784,6 @@ module AlphaMateModule
         Spec%ModeMin = HoldModeMin
         Spec%ModeMax = HoldModeMax
         Spec%ModeOpt = HoldModeOpt
-        Spec%ModeDegree = HoldModeDegree
         Spec%ModeRan = HoldModeRan
         Spec%TargetCoancestryRate = HoldTargetCoancestryRate
         Data%TargetCoancestryRanMate = HoldTargetCoancestryRanMate
@@ -3879,11 +3844,23 @@ module AlphaMateModule
 
       write(Unit, *) "FmtLogStdoutHead: ",        trim(This%FmtLogStdoutHead)
       write(Unit, *) "FmtLogStdout: ",            trim(This%FmtLogStdout)
-      write(Unit, *) "ColnameLogStdout: ",        This%ColnameLogStdout
+      if (allocated(This%ColnameLogStdout)) then
+        write(Unit, *) "ColnameLogStdout: ",        This%ColnameLogStdout
+      else
+        write(Unit, *) "ColnameLogStdout: not allocated"
+      end if
       write(Unit, *) "FmtLogUnitHead: ",          trim(This%FmtLogUnitHead)
-      write(Unit, *) "ColnameLogUnit: ",          This%ColnameLogUnit
+      if (allocated(This%ColnameLogUnit)) then
+        write(Unit, *) "ColnameLogUnit: ",          This%ColnameLogUnit
+      else
+        write(Unit, *) "ColnameLogUnit: not allocated"
+      end if
       write(Unit, *) "FmtLogPopUnit: ",           trim(This%FmtLogPopUnit)
-      write(Unit, *) "ColnameLogPopUnit: ",       This%ColnameLogPopUnit
+      if (allocated(This%ColnameLogPopUnit)) then
+        write(Unit, *) "ColnameLogPopUnit: ",       This%ColnameLogPopUnit
+      else
+        write(Unit, *) "ColnameLogPopUnit: not allocated"
+      end if
       write(Unit, *) "FmtContributionHead: ",     trim(This%FmtContributionHead)
       write(Unit, *) "FmtContributionHeadEdit: ", trim(This%FmtContributionHeadEdit)
       write(Unit, *) "FmtContribution: ",         trim(This%FmtContribution)
