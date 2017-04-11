@@ -27,6 +27,24 @@ module TestAlphaMateModule
     @after
     subroutine Finish
       implicit none
+        integer(int32) :: Unit, File
+        character(len=100), dimension(12) :: FILES
+        FILES( 1) = "CoancestrySummary.txt"
+	      FILES( 2) = "ContributionsModeMin.txt"
+	      FILES( 3) = "ContributionsModeOpt.txt"
+	      FILES( 4) = "InbreedingSummary.txt"
+	      FILES( 5) = "MatingPlanModeMin.txt"
+	      FILES( 6) = "MatingPlanModeOpt.txt"
+	      FILES( 7) = "OptimisationLogModeMin.txt"
+	      FILES( 8) = "OptimisationLogModeOpt.txt"
+	      FILES( 9) = "OptimisationLogPopModeMin.txt"
+	      FILES(10) = "OptimisationLogPopModeOpt.txt"
+	      FILES(11) = "SeedUsed.txt"
+	      FILES(12) = "SelCriterionSummary.txt"
+        do File = 1, size(FILES)
+          open(newunit=Unit, file=FILES(File), status="old")
+          close(Unit, status="delete")
+        end do
     end subroutine
 
     !###########################################################################
