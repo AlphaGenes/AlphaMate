@@ -2709,547 +2709,6 @@ module AlphaMateModule
     !###########################################################################
 
     !---------------------------------------------------------------------------
-    !> @brief  Call various optimisations for AlphaMate
-    !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
-    !> @date   March 16, 2017
-    !---------------------------------------------------------------------------
-! TODO: Produce an output object @return object that holds SolMin, SolRan, SolOpt, SolFrontier etc?
-! TODO: the best random mating?
-    subroutine AlphaMateSearch(Spec, Data, LogStdout) ! not pure due to IO
-      implicit none
-      type(AlphaMateSpec), intent(inout) :: Spec      !< AlphaMateSpec holder (out because we set and reset some parameters for different search modes)
-      type(AlphaMateData), intent(inout) :: Data      !< AlphaMateData holder (out because we set and reset some parameters for different search modes)
-      logical, intent(in), optional      :: LogStdout !< Log process on stdout (default .false.)
-
-      integer(int32) :: nParam, Point, FrontierUnit
-
-      real(real64) :: HoldTargetCoancestryRanMate, HoldTargetCoancestryRate
-      real(real64), allocatable :: InitEqual(:, :)
-
-      logical :: LogStdoutInternal, HoldTargetCoancestryRateWeightBelow
-      logical :: HoldModeMin, HoldModeMax, HoldModeOpt, HoldModeDegree, HoldModeRan, HoldModeFrontier
-
-      character(len=FILELENGTH) :: LogFile, LogPopFile, ContribFile, MatingFile
-
-      type(AlphaMateSol) :: SolMin, SolMax, SolOpt, SolDegree, SolRan, SolFrontier
-
-      HoldModeMin = .false.
-      HoldModeMax = .false.
-      HoldModeOpt = .false.
-      HoldModeDegree = .false.
-      HoldModeRan = .false.
-      HoldModeFrontier = .false.
-
-      if (present(LogStdout)) then
-        LogStdoutInternal = LogStdout
-      else
-        LogStdoutInternal = .false.
-      end if
-
-      ! --- Number of parameters to optimise ---
-
-      if (Spec%GenderGiven) then
-        nParam = Data%nPotPar1 + Data%nPotPar2 + Spec%nMat
-      else
-        nParam = Data%nPotPar1 + Spec%nMat
-      end if
-
-      if (Spec%PAGEPar) then
-        nParam = nParam + Data%nInd
-      end if
-
-      ! --- Minimum future coancestry/inbreeding ---
-
-      if (Spec%ModeMin) then
-        if (LogStdoutInternal) then
-          write(STDOUT, "(a)") " "
-          write(STDOUT, "(a)") " Optimise contributions for minimum future coancestry/inbreeding"
-          write(STDOUT, "(a)") " "
-        end if
-
-        ! Hold modes so that the Evaluate method is not confused what we are optimising for
-        HoldModeMax = Spec%ModeMax
-        Spec%ModeMax = .false.
-        HoldModeOpt = Spec%ModeOpt
-        Spec%ModeOpt = .false.
-        HoldModeDegree = Spec%ModeDegree
-        Spec%ModeDegree = .false.
-        HoldModeRan = Spec%ModeRan
-        Spec%ModeRan = .false.
-        HoldModeFrontier = Spec%ModeFrontier
-        Spec%ModeFrontier = .false.
-
-        ! We want to minimise rate of coancestry
-        HoldTargetCoancestryRateWeightBelow = Spec%TargetCoancestryRateWeightBelow
-        Spec%TargetCoancestryRateWeightBelow = .false.
-
-        LogFile     = "OptimisationLogModeMin.txt"
-        LogPopFile  = "OptimisationLogPopModeMin.txt"
-        ContribFile = "ContributionsModeMin.txt"
-        MatingFile  = "MatingPlanModeMin.txt"
-
-        call SolMin%SetupColNamesAndFormats(Spec=Spec)
-
-        ! @todo Can we do this in a better way where we take "structure" of Chrom into account?
-        allocate(InitEqual(nParam, nint(Spec%EvolAlgNSol * 0.1)))
-        InitEqual = 1.0d0 ! A couple of solutions that would give equal contributions to everybody
-
-        if (trim(Spec%EvolAlg) .eq. "DE") then
-          call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, Init=InitEqual, &
-            nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint, &
-            LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
-            CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate=Spec%DiffEvolParamCr, FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
-            BestSol=SolMin)
-        end if
-
-        deallocate(InitEqual)
-
-        call SolMin%WriteContributions(Data, ContribFile)
-        call SolMin%WriteMatingPlan(Data, MatingFile)
-
-        ! Reset
-        Spec%ModeMax = HoldModeMax
-        Spec%ModeOpt = HoldModeOpt
-        Spec%ModeDegree = HoldModeDegree
-        Spec%ModeRan = HoldModeRan
-        Spec%ModeFrontier = HoldModeFrontier
-        Spec%TargetCoancestryRateWeightBelow = HoldTargetCoancestryRateWeightBelow
-      end if
-
-      ! --- Maximum future selection criterion ---
-
-      if (Spec%ModeMax) then
-        if (LogStdoutInternal) then
-          write(STDOUT, "(a)") " "
-          write(STDOUT, "(a)") " Optimise contributions for maximum future selection criterion"
-          write(STDOUT, "(a)") " "
-        end if
-
-        ! Hold modes so that the Evaluate method is not confused what we are optimising for
-        HoldModeMin = Spec%ModeMin
-        Spec%ModeMin = .false.
-        HoldModeOpt = Spec%ModeOpt
-        Spec%ModeOpt = .false.
-        HoldModeDegree = Spec%ModeDegree
-        Spec%ModeDegree = .false.
-        HoldModeRan = Spec%ModeRan
-        Spec%ModeRan = .false.
-        HoldModeFrontier = Spec%ModeFrontier
-        Spec%ModeFrontier = .false.
-
-        LogFile     = "OptimisationLogModeMax.txt"
-        LogPopFile  = "OptimisationLogPopModeMax.txt"
-        ContribFile = "ContributionsModeMax.txt"
-        MatingFile  = "MatingPlanModeMax.txt"
-
-        call SolMax%SetupColNamesAndFormats(Spec=Spec)
-
-        ! @todo add some clever initial values, say:
-        !       - equal contributions for top 2/3 or 1/2 of BV distribution,
-        !       - decreasing contributions with decreasing value
-        !       - SDP solution, ...?
-        if (trim(Spec%EvolAlg) .eq. "DE") then
-          call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, &
-            nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint,&
-            LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
-            CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate=Spec%DiffEvolParamCr, FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
-            BestSol=SolMax)
-        end if
-
-        call SolMax%WriteContributions(Data, ContribFile)
-        call SolMax%WriteMatingPlan(Data, MatingFile)
-
-        ! Reset
-        Spec%ModeMin = HoldModeMin
-        Spec%ModeOpt = HoldModeOpt
-        Spec%ModeDegree = HoldModeDegree
-        Spec%ModeRan = HoldModeRan
-        Spec%ModeFrontier = HoldModeFrontier
-      end if
-
-      ! --- Maximum future selection criterion with constraint on coancestry/inbreeding ---
-
-      if (Spec%ModeOpt) then
-        if (LogStdoutInternal) then
-          write(STDOUT, "(a)") " "
-          write(STDOUT, "(a)") " Optimise contributions for maximum future selection criterion with constraint on coancestry/inbreeding"
-          write(STDOUT, "(a)") " "
-        end if
-
-        ! Hold modes so that the Evaluate method is not confused what we are optimising for
-        HoldModeMin = Spec%ModeMin
-        Spec%ModeMin = .false.
-        HoldModeMax = Spec%ModeMax
-        Spec%ModeMax = .false.
-        HoldModeDegree = Spec%ModeDegree
-        Spec%ModeDegree = .false.
-        HoldModeRan = Spec%ModeRan
-        Spec%ModeRan = .false.
-        HoldModeFrontier = Spec%ModeFrontier
-        Spec%ModeFrontier = .false.
-
-        LogFile     = "OptimisationLogModeOpt.txt"
-        LogPopFile  = "OptimisationLogPopModeOpt.txt"
-        ContribFile = "ContributionsModeOpt.txt"
-        MatingFile  = "MatingPlanModeOpt.txt"
-
-        call SolOpt%SetupColNamesAndFormats(Spec=Spec)
-
-        ! @todo add some clever initial values, say:
-        !       - equal contributions for top 2/3 or 1/2 of BV distribution,
-        !       - decreasing contributions with decreasing value
-        !       - SDP solution, ...?
-        if (trim(Spec%EvolAlg) .eq. "DE") then
-          call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, &
-            nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint,&
-            LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
-            CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate=Spec%DiffEvolParamCr, FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
-            BestSol=SolOpt)
-        end if
-
-        call SolOpt%WriteContributions(Data, ContribFile)
-        call SolOpt%WriteMatingPlan(Data, MatingFile)
-
-        ! Reset
-        Spec%ModeMin = HoldModeMin
-        Spec%ModeMax = HoldModeMax
-        Spec%ModeDegree = HoldModeDegree
-        Spec%ModeRan = HoldModeRan
-        Spec%ModeFrontier = HoldModeFrontier
-      end if
-
-      ! --- Degree??? ---
-      ! this mode needs to be after ModeMin and ModeMax!!!
-
-      ! --- Random mating ---
-
-      ! @todo: is this mode any good?
-      if (Spec%ModeRan) then
-        if (LogStdoutInternal) then
-          write(STDOUT, "(a)") " "
-          write(STDOUT, "(a)") " Evaluate random mating"
-          write(STDOUT, "(a)") " "
-        end if
-
-        ! Hold modes so that the Evaluate method is not confused what we are optimising for
-        HoldModeMin = Spec%ModeMin
-        Spec%ModeMin = .false.
-        HoldModeMax = Spec%ModeMax
-        Spec%ModeMax = .false.
-        HoldModeOpt = Spec%ModeOpt
-        Spec%ModeOpt = .false.
-        HoldModeDegree = Spec%ModeDegree
-        Spec%ModeDegree = .false.
-        HoldModeFrontier = Spec%ModeFrontier
-        Spec%ModeFrontier = .false.
-
-        LogFile = "OptimisationLogModeRan.txt"
-        ! @todo: other reports from here - at least the best random solution?
-
-        call SolRan%SetupColNamesAndFormats(Spec=Spec)
-
-        allocate(InitEqual(nParam, nint(Spec%EvolAlgNSol * 0.1)))
-        InitEqual = 1.0d0 ! A couple of solutions that would give equal contributions for everybody
-
-        call RandomSearch(Mode="avg", Spec=Spec, Data=Data, nParam=nParam, Init=InitEqual, &
-          nSamp=Spec%EvolAlgNSol*Spec%EvolAlgNIter*Spec%RanAlgStricter, nSampStop=Spec%EvolAlgNIterStop*Spec%RanAlgStricter, &
-          StopTolerance=Spec%EvolAlgStopTol/Spec%RanAlgStricter, nSampPrint=Spec%EvolAlgNIterPrint, &
-          LogStdout=LogStdoutInternal, LogFile=LogFile, BestSol=SolRan)
-
-        deallocate(InitEqual)
-
-        ! Reset
-        Spec%ModeMin = HoldModeMin
-        Spec%ModeMax = HoldModeMax
-        Spec%ModeOpt = HoldModeOpt
-        Spec%ModeDegree = HoldModeDegree
-        Spec%ModeFrontier = HoldModeFrontier
-      end if
-
-      ! --- Evaluate the frontier ---
-      ! this mode needs to be after ModeMin and ModeMax!!!
-
-      if (Spec%ModeFrontier) then
-        if (LogStdoutInternal) then
-          write(STDOUT, "(a)") " "
-          write(STDOUT, "(a)") " Evaluate the frontier"
-        end if
-
-        open(newunit=FrontierUnit, file="Frontier.txt", status="unknown")
-        call SolFrontier%SetupColNamesAndFormats(Spec=Spec)
-        call SolFrontier%LogHead(LogUnit=FrontierUnit, String="ModeOrPoint", StringNum=15)
-
-        ! Add any previous results to the frontier
-        if (Spec%ModeMin) then
-          call SolMin%Log(FrontierUnit, Iteration=-1, AcceptRate=-1.0d0, String="ModeMin", StringNum=15)
-        end if
-        if (Spec%ModeMax) then
-          call SolMax%Log(FrontierUnit, Iteration=-1, AcceptRate=-1.0d0, String="ModeMax", StringNum=15)
-        end if
-        if (Spec%ModeOpt) then
-          call SolOpt%Log(FrontierUnit, Iteration=-1, AcceptRate=-1.0d0, String="ModeOpt", StringNum=15)
-        end if
-        if (Spec%ModeDegree) then
-          call SolDegree%Log(FrontierUnit, Iteration=-1, AcceptRate=-1.0d0, String="ModeDegree", StringNum=15)
-        end if
-        if (Spec%ModeRan) then
-          call SolRan%Log(FrontierUnit, Iteration=-1, AcceptRate=-1.0d0, String="ModeRan", StringNum=15)
-        end if
-
-        ! Hold modes so that the Evaluate method is not confused what we are optimising for
-        HoldModeMin = Spec%ModeMin
-        Spec%ModeMin = .false.
-        HoldModeMax = Spec%ModeMax
-        Spec%ModeMax = .false.
-        HoldModeOpt = Spec%ModeOpt
-        Spec%ModeOpt = .false.
-        HoldModeDegree = Spec%ModeDegree
-        Spec%ModeDegree = .false.
-        HoldModeRan = Spec%ModeRan
-        Spec%ModeRan = .false.
-
-        ! We want to target certain rates of coancestry
-        HoldTargetCoancestryRateWeightBelow = Spec%TargetCoancestryRateWeightBelow
-        Spec%TargetCoancestryRateWeightBelow = .true.
-
-        ! Hold old results
-        HoldTargetCoancestryRanMate = Data%TargetCoancestryRanMate
-        HoldTargetCoancestryRate = Spec%TargetCoancestryRate
-
-        ! Evaluate
-        do Point = 1, Spec%nFrontierPoints
-          Spec%TargetCoancestryRate = Spec%TargetCoancestryRateFrontier(Point)
-          ! F_t = DeltaF + (1 - DeltaF) * F_t-1
-          Data%TargetCoancestryRanMate = Spec%TargetCoancestryRate + (1.0d0 - Spec%TargetCoancestryRate) * Data%CurrentCoancestryRanMate
-          if (LogStdoutInternal) then
-            write(STDOUT, "(a)") ""
-            write(STDOUT, "(a)") "Point "//trim(Int2Char(Point))//" out of "//trim(Int2Char(Spec%nFrontierPoints))//&
-                                " for the rate of coancestry "//trim(Real2Char(Spec%TargetCoancestryRate, fmt=FMTREAL2CHAR))//&
-                                " (=targeted coancestry "//trim(Real2Char(Data%TargetCoancestryRanMate, fmt=FMTREAL2CHAR))//")"
-            write(STDOUT, "(a)") ""
-          end if
-
-          LogFile     = "OptimisationLogModeFrontier"//trim(Int2Char(Point))//".txt"
-          LogPopFile  = "OptimisationLogPopModeFrontier"//trim(Int2Char(Point))//".txt"
-          ContribFile = "ContributionsModeFrontier"//trim(Int2Char(Point))//".txt"
-          MatingFile  = "MatingPlanModeFrontier"//trim(Int2Char(Point))//".txt"
-
-          call SolFrontier%SetupColNamesAndFormats(Spec=Spec) ! call again as InitialiseAlphaMateSol and AssignAlphaMateSol "nullify" the  above SetupColNamesAndFormats call (ugly, but works ...)
-          if (trim(Spec%EvolAlg) .eq. "DE") then
-            call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, &
-              nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint,&
-              LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
-              CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate=Spec%DiffEvolParamCr, FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
-              BestSol=SolFrontier)
-          end if
-
-          call SolFrontier%Log(FrontierUnit, Iteration=-1, AcceptRate=-1.0d0, String=trim("ModeFrontier"//trim(Int2Char(Point))), StringNum=15)
-          call SolFrontier%WriteContributions(Data, ContribFile)
-          call SolFrontier%WriteMatingPlan(Data, MatingFile)
-
-          if ((Spec%TargetCoancestryRate - SolFrontier%CoancestryRateRanMate) .gt. 0.01d0) then
-            if (LogStdoutInternal) then
-              write(STDOUT, "(a)") ""
-              write(STDOUT, "(a)") "NOTE: Could not achieve the rate of coancestry "//trim(Real2Char(Spec%TargetCoancestryRate, fmt=FMTREAL2CHAR))
-              write(STDOUT, "(a)") "NOTE: Stopping the frontier evaluation."
-              write(STDOUT, "(a)") ""
-            end if
-            exit
-          end if
-        end do
-
-        ! Reset
-        Spec%ModeMin = HoldModeMin
-        Spec%ModeMax = HoldModeMax
-        Spec%ModeOpt = HoldModeOpt
-        Spec%ModeDegree = HoldModeDegree
-        Spec%ModeRan = HoldModeRan
-        Spec%TargetCoancestryRate = HoldTargetCoancestryRate
-        Data%TargetCoancestryRanMate = HoldTargetCoancestryRanMate
-        Spec%TargetCoancestryRateWeightBelow = HoldTargetCoancestryRateWeightBelow
-
-        close(FrontierUnit)
-
-      end if
-    end subroutine
-
-    !###########################################################################
-
-    !---------------------------------------------------------------------------
-    !> @brief  Write solution to a file or standard output
-    !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
-    !> @date   March 25, 2017
-    !> @return Output to a file or standard output
-    !---------------------------------------------------------------------------
-    subroutine WriteAlphaMateSol(This, File) ! not pure due to IO
-      implicit none
-      class(AlphaMateSol), intent(in)        :: This !< AlphaMateSol holder
-      character(len=*), intent(in), optional :: File !< File, if missing use standard output
-
-      integer(int32) :: Unit, Mat
-      if (present(File)) then
-        open(newunit=Unit, file=File, action="write", status="unknown")
-      else
-        Unit = STDOUT
-      end if
-
-      write(Unit, *) "Objective: ", This%Objective
-      write(Unit, *) "nParam: ", This%nParam
-      write(Unit, *) "Chrom: ", This%Chrom
-      write(Unit, *) "Penalty: ", This%Penalty
-      write(Unit, *) "PenaltyCoancestryRate: ", This%PenaltyCoancestryRate
-      write(Unit, *) "PenaltyInbreedingRate: ", This%PenaltyInbreedingRate
-      write(Unit, *) "PenaltySelfing: ", This%PenaltySelfing
-      write(Unit, *) "PenaltyLimitPar1: ", This%PenaltyLimitPar1
-      write(Unit, *) "PenaltyLimitPar2: ", This%PenaltyLimitPar2
-      write(Unit, *) "PenaltyGenericIndCrit: ", This%PenaltyGenericIndCrit
-      write(Unit, *) "PenaltyGenericMatCrit: ", This%PenaltyGenericMatCrit
-      write(Unit, *) "SelCriterion: ", This%SelCriterion
-      write(Unit, *) "SelIntensity: ", This%SelIntensity
-      write(Unit, *) "FutureCoancestryRanMate: ", This%FutureCoancestryRanMate
-      write(Unit, *) "CoancestryRateRanMate: ", This%CoancestryRateRanMate
-      write(Unit, *) "FutureInbreeding: ", This%FutureInbreeding
-      write(Unit, *) "InbreedingRate: ", This%InbreedingRate
-      write(Unit, *) "GenericIndCrit: ", This%GenericIndCrit
-      write(Unit, *) "GenericMatCrit: ", This%GenericMatCrit
-      write(Unit, *) "Cost: ", This%Cost
-      write(Unit, *) "nVec: ", This%nVec
-      write(Unit, *) "xVec: ", This%xVec
-      write(Unit, *) "Mating plan:"
-      do Mat = 1, size(This%MatingPlan, dim=2)
-        write(Unit, *) Mat, This%MatingPlan(:, Mat)
-      end do
-      write(Unit, *) "GenomeEdit: ", This%GenomeEdit
-
-      write(Unit, *) "FmtLogStdoutHead: ",        trim(This%FmtLogStdoutHead)
-      write(Unit, *) "FmtLogStdout: ",            trim(This%FmtLogStdout)
-      write(Unit, *) "ColnameLogStdout: ",        This%ColnameLogStdout
-      write(Unit, *) "FmtLogUnitHead: ",          trim(This%FmtLogUnitHead)
-      write(Unit, *) "ColnameLogUnit: ",          This%ColnameLogUnit
-      write(Unit, *) "FmtLogPopUnit: ",           trim(This%FmtLogPopUnit)
-      write(Unit, *) "ColnameLogPopUnit: ",       This%ColnameLogPopUnit
-      write(Unit, *) "FmtContributionHead: ",     trim(This%FmtContributionHead)
-      write(Unit, *) "FmtContributionHeadEdit: ", trim(This%FmtContributionHeadEdit)
-      write(Unit, *) "FmtContribution: ",         trim(This%FmtContribution)
-      write(Unit, *) "FmtContributionEdit: ",     trim(This%FmtContributionEdit)
-      write(Unit, *) "FmtMatingHead: ",           trim(This%FmtMatingHead)
-      write(Unit, *) "FmtMating: ",               trim(This%FmtMating)
-
-      ! pause
-
-      if (present(File)) then
-        close(Unit)
-      end if
-    end subroutine
-
-    !###########################################################################
-
-    !---------------------------------------------------------------------------
-    !> @brief  Write contributions to a file or standard output
-    !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
-    !> @date   April 7, 2017
-    !> @return Output to file or standard output
-    !---------------------------------------------------------------------------
-    subroutine WriteContributions(This, Data, ContribFile) ! not pure due to IO
-      implicit none
-
-      ! Arguments
-      class(AlphaMateSol), intent(in)        :: This        !< AlphaMateSol holder
-      type(AlphaMateData), intent(in)        :: Data        !< AlphaMateData holder
-      character(len=*), intent(in), optional :: ContribFile !< File to write individual contributions to (default STDOUT)
-
-      ! Other
-      integer(int32) :: IndRev, Ind, ContribUnit, Rank(Data%nInd)
-
-      if (.not. present(ContribFile)) then
-        ContribUnit = STDOUT
-      end if
-
-      ! @todo should we have constant output no matter which options are switched on?
-      if (present(ContribFile)) then
-        open(newunit=ContribUnit, file=ContribFile, status="unknown")
-      end if
-
-      Rank = MrgRnk(This%nVec)
-      if (.not. allocated(This%GenomeEdit)) then
-        !                                             1234567890123456789012
-        write(ContribUnit, This%FmtContributionHead) "             Id", &
-                                                     "         Gender", &
-                                                     "   SelCriterion", &
-                                                     "  AvgCoancestry", &
-                                                     "   Contribution", &
-                                                     "        nMating"
-        do IndRev = Data%nInd, 1, -1 ! MrgRnk ranks small to large
-          Ind = Rank(IndRev)
-          write(ContribUnit, This%FmtContribution) Data%Coancestry%OriginalId(Ind), Data%Gender(Ind), Data%SelCriterion(Ind), &
-                                                   mean(Data%Coancestry%Value(1:, Ind)), This%xVec(Ind), This%nVec(Ind)
-        end do
-      else
-        !                                                 12345678901234567890123456789012
-        write(ContribUnit, This%FmtContributionHeadEdit) "                             Id", &
-                                                         "         Gender", &
-                                                         "   SelCriterion", &
-                                                         "  AvgCoancestry", &
-                                                         "   Contribution", &
-                                                         "        nMating", &
-                                                         "     GenomeEdit", &
-                                                         "  EditedSelCrit"
-        do IndRev = Data%nInd, 1, -1 ! MrgRnk ranks small to large
-          Ind = Rank(IndRev)
-          write(ContribUnit, This%FmtContributionEdit) Data%Coancestry%OriginalId(Ind), Data%Gender(Ind), Data%SelCriterion(Ind), &
-                                                       mean(Data%Coancestry%Value(1:, Ind)), This%xVec(Ind), This%nVec(Ind), &
-                                                       nint(This%GenomeEdit(Ind)), Data%SelCriterion(Ind) + This%GenomeEdit(Ind) * Data%SelCriterionPAGE(Ind)
-        end do
-      end if
-
-      if (present(ContribFile)) then
-        close(ContribUnit)
-      end if
-    end subroutine
-
-    !###########################################################################
-
-    !---------------------------------------------------------------------------
-    !> @brief  Write mating plan to a file or standard output
-    !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
-    !> @date   April 7, 2017
-    !> @return Output to file or standard output
-    !---------------------------------------------------------------------------
-    subroutine WriteMatingPlan(This, Data, MatingFile) ! not pure due to IO
-      implicit none
-
-      ! Arguments
-      class(AlphaMateSol), intent(in)        :: This       !< AlphaMateSol holder
-      type(AlphaMateData), intent(in)        :: Data       !< AlphaMateData holder
-      character(len=*), intent(in), optional :: MatingFile !< File to write mating plan to (default STDOUT)
-
-      ! Other
-      integer(int32) :: Mat, MatingUnit
-
-      if (.not. present(MatingFile)) then
-        MatingUnit = STDOUT
-      end if
-
-      if (present(MatingFile)) then
-        open(newunit=MatingUnit, file=MatingFile, status="unknown")
-      end if
-
-      !                                      12345678901234567890123456789012
-      write(MatingUnit, This%FmtMatingHead) "         Mating", &
-                                            "                         Parent1", &
-                                            "                         Parent2"
-      do Mat = 1, size(This%MatingPlan, dim=2)
-        write(MatingUnit, This%FmtMating) Mat, Data%Coancestry%OriginalId(This%MatingPlan(1, Mat)), Data%Coancestry%OriginalId(This%MatingPlan(2, Mat))
-      end do
-
-      if (present(MatingFile)) then
-        close(MatingUnit)
-      end if
-    end subroutine
-
-    !###########################################################################
-
-    !---------------------------------------------------------------------------
     !> @brief  Initialise AlphaMate solution
     !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date   March 16, 2017
@@ -4001,6 +3460,547 @@ module AlphaMateModule
               ! @todo how should we handle costs?
           end select
       end select
+    end subroutine
+
+    !###########################################################################
+
+    !---------------------------------------------------------------------------
+    !> @brief  Call various optimisations for AlphaMate
+    !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date   March 16, 2017
+    !---------------------------------------------------------------------------
+    ! TODO: Produce an output object @return object that holds SolMin, SolRan, SolOpt, SolFrontier etc?
+    ! TODO: the best random mating?
+    subroutine AlphaMateSearch(Spec, Data, LogStdout) ! not pure due to IO
+      implicit none
+      type(AlphaMateSpec), intent(inout) :: Spec      !< AlphaMateSpec holder (out because we set and reset some parameters for different search modes)
+      type(AlphaMateData), intent(inout) :: Data      !< AlphaMateData holder (out because we set and reset some parameters for different search modes)
+      logical, intent(in), optional      :: LogStdout !< Log process on stdout (default .false.)
+
+      integer(int32) :: nParam, Point, FrontierUnit
+
+      real(real64) :: HoldTargetCoancestryRanMate, HoldTargetCoancestryRate
+      real(real64), allocatable :: InitEqual(:, :)
+
+      logical :: LogStdoutInternal, HoldTargetCoancestryRateWeightBelow
+      logical :: HoldModeMin, HoldModeMax, HoldModeOpt, HoldModeDegree, HoldModeRan, HoldModeFrontier
+
+      character(len=FILELENGTH) :: LogFile, LogPopFile, ContribFile, MatingFile
+
+      type(AlphaMateSol) :: SolMin, SolMax, SolOpt, SolDegree, SolRan, SolFrontier
+
+      HoldModeMin = .false.
+      HoldModeMax = .false.
+      HoldModeOpt = .false.
+      HoldModeDegree = .false.
+      HoldModeRan = .false.
+      HoldModeFrontier = .false.
+
+      if (present(LogStdout)) then
+        LogStdoutInternal = LogStdout
+      else
+        LogStdoutInternal = .false.
+      end if
+
+      ! --- Number of parameters to optimise ---
+
+      if (Spec%GenderGiven) then
+        nParam = Data%nPotPar1 + Data%nPotPar2 + Spec%nMat
+      else
+        nParam = Data%nPotPar1 + Spec%nMat
+      end if
+
+      if (Spec%PAGEPar) then
+        nParam = nParam + Data%nInd
+      end if
+
+      ! --- Minimum future coancestry/inbreeding ---
+
+      if (Spec%ModeMin) then
+        if (LogStdoutInternal) then
+          write(STDOUT, "(a)") " "
+          write(STDOUT, "(a)") " Optimise contributions for minimum future coancestry/inbreeding"
+          write(STDOUT, "(a)") " "
+        end if
+
+        ! Hold modes so that the Evaluate method is not confused what we are optimising for
+        HoldModeMax = Spec%ModeMax
+        Spec%ModeMax = .false.
+        HoldModeOpt = Spec%ModeOpt
+        Spec%ModeOpt = .false.
+        HoldModeDegree = Spec%ModeDegree
+        Spec%ModeDegree = .false.
+        HoldModeRan = Spec%ModeRan
+        Spec%ModeRan = .false.
+        HoldModeFrontier = Spec%ModeFrontier
+        Spec%ModeFrontier = .false.
+
+        ! We want to minimise rate of coancestry
+        HoldTargetCoancestryRateWeightBelow = Spec%TargetCoancestryRateWeightBelow
+        Spec%TargetCoancestryRateWeightBelow = .false.
+
+        LogFile     = "OptimisationLogModeMin.txt"
+        LogPopFile  = "OptimisationLogPopModeMin.txt"
+        ContribFile = "ContributionsModeMin.txt"
+        MatingFile  = "MatingPlanModeMin.txt"
+
+        call SolMin%SetupColNamesAndFormats(Spec=Spec)
+
+        ! @todo Can we do this in a better way where we take "structure" of Chrom into account?
+        allocate(InitEqual(nParam, nint(Spec%EvolAlgNSol * 0.1)))
+        InitEqual = 1.0d0 ! A couple of solutions that would give equal contributions to everybody
+
+        if (trim(Spec%EvolAlg) .eq. "DE") then
+          call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, Init=InitEqual, &
+            nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint, &
+            LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
+            CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate=Spec%DiffEvolParamCr, FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
+            BestSol=SolMin)
+        end if
+
+        deallocate(InitEqual)
+
+        call SolMin%WriteContributions(Data, ContribFile)
+        call SolMin%WriteMatingPlan(Data, MatingFile)
+
+        ! Reset
+        Spec%ModeMax = HoldModeMax
+        Spec%ModeOpt = HoldModeOpt
+        Spec%ModeDegree = HoldModeDegree
+        Spec%ModeRan = HoldModeRan
+        Spec%ModeFrontier = HoldModeFrontier
+        Spec%TargetCoancestryRateWeightBelow = HoldTargetCoancestryRateWeightBelow
+      end if
+
+      ! --- Maximum future selection criterion ---
+
+      if (Spec%ModeMax) then
+        if (LogStdoutInternal) then
+          write(STDOUT, "(a)") " "
+          write(STDOUT, "(a)") " Optimise contributions for maximum future selection criterion"
+          write(STDOUT, "(a)") " "
+        end if
+
+        ! Hold modes so that the Evaluate method is not confused what we are optimising for
+        HoldModeMin = Spec%ModeMin
+        Spec%ModeMin = .false.
+        HoldModeOpt = Spec%ModeOpt
+        Spec%ModeOpt = .false.
+        HoldModeDegree = Spec%ModeDegree
+        Spec%ModeDegree = .false.
+        HoldModeRan = Spec%ModeRan
+        Spec%ModeRan = .false.
+        HoldModeFrontier = Spec%ModeFrontier
+        Spec%ModeFrontier = .false.
+
+        LogFile     = "OptimisationLogModeMax.txt"
+        LogPopFile  = "OptimisationLogPopModeMax.txt"
+        ContribFile = "ContributionsModeMax.txt"
+        MatingFile  = "MatingPlanModeMax.txt"
+
+        call SolMax%SetupColNamesAndFormats(Spec=Spec)
+
+        ! @todo add some clever initial values, say:
+        !       - equal contributions for top 2/3 or 1/2 of BV distribution,
+        !       - decreasing contributions with decreasing value
+        !       - SDP solution, ...?
+        if (trim(Spec%EvolAlg) .eq. "DE") then
+          call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, &
+            nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint,&
+            LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
+            CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate=Spec%DiffEvolParamCr, FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
+            BestSol=SolMax)
+        end if
+
+        call SolMax%WriteContributions(Data, ContribFile)
+        call SolMax%WriteMatingPlan(Data, MatingFile)
+
+        ! Reset
+        Spec%ModeMin = HoldModeMin
+        Spec%ModeOpt = HoldModeOpt
+        Spec%ModeDegree = HoldModeDegree
+        Spec%ModeRan = HoldModeRan
+        Spec%ModeFrontier = HoldModeFrontier
+      end if
+
+      ! --- Maximum future selection criterion with constraint on coancestry/inbreeding ---
+
+      if (Spec%ModeOpt) then
+        if (LogStdoutInternal) then
+          write(STDOUT, "(a)") " "
+          write(STDOUT, "(a)") " Optimise contributions for maximum future selection criterion with constraint on coancestry/inbreeding"
+          write(STDOUT, "(a)") " "
+        end if
+
+        ! Hold modes so that the Evaluate method is not confused what we are optimising for
+        HoldModeMin = Spec%ModeMin
+        Spec%ModeMin = .false.
+        HoldModeMax = Spec%ModeMax
+        Spec%ModeMax = .false.
+        HoldModeDegree = Spec%ModeDegree
+        Spec%ModeDegree = .false.
+        HoldModeRan = Spec%ModeRan
+        Spec%ModeRan = .false.
+        HoldModeFrontier = Spec%ModeFrontier
+        Spec%ModeFrontier = .false.
+
+        LogFile     = "OptimisationLogModeOpt.txt"
+        LogPopFile  = "OptimisationLogPopModeOpt.txt"
+        ContribFile = "ContributionsModeOpt.txt"
+        MatingFile  = "MatingPlanModeOpt.txt"
+
+        call SolOpt%SetupColNamesAndFormats(Spec=Spec)
+
+        ! @todo add some clever initial values, say:
+        !       - equal contributions for top 2/3 or 1/2 of BV distribution,
+        !       - decreasing contributions with decreasing value
+        !       - SDP solution, ...?
+        if (trim(Spec%EvolAlg) .eq. "DE") then
+          call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, &
+            nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint,&
+            LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
+            CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate=Spec%DiffEvolParamCr, FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
+            BestSol=SolOpt)
+        end if
+
+        call SolOpt%WriteContributions(Data, ContribFile)
+        call SolOpt%WriteMatingPlan(Data, MatingFile)
+
+        ! Reset
+        Spec%ModeMin = HoldModeMin
+        Spec%ModeMax = HoldModeMax
+        Spec%ModeDegree = HoldModeDegree
+        Spec%ModeRan = HoldModeRan
+        Spec%ModeFrontier = HoldModeFrontier
+      end if
+
+      ! --- Degree??? ---
+      ! this mode needs to be after ModeMin and ModeMax!!!
+
+      ! --- Random mating ---
+
+      ! @todo: is this mode any good?
+      if (Spec%ModeRan) then
+        if (LogStdoutInternal) then
+          write(STDOUT, "(a)") " "
+          write(STDOUT, "(a)") " Evaluate random mating"
+          write(STDOUT, "(a)") " "
+        end if
+
+        ! Hold modes so that the Evaluate method is not confused what we are optimising for
+        HoldModeMin = Spec%ModeMin
+        Spec%ModeMin = .false.
+        HoldModeMax = Spec%ModeMax
+        Spec%ModeMax = .false.
+        HoldModeOpt = Spec%ModeOpt
+        Spec%ModeOpt = .false.
+        HoldModeDegree = Spec%ModeDegree
+        Spec%ModeDegree = .false.
+        HoldModeFrontier = Spec%ModeFrontier
+        Spec%ModeFrontier = .false.
+
+        LogFile = "OptimisationLogModeRan.txt"
+        ! @todo: other reports from here - at least the best random solution?
+
+        call SolRan%SetupColNamesAndFormats(Spec=Spec)
+
+        allocate(InitEqual(nParam, nint(Spec%EvolAlgNSol * 0.1)))
+        InitEqual = 1.0d0 ! A couple of solutions that would give equal contributions for everybody
+
+        call RandomSearch(Mode="avg", Spec=Spec, Data=Data, nParam=nParam, Init=InitEqual, &
+          nSamp=Spec%EvolAlgNSol*Spec%EvolAlgNIter*Spec%RanAlgStricter, nSampStop=Spec%EvolAlgNIterStop*Spec%RanAlgStricter, &
+          StopTolerance=Spec%EvolAlgStopTol/Spec%RanAlgStricter, nSampPrint=Spec%EvolAlgNIterPrint, &
+          LogStdout=LogStdoutInternal, LogFile=LogFile, BestSol=SolRan)
+
+        deallocate(InitEqual)
+
+        ! Reset
+        Spec%ModeMin = HoldModeMin
+        Spec%ModeMax = HoldModeMax
+        Spec%ModeOpt = HoldModeOpt
+        Spec%ModeDegree = HoldModeDegree
+        Spec%ModeFrontier = HoldModeFrontier
+      end if
+
+      ! --- Evaluate the frontier ---
+      ! this mode needs to be after ModeMin and ModeMax!!!
+
+      if (Spec%ModeFrontier) then
+        if (LogStdoutInternal) then
+          write(STDOUT, "(a)") " "
+          write(STDOUT, "(a)") " Evaluate the frontier"
+        end if
+
+        open(newunit=FrontierUnit, file="Frontier.txt", status="unknown")
+        call SolFrontier%SetupColNamesAndFormats(Spec=Spec)
+        call SolFrontier%LogHead(LogUnit=FrontierUnit, String="ModeOrPoint", StringNum=15)
+
+        ! Add any previous results to the frontier
+        if (Spec%ModeMin) then
+          call SolMin%Log(FrontierUnit, Iteration=-1, AcceptRate=-1.0d0, String="ModeMin", StringNum=15)
+        end if
+        if (Spec%ModeMax) then
+          call SolMax%Log(FrontierUnit, Iteration=-1, AcceptRate=-1.0d0, String="ModeMax", StringNum=15)
+        end if
+        if (Spec%ModeOpt) then
+          call SolOpt%Log(FrontierUnit, Iteration=-1, AcceptRate=-1.0d0, String="ModeOpt", StringNum=15)
+        end if
+        if (Spec%ModeDegree) then
+          call SolDegree%Log(FrontierUnit, Iteration=-1, AcceptRate=-1.0d0, String="ModeDegree", StringNum=15)
+        end if
+        if (Spec%ModeRan) then
+          call SolRan%Log(FrontierUnit, Iteration=-1, AcceptRate=-1.0d0, String="ModeRan", StringNum=15)
+        end if
+
+        ! Hold modes so that the Evaluate method is not confused what we are optimising for
+        HoldModeMin = Spec%ModeMin
+        Spec%ModeMin = .false.
+        HoldModeMax = Spec%ModeMax
+        Spec%ModeMax = .false.
+        HoldModeOpt = Spec%ModeOpt
+        Spec%ModeOpt = .false.
+        HoldModeDegree = Spec%ModeDegree
+        Spec%ModeDegree = .false.
+        HoldModeRan = Spec%ModeRan
+        Spec%ModeRan = .false.
+
+        ! We want to target certain rates of coancestry
+        HoldTargetCoancestryRateWeightBelow = Spec%TargetCoancestryRateWeightBelow
+        Spec%TargetCoancestryRateWeightBelow = .true.
+
+        ! Hold old results
+        HoldTargetCoancestryRanMate = Data%TargetCoancestryRanMate
+        HoldTargetCoancestryRate = Spec%TargetCoancestryRate
+
+        ! Evaluate
+        do Point = 1, Spec%nFrontierPoints
+          Spec%TargetCoancestryRate = Spec%TargetCoancestryRateFrontier(Point)
+          ! F_t = DeltaF + (1 - DeltaF) * F_t-1
+          Data%TargetCoancestryRanMate = Spec%TargetCoancestryRate + (1.0d0 - Spec%TargetCoancestryRate) * Data%CurrentCoancestryRanMate
+          if (LogStdoutInternal) then
+            write(STDOUT, "(a)") ""
+            write(STDOUT, "(a)") "Point "//trim(Int2Char(Point))//" out of "//trim(Int2Char(Spec%nFrontierPoints))//&
+                                " for the rate of coancestry "//trim(Real2Char(Spec%TargetCoancestryRate, fmt=FMTREAL2CHAR))//&
+                                " (=targeted coancestry "//trim(Real2Char(Data%TargetCoancestryRanMate, fmt=FMTREAL2CHAR))//")"
+            write(STDOUT, "(a)") ""
+          end if
+
+          LogFile     = "OptimisationLogModeFrontier"//trim(Int2Char(Point))//".txt"
+          LogPopFile  = "OptimisationLogPopModeFrontier"//trim(Int2Char(Point))//".txt"
+          ContribFile = "ContributionsModeFrontier"//trim(Int2Char(Point))//".txt"
+          MatingFile  = "MatingPlanModeFrontier"//trim(Int2Char(Point))//".txt"
+
+          call SolFrontier%SetupColNamesAndFormats(Spec=Spec) ! call again as InitialiseAlphaMateSol and AssignAlphaMateSol "nullify" the  above SetupColNamesAndFormats call (ugly, but works ...)
+          if (trim(Spec%EvolAlg) .eq. "DE") then
+            call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, &
+              nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint,&
+              LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
+              CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate=Spec%DiffEvolParamCr, FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
+              BestSol=SolFrontier)
+          end if
+
+          call SolFrontier%Log(FrontierUnit, Iteration=-1, AcceptRate=-1.0d0, String=trim("ModeFrontier"//trim(Int2Char(Point))), StringNum=15)
+          call SolFrontier%WriteContributions(Data, ContribFile)
+          call SolFrontier%WriteMatingPlan(Data, MatingFile)
+
+          if ((Spec%TargetCoancestryRate - SolFrontier%CoancestryRateRanMate) .gt. 0.01d0) then
+            if (LogStdoutInternal) then
+              write(STDOUT, "(a)") ""
+              write(STDOUT, "(a)") "NOTE: Could not achieve the rate of coancestry "//trim(Real2Char(Spec%TargetCoancestryRate, fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") "NOTE: Stopping the frontier evaluation."
+              write(STDOUT, "(a)") ""
+            end if
+            exit
+          end if
+        end do
+
+        ! Reset
+        Spec%ModeMin = HoldModeMin
+        Spec%ModeMax = HoldModeMax
+        Spec%ModeOpt = HoldModeOpt
+        Spec%ModeDegree = HoldModeDegree
+        Spec%ModeRan = HoldModeRan
+        Spec%TargetCoancestryRate = HoldTargetCoancestryRate
+        Data%TargetCoancestryRanMate = HoldTargetCoancestryRanMate
+        Spec%TargetCoancestryRateWeightBelow = HoldTargetCoancestryRateWeightBelow
+
+        close(FrontierUnit)
+
+      end if
+    end subroutine
+
+    !###########################################################################
+
+    !---------------------------------------------------------------------------
+    !> @brief  Write solution to a file or standard output
+    !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date   March 25, 2017
+    !> @return Output to a file or standard output
+    !---------------------------------------------------------------------------
+    subroutine WriteAlphaMateSol(This, File) ! not pure due to IO
+      implicit none
+      class(AlphaMateSol), intent(in)        :: This !< AlphaMateSol holder
+      character(len=*), intent(in), optional :: File !< File, if missing use standard output
+
+      integer(int32) :: Unit, Mat
+      if (present(File)) then
+        open(newunit=Unit, file=File, action="write", status="unknown")
+      else
+        Unit = STDOUT
+      end if
+
+      write(Unit, *) "Objective: ", This%Objective
+      write(Unit, *) "nParam: ", This%nParam
+      write(Unit, *) "Chrom: ", This%Chrom
+      write(Unit, *) "Penalty: ", This%Penalty
+      write(Unit, *) "PenaltyCoancestryRate: ", This%PenaltyCoancestryRate
+      write(Unit, *) "PenaltyInbreedingRate: ", This%PenaltyInbreedingRate
+      write(Unit, *) "PenaltySelfing: ", This%PenaltySelfing
+      write(Unit, *) "PenaltyLimitPar1: ", This%PenaltyLimitPar1
+      write(Unit, *) "PenaltyLimitPar2: ", This%PenaltyLimitPar2
+      write(Unit, *) "PenaltyGenericIndCrit: ", This%PenaltyGenericIndCrit
+      write(Unit, *) "PenaltyGenericMatCrit: ", This%PenaltyGenericMatCrit
+      write(Unit, *) "SelCriterion: ", This%SelCriterion
+      write(Unit, *) "SelIntensity: ", This%SelIntensity
+      write(Unit, *) "FutureCoancestryRanMate: ", This%FutureCoancestryRanMate
+      write(Unit, *) "CoancestryRateRanMate: ", This%CoancestryRateRanMate
+      write(Unit, *) "FutureInbreeding: ", This%FutureInbreeding
+      write(Unit, *) "InbreedingRate: ", This%InbreedingRate
+      write(Unit, *) "GenericIndCrit: ", This%GenericIndCrit
+      write(Unit, *) "GenericMatCrit: ", This%GenericMatCrit
+      write(Unit, *) "Cost: ", This%Cost
+      write(Unit, *) "nVec: ", This%nVec
+      write(Unit, *) "xVec: ", This%xVec
+      write(Unit, *) "Mating plan:"
+      do Mat = 1, size(This%MatingPlan, dim=2)
+        write(Unit, *) Mat, This%MatingPlan(:, Mat)
+      end do
+      write(Unit, *) "GenomeEdit: ", This%GenomeEdit
+
+      write(Unit, *) "FmtLogStdoutHead: ",        trim(This%FmtLogStdoutHead)
+      write(Unit, *) "FmtLogStdout: ",            trim(This%FmtLogStdout)
+      write(Unit, *) "ColnameLogStdout: ",        This%ColnameLogStdout
+      write(Unit, *) "FmtLogUnitHead: ",          trim(This%FmtLogUnitHead)
+      write(Unit, *) "ColnameLogUnit: ",          This%ColnameLogUnit
+      write(Unit, *) "FmtLogPopUnit: ",           trim(This%FmtLogPopUnit)
+      write(Unit, *) "ColnameLogPopUnit: ",       This%ColnameLogPopUnit
+      write(Unit, *) "FmtContributionHead: ",     trim(This%FmtContributionHead)
+      write(Unit, *) "FmtContributionHeadEdit: ", trim(This%FmtContributionHeadEdit)
+      write(Unit, *) "FmtContribution: ",         trim(This%FmtContribution)
+      write(Unit, *) "FmtContributionEdit: ",     trim(This%FmtContributionEdit)
+      write(Unit, *) "FmtMatingHead: ",           trim(This%FmtMatingHead)
+      write(Unit, *) "FmtMating: ",               trim(This%FmtMating)
+
+      ! pause
+
+      if (present(File)) then
+        close(Unit)
+      end if
+    end subroutine
+
+    !###########################################################################
+
+    !---------------------------------------------------------------------------
+    !> @brief  Write contributions to a file or standard output
+    !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date   April 7, 2017
+    !> @return Output to file or standard output
+    !---------------------------------------------------------------------------
+    subroutine WriteContributions(This, Data, ContribFile) ! not pure due to IO
+      implicit none
+
+      ! Arguments
+      class(AlphaMateSol), intent(in)        :: This        !< AlphaMateSol holder
+      type(AlphaMateData), intent(in)        :: Data        !< AlphaMateData holder
+      character(len=*), intent(in), optional :: ContribFile !< File to write individual contributions to (default STDOUT)
+
+      ! Other
+      integer(int32) :: IndRev, Ind, ContribUnit, Rank(Data%nInd)
+
+      if (.not. present(ContribFile)) then
+        ContribUnit = STDOUT
+      end if
+
+      ! @todo should we have constant output no matter which options are switched on?
+      if (present(ContribFile)) then
+        open(newunit=ContribUnit, file=ContribFile, status="unknown")
+      end if
+
+      Rank = MrgRnk(This%nVec)
+      if (.not. allocated(This%GenomeEdit)) then
+        !                                             1234567890123456789012
+        write(ContribUnit, This%FmtContributionHead) "             Id", &
+                                                     "         Gender", &
+                                                     "   SelCriterion", &
+                                                     "  AvgCoancestry", &
+                                                     "   Contribution", &
+                                                     "        nMating"
+        do IndRev = Data%nInd, 1, -1 ! MrgRnk ranks small to large
+          Ind = Rank(IndRev)
+          write(ContribUnit, This%FmtContribution) Data%Coancestry%OriginalId(Ind), Data%Gender(Ind), Data%SelCriterion(Ind), &
+                                                   mean(Data%Coancestry%Value(1:, Ind)), This%xVec(Ind), This%nVec(Ind)
+        end do
+      else
+        !                                                 12345678901234567890123456789012
+        write(ContribUnit, This%FmtContributionHeadEdit) "                             Id", &
+                                                         "         Gender", &
+                                                         "   SelCriterion", &
+                                                         "  AvgCoancestry", &
+                                                         "   Contribution", &
+                                                         "        nMating", &
+                                                         "     GenomeEdit", &
+                                                         "  EditedSelCrit"
+        do IndRev = Data%nInd, 1, -1 ! MrgRnk ranks small to large
+          Ind = Rank(IndRev)
+          write(ContribUnit, This%FmtContributionEdit) Data%Coancestry%OriginalId(Ind), Data%Gender(Ind), Data%SelCriterion(Ind), &
+                                                       mean(Data%Coancestry%Value(1:, Ind)), This%xVec(Ind), This%nVec(Ind), &
+                                                       nint(This%GenomeEdit(Ind)), Data%SelCriterion(Ind) + This%GenomeEdit(Ind) * Data%SelCriterionPAGE(Ind)
+        end do
+      end if
+
+      if (present(ContribFile)) then
+        close(ContribUnit)
+      end if
+    end subroutine
+
+    !###########################################################################
+
+    !---------------------------------------------------------------------------
+    !> @brief  Write mating plan to a file or standard output
+    !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date   April 7, 2017
+    !> @return Output to file or standard output
+    !---------------------------------------------------------------------------
+    subroutine WriteMatingPlan(This, Data, MatingFile) ! not pure due to IO
+      implicit none
+
+      ! Arguments
+      class(AlphaMateSol), intent(in)        :: This       !< AlphaMateSol holder
+      type(AlphaMateData), intent(in)        :: Data       !< AlphaMateData holder
+      character(len=*), intent(in), optional :: MatingFile !< File to write mating plan to (default STDOUT)
+
+      ! Other
+      integer(int32) :: Mat, MatingUnit
+
+      if (.not. present(MatingFile)) then
+        MatingUnit = STDOUT
+      end if
+
+      if (present(MatingFile)) then
+        open(newunit=MatingUnit, file=MatingFile, status="unknown")
+      end if
+
+      !                                      12345678901234567890123456789012
+      write(MatingUnit, This%FmtMatingHead) "         Mating", &
+                                            "                         Parent1", &
+                                            "                         Parent2"
+      do Mat = 1, size(This%MatingPlan, dim=2)
+        write(MatingUnit, This%FmtMating) Mat, Data%Coancestry%OriginalId(This%MatingPlan(1, Mat)), Data%Coancestry%OriginalId(This%MatingPlan(2, Mat))
+      end do
+
+      if (present(MatingFile)) then
+        close(MatingUnit)
+      end if
     end subroutine
 
     !###########################################################################
