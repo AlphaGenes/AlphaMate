@@ -73,6 +73,43 @@ module AlphaMateModule
   ! Functions
   public :: AlphaMateTitle, AlphaMateSearch
 
+  ! Module parameters
+  INTEGER,                   PARAMETER :: CHARLENGTH = 100
+  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTREAL2CHAR = "(f11.5)"
+  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTINT2CHAR  = "(i11)"
+
+  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTLOGSTDOUTHEADA = "("
+  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTLOGSTDOUTHEADB = "a15)"
+
+  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTLOGSTDOUTA = "(i15, "
+  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTLOGSTDOUTB = "(4x, f11.5))"
+
+  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTLOGUNITHEADA = "("
+  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTLOGUNITHEADB = "a22)"
+
+  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTLOGUNITA = "(i22, "
+  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTLOGUNITB = "(1x, es21.13e3))"
+
+  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTLOGPOPUNITA = "(2i22, "
+
+  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTCONTRIBUTIONHEADA = "(a"
+  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTCONTRIBUTIONHEADB = ", 5a15)"
+
+  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTCONTRIBUTIONHEADEDITA = "(a"
+  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTCONTRIBUTIONHEADEDITB = ", 7a15)"
+
+  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTCONTRIBUTIONA = "(a"
+  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTCONTRIBUTIONB = ", 4x, i11, 3(4x, f11.5), 4x, i11)"
+
+  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTCONTRIBUTIONEDITA = "(a"
+  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTCONTRIBUTIONEDITB = ", 4x, i11, 3(4x, f11.5), 2(4x, i11), 4x, f11.5)"
+
+  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTMATINGHEADA = "(a15, 2a"
+  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTMATINGHEADB = ")"
+
+  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTMATINGA = "(i15, 2(1x, a"
+  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTMATINGB = "))"
+
   !> @brief AlphaMate specifications
   type, extends(AlphaEvolveSpec) :: AlphaMateSpec
     ! Files
@@ -98,8 +135,7 @@ module AlphaMateModule
 
     ! Search specifications
     logical :: SeedGiven
-    logical :: ModeMin, ModeRan, ModeOpt
-    logical :: EvaluateFrontier
+    logical :: ModeMin, ModeMax, ModeOpt, ModeDegree, ModeRan, ModeFrontier
     integer(int32) :: Seed, nFrontierPoints
     real(real64), allocatable :: TargetCoancestryRateFrontier(:)
 
@@ -169,72 +205,37 @@ module AlphaMateModule
     real(real64), allocatable   :: xVec(:)
     integer(int32), allocatable :: MatingPlan(:, :)
     real(real64), allocatable   :: GenomeEdit(:)
+
+    ! Column headers and formats for logging
+    character(len=CHARLENGTH)      :: FmtLogStdoutHead
+    character(len=CHARLENGTH)      :: FmtLogStdout
+    character(len=15), allocatable :: ColnameLogStdout(:)
+    character(len=CHARLENGTH)      :: FmtLogUnitHead
+    character(len=CHARLENGTH)      :: FmtLogUnit
+    character(len=22), allocatable :: ColnameLogUnit(:)
+    character(len=CHARLENGTH)      :: FmtLogPopUnit
+    character(len=22), allocatable :: ColnameLogPopUnit(:)
+    character(len=CHARLENGTH)      :: FmtContributionHead     ! = "(6a15)"
+    character(len=CHARLENGTH)      :: FmtContributionHeadEdit ! = "(8a15)"
+    character(len=CHARLENGTH)      :: FmtContribution         ! = "(a??, 4x, i11, 3(4x, f11.5), 4x, i11)"
+    character(len=CHARLENGTH)      :: FmtContributionEdit     != "(a??, 4x, i11, 3(4x, f11.5), 2(4x, i11), 4x, f11.5)"
+    character(len=CHARLENGTH)      :: FmtMatingHead           != "(a15, 2a??)"
+    character(len=CHARLENGTH)      :: FmtMating               != "(i15, 1x, 2a??)"
+
     contains
-      procedure         :: Initialise   => InitialiseAlphaMateSol
-      procedure         :: Assign       => AssignAlphaMateSol
-      procedure         :: UpdateMean   => UpdateMeanAlphaMateSol
-      procedure         :: Evaluate     => FixSolEtcMateAndEvaluateAlphaMateSol
-      procedure         :: Write        => WriteAlphaMateSol
-      procedure         :: WriteContributions
-      procedure         :: WriteMatingPlan
-      procedure, nopass :: LogHead      => LogHeadAlphaMateSol
-      procedure         :: Log          => LogAlphaMateSol
-      procedure, nopass :: LogPopHead   => LogPopHeadAlphaMateSol
-      procedure         :: LogPop       => LogPopAlphaMateSol
+      procedure :: Initialise   => InitialiseAlphaMateSol
+      procedure :: Assign       => AssignAlphaMateSol
+      procedure :: UpdateMean   => UpdateMeanAlphaMateSol
+      procedure :: Evaluate     => FixSolEtcMateAndEvaluateAlphaMateSol
+      procedure :: Write        => WriteAlphaMateSol
+      procedure :: WriteContributions
+      procedure :: WriteMatingPlan
+      procedure :: SetupColNamesAndFormats
+      procedure :: LogHead      => LogHeadAlphaMateSol
+      procedure :: Log          => LogAlphaMateSol
+      procedure :: LogPopHead   => LogPopHeadAlphaMateSol
+      procedure :: LogPop       => LogPopAlphaMateSol
   end type
-
-  ! @todo Could push all these into AlphaEvolveSol type and make sure we do not use nopass for heads etc.
-  CHARACTER(len=100), PARAMETER  :: FMTREAL2CHAR = "(f11.5)"
-  CHARACTER(len=100), PARAMETER  :: FMTINT2CHAR  = "(i11)"
-
-  CHARACTER(len=100)             :: FMTLOGSTDOUTHEAD
-  CHARACTER(len=100), PARAMETER  :: FMTLOGSTDOUTHEADA = "("
-  CHARACTER(len=100), PARAMETER  :: FMTLOGSTDOUTHEADB = "a15)"
-
-  CHARACTER(len=100)             :: FMTLOGSTDOUT
-  CHARACTER(len=100), PARAMETER  :: FMTLOGSTDOUTA = "(i15, "
-  CHARACTER(len=100), PARAMETER  :: FMTLOGSTDOUTB = "(4x, f11.5))"
-
-  CHARACTER(len=15), ALLOCATABLE :: COLNAMELOGSTDOUT(:)
-
-  CHARACTER(len=100)             :: FMTLOGUNITHEAD
-  CHARACTER(len=100), PARAMETER  :: FMTLOGUNITHEADA = "("
-  CHARACTER(len=100), PARAMETER  :: FMTLOGUNITHEADB = "a22)"
-
-  CHARACTER(len=100)             :: FMTLOGUNIT
-  CHARACTER(len=100), PARAMETER  :: FMTLOGUNITA = "(i22, "
-  CHARACTER(len=100), PARAMETER  :: FMTLOGUNITB = "(1x, es21.13e3))"
-
-  CHARACTER(len=22), ALLOCATABLE :: COLNAMELOGUNIT(:)
-
-  CHARACTER(len=100)             :: FMTLOGPOPUNIT
-  CHARACTER(len=100), PARAMETER  :: FMTLOGPOPUNITA = "(2i22, "
-
-  CHARACTER(len=22), ALLOCATABLE :: COLNAMELOGPOPUNIT(:)
-
-  CHARACTER(len=100)             :: FMTCONTRIBUTIONHEAD ! = "(6a15)"
-  CHARACTER(len=100), PARAMETER  :: FMTCONTRIBUTIONHEADA = "(a"
-  CHARACTER(len=100), PARAMETER  :: FMTCONTRIBUTIONHEADB = ", 5a15)"
-
-  CHARACTER(len=100)             :: FMTCONTRIBUTIONHEADEDIT ! = "(8a15)"
-  CHARACTER(len=100), PARAMETER  :: FMTCONTRIBUTIONHEADEDITA = "(a"
-  CHARACTER(len=100), PARAMETER  :: FMTCONTRIBUTIONHEADEDITB = ", 7a15)"
-
-  CHARACTER(len=100)             :: FMTCONTRIBUTION ! = "(a??, 4x, i11, 3(4x, f11.5), 4x, i11)"
-  CHARACTER(len=100), PARAMETER  :: FMTCONTRIBUTIONA = "(a"
-  CHARACTER(len=100), PARAMETER  :: FMTCONTRIBUTIONB = ", 4x, i11, 3(4x, f11.5), 4x, i11)"
-
-  CHARACTER(len=100)             :: FMTCONTRIBUTIONEDIT != "(a??, 4x, i11, 3(4x, f11.5), 2(4x, i11), 4x, f11.5)"
-  CHARACTER(len=100), PARAMETER  :: FMTCONTRIBUTIONEDITA = "(a"
-  CHARACTER(len=100), PARAMETER  :: FMTCONTRIBUTIONEDITB = ", 4x, i11, 3(4x, f11.5), 2(4x, i11), 4x, f11.5)"
-
-  CHARACTER(len=100)             :: FMTMATINGHEAD != "(a15, 2a??)"
-  CHARACTER(len=100), PARAMETER  :: FMTMATINGHEADA = "(a15, 2a"
-  CHARACTER(len=100), PARAMETER  :: FMTMATINGHEADB = ")"
-
-  CHARACTER(len=100)             :: FMTMATING != "(i15, 1x, 2a??)"
-  CHARACTER(len=100), PARAMETER  :: FMTMATINGA = "(i15, 2(1x, a"
-  CHARACTER(len=100), PARAMETER  :: FMTMATINGB = "))"
 
   contains
 
@@ -438,9 +439,11 @@ module AlphaMateModule
       ! Search mode specifications
 
       This%ModeMin = .false.
-      This%ModeRan = .false.
+      This%ModeMax = .false.
       This%ModeOpt = .false.
-      This%EvaluateFrontier = .false.
+      This%ModeDegree = .false.
+      This%ModeRan = .false.
+      This%ModeFrontier = .false.
       This%nFrontierPoints = 0
       ! This%TargetCoancestryRateFrontier ! allocatable so skip here
 
@@ -563,9 +566,11 @@ module AlphaMateModule
       write(Unit, *) "PAGEPar2Cost: ", This%PAGEPar2Cost
 
       write(Unit, *) "ModeMin: ",          This%ModeMin
-      write(Unit, *) "ModeRan: ",          This%ModeRan
+      write(Unit, *) "ModeMax: ",          This%ModeMax
       write(Unit, *) "ModeOpt: ",          This%ModeOpt
-      write(Unit, *) "EvaluateFrontier: ", This%EvaluateFrontier
+      write(Unit, *) "ModeDegree: ",       This%ModeDegree
+      write(Unit, *) "ModeRan: ",          This%ModeRan
+      write(Unit, *) "ModeFrontier: ",     This%ModeFrontier
       write(Unit, *) "nFrontierPoints: ",  This%nFrontierPoints
       if (allocated(This%TargetCoancestryRateFrontier)) then
         write(Unit, *) "TargetCoancestryRateFrontier: ", This%TargetCoancestryRateFrontier
@@ -676,16 +681,16 @@ module AlphaMateModule
                 stop 1
               end if
 
-            case ("moderan")
+            case ("modemax")
               if (allocated(Second)) then
                 if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
-                  This%ModeRan = .true.
+                  This%ModeMax = .true.
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " ModeRan"
+                    write(STDOUT, "(a)") " ModeMax"
                   end if
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify Yes or No for ModeRan, i.e., ModeRan, Yes"
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for ModeMax, i.e., ModeMax, Yes"
                 write(STDERR, "(a)") ""
                 stop 1
               end if
@@ -700,6 +705,48 @@ module AlphaMateModule
                 end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify Yes or No for ModeOpt, i.e., ModeOpt, Yes"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("modedegree")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                  This%ModeDegree = .true.
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " ModeDegree"
+                  end if
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for ModeDegree, i.e., ModeDegree, Yes"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("moderan")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                  This%ModeRan = .true.
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " ModeRan"
+                  end if
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for ModeRan, i.e., ModeRan, Yes"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("modefrontier")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                  This%ModeFrontier = .true.
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " ModeFrontier"
+                  end if
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for ModeFrontier, i.e., ModeFrontier, Yes"
                 write(STDERR, "(a)") ""
                 stop 1
               end if
@@ -1002,22 +1049,8 @@ module AlphaMateModule
                 stop 1
               end if
 
-            case ("evaluatefrontier")
-              if (allocated(Second)) then
-                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
-                  This%EvaluateFrontier = .true.
-                  if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Evaluate selection/coancestry frontier"
-                  end if
-                end if
-              else
-                write(STDERR, "(a)") " ERROR: Must specify Yes or No for EvaluateFrontier, i.e., EvaluateFrontier, Yes"
-                write(STDERR, "(a)") ""
-                stop 1
-              end if
-
             case ("evaluatefrontiernumberofpoints")
-              if (This%EvaluateFrontier) then
+              if (This%ModeFrontier) then
                 if (allocated(Second)) then
                   This%nFrontierPoints = Char2Int(trim(adjustl(Second(1))))
                   if (LogStdoutInternal) then
@@ -1033,7 +1066,7 @@ module AlphaMateModule
               end if
 
             case ("evaluatefrontiertargetcoancestryrate")
-              if (This%EvaluateFrontier) then
+              if (This%ModeFrontier) then
                 if (allocated(Second)) then
                   nFrontierPoint = nFrontierPoint + 1
                   if (nFrontierPoint .le. This%nFrontierPoints) then
@@ -1662,10 +1695,15 @@ module AlphaMateModule
       end do ReadSpec
       close(SpecUnit)
 
-      if ((.not. This%ModeMin) .and. (.not. This%ModeOpt) .and. (.not. This%ModeRan)) then
-        write(STDERR, "(a)") " ERROR: One of ModeMin, ModeOpt, or ModeRan must be activated!"
+      if (.not. (This%ModeMin .or. This%ModeMax .or. This%ModeOpt .or. This%ModeDegree .or. This%ModeRan .or. This%ModeFrontier)) then
+        write(STDERR, "(a)") " ERROR: One of ModeMin, ModeMax, ModeOpt, ModeDegree, ModeRan, or ModeFrontier must be activated!"
         write(STDERR, "(a)") ""
         stop 1
+      end if
+
+      if (This%ModeDegree .or. This%ModeFrontier) then
+        This%ModeMin = .true.
+        This%ModeMax = .true.
       end if
 
       if (.not. This%RelMtxGiven) then
@@ -1825,7 +1863,7 @@ module AlphaMateModule
     subroutine ReadAlphaMateData(This, Spec, LogStdout) ! not pure due to IO
       implicit none
       class(AlphaMateData), intent(out)  :: This      !< @return AlphaMateData holder
-      type(AlphaMateSpec), intent(inout) :: Spec      !< AlphaMateSpec holder (inout because we need to save some data also in Spec for OO-flexibility)
+      type(AlphaMateSpec), intent(inout) :: Spec      !< AlphaMateSpec holder (inout because we save some info also in Spec that is based on Data)
       logical, optional                  :: LogStdout !< Log process on stdout (default .false.)
 
       integer(int32) :: Ind, IndLoc, IndLoc2, nIndTmp, Mat, nMatTmp, GenderTmp, l, m, IndPair(2), Crit
@@ -2671,94 +2709,11 @@ module AlphaMateModule
     !###########################################################################
 
     !---------------------------------------------------------------------------
-    !> @brief  Setup colnames and formats for output
-    !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
-    !> @date   March 16, 2017
-    !> @return
-    !---------------------------------------------------------------------------
-    subroutine SetupColNamesAndFormats(Spec) ! not pure due to setting module-wise variables
-      implicit none
-      type(AlphaMateSpec), intent(in) :: Spec !< AlphaMateSpec holder
-
-      integer(int32) :: nCol, nColTmp, i
-
-      ! --- Optimisation log ---
-
-      nCol = 10
-      if (Spec%GenericIndCritGiven) then
-        nCol = nCol + Spec%nGenericIndCrit
-      end if
-      if (Spec%GenericMatCritGiven) then
-        nCol = nCol + Spec%nGenericMatCrit
-      end if
-      allocate(COLNAMELOGUNIT(nCol))
-      allocate(COLNAMELOGSTDOUT(nCol))
-      allocate(COLNAMELOGPOPUNIT(nCol))
-      !                     1234567890123456789012
-      COLNAMELOGUNIT(1)  = "             Iteration"
-      COLNAMELOGUNIT(2)  = "            AcceptRate"
-      COLNAMELOGUNIT(3)  = "             Objective"
-      COLNAMELOGUNIT(4)  = "             Penalties"
-      COLNAMELOGUNIT(5)  = "          SelCriterion"
-      COLNAMELOGUNIT(6)  = "          SelIntensity"
-      COLNAMELOGUNIT(7)  = "            Coancestry"
-      COLNAMELOGUNIT(8)  = "        CoancestryRate"
-      COLNAMELOGUNIT(9)  = "            Inbreeding"
-      COLNAMELOGUNIT(10) = "        InbreedingRate"
-      nColTmp = nCol
-      if (Spec%GenericIndCritGiven) then
-        do i = 1, Spec%nGenericIndCrit
-          nColTmp = nColTmp + 1
-          COLNAMELOGUNIT(nColTmp) = "GenIndCrit"//trim(Int2Char(i))
-          COLNAMELOGUNIT(nColTmp) = adjustr(COLNAMELOGUNIT(nColTmp))
-        end do
-      end if
-      if (Spec%GenericMatCritGiven) then
-        do i = 1, Spec%nGenericMatCrit
-          nColTmp = nColTmp + 1
-          COLNAMELOGUNIT(nColTmp) = "GenMatCrit"//trim(Int2Char(i))
-          COLNAMELOGUNIT(nColTmp) = adjustr(COLNAMELOGUNIT(nColTmp))
-        end do
-      end if
-      do i = 1, nCol
-        COLNAMELOGSTDOUT(i) = COLNAMELOGUNIT(i)(9:22)
-        COLNAMELOGSTDOUT(i) = adjustr(COLNAMELOGSTDOUT(i))
-      end do
-      COLNAMELOGPOPUNIT = COLNAMELOGUNIT
-      !                       1234567890123456789012
-      COLNAMELOGPOPUNIT(2) = "              Solution"
-      FMTLOGSTDOUTHEAD  = trim(FMTLOGSTDOUTHEADA) //trim(Int2Char(nCol))  //trim(FMTLOGSTDOUTHEADB)
-      FMTLOGSTDOUT      = trim(FMTLOGSTDOUTA)     //trim(Int2Char(nCol-1))//trim(FMTLOGSTDOUTB)
-      FMTLOGUNITHEAD    = trim(FMTLOGUNITHEADA)   //trim(Int2Char(nCol)  )//trim(FMTLOGUNITHEADB)
-      FMTLOGUNIT        = trim(FMTLOGUNITA)       //trim(Int2Char(nCol-1))//trim(FMTLOGUNITB)
-      FMTLOGPOPUNIT     = trim(FMTLOGPOPUNITA)    //trim(Int2Char(nCol-2))//trim(FMTLOGUNITB)
-
-      ! --- Contributions output ---
-
-      FMTCONTRIBUTIONHEAD     = trim(FMTCONTRIBUTIONHEADA)    //trim(Int2Char(IDLENGTH))//trim(FMTCONTRIBUTIONHEADB)
-      FMTCONTRIBUTIONHEADEDIT = trim(FMTCONTRIBUTIONHEADEDITA)//trim(Int2Char(IDLENGTH))//trim(FMTCONTRIBUTIONHEADEDITB)
-
-      FMTCONTRIBUTION         = trim(FMTCONTRIBUTIONA)        //trim(Int2Char(IDLENGTH))//trim(FMTCONTRIBUTIONB)
-      FMTCONTRIBUTIONEDIT     = trim(FMTCONTRIBUTIONEDITA)    //trim(Int2Char(IDLENGTH))//trim(FMTCONTRIBUTIONEDITB)
-
-      ! --- Mating output ---
-
-      FMTMATINGHEAD = trim(FMTMATINGHEADA)//trim(Int2Char(IDLENGTH))    //trim(FMTMATINGHEADB)
-      FMTMATING     = trim(FMTMATINGA)    //trim(Int2Char(IDLENGTH - 1))//trim(FMTMATINGB)
-    end subroutine
-
-    !###########################################################################
-
-    !---------------------------------------------------------------------------
     !> @brief  Call various optimisations for AlphaMate
     !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date   March 16, 2017
     !---------------------------------------------------------------------------
 ! TODO: Produce an output object @return object that holds SolMin, SolRan, SolOpt, SolFrontier etc?
-! TODO: Add a name of mode into each solution, i.e., Sol%String
-! TODO: MaximumCriterion
-! TODO: MaximumCriterionPercentage
-! TODO: MinimumCoancestryPercentage
 ! TODO: the best random mating?
     subroutine AlphaMateSearch(Spec, Data, LogStdout) ! not pure due to IO
       implicit none
@@ -2771,20 +2726,25 @@ module AlphaMateModule
       real(real64) :: HoldTargetCoancestryRanMate, HoldTargetCoancestryRate
       real(real64), allocatable :: InitEqual(:, :)
 
-      logical :: LogStdoutInternal, HoldModeMin, HoldModeRan, HoldModeOpt, HoldTargetCoancestryRateWeightBelow
+      logical :: LogStdoutInternal, HoldTargetCoancestryRateWeightBelow
+      logical :: HoldModeMin, HoldModeMax, HoldModeOpt, HoldModeDegree, HoldModeRan, HoldModeFrontier
 
-      character(len=1000) :: LogFile, LogPopFile, ContribFile, MatingFile
-      character(len=100) :: DumC
+      character(len=FILELENGTH) :: LogFile, LogPopFile, ContribFile, MatingFile
 
-      type(AlphaMateSol) :: SolMin, SolRan, SolOpt, Sol
+      type(AlphaMateSol) :: SolMin, SolMax, SolOpt, SolDegree, SolRan, SolFrontier
+
+      HoldModeMin = .false.
+      HoldModeMax = .false.
+      HoldModeOpt = .false.
+      HoldModeDegree = .false.
+      HoldModeRan = .false.
+      HoldModeFrontier = .false.
 
       if (present(LogStdout)) then
         LogStdoutInternal = LogStdout
       else
         LogStdoutInternal = .false.
       end if
-
-      call SetupColNamesAndFormats(Spec=Spec)
 
       ! --- Number of parameters to optimise ---
 
@@ -2798,29 +2758,37 @@ module AlphaMateModule
         nParam = nParam + Data%nInd
       end if
 
-      ! --- Optimise contributions for minimum future coancestry/inbreeding ---
+      ! --- Minimum future coancestry/inbreeding ---
 
       if (Spec%ModeMin) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " "
-          write(STDOUT, "(a)") "--- Optimise contributions for minimum future coancestry/inbreeding --- "
+          write(STDOUT, "(a)") " Optimise contributions for minimum future coancestry/inbreeding"
           write(STDOUT, "(a)") " "
         end if
 
-        ! Hold modes so that Evaluate method is not confused what we are optimising for
-        HoldModeRan = Spec%ModeRan
-        Spec%ModeRan = .false.
+        ! Hold modes so that the Evaluate method is not confused what we are optimising for
+        HoldModeMax = Spec%ModeMax
+        Spec%ModeMax = .false.
         HoldModeOpt = Spec%ModeOpt
         Spec%ModeOpt = .false.
+        HoldModeDegree = Spec%ModeDegree
+        Spec%ModeDegree = .false.
+        HoldModeRan = Spec%ModeRan
+        Spec%ModeRan = .false.
+        HoldModeFrontier = Spec%ModeFrontier
+        Spec%ModeFrontier = .false.
 
         ! We want to minimise rate of coancestry
         HoldTargetCoancestryRateWeightBelow = Spec%TargetCoancestryRateWeightBelow
         Spec%TargetCoancestryRateWeightBelow = .false.
 
-        LogFile     = "OptimisationLogMinimumInbreeding.txt"
-        LogPopFile  = "OptimisationLogPopMinimumInbreeding.txt"
-        ContribFile = "ContributionsMinimumInbreeding.txt"
-        MatingFile  = "MatingPlanMinimumInbreeding.txt"
+        LogFile     = "OptimisationLogModeMin.txt"
+        LogPopFile  = "OptimisationLogPopModeMin.txt"
+        ContribFile = "ContributionsModeMin.txt"
+        MatingFile  = "MatingPlanModeMin.txt"
+
+        call SolMin%SetupColNamesAndFormats(Spec=Spec)
 
         ! @todo Can we do this in a better way where we take "structure" of Chrom into account?
         allocate(InitEqual(nParam, nint(Spec%EvolAlgNSol * 0.1)))
@@ -2836,66 +2804,96 @@ module AlphaMateModule
 
         deallocate(InitEqual)
 
-        call SolMin%WriteContributions(Data, Spec, ContribFile)
-        call SolMin%WriteMatingPlan(Data, Spec, MatingFile)
+        call SolMin%WriteContributions(Data, ContribFile)
+        call SolMin%WriteMatingPlan(Data, MatingFile)
 
         ! Reset
-        Spec%ModeRan = HoldModeRan
+        Spec%ModeMax = HoldModeMax
         Spec%ModeOpt = HoldModeOpt
+        Spec%ModeDegree = HoldModeDegree
+        Spec%ModeRan = HoldModeRan
+        Spec%ModeFrontier = HoldModeFrontier
         Spec%TargetCoancestryRateWeightBelow = HoldTargetCoancestryRateWeightBelow
       end if
 
-      ! --- Evaluate random mating ---
+      ! --- Maximum future selection criterion ---
 
-      if (Spec%ModeRan) then
+      if (Spec%ModeMax) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " "
-          write(STDOUT, "(a)") "--- Evaluate random mating --- "
+          write(STDOUT, "(a)") " Optimise contributions for maximum future selection criterion"
           write(STDOUT, "(a)") " "
         end if
 
-        ! Hold modes so that Evaluate method is not confused what we are optimising for
+        ! Hold modes so that the Evaluate method is not confused what we are optimising for
         HoldModeMin = Spec%ModeMin
         Spec%ModeMin = .false.
         HoldModeOpt = Spec%ModeOpt
         Spec%ModeOpt = .false.
+        HoldModeDegree = Spec%ModeDegree
+        Spec%ModeDegree = .false.
+        HoldModeRan = Spec%ModeRan
+        Spec%ModeRan = .false.
+        HoldModeFrontier = Spec%ModeFrontier
+        Spec%ModeFrontier = .false.
 
-        LogFile = "OptimisationLogRandomMating.txt"
+        LogFile     = "OptimisationLogModeMax.txt"
+        LogPopFile  = "OptimisationLogPopModeMax.txt"
+        ContribFile = "ContributionsModeMax.txt"
+        MatingFile  = "MatingPlanModeMax.txt"
 
-        allocate(InitEqual(nParam, nint(Spec%EvolAlgNSol * 0.1)))
-        InitEqual = 1.0d0 ! A couple of solutions that would give equal contributions for everybody
+        call SolMax%SetupColNamesAndFormats(Spec=Spec)
 
-        call RandomSearch(Mode="avg", Spec=Spec, Data=Data, nParam=nParam, Init=InitEqual, &
-          nSamp=Spec%EvolAlgNSol*Spec%EvolAlgNIter*Spec%RanAlgStricter, nSampStop=Spec%EvolAlgNIterStop*Spec%RanAlgStricter, &
-          StopTolerance=Spec%EvolAlgStopTol/Spec%RanAlgStricter, nSampPrint=Spec%EvolAlgNIterPrint, &
-          LogStdout=LogStdoutInternal, LogFile=LogFile, BestSol=SolRan)
+        ! @todo add some clever initial values, say:
+        !       - equal contributions for top 2/3 or 1/2 of BV distribution,
+        !       - decreasing contributions with decreasing value
+        !       - SDP solution, ...?
+        if (trim(Spec%EvolAlg) .eq. "DE") then
+          call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, &
+            nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint,&
+            LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
+            CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate=Spec%DiffEvolParamCr, FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
+            BestSol=SolMax)
+        end if
 
-        deallocate(InitEqual)
+        call SolMax%WriteContributions(Data, ContribFile)
+        call SolMax%WriteMatingPlan(Data, MatingFile)
 
         ! Reset
         Spec%ModeMin = HoldModeMin
         Spec%ModeOpt = HoldModeOpt
+        Spec%ModeDegree = HoldModeDegree
+        Spec%ModeRan = HoldModeRan
+        Spec%ModeFrontier = HoldModeFrontier
       end if
 
-      ! --- Optimise contributions for maximum value with constraint on future coancestry/inbreeding ---
+      ! --- Maximum future selection criterion with constraint on coancestry/inbreeding ---
 
       if (Spec%ModeOpt) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " "
-          write(STDOUT, "(a)") "--- Optimise contributions for maximum value with constraint on future coancestry/inbreeding ---"
+          write(STDOUT, "(a)") " Optimise contributions for maximum future selection criterion with constraint on coancestry/inbreeding"
           write(STDOUT, "(a)") " "
         end if
 
-        ! Hold modes so that Evaluate method is not confused what we are optimising for
+        ! Hold modes so that the Evaluate method is not confused what we are optimising for
         HoldModeMin = Spec%ModeMin
         Spec%ModeMin = .false.
+        HoldModeMax = Spec%ModeMax
+        Spec%ModeMax = .false.
+        HoldModeDegree = Spec%ModeDegree
+        Spec%ModeDegree = .false.
         HoldModeRan = Spec%ModeRan
         Spec%ModeRan = .false.
+        HoldModeFrontier = Spec%ModeFrontier
+        Spec%ModeFrontier = .false.
 
-        LogFile     = "OptimisationLogMaximumValue.txt"
-        LogPopFile  = "OptimisationLogPopMaximumValue.txt"
-        ContribFile = "ContributionsMaximumValue.txt"
-        MatingFile  = "MatingPlanMaximumValue.txt"
+        LogFile     = "OptimisationLogModeOpt.txt"
+        LogPopFile  = "OptimisationLogPopModeOpt.txt"
+        ContribFile = "ContributionsModeOpt.txt"
+        MatingFile  = "MatingPlanModeOpt.txt"
+
+        call SolOpt%SetupColNamesAndFormats(Spec=Spec)
 
         ! @todo add some clever initial values, say:
         !       - equal contributions for top 2/3 or 1/2 of BV distribution,
@@ -2909,39 +2907,104 @@ module AlphaMateModule
             BestSol=SolOpt)
         end if
 
-        call SolOpt%WriteContributions(Data, Spec, ContribFile)
-        call SolOpt%WriteMatingPlan(Data, Spec, MatingFile)
+        call SolOpt%WriteContributions(Data, ContribFile)
+        call SolOpt%WriteMatingPlan(Data, MatingFile)
 
         ! Reset
         Spec%ModeMin = HoldModeMin
+        Spec%ModeMax = HoldModeMax
+        Spec%ModeDegree = HoldModeDegree
         Spec%ModeRan = HoldModeRan
+        Spec%ModeFrontier = HoldModeFrontier
+      end if
+
+      ! --- Degree??? ---
+      ! this mode needs to be after ModeMin and ModeMax!!!
+
+      ! --- Random mating ---
+
+      ! @todo: is this mode any good?
+      if (Spec%ModeRan) then
+        if (LogStdoutInternal) then
+          write(STDOUT, "(a)") " "
+          write(STDOUT, "(a)") " Evaluate random mating"
+          write(STDOUT, "(a)") " "
+        end if
+
+        ! Hold modes so that the Evaluate method is not confused what we are optimising for
+        HoldModeMin = Spec%ModeMin
+        Spec%ModeMin = .false.
+        HoldModeMax = Spec%ModeMax
+        Spec%ModeMax = .false.
+        HoldModeOpt = Spec%ModeOpt
+        Spec%ModeOpt = .false.
+        HoldModeDegree = Spec%ModeDegree
+        Spec%ModeDegree = .false.
+        HoldModeFrontier = Spec%ModeFrontier
+        Spec%ModeFrontier = .false.
+
+        LogFile = "OptimisationLogModeRan.txt"
+        ! @todo: other reports from here - at least the best random solution?
+
+        call SolRan%SetupColNamesAndFormats(Spec=Spec)
+
+        allocate(InitEqual(nParam, nint(Spec%EvolAlgNSol * 0.1)))
+        InitEqual = 1.0d0 ! A couple of solutions that would give equal contributions for everybody
+
+        call RandomSearch(Mode="avg", Spec=Spec, Data=Data, nParam=nParam, Init=InitEqual, &
+          nSamp=Spec%EvolAlgNSol*Spec%EvolAlgNIter*Spec%RanAlgStricter, nSampStop=Spec%EvolAlgNIterStop*Spec%RanAlgStricter, &
+          StopTolerance=Spec%EvolAlgStopTol/Spec%RanAlgStricter, nSampPrint=Spec%EvolAlgNIterPrint, &
+          LogStdout=LogStdoutInternal, LogFile=LogFile, BestSol=SolRan)
+
+        deallocate(InitEqual)
+
+        ! Reset
+        Spec%ModeMin = HoldModeMin
+        Spec%ModeMax = HoldModeMax
+        Spec%ModeOpt = HoldModeOpt
+        Spec%ModeDegree = HoldModeDegree
+        Spec%ModeFrontier = HoldModeFrontier
       end if
 
       ! --- Evaluate the frontier ---
+      ! this mode needs to be after ModeMin and ModeMax!!!
 
-      if (Spec%EvaluateFrontier) then
+      if (Spec%ModeFrontier) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " "
-          write(STDOUT, "(a)") "--- Evaluate the frontier ---"
+          write(STDOUT, "(a)") " Evaluate the frontier"
         end if
 
         open(newunit=FrontierUnit, file="Frontier.txt", status="unknown")
-        call Sol%LogHead(FrontierUnit, String="ModeOrPoint", StringNum=15)
+        call SolFrontier%SetupColNamesAndFormats(Spec=Spec)
+        call SolFrontier%LogHead(LogUnit=FrontierUnit, String="ModeOrPoint", StringNum=15)
 
         ! Add any previous results to the frontier
         if (Spec%ModeMin) then
-          call SolMin%Log(FrontierUnit, Iteration=-1, AcceptRate=-1.0d0, String="Min", StringNum=15)
+          call SolMin%Log(FrontierUnit, Iteration=-1, AcceptRate=-1.0d0, String="ModeMin", StringNum=15)
         end if
-        if (Spec%ModeRan) then
-          call SolRan%Log(FrontierUnit, Iteration=-1, AcceptRate=-1.0d0, String="Ran", StringNum=15)
+        if (Spec%ModeMax) then
+          call SolOpt%Log(FrontierUnit, Iteration=-1, AcceptRate=-1.0d0, String="ModeMax", StringNum=15)
         end if
         if (Spec%ModeOpt) then
-          call SolOpt%Log(FrontierUnit, Iteration=-1, AcceptRate=-1.0d0, String="Opt", StringNum=15)
+          call SolOpt%Log(FrontierUnit, Iteration=-1, AcceptRate=-1.0d0, String="ModeOpt", StringNum=15)
+        end if
+        if (Spec%ModeDegree) then
+          call SolDegree%Log(FrontierUnit, Iteration=-1, AcceptRate=-1.0d0, String="ModeDegree", StringNum=15)
+        end if
+        if (Spec%ModeRan) then
+          call SolRan%Log(FrontierUnit, Iteration=-1, AcceptRate=-1.0d0, String="ModeRan", StringNum=15)
         end if
 
-        ! Hold modes so that Evaluate method is not confused what we are optimising for
+        ! Hold modes so that the Evaluate method is not confused what we are optimising for
         HoldModeMin = Spec%ModeMin
         Spec%ModeMin = .false.
+        HoldModeMax = Spec%ModeMax
+        Spec%ModeMax = .false.
+        HoldModeOpt = Spec%ModeOpt
+        Spec%ModeOpt = .false.
+        HoldModeDegree = Spec%ModeDegree
+        Spec%ModeDegree = .false.
         HoldModeRan = Spec%ModeRan
         Spec%ModeRan = .false.
 
@@ -2966,25 +3029,25 @@ module AlphaMateModule
             write(STDOUT, "(a)") ""
           end if
 
-          LogFile     = "OptimisationLogFrontier"//trim(Int2Char(Point))//".txt"
-          LogPopFile  = "OptimisationLogPopFrontier"//trim(Int2Char(Point))//".txt"
-          ContribFile = "ContributionsFrontier"//trim(Int2Char(Point))//".txt"
-          MatingFile  = "MatingPlanFrontier"//trim(Int2Char(Point))//".txt"
+          LogFile     = "OptimisationLogModeFrontier"//trim(Int2Char(Point))//".txt"
+          LogPopFile  = "OptimisationLogPopModeFrontier"//trim(Int2Char(Point))//".txt"
+          ContribFile = "ContributionsModeFrontier"//trim(Int2Char(Point))//".txt"
+          MatingFile  = "MatingPlanModeFrontier"//trim(Int2Char(Point))//".txt"
 
+          call SolFrontier%SetupColNamesAndFormats(Spec=Spec)
           if (trim(Spec%EvolAlg) .eq. "DE") then
             call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, &
               nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint,&
               LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
               CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate=Spec%DiffEvolParamCr, FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
-              BestSol=Sol)
+              BestSol=SolFrontier)
           end if
 
-          DumC = "Frontier"//trim(Int2Char(Point))
-          call Sol%Log(FrontierUnit, Iteration=-1, AcceptRate=-1.0d0, String=DumC, StringNum=10)
-          call Sol%WriteContributions(Data, Spec, ContribFile)
-          call Sol%WriteMatingPlan(Data, Spec, MatingFile)
+          call SolFrontier%Log(FrontierUnit, Iteration=-1, AcceptRate=-1.0d0, String=trim("ModeFrontier"//trim(Int2Char(Point))), StringNum=15)
+          call SolFrontier%WriteContributions(Data, ContribFile)
+          call SolFrontier%WriteMatingPlan(Data, MatingFile)
 
-          if ((Spec%TargetCoancestryRate - Sol%CoancestryRateRanMate) .gt. 0.01d0) then
+          if ((Spec%TargetCoancestryRate - SolFrontier%CoancestryRateRanMate) .gt. 0.01d0) then
             if (LogStdoutInternal) then
               write(STDOUT, "(a)") "NOTE: Could not achieve the rate of coancestry "//trim(Real2Char(Spec%TargetCoancestryRate, fmt=FMTREAL2CHAR))
               write(STDOUT, "(a)") "NOTE: Stopping the frontier evaluation."
@@ -2995,11 +3058,14 @@ module AlphaMateModule
         end do
 
         ! Reset
+        Spec%ModeMin = HoldModeMin
+        Spec%ModeMax = HoldModeMax
+        Spec%ModeOpt = HoldModeOpt
+        Spec%ModeDegree = HoldModeDegree
+        Spec%ModeRan = HoldModeRan
         Spec%TargetCoancestryRate = HoldTargetCoancestryRate
         Data%TargetCoancestryRanMate = HoldTargetCoancestryRanMate
         Spec%TargetCoancestryRateWeightBelow = HoldTargetCoancestryRateWeightBelow
-        Spec%ModeMin = HoldModeMin
-        Spec%ModeRan = HoldModeRan
 
         close(FrontierUnit)
 
@@ -3054,6 +3120,20 @@ module AlphaMateModule
       end do
       write(Unit, *) "GenomeEdit: ", This%GenomeEdit
 
+      write(Unit, *) "FmtLogStdoutHead: ",        trim(This%FmtLogStdoutHead)
+      write(Unit, *) "FmtLogStdout: ",            trim(This%FmtLogStdout)
+      write(Unit, *) "ColnameLogStdout: ",        This%ColnameLogStdout
+      write(Unit, *) "FmtLogUnitHead: ",          trim(This%FmtLogUnitHead)
+      write(Unit, *) "ColnameLogUnit: ",          This%ColnameLogUnit
+      write(Unit, *) "FmtLogPopUnit: ",           trim(This%FmtLogPopUnit)
+      write(Unit, *) "ColnameLogPopUnit: ",       This%ColnameLogPopUnit
+      write(Unit, *) "FmtContributionHead: ",     trim(This%FmtContributionHead)
+      write(Unit, *) "FmtContributionHeadEdit: ", trim(This%FmtContributionHeadEdit)
+      write(Unit, *) "FmtContribution: ",         trim(This%FmtContribution)
+      write(Unit, *) "FmtContributionEdit: ",     trim(This%FmtContributionEdit)
+      write(Unit, *) "FmtMatingHead: ",           trim(This%FmtMatingHead)
+      write(Unit, *) "FmtMating: ",               trim(This%FmtMating)
+
       ! pause
 
       if (present(File)) then
@@ -3063,22 +3143,19 @@ module AlphaMateModule
 
     !###########################################################################
 
-! TODO: push all FORMATS etc into Spec
-
     !---------------------------------------------------------------------------
     !> @brief  Write contributions to a file or standard output
     !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date   April 7, 2017
     !> @return Output to file or standard output
     !---------------------------------------------------------------------------
-    subroutine WriteContributions(This, Data, Spec, ContribFile) ! not pure due to IO
+    subroutine WriteContributions(This, Data, ContribFile) ! not pure due to IO
       implicit none
 
       ! Arguments
-      class(AlphaMateSol)        :: This        !< AlphaMateSol holder
-      type(AlphaMateData)        :: Data        !< AlphaMateData holder
-      type(AlphaMateSpec)        :: Spec        !< AlphaMateSpec holder
-      character(len=*), optional :: ContribFile !< File to write individual contributions to (default STDOUT)
+      class(AlphaMateSol), intent(in)        :: This        !< AlphaMateSol holder
+      type(AlphaMateData), intent(in)        :: Data        !< AlphaMateData holder
+      character(len=*), intent(in), optional :: ContribFile !< File to write individual contributions to (default STDOUT)
 
       ! Other
       integer(int32) :: IndRev, Ind, ContribUnit, Rank(Data%nInd)
@@ -3093,36 +3170,34 @@ module AlphaMateModule
       end if
 
       Rank = MrgRnk(This%nVec)
-      if (.not. Spec%PAGEPar) then
-        !                                        1234567890123456789012
-        write(ContribUnit, FMTCONTRIBUTIONHEAD) "             Id", &
-                                                "         Gender", &
-                                                "   SelCriterion", &
-                                                "  AvgCoancestry", &
-                                                "   Contribution", &
-                                                "        nMating"
+      if (.not. allocated(This%GenomeEdit)) then
+        !                                             1234567890123456789012
+        write(ContribUnit, This%FmtContributionHead) "             Id", &
+                                                     "         Gender", &
+                                                     "   SelCriterion", &
+                                                     "  AvgCoancestry", &
+                                                     "   Contribution", &
+                                                     "        nMating"
         do IndRev = Data%nInd, 1, -1 ! MrgRnk ranks small to large
           Ind = Rank(IndRev)
-          write(ContribUnit, FMTCONTRIBUTION) Data%Coancestry%OriginalId(Ind), Data%Gender(Ind), Data%SelCriterion(Ind), &
-                                              mean(Data%Coancestry%Value(1:, Ind)), &
-                                              This%xVec(Ind), This%nVec(Ind)
+          write(ContribUnit, This%FmtContribution) Data%Coancestry%OriginalId(Ind), Data%Gender(Ind), Data%SelCriterion(Ind), &
+                                                   mean(Data%Coancestry%Value(1:, Ind)), This%xVec(Ind), This%nVec(Ind)
         end do
       else
-        !                                            12345678901234567890123456789012
-        write(ContribUnit, FMTCONTRIBUTIONHEADEDIT) "                             Id", &
-                                                    "         Gender", &
-                                                    "   SelCriterion", &
-                                                    "  AvgCoancestry", &
-                                                    "   Contribution", &
-                                                    "        nMating", &
-                                                    "     GenomeEdit", &
-                                                    "  EditedSelCrit"
+        !                                                 12345678901234567890123456789012
+        write(ContribUnit, This%FmtContributionHeadEdit) "                             Id", &
+                                                         "         Gender", &
+                                                         "   SelCriterion", &
+                                                         "  AvgCoancestry", &
+                                                         "   Contribution", &
+                                                         "        nMating", &
+                                                         "     GenomeEdit", &
+                                                         "  EditedSelCrit"
         do IndRev = Data%nInd, 1, -1 ! MrgRnk ranks small to large
           Ind = Rank(IndRev)
-          write(ContribUnit, FMTCONTRIBUTIONEDIT) Data%Coancestry%OriginalId(Ind), Data%Gender(Ind), Data%SelCriterion(Ind), &
-                                                  mean(Data%Coancestry%Value(1:, Ind)), &
-                                                  This%xVec(Ind), This%nVec(Ind), &
-                                                  nint(This%GenomeEdit(Ind)), Data%SelCriterion(Ind) + This%GenomeEdit(Ind) * Data%SelCriterionPAGE(Ind)
+          write(ContribUnit, This%FmtContributionEdit) Data%Coancestry%OriginalId(Ind), Data%Gender(Ind), Data%SelCriterion(Ind), &
+                                                       mean(Data%Coancestry%Value(1:, Ind)), This%xVec(Ind), This%nVec(Ind), &
+                                                       nint(This%GenomeEdit(Ind)), Data%SelCriterion(Ind) + This%GenomeEdit(Ind) * Data%SelCriterionPAGE(Ind)
         end do
       end if
 
@@ -3139,14 +3214,13 @@ module AlphaMateModule
     !> @date   April 7, 2017
     !> @return Output to file or standard output
     !---------------------------------------------------------------------------
-    subroutine WriteMatingPlan(This, Data, Spec, MatingFile) ! not pure due to IO
+    subroutine WriteMatingPlan(This, Data, MatingFile) ! not pure due to IO
       implicit none
 
       ! Arguments
-      class(AlphaMateSol)        :: This        !< AlphaMateSol holder
-      type(AlphaMateData)        :: Data        !< AlphaMateData holder
-      type(AlphaMateSpec)        :: Spec        !< AlphaMateSpec holder
-      character(len=*), optional :: MatingFile  !< File to write mating plan to (default STDOUT)
+      class(AlphaMateSol), intent(in)        :: This       !< AlphaMateSol holder
+      type(AlphaMateData), intent(in)        :: Data       !< AlphaMateData holder
+      character(len=*), intent(in), optional :: MatingFile !< File to write mating plan to (default STDOUT)
 
       ! Other
       integer(int32) :: Mat, MatingUnit
@@ -3159,12 +3233,12 @@ module AlphaMateModule
         open(newunit=MatingUnit, file=MatingFile, status="unknown")
       end if
 
-      !                                 12345678901234567890123456789012
-      write(MatingUnit, FMTMATINGHEAD) "         Mating", &
-                                       "                         Parent1", &
-                                       "                         Parent2"
-      do Mat = 1, Spec%nMat
-        write(MatingUnit, FMTMATING) Mat, Data%Coancestry%OriginalId(This%MatingPlan(1, Mat)), Data%Coancestry%OriginalId(This%MatingPlan(2, Mat))
+      !                                      12345678901234567890123456789012
+      write(MatingUnit, This%FmtMatingHead) "         Mating", &
+                                            "                         Parent1", &
+                                            "                         Parent2"
+      do Mat = 1, size(This%MatingPlan, dim=2)
+        write(MatingUnit, This%FmtMating) Mat, Data%Coancestry%OriginalId(This%MatingPlan(1, Mat)), Data%Coancestry%OriginalId(This%MatingPlan(2, Mat))
       end do
 
       if (present(MatingFile)) then
@@ -3363,7 +3437,7 @@ module AlphaMateModule
     subroutine FixSolEtcMateAndEvaluateAlphaMateSol(This, Chrom, Spec, Data) ! not pure due to RNG
       implicit none
       ! Arguments
-      class(AlphaMateSol), intent(inout)           :: This     !< @return AlphaMateSol holder
+      class(AlphaMateSol), intent(inout)           :: This     !< @return AlphaMateSol holder(out as we fix solution)
       real(real64), intent(in)                     :: Chrom(:) !< A solution
       class(AlphaEvolveSpec), intent(in)           :: Spec     !< AlphaEvolveSpec --> AlphaMateSpec holder
       class(AlphaEvolveData), intent(in), optional :: Data     !< AlphaEvolveData --> AlphaMateData holder
@@ -3416,7 +3490,7 @@ module AlphaMateModule
               !   - Chrom2%MateRank
               !   - Chrom2%EditPar1
               !   - Chrom2%EditPar2
-              !   and then at the end combine it back en extit - since we modify/fix some
+              !   and then at the end combine it back en exit - since we modify/fix some
               !   elements of a solution, we need to combine before exit!
 
               ! --- Parse the mate selection driver (=Is the solution valid?) ---
@@ -3425,16 +3499,13 @@ module AlphaMateModule
               ! the two parent sets. It does this by ranking internal solution values and
               ! traverses from top to the defined number of parents checking when the sum of
               ! interegrised values gives Spec%nMat. If values below 0.5 are found, they are
-              ! changed to 1 contribution. If this still does not give Spec%nMat, then we start
-
-              ! @todo least contributing? Those that already contribute or thos that do not contribute at all?
-
-              ! adding on contribution to each parent (starting from least contributing
-              ! parents to avoid local minima) until we reach Spec%nMat. How to treat values
-              ! for the individuals that do not contribute is unlcear. None of the tested
-              ! methods seemed to be very different. Intuitively, using properly ordered
-              ! negative values should inform optim. alg. which individuals should less
-              ! likely contribute, but this did not seem to be the case - better final
+              ! changed to 1 contribution to achieve nMat. If this still does not give Spec%nMat,
+              ! then we start adding on contributions to each parent (starting at those contributing
+              ! the least and work up to those contributing most - to avoid local minima) until
+              ! we reach Spec%nMat. How to treat values for the individuals that do not contribute
+              ! is unlcear. None of the tested methods seemed to be very different. Intuitively,
+              ! using properly ordered negative values should inform optim. alg. which individuals
+              ! should less likely contribute, but this did not seem to be the case - better final
               ! solution was found when this strategy was not implemented - either zeroing
               ! values for those individuals (was the fastest) or giving random value (was
               ! marginally better, but slower). Potential advantage of not preserving the
@@ -3799,8 +3870,9 @@ module AlphaMateModule
                   This%SelIntensity = This%SelIntensity + dot_product(This%xVec, Data%SelCriterionPAGEStand * This%GenomeEdit)
                 end if
                 This%SelCriterion = This%SelIntensity * Data%SelCriterionStat%SD + Data%SelCriterionStat%Mean
-                if (Spec%ModeOpt) then
-!@todo MaxSelCrit mode
+                if (Spec%ModeOpt .or. Spec%ModeMax) then
+!@todo ModeDegree
+!@todo ModeFrontier
                   This%Objective = This%Objective + This%SelIntensity
                 end if
               end if
@@ -3840,7 +3912,11 @@ module AlphaMateModule
               ! dF = (F_t+1 - F_t) / (1 - F_t)
               This%CoancestryRateRanMate = (This%FutureCoancestryRanMate - Data%CurrentCoancestryRanMate) / (1.0d0 - Data%CurrentCoancestryRanMate)
 
-              if      (Spec%ModeMin .or. Spec%ModeRan) then
+!@todo ModeDegree
+!@todo ModeRan?
+!@todo ModeFrontier
+              TmpR = 0.0d0
+              if      (Spec%ModeMin) then
                 TmpR = Spec%TargetCoancestryRateWeight * This%CoancestryRateRanMate
               else if (Spec%ModeOpt) then
                 TmpR = This%CoancestryRateRanMate - Spec%TargetCoancestryRate
@@ -3929,17 +4005,100 @@ module AlphaMateModule
     !###########################################################################
 
     !---------------------------------------------------------------------------
+    !> @brief  Setup colnames and formats for output
+    !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date   March 16, 2017
+    !---------------------------------------------------------------------------
+    pure subroutine SetupColNamesAndFormats(This, Spec)
+      implicit none
+      class(AlphaMateSol), intent(inout) :: This !< @return AlphaMateSol holder
+      type(AlphaMateSpec), intent(in)    :: Spec !< AlphaMateSpec
+
+      integer(int32) :: nCol, nColTmp, i
+      character(len=CHARLENGTH) :: Tmp
+
+      ! --- Optimisation log ---
+
+      nCol = 10
+      if (Spec%GenericIndCritGiven) then
+        nCol = nCol + Spec%nGenericIndCrit
+      end if
+      if (Spec%GenericMatCritGiven) then
+        nCol = nCol + Spec%nGenericMatCrit
+      end if
+      allocate(This%ColnameLogUnit(nCol))
+      allocate(This%ColnameLogStdout(nCol))
+      allocate(This%ColnameLogPopUnit(nCol))
+      !                          1234567890123456789012
+      This%ColnameLogUnit(1)  = "             Iteration"
+      This%ColnameLogUnit(2)  = "            AcceptRate"
+      This%ColnameLogUnit(3)  = "             Objective"
+      This%ColnameLogUnit(4)  = "             Penalties"
+      This%ColnameLogUnit(5)  = "          SelCriterion"
+      This%ColnameLogUnit(6)  = "          SelIntensity"
+      This%ColnameLogUnit(7)  = "            Coancestry"
+      This%ColnameLogUnit(8)  = "        CoancestryRate"
+      This%ColnameLogUnit(9)  = "            Inbreeding"
+      This%ColnameLogUnit(10) = "        InbreedingRate"
+      nColTmp = nCol
+      if (Spec%GenericIndCritGiven) then
+        do i = 1, Spec%nGenericIndCrit
+          nColTmp = nColTmp + 1
+          This%ColnameLogUnit(nColTmp) = "GenIndCrit"//trim(Int2Char(i))
+          This%ColnameLogUnit(nColTmp) = adjustr(This%ColnameLogUnit(nColTmp))
+        end do
+      end if
+      if (Spec%GenericMatCritGiven) then
+        do i = 1, Spec%nGenericMatCrit
+          nColTmp = nColTmp + 1
+          This%ColnameLogUnit(nColTmp) = "GenMatCrit"//trim(Int2Char(i))
+          This%ColnameLogUnit(nColTmp) = adjustr(This%ColnameLogUnit(nColTmp))
+        end do
+      end if
+      do i = 1, nCol
+        Tmp = This%ColnameLogUnit(i)
+        This%ColnameLogStdout(i) = Tmp(9:22)
+        This%ColnameLogStdout(i) = adjustr(This%ColnameLogStdout(i))
+      end do
+      This%ColnameLogPopUnit = This%ColnameLogUnit
+      !                            1234567890123456789012
+      This%ColnameLogPopUnit(2) = "              Solution"
+      This%FmtLogStdoutHead  = trim(FMTLOGSTDOUTHEADA) //trim(Int2Char(nCol))  //trim(FMTLOGSTDOUTHEADB)
+      This%FmtLogStdout      = trim(FMTLOGSTDOUTA)     //trim(Int2Char(nCol-1))//trim(FMTLOGSTDOUTB)
+      This%FmtLogUnitHead    = trim(FMTLOGUNITHEADA)   //trim(Int2Char(nCol)  )//trim(FMTLOGUNITHEADB)
+      This%FmtLogUnit        = trim(FMTLOGUNITA)       //trim(Int2Char(nCol-1))//trim(FMTLOGUNITB)
+      This%FmtLogPopUnit     = trim(FMTLOGPOPUNITA)    //trim(Int2Char(nCol-2))//trim(FMTLOGUNITB)
+
+      ! --- Contributions output ---
+
+      This%FmtContributionHead     = trim(FMTCONTRIBUTIONHEADA)    //trim(Int2Char(IDLENGTH))//trim(FMTCONTRIBUTIONHEADB)
+      This%FmtContributionHeadEdit = trim(FMTCONTRIBUTIONHEADEDITA)//trim(Int2Char(IDLENGTH))//trim(FMTCONTRIBUTIONHEADEDITB)
+
+      This%FmtContribution         = trim(FMTCONTRIBUTIONA)        //trim(Int2Char(IDLENGTH))//trim(FMTCONTRIBUTIONB)
+      This%FmtContributionEdit     = trim(FMTCONTRIBUTIONEDITA)    //trim(Int2Char(IDLENGTH))//trim(FMTCONTRIBUTIONEDITB)
+
+      ! --- Mating output ---
+
+      This%FmtMatingHead = trim(FMTMATINGHEADA)//trim(Int2Char(IDLENGTH))    //trim(FMTMATINGHEADB)
+      This%FmtMating     = trim(FMTMATINGA)    //trim(Int2Char(IDLENGTH - 1))//trim(FMTMATINGB)
+    end subroutine
+
+    !###########################################################################
+
+    !---------------------------------------------------------------------------
     !> @brief  Write head of the AlphaMate log
     !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date   March 16, 2017
     !> @return Output to file or standard output
     !---------------------------------------------------------------------------
-    subroutine LogHeadAlphaMateSol(LogUnit, String, StringNum) ! not pure due to IO
+    subroutine LogHeadAlphaMateSol(This, LogUnit, String, StringNum) ! not pure due to IO
       implicit none
+      class(AlphaMateSol), intent(in)        :: This      !< AlphaMateSol holder
       integer(int32), intent(in), optional   :: LogUnit   !< Unit to write to (default STDOUT)
       character(len=*), intent(in), optional :: String    !< Additional string that will be written before the head
       integer(int32), optional               :: StringNum !< How much space is needed for the String
       character(len=10) :: StringFmt
+
       if (present(String)) then
         if (present(StringNum)) then
           StringFmt = "("//trim(Int2Char(StringNum))//"a)"
@@ -3951,12 +4110,12 @@ module AlphaMateModule
         if (present(String)) then
           write(LogUnit, StringFmt, Advance="No") trim(adjustl(String))
         end if
-        write(LogUnit, FMTLOGUNITHEAD)  COLNAMELOGUNIT
+        write(LogUnit, This%FmtLogUnitHead)  This%ColnameLogUnit
       else
         if (present(String)) then
           write(STDOUT, StringFmt, Advance="No") trim(adjustl(String))
         end if
-        write(STDOUT, FMTLOGSTDOUTHEAD) COLNAMELOGSTDOUT
+        write(STDOUT, This%FmtLogStdoutHead) This%ColnameLogStdout
       end if
     end subroutine
 
@@ -3970,20 +4129,21 @@ module AlphaMateModule
     !---------------------------------------------------------------------------
     subroutine LogAlphaMateSol(This, LogUnit, Iteration, AcceptRate, String, StringNum) ! not pure due to IO
       implicit none
-      class(AlphaMateSol), intent(in)        :: This       !< AlphaMateSol holder
-      integer(int32), intent(in), optional   :: LogUnit    !< Unit to write to (default STDOUT)
-      integer(int32), intent(in)             :: Iteration  !< Generation/Iteration
-      real(real64), intent(in)               :: AcceptRate !< Acceptance rate
-      character(len=*), intent(in), optional :: String     !< Additional string that will be written before the head
-      integer(int32), optional               :: StringNum  !< How much space is needed for the String
+      class(AlphaMateSol), intent(in)              :: This       !< AlphaMateSol holder
+      integer(int32), intent(in), optional         :: LogUnit    !< Unit to write to (default STDOUT)
+      integer(int32), intent(in)                   :: Iteration  !< Generation/Iteration
+      real(real64), intent(in)                     :: AcceptRate !< Acceptance rate
+      character(len=*), intent(in), optional       :: String     !< Additional string that will be written before the head
+      integer(int32), optional                     :: StringNum  !< How much space is needed for the String
       integer(int32) :: Unit
-      character(len=100) :: Fmt, StringFmt
+      character(len=CHARLENGTH) :: Fmt, StringFmt
+
       if (present(LogUnit)) then
         Unit = LogUnit
-        Fmt = FMTLOGUNIT
+        Fmt = This%FmtLogUnit
       else
         Unit = STDOUT
-        Fmt = FMTLOGSTDOUT
+        Fmt = This%FmtLogStdout
       end if
       if (present(String)) then
         if (present(StringNum)) then
@@ -4027,16 +4187,18 @@ module AlphaMateModule
     !> @date   March 16, 2017
     !> @return Output to file or standard output
     !---------------------------------------------------------------------------
-    subroutine LogPopHeadAlphaMateSol(LogPopUnit) ! not pure due to IO
+    subroutine LogPopHeadAlphaMateSol(This, LogPopUnit) ! not pure due to IO
       implicit none
+      class(AlphaMateSol), intent(in)      :: This       !< AlphaMateSol holder
       integer(int32), intent(in), optional :: LogPopUnit !< Log file unit (default STDOUT)
       integer(int32) :: Unit
+
       if (present(LogPopUnit)) then
         Unit = LogPopUnit
       else
         Unit = STDOUT
       end if
-      write(Unit, FMTLOGUNITHEAD) COLNAMELOGPOPUNIT
+      write(Unit, This%FmtLogUnitHead) This%ColnameLogPopUnit
     end subroutine
 
     !###########################################################################
@@ -4054,6 +4216,7 @@ module AlphaMateModule
       integer(int32), intent(in)           :: Iteration  !< generation/iteration
       integer(int32), intent(in)           :: i          !< solution id
       integer(int32) :: Unit
+
       if (present(LogPopUnit)) then
         Unit = LogPopUnit
       else
@@ -4061,15 +4224,15 @@ module AlphaMateModule
       end if
       if (allocated(This%GenericIndCrit)) then
         if (allocated(This%GenericMatCrit)) then
-          write(Unit, FMTLOGPOPUNIT) Iteration, i, This%Objective, This%Penalty, This%SelCriterion, This%SelIntensity, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%FutureInbreeding, This%InbreedingRate, This%GenericIndCrit, This%GenericMatCrit
+          write(Unit, This%FmtLogPopUnit) Iteration, i, This%Objective, This%Penalty, This%SelCriterion, This%SelIntensity, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%FutureInbreeding, This%InbreedingRate, This%GenericIndCrit, This%GenericMatCrit
         else
-          write(Unit, FMTLOGPOPUNIT) Iteration, i, This%Objective, This%Penalty, This%SelCriterion, This%SelIntensity, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%FutureInbreeding, This%InbreedingRate, This%GenericIndCrit
+          write(Unit, This%FmtLogPopUnit) Iteration, i, This%Objective, This%Penalty, This%SelCriterion, This%SelIntensity, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%FutureInbreeding, This%InbreedingRate, This%GenericIndCrit
         end if
       else
         if (allocated(This%GenericMatCrit)) then
-          write(Unit, FMTLOGPOPUNIT) Iteration, i, This%Objective, This%Penalty, This%SelCriterion, This%SelIntensity, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%FutureInbreeding, This%InbreedingRate,                      This%GenericMatCrit
+          write(Unit, This%FmtLogPopUnit) Iteration, i, This%Objective, This%Penalty, This%SelCriterion, This%SelIntensity, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%FutureInbreeding, This%InbreedingRate,                      This%GenericMatCrit
         else
-          write(Unit, FMTLOGPOPUNIT) Iteration, i, This%Objective, This%Penalty, This%SelCriterion, This%SelIntensity, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%FutureInbreeding, This%InbreedingRate
+          write(Unit, This%FmtLogPopUnit) Iteration, i, This%Objective, This%Penalty, This%SelCriterion, This%SelIntensity, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%FutureInbreeding, This%InbreedingRate
         end if
       end if
     end subroutine

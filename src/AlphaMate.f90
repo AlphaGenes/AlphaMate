@@ -70,24 +70,27 @@ program AlphaMate
   call AlphaMateTitle
 
   write(STDOUT, "(a)") ""
-  write(STDOUT, "(a)") " Specifications ..."
+  write(STDOUT, "(a)") " --- Specifications ---"
   nArg = command_argument_count()
   if (nArg .gt. 0) then
     call get_command_argument(1, SpecFile)
   else
     SpecFile = "AlphaMateSpec.txt"
   end if
+  write(STDOUT, "(a)") ""
   write(STDOUT, "(2a)") " Using specification file: ", trim(SpecFile)
   call Spec%Read(SpecFile=SpecFile, LogStdout=.true.)
 
   write(STDOUT, "(a)") ""
-  write(STDOUT, "(a)") " Data ..."
+  write(STDOUT, "(a)") " --- Data ---"
   call Data%Read(Spec=Spec, LogStdout=.true.)
 
   write(STDOUT, "(a)") ""
-  write(STDOUT, "(a)") " Optimisation ..."
+  write(STDOUT, "(a)") " --- Optimisation ---"
   call AlphaMateSearch(Spec=Spec, Data=Data, LogStdout=.true.)
 
+  write(STDOUT, "(a)") ""
+  write(STDOUT, "(a)") " --- End ---"
   call cpu_time(EndTime)
   call AlphaMateTitle
   call PrintElapsedTime(StartTime, EndTime)
