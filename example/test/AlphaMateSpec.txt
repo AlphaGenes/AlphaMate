@@ -1,0 +1,111 @@
+ModeMin                              ,No
+ModeMax                              ,No
+ModeOpt                              ,No
+ModeDegree                           ,No
+ModeRan                              ,No
+ModeFrontier                         ,Yes
+MateAllocation                       ,Yes
+NrmMatrixFile                        ,RelMat.txt
+SelCriterionFile                     ,Ebv.txt
+GenderFile                           ,Gender.txt
+NumberOfMatings                      ,50
+NumberOfMaleParents                  ,10
+NumberOfFemaleParents                ,50
+TargetCoancestryRate                 ,0.01
+TargetCoancestryRateWeight           ,-100.00
+TargetCoancestryRateWeightBelow      ,No
+FrontierNumberOfPoints       ,5
+FrontierTargetCoancestryRate ,-0.05
+FrontierTargetCoancestryRate ,-0.001
+FrontierTargetCoancestryRate ,0.05
+FrontierTargetCoancestryRate ,0.1
+FrontierTargetCoancestryRate ,0.5
+EqualizeMaleContributions            ,Yes
+EqualizeFemaleContributions          ,Yes
+Seed                                 ,817977623
+Stop
+
+
+EvolAlgNumberOfSolutions             ,4
+EvolAlgNumberOfIterations            ,10
+EvolAlgNumberOfIterationsPrint       ,1
+DiffEvolNumberOfIterationsBurnin     ,1
+
+
+FrontierTargetCoancestryRate ,0.001
+FrontierTargetCoancestryRate ,0.005
+
+
+ModeMin                              ,Yes
+ModeRan                              ,No
+ModeOpt                              ,Yes
+NrmMatrixFile                        ,RelMat.txt
+SelCriterionFile                     ,Ebv.txt
+GenderFile                           ,Gender.txt
+GenericIndividualCriterionFile       ,None
+GenericIndividualCriterionColumns    ,2
+GenericIndividualCriterionWeight     ,1.0
+GenericIndividualCriterionWeight     ,2.0
+GenericMatingCriterionFile           ,None
+GenericMatingCriterionColumns        ,3
+GenericMatingCriterionWeight         ,1.0
+GenericMatingCriterionWeight         ,2.0
+GenericMatingCriterionWeight         ,3.0
+NumberOfMatings                      ,50
+NumberOfParents                      ,60
+NumberOfMaleParents                  ,10
+NumberOfFemaleParents                ,50
+TargetCoancestryRate                 ,0.01
+TargetCoancestryRateWeight           ,-0.50
+TargetCoancestryRateWeightBelow      ,No
+TargetInbreedingRate                 ,0.01
+TargetInbreedingRateWeight           ,-0.50
+TargetInbreedingRateWeightBelow      ,No
+FrontierNumberOfPoints               ,3
+FrontierTargetCoancestryRate         ,0.001
+FrontierTargetCoancestryRate         ,0.01
+FrontierTargetCoancestryRate         ,0.1
+EqualizeContributions                ,No
+EqualizeMaleContributions            ,No
+EqualizeFemaleContributions          ,Yes
+LimitContributions                   ,Yes
+LimitContributionsMin                ,2
+LimitContributionsMax                ,10
+LimitContributionsMinWeight          ,-0.01
+LimitMaleContributions               ,Yes
+LimitMaleContributionsMin            ,5
+LimitMaleContributionsMax            ,10
+LimitMaleContributionsMinWeight      ,-0.01
+LimitFemaleContributions             ,Yes
+LimitFemaleContributionsMin          ,5
+LimitFemaleContributionsMax          ,10
+LimitFemaleContributionsMinWeight    ,-0.01
+AllowSelfing                         ,No
+SelfingWeight                        ,-0.1
+PAGE                                 ,Yes
+PAGEMax                              ,5
+PAGECost                             ,50000
+PAGEMales                            ,Yes
+PAGEMalesMax                         ,5
+PAGEMalesCost                        ,50000
+PAGEFemales                          ,Yes
+PAGEFemalesMax                       ,5
+PAGEFemalesCost                      ,50000
+
+Seed                                 ,19791123
+SeedFile                             ,None
+
+EvolAlgNumberOfSolutions             ,100
+EvolAlgNumberOfIterations            ,10000
+EvolAlgNumberOfIterationsBurnin      ,1000
+EvolAlgNumberOfIterationsPrint       ,100
+EvolAlgNumberOfIterationsStop        ,100
+EvolAlgStopTolerance                 ,0.0001
+EvolAlgLogAllSolutions               ,No
+
+EvolAlgParameterCrBurnin             ,0.4
+EvolAlgParameterCr                   ,0.2
+EvolAlgParameterFBase                ,0.1
+EvolAlgParameterFHigh1               ,1.0
+EvolAlgParameterFHigh2               ,4.0
+RandomSearchStricter                 ,10
