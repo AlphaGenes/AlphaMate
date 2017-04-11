@@ -1,0 +1,219 @@
+
+!###############################################################################
+
+module TestAlphaMateModule
+  use ISO_Fortran_env, STDOUT => output_unit
+  use pFUnit_mod
+  use AlphaMateModule
+
+  implicit none
+
+  CHARACTER(len=100), PARAMETER :: TESTNRMFILE     = "TestNrm.txt"
+  CHARACTER(len=100), PARAMETER :: TESTSELCRITFILE = "TestSelCrit.txt"
+  CHARACTER(len=100), PARAMETER :: TESTGENDERFILE  = "TestGender.txt"
+  CHARACTER(len=100), PARAMETER :: TESTSPECFILE    = "TestSpec.txt"
+
+  contains
+
+    !###########################################################################
+
+    @before
+    subroutine Setup
+      implicit none
+    end subroutine
+
+    !###########################################################################
+
+    @after
+    subroutine Finish
+      implicit none
+    end subroutine
+
+    !###########################################################################
+
+    ! Files
+
+      !#########################################################################
+
+      subroutine CreateNrmFile
+        implicit none
+        integer(int32) :: Unit
+        open(newunit=Unit, file=TESTNRMFILE, action="write", status="unknown")
+        write(Unit, "(a)") "A 1.00 0.00 0.00 0.25 0.50" ! 120
+        write(Unit, "(a)") "B 0.00 1.25 0.50 0.25 0.00" ! 130
+        write(Unit, "(a)") "C 0.00 0.50 1.00 0.05 0.05" !  90
+        write(Unit, "(a)") "D 0.25 0.25 0.05 1.00 0.10" ! 100
+        write(Unit, "(a)") "E 0.50 0.00 0.05 0.10 1.10" ! 115
+        close(Unit)
+      end subroutine
+
+      !#########################################################################
+
+      subroutine DeleteNrmFile
+        implicit none
+        integer(int32) :: Unit
+        open(newunit=Unit, file=TESTNRMFILE, status="old")
+        close(Unit, status="delete")
+      end subroutine
+
+      !#########################################################################
+
+      subroutine CreateSelCritFile
+        implicit none
+        integer(int32) :: Unit
+        open(newunit=Unit, file=TESTSELCRITFILE, action="write", status="unknown")
+        write(Unit, "(a)") "A 120"
+        write(Unit, "(a)") "B 130"
+        write(Unit, "(a)") "C  90"
+        write(Unit, "(a)") "D 100"
+        write(Unit, "(a)") "E 115"
+        close(Unit)
+      end subroutine
+
+      !#########################################################################
+
+      subroutine DeleteSelCritFile
+        implicit none
+        integer(int32) :: Unit
+        open(newunit=Unit, file=TESTSELCRITFILE, status="old")
+        close(Unit, status="delete")
+      end subroutine
+
+      !#########################################################################
+
+      subroutine CreateGenderFile
+        implicit none
+        integer(int32) :: Unit
+        open(newunit=Unit, file=TESTGENDERFILE, action="write", status="unknown")
+        write(Unit, "(a)") "A 1"
+        write(Unit, "(a)") "B 1"
+        write(Unit, "(a)") "C 2"
+        write(Unit, "(a)") "D 2"
+        write(Unit, "(a)") "E 2"
+        close(Unit)
+      end subroutine
+
+      !#########################################################################
+
+      subroutine DeleteGenderFile
+        implicit none
+        integer(int32) :: Unit
+        open(newunit=Unit, file=TESTGENDERFILE, status="old")
+        close(Unit, status="delete")
+      end subroutine
+
+      !#########################################################################
+
+      subroutine DeleteSpecFile
+        implicit none
+        integer(int32) :: Unit
+        open(newunit=Unit, file=TESTSPECFILE, status="old")
+        close(Unit, status="delete")
+      end subroutine
+
+      !#########################################################################
+
+    !###########################################################################
+
+    ! AlphaMate tests
+
+      !#########################################################################
+
+      @test
+      subroutine TestAlphaMate
+        implicit none
+        integer(int32) :: Unit
+        logical :: LogStdout
+        type(AlphaMateSpec) :: Spec
+        type(AlphaMateData) :: Data
+
+        call CreateNrmFile
+        call CreateSelCritFile
+        call CreateGenderFile
+
+        open(newunit=Unit, file=TESTSPECFILE, action="write", status="unknown")
+        write(Unit, "(a)") "ModeOpt, Yes"
+        write(Unit, "(a)") "ModeMin, Yes"
+        write(Unit, "(2a)") "NrmMatrixFile,", TESTNRMFILE
+        write(Unit, "(2a)") "SelCriterionFile,", TESTSELCRITFILE
+        write(Unit, "(2a)") "GenderFile,", TESTGENDERFILE
+        write(Unit, "(a)") "NumberOfMatings, 2"
+        write(Unit, "(a)") "NumberOfMaleParents, 2"
+        write(Unit, "(a)") "NumberOfFemaleParents, 2"
+        write(Unit, "(a)") "TargetCoancestryRate, 0.01"
+        write(Unit, "(a)") "TargetCoancestryRateWeight, -100.0"
+        write(Unit, "(a)") "TargetInbreedingRate, 0.1"
+        write(Unit, "(a)") "TargetInbreedingRateWeight, -100.0"
+        write(Unit, "(a)") "EvolAlgNumberOfSolutions, 10"
+        write(Unit, "(a)") "EvolAlgNumberOfIterations, 10"
+        write(Unit, "(a)") "EvolAlgNumberOfIterationsPrint, 1"
+        write(Unit, "(a)") "EvolAlgLogAllSolutions, Yes"
+        write(Unit, "(a)") "Seed, 19791123"
+        write(Unit, "(a)") "Stop"
+        close(Unit)
+
+        LogStdout = .false.
+        LogStdout = .true.
+
+        call Spec%Read(SpecFile=TESTSPECFILE, LogStdout=LogStdout)
+        ! call Spec%Write
+
+        call Data%Read(Spec=Spec, LogStdout=LogStdout)
+        ! call Data%Write
+
+        call AlphaMateSearch(Spec=Spec, Data=Data, LogStdout=LogStdout)
+
+! Best with target_dC > 0.035 & weight = 100
+! 2x5 & 1x4, x'a = 116.25, x'Ax = 0.2047, dC = 0.036, F = 0.062, dF = -0.081
+
+! 2x4 & 1x5, x'a = 116.25, x'Ax = 0.2047, dC = 0.036, F = 0.188, dF =  0.126
+
+! Best with target_dC = 0.03 & weight = 100
+! 2x3 & 1x5, x'a = 113.75, x'Ax = 0.2016, dC = 0.032, F = 0.250, dF =  0.193
+
+! Best with target_dC = 0.025 & weight = 100
+! Best with target_dC = 0.020 & weight = 100
+! 2x3 & 1x4, x'a = 110.00, x'Ax = 0.1984, dC = 0.028, F = 0.188, dF =  0.126
+
+! Best with target_dC > 0.035 & weight = 100 & target_dF=0.1 & weight = 100
+! 1x3 & 2x4, x'a = 110.00, x'Ax = 0.1984, dC = 0.028, F = 0.062, dF = -0.008
+
+        ! allocate(CalPedNrm(0:Data%RecPed%nInd, 0:Data%RecPed%nInd))
+        ! allocate(ExpPedNrm(0:Data%RecPed%nInd, 0:Data%RecPed%nInd))
+
+        ! CalPedNrm = PedNrm(RecPed=Data%RecPed%Id, nInd=Data%RecPed%nInd)
+        ! !                                      0     A      B dum001       C       D       E       F
+        ! ExpPedNrm(0:Data%RecPed%nInd, 0) = [0.00, 0.00, 0.000, 0.000, 0.0000, 0.0000, 0.0000, 0.0000] ! 0
+        ! ExpPedNrm(0:Data%RecPed%nInd, 1) = [0.00, 1.00, 0.000, 0.000, 0.5000, 0.5000, 0.5000, 0.2500] ! A
+        ! ExpPedNrm(0:Data%RecPed%nInd, 2) = [0.00, 0.00, 1.000, 0.000, 0.5000, 0.0000, 0.2500, 0.6250] ! B
+        ! ExpPedNrm(0:Data%RecPed%nInd, 3) = [0.00, 0.00, 0.000, 1.000, 0.0000, 0.5000, 0.2500, 0.1250] ! dum001
+        ! ExpPedNrm(0:Data%RecPed%nInd, 4) = [0.00, 0.50, 0.500, 0.000, 1.0000, 0.2500, 0.6250, 0.5625] ! C
+        ! ExpPedNrm(0:Data%RecPed%nInd, 5) = [0.00, 0.50, 0.000, 0.500, 0.2500, 1.0000, 0.6250, 0.3125] ! D
+        ! ExpPedNrm(0:Data%RecPed%nInd, 6) = [0.00, 0.50, 0.250, 0.250, 0.6250, 0.6250, 1.1250, 0.6875] ! E
+        ! ExpPedNrm(0:Data%RecPed%nInd, 7) = [0.00, 0.25, 0.625, 0.125, 0.5625, 0.3125, 0.6875, 1.1250] ! F
+
+        ! ! write(STDOUT, "(a9, 2a11, "//Int2Char(Data%RecPed%nInd+1)//"i16)") "", "", "", (Ind1, Ind1 = 0, Data%RecPed%nInd)
+        ! do Ind1 = 0, Data%RecPed%nInd
+        !   ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%RecPed%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%RecPed%OriginalId(Ind1))), "expected  ", ExpPedNrm(0:Data%RecPed%nInd, Ind1)
+        !   ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%RecPed%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%RecPed%OriginalId(Ind1))), "calculated", CalPedNrm(0:Data%RecPed%nInd, Ind1)
+        !   ! write(STDOUT, "(a)") ""
+        !   ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
+        !   do Ind2 = 0, Data%RecPed%nInd
+        !     ! write(STDOUT, "(2i8, 2f16.8)") Ind1, Ind2, ExpPedNrm(Ind2, Ind1), CalPedNrm(Ind2, Ind1)
+        !     @AssertEqual(ExpPedNrm(Ind2, Ind1), CalPedNrm(Ind2, Ind1), "Pedigree NRM is not calculated correctly - tiny example for function")
+        !   end do
+        ! end do
+        ! deallocate(CalPedNrm)
+        ! deallocate(ExpPedNrm)
+
+        call DeleteNrmFile
+        call DeleteSelCritFile
+        call DeleteGenderFile
+        call DeleteSpecFile
+      end subroutine
+
+    !###########################################################################
+
+end module
+
+!###############################################################################

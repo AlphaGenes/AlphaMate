@@ -1,4 +1,23 @@
+DONE ModeMin
+  - 90% trick?
+
+TODO ModeMax
+  - 90% trick?
+
+TODO ModeDegree --> TargetDegree etc.
+  - change Eval function?
+
+TODO ModeRan
+  - any good?
+
+TODO ModeFrontier
+  - broken at the moment (objective=0)
+  - add also degree concept
+
 * How do we handle when nMat > nDam? Are we mating one dam with several sires?
+* MOET, JIVET, ... any other reproductive technologies?
+  - are these not covered with lifting the limit constraints on females?
+* Any other biotechnologies?
 
 * Sort mating plan by contributions
 
@@ -14,11 +33,6 @@
   - relationships
   - dominance in progeny
   - variance among progeny
-
-* MOET, JIVET, ... any other reproductive technologies?
-  - are these not covered with lifting the limit constraints on females?
-
-* Any other biotechnologies?
 
 * Update/finalise manual
 

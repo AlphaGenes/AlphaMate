@@ -1049,7 +1049,7 @@ module AlphaMateModule
                 stop 1
               end if
 
-            case ("evaluatefrontiernumberofpoints")
+            case ("frontiernumberofpoints")
               if (This%ModeFrontier) then
                 if (allocated(Second)) then
                   This%nFrontierPoints = Char2Int(trim(adjustl(Second(1))))
@@ -1059,13 +1059,13 @@ module AlphaMateModule
                   allocate(This%TargetCoancestryRateFrontier(This%nFrontierPoints))
                   nFrontierPoint = 0
                 else
-                  write(STDERR, "(a)") " ERROR: Must specify a number for EvaluateFrontierNumberOfPoints, i.e., EvaluateFrontierNumberOfPoints, 3"
+                  write(STDERR, "(a)") " ERROR: Must specify a number for FrontierNumberOfPoints, i.e., FrontierNumberOfPoints, 3"
                   write(STDERR, "(a)") ""
                   stop 1
                 end if
               end if
 
-            case ("evaluatefrontiertargetcoancestryrate")
+            case ("frontiertargetcoancestryrate")
               if (This%ModeFrontier) then
                 if (allocated(Second)) then
                   nFrontierPoint = nFrontierPoint + 1
@@ -1084,7 +1084,7 @@ module AlphaMateModule
                     write(STDOUT, "(a)") " "
                   end if
                 else
-                  write(STDERR, "(a)") " ERROR: Must specify a value for EvaluateFrontierTargetCoancestryRate, i.e., EvaluateFrontierTargetCoancestryRate, 0.001"
+                  write(STDERR, "(a)") " ERROR: Must specify a value for FrontierTargetCoancestryRate, i.e., FrontierTargetCoancestryRate, 0.001"
                   write(STDERR, "(a)") ""
                   stop 1
                 end if
@@ -2984,7 +2984,7 @@ module AlphaMateModule
           call SolMin%Log(FrontierUnit, Iteration=-1, AcceptRate=-1.0d0, String="ModeMin", StringNum=15)
         end if
         if (Spec%ModeMax) then
-          call SolOpt%Log(FrontierUnit, Iteration=-1, AcceptRate=-1.0d0, String="ModeMax", StringNum=15)
+          call SolMax%Log(FrontierUnit, Iteration=-1, AcceptRate=-1.0d0, String="ModeMax", StringNum=15)
         end if
         if (Spec%ModeOpt) then
           call SolOpt%Log(FrontierUnit, Iteration=-1, AcceptRate=-1.0d0, String="ModeOpt", StringNum=15)
@@ -3034,7 +3034,7 @@ module AlphaMateModule
           ContribFile = "ContributionsModeFrontier"//trim(Int2Char(Point))//".txt"
           MatingFile  = "MatingPlanModeFrontier"//trim(Int2Char(Point))//".txt"
 
-          call SolFrontier%SetupColNamesAndFormats(Spec=Spec)
+          call SolFrontier%SetupColNamesAndFormats(Spec=Spec) ! call again as InitialiseAlphaMateSol and AssignAlphaMateSol "nullify" the  above SetupColNamesAndFormats call (ugly, but works ...)
           if (trim(Spec%EvolAlg) .eq. "DE") then
             call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, &
               nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint,&
@@ -3049,6 +3049,7 @@ module AlphaMateModule
 
           if ((Spec%TargetCoancestryRate - SolFrontier%CoancestryRateRanMate) .gt. 0.01d0) then
             if (LogStdoutInternal) then
+              write(STDOUT, "(a)") ""
               write(STDOUT, "(a)") "NOTE: Could not achieve the rate of coancestry "//trim(Real2Char(Spec%TargetCoancestryRate, fmt=FMTREAL2CHAR))
               write(STDOUT, "(a)") "NOTE: Stopping the frontier evaluation."
               write(STDOUT, "(a)") ""
@@ -4026,9 +4027,15 @@ module AlphaMateModule
       if (Spec%GenericMatCritGiven) then
         nCol = nCol + Spec%nGenericMatCrit
       end if
-      allocate(This%ColnameLogUnit(nCol))
-      allocate(This%ColnameLogStdout(nCol))
-      allocate(This%ColnameLogPopUnit(nCol))
+      if (.not. allocated(This%ColnameLogUnit)) then
+        allocate(This%ColnameLogUnit(nCol))
+      end if
+      if (.not. allocated(This%ColnameLogStdout)) then
+        allocate(This%ColnameLogStdout(nCol))
+      end if
+      if (.not. allocated(This%ColnameLogPopUnit)) then
+        allocate(This%ColnameLogPopUnit(nCol))
+      end if
       !                          1234567890123456789012
       This%ColnameLogUnit(1)  = "             Iteration"
       This%ColnameLogUnit(2)  = "            AcceptRate"
