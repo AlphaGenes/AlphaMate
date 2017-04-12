@@ -121,13 +121,13 @@ module AlphaMateModule
     logical :: SeedGiven
 
     ! Search mode specifications
-    logical :: ModeMin, ModeMinPct, ModeMax, ModeOpt, ModeRan, ModeFrontier
+    logical :: ModeMin, ModeMinPct, ModeMax, ModeMaxPct, ModeOpt, ModeRan, ModeFrontier
     integer(int32) :: nFrontierPoints
 
     ! Biological specifications
     logical :: NrmInsteadOfCoancestry
     real(real64) :: TargetCoancestryRate, TargetInbreedingRate
-    real(real64) :: MinPct
+    real(real64) :: MinPct, MaxPct
     real(real64), allocatable :: TargetCoancestryRateFrontier(:)
     real(real64) :: TargetCoancestryRateWeight, TargetInbreedingRateWeight, SelfingWeight
     integer(int32) :: nInd, nMat, nPar, nPar1, nPar2 ! NOTE: nInd here just for OO-flexibility (do not use it; the main one is in Data!!!)
@@ -395,6 +395,7 @@ module AlphaMateModule
       This%ModeMin = .false.
       This%ModeMinPct = .false.
       This%ModeMax = .false.
+      This%ModeMaxPct = .false.
       This%ModeOpt = .false.
       This%ModeRan = .false.
       This%ModeFrontier = .false.
@@ -416,6 +417,7 @@ module AlphaMateModule
       This%TargetInbreedingRateWeight =    0.0d0
       This%TargetInbreedingRateWeightBelow = .false.
       This%MinPct = 0
+      This%MaxPct = 0
       ! This%TargetCoancestryRateFrontier ! allocatable so skip here
       This%SelfingAllowed = .false.
       This%SelfingWeight = 0.0d0
@@ -517,6 +519,7 @@ module AlphaMateModule
       write(Unit, *) "ModeMin: ",          This%ModeMin
       write(Unit, *) "ModeMinPct: ",       This%ModeMinPct
       write(Unit, *) "ModeMax: ",          This%ModeMax
+      write(Unit, *) "ModeMaxPct: ",       This%ModeMaxPct
       write(Unit, *) "ModeOpt: ",          This%ModeOpt
       write(Unit, *) "ModeRan: ",          This%ModeRan
       write(Unit, *) "ModeFrontier: ",     This%ModeFrontier
@@ -542,6 +545,7 @@ module AlphaMateModule
       write(Unit, *) "TargetInbreedingRateWeight: ",      This%TargetInbreedingRateWeight
       write(Unit, *) "TargetInbreedingRateWeightBelow: ", This%TargetInbreedingRateWeightBelow
       write(Unit, *) "MinPct: ",                          This%MinPct
+      write(Unit, *) "MaxPct: ",                          This%MaxPct
       if (allocated(This%TargetCoancestryRateFrontier)) then
         write(Unit, *) "TargetCoancestryRateFrontier: ",  This%TargetCoancestryRateFrontier
       else
@@ -913,6 +917,20 @@ module AlphaMateModule
                 stop 1
               end if
 
+            case ("modemaxpct")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                  This%ModeMaxPct = .true.
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " ModeMaxPct"
+                  end if
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for ModeMaxPct, i.e., ModeMaxPct, Yes"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
             case ("modeopt")
               if (allocated(Second)) then
                 if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
@@ -1111,6 +1129,23 @@ module AlphaMateModule
                 end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify a value for MinPct, i.e., MinPct, 10"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("maxpct")
+              if (allocated(Second)) then
+                This%MaxPct = Char2Double(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " ModeMax percentage: "//trim(Real2Char(This%MaxPct, fmt=FMTREAL2CHAR))
+                end if
+                if (This%MaxPct .lt. 0.0d0 .or. This%MaxPct .gt. 100.0d0) then
+                  write(STDERR, "(a)") "ERROR: MaxPct must be between 0 and 100!"
+                  write(STDERR, "(a)") " "
+                  stop 1
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a value for MaxPct, i.e., MaxPct, 10"
                 write(STDERR, "(a)") ""
                 stop 1
               end if
@@ -1734,17 +1769,24 @@ module AlphaMateModule
       close(SpecUnit)
 
       if (.not. (This%ModeMin .or. This%ModeMinPct .or. &
-                 This%ModeMax .or. &
+                 This%ModeMax .or. This%ModeMaxPct .or. &
                  This%ModeOpt .or. &
                  This%ModeRan .or. &
                  This%ModeFrontier)) then
-        write(STDERR, "(a)") " ERROR: One of modes must be activated!"
-        write(STDERR, "(a)") " ERROR: ModeMin, ModeMinPct, ModeMax, ModeOpt, ModeRan, or ModeFrontier"
+        write(STDERR, "(a)") " ERROR: One of the modes must be activated!"
+        write(STDERR, "(a)") " ERROR: ModeMin, ModeMinPct, ModeMax, ModeMaxPct, ModeOpt, ModeRan, or ModeFrontier"
         write(STDERR, "(a)") ""
         stop 1
       end if
 
-      if (This%ModeMinPct .or. This%ModeFrontier) then
+      if (.not. This%SelCriterionGiven .and. &
+          (This%ModeMinPct .or. This%ModeMax .or. This%ModeMaxPct .or. This%ModeOpt .or. This%ModeFrontier)) then
+        write(STDERR, "(a)") " ERROR: Selection criterion is needed for modes: ModeMinPct, ModeMax, ModeMaxPct, ModeOpt, and ModeFrontier"
+        write(STDERR, "(a)") ""
+        stop 1
+      end if
+
+      if (This%ModeMinPct .or. This%ModeMaxPct .or. This%ModeFrontier) then
         This%ModeMin = .true.
         This%ModeMax = .true.
       end if
@@ -3529,11 +3571,11 @@ module AlphaMateModule
       real(real64), allocatable :: InitEqual(:, :)
 
       logical :: LogStdoutInternal, HoldTargetCoancestryRateWeightBelow
-      logical :: HoldModeMin, HoldModePct, HoldModeMax, HoldModeOpt, HoldModeRan, HoldModeFrontier
+      logical :: HoldModeMin, HoldModeMax, HoldModeOpt, HoldModeRan, HoldModeFrontier
 
       character(len=FILELENGTH) :: LogFile, LogPopFile, ContribFile, MatingFile
 
-      type(AlphaMateSol) :: SolMin, SolMax, SolOpt, SolRan, SolFrontier
+      type(AlphaMateSol) :: SolMin, SolMax, SolMinPct, SolMaxPct, SolOpt, SolRan, SolFrontier
 
       HoldModeMin = .false.
       HoldModeMax = .false.
@@ -3688,6 +3730,10 @@ module AlphaMateModule
         HoldTargetCoancestryRate = Spec%TargetCoancestryRate
 
         ! This is the rate we target
+        ! How do we obtain it?
+        ! - given MinPct we simply compute the target coancestry rate as the
+        !   minimum possible coancestry rate plus the percentage of difference
+        !   between the maximum and the minimum possible coancestry rates
         Spec%TargetCoancestryRate = SolMin%CoancestryRateRanMate + Spec%MinPct / 100 * (SolMax%CoancestryRateRanMate - SolMin%CoancestryRateRanMate)
         ! F_t = DeltaF + (1 - DeltaF) * F_t-1
         Data%TargetCoancestryRanMate = Spec%TargetCoancestryRate + (1.0d0 - Spec%TargetCoancestryRate) * Data%CurrentCoancestryRanMate
@@ -3696,7 +3742,7 @@ module AlphaMateModule
                                " (=coancestry "//trim(Real2Char(SolMin%FutureCoancestryRanMate, fmt=FMTREAL2CHAR))//")"
           write(STDOUT, "(a)") " Maximum  rate of coancestry: "//trim(Real2Char(SolMax%CoancestryRateRanMate, fmt=FMTREAL2CHAR))//&
                                " (=coancestry "//trim(Real2Char(SolMax%FutureCoancestryRanMate, fmt=FMTREAL2CHAR))//")"
-          write(STDOUT, "(a)") " Percentage: "//trim(Real2Char(Spec%MinPct, fmt="(f7.2)"))
+          write(STDOUT, "(a)") " Percentage above minimum:     "//trim(Real2Char(Spec%MinPct, fmt="(f7.2)"))
           write(STDOUT, "(a)") " Targeted rate of coancestry: "//trim(Real2Char(Spec%TargetCoancestryRate, fmt=FMTREAL2CHAR))//&
                                " (=coancestry "//trim(Real2Char(Data%TargetCoancestryRanMate, fmt=FMTREAL2CHAR))//")"
           write(STDOUT, "(a)") ""
@@ -3707,7 +3753,7 @@ module AlphaMateModule
         ContribFile = "ContributionsModeMinPct.txt"
         MatingFile  = "MatingPlanModeMinPct.txt"
 
-        call SolOpt%SetupColNamesAndFormats(Spec=Spec)
+        call SolMinPct%SetupColNamesAndFormats(Spec=Spec)
 
         ! @todo add some clever initial values, say:
         !       - equal contributions for top 2/3 or 1/2 of BV distribution,
@@ -3718,11 +3764,119 @@ module AlphaMateModule
             nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint,&
             LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
             CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate=Spec%DiffEvolParamCr, FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
-            BestSol=SolOpt)
+            BestSol=SolMinPct)
         end if
 
-        call SolOpt%WriteContributions(Data, ContribFile)
-        call SolOpt%WriteMatingPlan(Data, MatingFile)
+        call SolMinPct%WriteContributions(Data, ContribFile)
+        call SolMinPct%WriteMatingPlan(Data, MatingFile)
+
+        ! Reset
+        Spec%ModeMin = HoldModeMin
+        Spec%ModeMax = HoldModeMax
+        Spec%ModeOpt = HoldModeOpt
+        Spec%ModeRan = HoldModeRan
+        Spec%ModeFrontier = HoldModeFrontier
+        Spec%TargetCoancestryRateWeightBelow = HoldTargetCoancestryRateWeightBelow
+        Data%TargetCoancestryRanMate = HoldTargetCoancestryRanMate
+      end if
+
+      ! --- Percentage below maximum future selection criterion ---
+
+      if (Spec%ModeMaxPct) then
+        if (LogStdoutInternal) then
+          write(STDOUT, "(a)") " "
+          write(STDOUT, "(a)") " Optimise contributions for a 'percentage' below maximum future selection criterion"
+          write(STDOUT, "(a)") " "
+        end if
+
+        ! Hold modes so that the Evaluate method is not confused what we are optimising for
+        HoldModeMin = Spec%ModeMin
+        Spec%ModeMin = .false.
+        HoldModeMax = Spec%ModeMax
+        Spec%ModeMax = .false.
+        HoldModeOpt = Spec%ModeOpt
+        Spec%ModeOpt = .true. ! we will balance future sel. criterion and coancestry
+        HoldModeRan = Spec%ModeRan
+        Spec%ModeRan = .false.
+        HoldModeFrontier = Spec%ModeFrontier
+        Spec%ModeFrontier = .false.
+
+        ! Hold old results
+        HoldTargetCoancestryRanMate = Data%TargetCoancestryRanMate
+        HoldTargetCoancestryRate = Spec%TargetCoancestryRate
+
+        ! These are the criterion and rate we target
+        ! How do we obtain them?
+        ! - given MaxPct we compute targeted selection criterion (TargetSelCritRat)
+        ! - we need to find target coancestry rate (TargetCoaRate) that will give us TargetSelCritRat
+        ! - then we have
+        !   - distance from MinSelCrit    to MaxSelCrit    is 1
+        !   - distance from MinSelCrit    to TargetSelCrit is p
+        !   - distance from TargetSelCrit to MaxSelCrit    is 1 - p (MaxPct)
+        !   - distance from MinCoaRate    to MaxCoaRate    is 1
+        !   - distance from MaxCoaRate    to TargetCoaRate is x
+        !   - distance from MinCoaRate    to TargetCoaRate is y = 1 - x (we need to find this)
+        !   - we have a triangle with sides:
+        !       x = (TargetCoaRate, MinSelCrit)    to (MaxCoaRate,    MinSelCrit)
+        !       p = (TargetCoaRate, MinSelCrit)    to (TargetCoaRate, TargetSelCrit)
+        !       r = (TargetCoaRate, TargetSelCrit) to (MaxCoaRate,    MinSelCrit)
+        !  - ASSUMING unit circular shape of frontier the radius (r) is 1
+        !  - using Pythagorean theorem we have
+        !      r^2 = x^2 + p^2
+        !      x^2 = r^2 - p^2
+        !          = 1   - p^2
+        !      x   = sqrt(1 - p^2)
+        !      y = 1 - x
+        !        = 1 - sqrt(1 - p^2)
+        block
+          real(real64) :: TargetSelCritRat, TargetCoaRat
+          TargetSelCritRat = 1.0d0 - Spec%MaxPct / 100
+          TargetCoaRat = 1.0d0 - sqrt(1.0d0 - (TargetSelCritRat * TargetSelCritRat))
+          Spec%TargetCoancestryRate = SolMin%CoancestryRateRanMate + TargetCoaRat * (SolMax%CoancestryRateRanMate - SolMin%CoancestryRateRanMate)
+          ! F_t = DeltaF + (1 - DeltaF) * F_t-1
+          Data%TargetCoancestryRanMate = Spec%TargetCoancestryRate + (1.0d0 - Spec%TargetCoancestryRate) * Data%CurrentCoancestryRanMate
+          if (LogStdoutInternal) then
+            write(STDOUT, "(a)") " Minimum  selection intensity: "//trim(Real2Char(SolMin%SelIntensity, fmt=FMTREAL2CHAR))//&
+                                " (=selection criterion"//trim(Real2Char(SolMin%SelCriterion, fmt=FMTREAL2CHAR))//")"
+            write(STDOUT, "(a)") " Maximum  selection intensity: "//trim(Real2Char(SolMax%SelIntensity, fmt=FMTREAL2CHAR))//&
+                                " (=selection criterion"//trim(Real2Char(SolMax%SelCriterion, fmt=FMTREAL2CHAR))//")"
+            write(STDOUT, "(a)") " Percentage below maximum:      "//trim(Real2Char(Spec%MaxPct, fmt="(f7.2)"))
+            write(STDOUT, "(a)") " Targeted selection intensity: "//trim(Real2Char(SolMax%SelIntensity * TargetSelCritRat, fmt=FMTREAL2CHAR))//&
+                                " (=selection criterion"//trim(Real2Char(SolMax%SelCriterion * TargetSelCritRat, fmt=FMTREAL2CHAR))//")"
+            write(STDOUT, "(a)") ""
+
+            write(STDOUT, "(a)") " Minimum  rate of coancestry: "//trim(Real2Char(SolMin%CoancestryRateRanMate, fmt=FMTREAL2CHAR))//&
+                                " (=coancestry "//trim(Real2Char(SolMin%FutureCoancestryRanMate, fmt=FMTREAL2CHAR))//")"
+            write(STDOUT, "(a)") " Maximum  rate of coancestry: "//trim(Real2Char(SolMax%CoancestryRateRanMate, fmt=FMTREAL2CHAR))//&
+                                " (=coancestry "//trim(Real2Char(SolMax%FutureCoancestryRanMate, fmt=FMTREAL2CHAR))//")"
+            write(STDOUT, "(a)") " Percentage above maximum:     "//trim(Real2Char(TargetCoaRat * 100.0d0, fmt="(f7.2)"))
+            write(STDOUT, "(a)") " Targeted rate of coancestry: "//trim(Real2Char(Spec%TargetCoancestryRate, fmt=FMTREAL2CHAR))//&
+                                " (=coancestry "//trim(Real2Char(Data%TargetCoancestryRanMate, fmt=FMTREAL2CHAR))//")"
+            write(STDOUT, "(a)") ""
+          end if
+        end block
+
+        LogFile     = "OptimisationLogModeMaxPct.txt"
+        LogPopFile  = "OptimisationLogPopModeMaxPct.txt"
+        ContribFile = "ContributionsModeMaxPct.txt"
+        MatingFile  = "MatingPlanModeMaxPct.txt"
+
+        call SolMaxPct%SetupColNamesAndFormats(Spec=Spec)
+
+        ! @todo add some clever initial values, say:
+        !       - equal contributions for top 2/3 or 1/2 of BV distribution,
+        !       - decreasing contributions with decreasing value
+        !       - SDP solution, ...?
+        if (trim(Spec%EvolAlg) .eq. "DE") then
+          call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, &
+            nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint,&
+            LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
+            CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate=Spec%DiffEvolParamCr, FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
+            BestSol=SolMaxPct)
+        end if
+
+        call SolMaxPct%WriteContributions(Data, ContribFile)
+        call SolMaxPct%WriteMatingPlan(Data, MatingFile)
 
         ! Reset
         Spec%ModeMin = HoldModeMin
