@@ -112,16 +112,23 @@ module AlphaMateModule
 
   !> @brief AlphaMate specifications
   type, extends(AlphaEvolveSpec) :: AlphaMateSpec
-    ! Files
+    ! Inputs
     character(len=FILELENGTH) :: SpecFile, RelMtxFile, SelCriterionFile, GenderFile, SeedFile
     character(len=FILELENGTH) :: GenericIndCritFile, GenericMatCritFile
     character(len=FILELENGTH) :: OutputBasename
     logical :: RelMtxGiven, SelCriterionGiven, GenderGiven, SeedFileGiven, GenericIndCritGiven, GenericMatCritGiven
+    integer(int32) :: Seed
+    logical :: SeedGiven
+
+    ! Search mode specifications
+    logical :: ModeMin, ModeMinPct, ModeMax, ModeOpt, ModeRan, ModeFrontier
+    integer(int32) :: nFrontierPoints
 
     ! Biological specifications
     logical :: NrmInsteadOfCoancestry
-    real(real64) :: TargetCoancestryRate
-    real(real64) :: TargetInbreedingRate
+    real(real64) :: TargetCoancestryRate, TargetInbreedingRate
+    real(real64) :: MinPct
+    real(real64), allocatable :: TargetCoancestryRateFrontier(:)
     real(real64) :: TargetCoancestryRateWeight, TargetInbreedingRateWeight, SelfingWeight
     integer(int32) :: nInd, nMat, nPar, nPar1, nPar2 ! NOTE: nInd here just for OO-flexibility (do not use it; the main one is in Data!!!)
     logical :: EqualizePar, EqualizePar1, EqualizePar2, LimitPar, LimitPar1, LimitPar2
@@ -132,12 +139,6 @@ module AlphaMateModule
     logical :: PAGEPar, PAGEPar1, PAGEPar2
     integer(int32) :: PAGEParMax, PAGEPar1Max, PAGEPar2Max
     real(real64) :: PAGEParCost, PAGEPar1Cost, PAGEPar2Cost
-
-    ! Search specifications
-    logical :: SeedGiven
-    logical :: ModeMin, ModeMax, ModeOpt, ModeRan, ModeFrontier
-    integer(int32) :: Seed, nFrontierPoints
-    real(real64), allocatable :: TargetCoancestryRateFrontier(:)
 
     ! Algorithm specifications
     ! ... generic evolutionary parameters
@@ -389,6 +390,16 @@ module AlphaMateModule
       This%SeedGiven = .false.
       This%NrmInsteadOfCoancestry = .false.
 
+      ! Search mode specifications
+
+      This%ModeMin = .false.
+      This%ModeMinPct = .false.
+      This%ModeMax = .false.
+      This%ModeOpt = .false.
+      This%ModeRan = .false.
+      This%ModeFrontier = .false.
+      This%nFrontierPoints = 0
+
       ! Biological specifications
 
       This%nInd = 0
@@ -404,6 +415,8 @@ module AlphaMateModule
       This%TargetCoancestryRateWeightBelow = .false.
       This%TargetInbreedingRateWeight =    0.0d0
       This%TargetInbreedingRateWeightBelow = .false.
+      This%MinPct = 0
+      ! This%TargetCoancestryRateFrontier ! allocatable so skip here
       This%SelfingAllowed = .false.
       This%SelfingWeight = 0.0d0
       ! This%GenericIndCritWeight ! allocatable so skip here
@@ -435,16 +448,6 @@ module AlphaMateModule
       This%PAGEParCost  = 0.0d0
       This%PAGEPar1Cost = 0.0d0
       This%PAGEPar2Cost = 0.0d0
-
-      ! Search mode specifications
-
-      This%ModeMin = .false.
-      This%ModeMax = .false.
-      This%ModeOpt = .false.
-      This%ModeRan = .false.
-      This%ModeFrontier = .false.
-      This%nFrontierPoints = 0
-      ! This%TargetCoancestryRateFrontier ! allocatable so skip here
 
       ! Search algorithm specifications
 
@@ -486,6 +489,8 @@ module AlphaMateModule
         Unit = STDOUT
       end if
 
+      ! Inputs
+
       write(Unit, *) "OutputBasename: ",     trim(This%OutputBasename)
       write(Unit, *) "SpecFile: ",           trim(This%SpecFile)
       write(Unit, *) "RelMtxFile: ",         trim(This%RelMtxFile)
@@ -507,6 +512,18 @@ module AlphaMateModule
       write(Unit, *) "SeedGiven: ",              This%SeedGiven
       write(Unit, *) "NrmInsteadOfCoancestry: ", This%NrmInsteadOfCoancestry
 
+      ! Search mode specifications
+
+      write(Unit, *) "ModeMin: ",          This%ModeMin
+      write(Unit, *) "ModeMinPct: ",       This%ModeMinPct
+      write(Unit, *) "ModeMax: ",          This%ModeMax
+      write(Unit, *) "ModeOpt: ",          This%ModeOpt
+      write(Unit, *) "ModeRan: ",          This%ModeRan
+      write(Unit, *) "ModeFrontier: ",     This%ModeFrontier
+      write(Unit, *) "nFrontierPoints: ",  This%nFrontierPoints
+
+      ! Biological specifications
+
       write(Unit, *) "nInd: ",  This%nInd
       write(Unit, *) "nMat: ",  This%nMat
       write(Unit, *) "nPar: ",  This%nPar
@@ -524,6 +541,12 @@ module AlphaMateModule
       write(Unit, *) "TargetCoancestryRateWeightBelow: ", This%TargetCoancestryRateWeightBelow
       write(Unit, *) "TargetInbreedingRateWeight: ",      This%TargetInbreedingRateWeight
       write(Unit, *) "TargetInbreedingRateWeightBelow: ", This%TargetInbreedingRateWeightBelow
+      write(Unit, *) "MinPct: ",                          This%MinPct
+      if (allocated(This%TargetCoancestryRateFrontier)) then
+        write(Unit, *) "TargetCoancestryRateFrontier: ",  This%TargetCoancestryRateFrontier
+      else
+        write(Unit, *) "TargetCoancestryRateFrontier: not allocated"
+      end if
       write(Unit, *) "SelfingAllowed: ",                  This%SelfingAllowed
       write(Unit, *) "SelfingWeight: ",                   This%SelfingWeight
       if (allocated(This%GenericIndCritWeight)) then
@@ -564,17 +587,7 @@ module AlphaMateModule
       write(Unit, *) "PAGEPar1Cost: ", This%PAGEPar1Cost
       write(Unit, *) "PAGEPar2Cost: ", This%PAGEPar2Cost
 
-      write(Unit, *) "ModeMin: ",          This%ModeMin
-      write(Unit, *) "ModeMax: ",          This%ModeMax
-      write(Unit, *) "ModeOpt: ",          This%ModeOpt
-      write(Unit, *) "ModeRan: ",          This%ModeRan
-      write(Unit, *) "ModeFrontier: ",     This%ModeFrontier
-      write(Unit, *) "nFrontierPoints: ",  This%nFrontierPoints
-      if (allocated(This%TargetCoancestryRateFrontier)) then
-        write(Unit, *) "TargetCoancestryRateFrontier: ", This%TargetCoancestryRateFrontier
-      else
-        write(Unit, *) "TargetCoancestryRateFrontier: not allocated"
-      end if
+      ! Algorithm specifications
 
       write(Unit, *) "EvolAlgNSol: ",       This%EvolAlgNSol
       write(Unit, *) "EvolAlgNIter: ",      This%EvolAlgNIter
@@ -650,6 +663,7 @@ module AlphaMateModule
           cycle
         else
           select case (ToLower(trim(DumString)))
+            ! Inputs
             case ("outputbasename")
               if (allocated(Second)) then
                 if (ToLower(trim(adjustl(Second(1)))) .ne. "none") then
@@ -661,76 +675,6 @@ module AlphaMateModule
                 end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify a string for OutputBasename, i.e., OutputBasename, AnalysisX"
-                write(STDERR, "(a)") ""
-                stop 1
-              end if
-
-            case ("modemin")
-              if (allocated(Second)) then
-                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
-                  This%ModeMin = .true.
-                  if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " ModeMin"
-                  end if
-                end if
-              else
-                write(STDERR, "(a)") " ERROR: Must specify Yes or No for ModeMin, i.e., ModeMin, Yes"
-                write(STDERR, "(a)") ""
-                stop 1
-              end if
-
-            case ("modemax")
-              if (allocated(Second)) then
-                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
-                  This%ModeMax = .true.
-                  if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " ModeMax"
-                  end if
-                end if
-              else
-                write(STDERR, "(a)") " ERROR: Must specify Yes or No for ModeMax, i.e., ModeMax, Yes"
-                write(STDERR, "(a)") ""
-                stop 1
-              end if
-
-            case ("modeopt")
-              if (allocated(Second)) then
-                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
-                  This%ModeOpt = .true.
-                  if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " ModeOpt"
-                  end if
-                end if
-              else
-                write(STDERR, "(a)") " ERROR: Must specify Yes or No for ModeOpt, i.e., ModeOpt, Yes"
-                write(STDERR, "(a)") ""
-                stop 1
-              end if
-
-            case ("moderan")
-              if (allocated(Second)) then
-                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
-                  This%ModeRan = .true.
-                  if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " ModeRan"
-                  end if
-                end if
-              else
-                write(STDERR, "(a)") " ERROR: Must specify Yes or No for ModeRan, i.e., ModeRan, Yes"
-                write(STDERR, "(a)") ""
-                stop 1
-              end if
-
-            case ("modefrontier")
-              if (allocated(Second)) then
-                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
-                  This%ModeFrontier = .true.
-                  if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " ModeFrontier"
-                  end if
-                end if
-              else
-                write(STDERR, "(a)") " ERROR: Must specify Yes or No for ModeFrontier, i.e., ModeFrontier, Yes"
                 write(STDERR, "(a)") ""
                 stop 1
               end if
@@ -800,6 +744,34 @@ module AlphaMateModule
                 end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify a file for GenderFile, i.e., GenderFile, Gender.txt"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("seedfile")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .ne. "none") then
+                  write(This%SeedFile, *) trim(adjustl(Second(1)))
+                  This%SeedFileGiven = .true.
+                  This%SeedFile = adjustl(This%SeedFile)
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Seed file: "//trim(This%SeedFile)
+                  end if
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a file for SeedFile, i.e., SeedFile, Seed.txt"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+            case ("seed")
+              if (allocated(Second)) then
+                This%SeedGiven = .true.
+                This%Seed = Char2Int(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Seed: "//trim(Int2Char(This%Seed))
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a number for Seed, i.e., Seed, 19791123"
                 write(STDERR, "(a)") ""
                 stop 1
               end if
@@ -898,6 +870,92 @@ module AlphaMateModule
                 end if
               end if
 
+            ! Search mode specifications
+            case ("modemin")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                  This%ModeMin = .true.
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " ModeMin"
+                  end if
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for ModeMin, i.e., ModeMin, Yes"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("modeminpct")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                  This%ModeMinPct = .true.
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " ModeMinPct"
+                  end if
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for ModeMinPct, i.e., ModeMinPct, Yes"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("modemax")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                  This%ModeMax = .true.
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " ModeMax"
+                  end if
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for ModeMax, i.e., ModeMax, Yes"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("modeopt")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                  This%ModeOpt = .true.
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " ModeOpt"
+                  end if
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for ModeOpt, i.e., ModeOpt, Yes"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("moderan")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                  This%ModeRan = .true.
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " ModeRan"
+                  end if
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for ModeRan, i.e., ModeRan, Yes"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("modefrontier")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                  This%ModeFrontier = .true.
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " ModeFrontier"
+                  end if
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for ModeFrontier, i.e., ModeFrontier, Yes"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            ! Biological specifications
             case ("numberofmatings")
               if (allocated(Second)) then
                 This%nMat = Char2Int(trim(adjustl(Second(1))))
@@ -952,6 +1010,11 @@ module AlphaMateModule
                 if (LogStdoutInternal) then
                   write(STDOUT, "(a)") " Targeted rate of coancestry: "//trim(Real2Char(This%TargetCoancestryRate, fmt=FMTREAL2CHAR))
                 end if
+                ! if (This%TargetInbreedingRate .eq. 0.0) then
+                !   write(STDERR, "(a)") "ERROR: Can not work with the targeted rate of inbreeding exactly equal to zero - it is numerically unstable!"
+                !   write(STDERR, "(a)") " "
+                !   stop 1
+                ! end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify a value for TargetedRateOfCoancestry, i.e., TargetedRateOfCoancestry, 0.01"
                 write(STDERR, "(a)") ""
@@ -993,16 +1056,18 @@ module AlphaMateModule
                 if (LogStdoutInternal) then
                   write(STDOUT, "(a)") " Targeted rate of inbreeding: "//trim(Real2Char(This%TargetInbreedingRate, fmt=FMTREAL2CHAR))
                 end if
-                if (This%TargetInbreedingRate .eq. 0.0) then
-                  write(STDERR, "(a)") "ERROR: Can not work with the targeted rate of inbreeding exactly equal to zero - it is numerically unstable!"
-                  write(STDERR, "(a)") " "
-                  stop 1
-                end if
+                ! if (This%TargetInbreedingRate .eq. 0.0) then
+                !   write(STDERR, "(a)") "ERROR: Can not work with the targeted rate of inbreeding exactly equal to zero - it is numerically unstable!"
+                !   write(STDERR, "(a)") " "
+                !   stop 1
+                ! end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify a value for TargetInbreedingRate, i.e., TargetInbreedingRate, 0.01"
                 write(STDERR, "(a)") ""
                 stop 1
               end if
+
+
 
             case ("targetinbreedingrateweight")
               if (allocated(Second)) then
@@ -1029,6 +1094,23 @@ module AlphaMateModule
                 end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify Yes or No for TargetInbreedingRateWeightBelow, i.e., TargetInbreedingRateWeightBelow, No"
+                write(STDERR, "(a)") ""
+                stop 1
+              end if
+
+            case ("minpct")
+              if (allocated(Second)) then
+                This%MinPct = Char2Double(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " ModeMin percentage: "//trim(Real2Char(This%MinPct, fmt=FMTREAL2CHAR))
+                end if
+                if (This%MinPct .lt. 0.0d0 .or. This%MinPct .gt. 100.0d0) then
+                  write(STDERR, "(a)") "ERROR: MinPct must be between 0 and 100!"
+                  write(STDERR, "(a)") " "
+                  stop 1
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a value for MinPct, i.e., MinPct, 10"
                 write(STDERR, "(a)") ""
                 stop 1
               end if
@@ -1456,35 +1538,7 @@ module AlphaMateModule
                 end if
               end if
 
-            case ("seedfile")
-              if (allocated(Second)) then
-                if (ToLower(trim(adjustl(Second(1)))) .ne. "none") then
-                  write(This%SeedFile, *) trim(adjustl(Second(1)))
-                  This%SeedFileGiven = .true.
-                  This%SeedFile = adjustl(This%SeedFile)
-                  if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Seed file: "//trim(This%SeedFile)
-                  end if
-                end if
-              else
-                write(STDERR, "(a)") " ERROR: Must specify a file for SeedFile, i.e., SeedFile, Seed.txt"
-                write(STDERR, "(a)") ""
-                stop 1
-              end if
-
-            case ("seed")
-              if (allocated(Second)) then
-                This%SeedGiven = .true.
-                This%Seed = Char2Int(trim(adjustl(Second(1))))
-                if (LogStdoutInternal) then
-                  write(STDOUT, "(a)") " Seed: "//trim(Int2Char(This%Seed))
-                end if
-              else
-                write(STDERR, "(a)") " ERROR: Must specify a number for Seed, i.e., Seed, 19791123"
-                write(STDERR, "(a)") ""
-                stop 1
-              end if
-
+            ! Algorithm specifications
             case ("evolalgnumberofsolutions")
               if (allocated(Second)) then
                 This%EvolAlgNSol = Char2Int(trim(adjustl(Second(1))))
@@ -1679,13 +1733,18 @@ module AlphaMateModule
       end do ReadSpec
       close(SpecUnit)
 
-      if (.not. (This%ModeMin .or. This%ModeMax .or. This%ModeOpt .or. This%ModeRan .or. This%ModeFrontier)) then
-        write(STDERR, "(a)") " ERROR: One of ModeMin, ModeMax, ModeOpt, ModeRan, or ModeFrontier must be activated!"
+      if (.not. (This%ModeMin .or. This%ModeMinPct .or. &
+                 This%ModeMax .or. &
+                 This%ModeOpt .or. &
+                 This%ModeRan .or. &
+                 This%ModeFrontier)) then
+        write(STDERR, "(a)") " ERROR: One of modes must be activated!"
+        write(STDERR, "(a)") " ERROR: ModeMin, ModeMinPct, ModeMax, ModeOpt, ModeRan, or ModeFrontier"
         write(STDERR, "(a)") ""
         stop 1
       end if
 
-      if (This%ModeFrontier) then
+      if (This%ModeMinPct .or. This%ModeFrontier) then
         This%ModeMin = .true.
         This%ModeMax = .true.
       end if
@@ -2227,6 +2286,7 @@ module AlphaMateModule
         write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(This%CoancestryStat%All%SD,   fmt=FMTREAL2CHAR))//" "//trim(Real2Char(This%CoancestryStat%OffDiag%SD,     fmt=FMTREAL2CHAR))
         write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(This%CoancestryStat%All%Min,  fmt=FMTREAL2CHAR))//" "//trim(Real2Char(This%CoancestryStat%OffDiag%Min,    fmt=FMTREAL2CHAR))
         write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(This%CoancestryStat%All%Max,  fmt=FMTREAL2CHAR))//" "//trim(Real2Char(This%CoancestryStat%OffDiag%Max,    fmt=FMTREAL2CHAR))
+        ! @todo: how does this interplay with the different modes
         write(STDOUT, "(a)") "    - target:  "//trim(Real2Char(This%TargetCoancestryRanMate, fmt=FMTREAL2CHAR))//" "//trim(Real2Char(This%TargetCoancestryRanMateNoSelf, fmt=FMTREAL2CHAR))&
                                               //" (given rate of "//trim(Real2Char(Spec%TargetCoancestryRate, fmt=FMTREAL2CHAR))//")"
         write(STDOUT, "(a)") "    Among   = coancestry among   individuals (including self-coancestry) = expected inbreeding in their progeny under random mating, including selfing"
@@ -2241,6 +2301,7 @@ module AlphaMateModule
           write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(This%CoancestryStatGenderDiff%All%SD,   fmt=FMTREAL2CHAR))
           write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(This%CoancestryStatGenderDiff%All%Min,  fmt=FMTREAL2CHAR))
           write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(This%CoancestryStatGenderDiff%All%Max,  fmt=FMTREAL2CHAR))
+          ! @todo: how does this interplay with the different modes
           ! @todo: once I figure our what the TargetCoancestryGenderMate should be
           ! write(STDOUT, "(a)") "    - target:  "//trim(Real2Char(This%TargetCoancestryGenderMate,        fmt=FMTREAL2CHAR))&
           !                                       //" (given rate of "//trim(Real2Char(Spec%TargetCoancestryRate, fmt=FMTREAL2CHAR))//")"
@@ -2304,6 +2365,7 @@ module AlphaMateModule
         write(STDOUT, "(a)") "  - st.dev.: "//trim(Real2Char(This%InbreedingStat%SD,   fmt=FMTREAL2CHAR))
         write(STDOUT, "(a)") "  - minimum: "//trim(Real2Char(This%InbreedingStat%Min,  fmt=FMTREAL2CHAR))
         write(STDOUT, "(a)") "  - maximum: "//trim(Real2Char(This%InbreedingStat%Max,  fmt=FMTREAL2CHAR))
+        ! @todo: how does this interplay with the different modes
         write(STDOUT, "(a)") "  - target:  "//trim(Real2Char(This%TargetInbreeding,    fmt=FMTREAL2CHAR))&
                                             //" (given rate of "//trim(Real2Char(Spec%TargetInbreedingRate, fmt=FMTREAL2CHAR))//")"
       end if
@@ -3467,7 +3529,7 @@ module AlphaMateModule
       real(real64), allocatable :: InitEqual(:, :)
 
       logical :: LogStdoutInternal, HoldTargetCoancestryRateWeightBelow
-      logical :: HoldModeMin, HoldModeMax, HoldModeOpt, HoldModeRan, HoldModeFrontier
+      logical :: HoldModeMin, HoldModePct, HoldModeMax, HoldModeOpt, HoldModeRan, HoldModeFrontier
 
       character(len=FILELENGTH) :: LogFile, LogPopFile, ContribFile, MatingFile
 
@@ -3600,6 +3662,78 @@ module AlphaMateModule
         Spec%ModeFrontier = HoldModeFrontier
       end if
 
+      ! --- Percentage above minimum future coancestry/inbreeding ---
+
+      if (Spec%ModeMinPct) then
+        if (LogStdoutInternal) then
+          write(STDOUT, "(a)") " "
+          write(STDOUT, "(a)") " Optimise contributions for a 'percentage' above minimum future coancestry/inbreeding"
+          write(STDOUT, "(a)") " "
+        end if
+
+        ! Hold modes so that the Evaluate method is not confused what we are optimising for
+        HoldModeMin = Spec%ModeMin
+        Spec%ModeMin = .false.
+        HoldModeMax = Spec%ModeMax
+        Spec%ModeMax = .false.
+        HoldModeOpt = Spec%ModeOpt
+        Spec%ModeOpt = .true. ! we will balance future sel. criterion and coancestry
+        HoldModeRan = Spec%ModeRan
+        Spec%ModeRan = .false.
+        HoldModeFrontier = Spec%ModeFrontier
+        Spec%ModeFrontier = .false.
+
+        ! Hold old results
+        HoldTargetCoancestryRanMate = Data%TargetCoancestryRanMate
+        HoldTargetCoancestryRate = Spec%TargetCoancestryRate
+
+        ! This is the rate we target
+        Spec%TargetCoancestryRate = SolMin%CoancestryRateRanMate + Spec%MinPct / 100 * (SolMax%CoancestryRateRanMate - SolMin%CoancestryRateRanMate)
+        ! F_t = DeltaF + (1 - DeltaF) * F_t-1
+        Data%TargetCoancestryRanMate = Spec%TargetCoancestryRate + (1.0d0 - Spec%TargetCoancestryRate) * Data%CurrentCoancestryRanMate
+        if (LogStdoutInternal) then
+          write(STDOUT, "(a)") " Minimum  rate of coancestry: "//trim(Real2Char(SolMin%CoancestryRateRanMate, fmt=FMTREAL2CHAR))//&
+                               " (=coancestry "//trim(Real2Char(SolMin%FutureCoancestryRanMate, fmt=FMTREAL2CHAR))//")"
+          write(STDOUT, "(a)") " Maximum  rate of coancestry: "//trim(Real2Char(SolMax%CoancestryRateRanMate, fmt=FMTREAL2CHAR))//&
+                               " (=coancestry "//trim(Real2Char(SolMax%FutureCoancestryRanMate, fmt=FMTREAL2CHAR))//")"
+          write(STDOUT, "(a)") " Percentage: "//trim(Real2Char(Spec%MinPct, fmt="(f7.2)"))
+          write(STDOUT, "(a)") " Targeted rate of coancestry: "//trim(Real2Char(Spec%TargetCoancestryRate, fmt=FMTREAL2CHAR))//&
+                               " (=coancestry "//trim(Real2Char(Data%TargetCoancestryRanMate, fmt=FMTREAL2CHAR))//")"
+          write(STDOUT, "(a)") ""
+        end if
+
+        LogFile     = "OptimisationLogModeMinPct.txt"
+        LogPopFile  = "OptimisationLogPopModeMinPct.txt"
+        ContribFile = "ContributionsModeMinPct.txt"
+        MatingFile  = "MatingPlanModeMinPct.txt"
+
+        call SolOpt%SetupColNamesAndFormats(Spec=Spec)
+
+        ! @todo add some clever initial values, say:
+        !       - equal contributions for top 2/3 or 1/2 of BV distribution,
+        !       - decreasing contributions with decreasing value
+        !       - SDP solution, ...?
+        if (trim(Spec%EvolAlg) .eq. "DE") then
+          call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, &
+            nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint,&
+            LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
+            CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate=Spec%DiffEvolParamCr, FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
+            BestSol=SolOpt)
+        end if
+
+        call SolOpt%WriteContributions(Data, ContribFile)
+        call SolOpt%WriteMatingPlan(Data, MatingFile)
+
+        ! Reset
+        Spec%ModeMin = HoldModeMin
+        Spec%ModeMax = HoldModeMax
+        Spec%ModeOpt = HoldModeOpt
+        Spec%ModeRan = HoldModeRan
+        Spec%ModeFrontier = HoldModeFrontier
+        Spec%TargetCoancestryRateWeightBelow = HoldTargetCoancestryRateWeightBelow
+        Data%TargetCoancestryRanMate = HoldTargetCoancestryRanMate
+      end if
+
       ! --- Maximum future selection criterion with constraint on coancestry/inbreeding ---
 
       if (Spec%ModeOpt) then
@@ -3727,7 +3861,7 @@ module AlphaMateModule
         HoldModeRan = Spec%ModeRan
         Spec%ModeRan = .false.
 
-        ! We want to target certain rates of coancestry
+        ! We want to target exact rates of coancestry
         HoldTargetCoancestryRateWeightBelow = Spec%TargetCoancestryRateWeightBelow
         Spec%TargetCoancestryRateWeightBelow = .true.
 
@@ -3737,14 +3871,15 @@ module AlphaMateModule
 
         ! Evaluate
         do Point = 1, Spec%nFrontierPoints
+          ! These are the rates
           Spec%TargetCoancestryRate = Spec%TargetCoancestryRateFrontier(Point)
           ! F_t = DeltaF + (1 - DeltaF) * F_t-1
           Data%TargetCoancestryRanMate = Spec%TargetCoancestryRate + (1.0d0 - Spec%TargetCoancestryRate) * Data%CurrentCoancestryRanMate
           if (LogStdoutInternal) then
             write(STDOUT, "(a)") ""
-            write(STDOUT, "(a)") "Point "//trim(Int2Char(Point))//" out of "//trim(Int2Char(Spec%nFrontierPoints))//&
-                                " for the rate of coancestry "//trim(Real2Char(Spec%TargetCoancestryRate, fmt=FMTREAL2CHAR))//&
-                                " (=targeted coancestry "//trim(Real2Char(Data%TargetCoancestryRanMate, fmt=FMTREAL2CHAR))//")"
+            write(STDOUT, "(a)") " Point "//trim(Int2Char(Point))//" out of "//trim(Int2Char(Spec%nFrontierPoints))
+            write(STDOUT, "(a)") " Targeted rate of coancestry "//trim(Real2Char(Spec%TargetCoancestryRate, fmt=FMTREAL2CHAR))//&
+                                " (=coancestry "//trim(Real2Char(Data%TargetCoancestryRanMate, fmt=FMTREAL2CHAR))//")"
             write(STDOUT, "(a)") ""
           end if
 
