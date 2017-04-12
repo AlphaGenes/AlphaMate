@@ -54,7 +54,7 @@
 module AlphaMateModule
   use ISO_Fortran_Env, STDIN => input_unit, STDOUT => output_unit, STDERR => error_unit
   use, intrinsic :: IEEE_Arithmetic
-  use ConstantModule, only : FILELENGTH, SPECOPTIONLENGTH, IDLENGTH
+  use ConstantModule, only : FILELENGTH, SPECOPTIONLENGTH, IDLENGTH, RAD2DEG
   use OrderPackModule, only : MrgRnk
   use AlphaHouseMod, only : CountLines, Char2Int, Char2Double, Int2Char, Real2Char, &
                             RandomOrder, SetSeed, ToLower, FindLoc, &
@@ -79,10 +79,10 @@ module AlphaMateModule
   CHARACTER(len=CHARLENGTH), PARAMETER :: FMTINT2CHAR  = "(i11)"
 
   CHARACTER(len=CHARLENGTH), PARAMETER :: FMTLOGSTDOUTHEADA = "("
-  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTLOGSTDOUTHEADB = "a15)"
+  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTLOGSTDOUTHEADB = "a11)"
 
-  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTLOGSTDOUTA = "(i15, "
-  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTLOGSTDOUTB = "(4x, f11.5))"
+  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTLOGSTDOUTA = "(i11, f11.1, 2(f11.5), 3(f11.1, 2(f11.5))"
+  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTLOGSTDOUTB = "(f11.5))"
 
   CHARACTER(len=CHARLENGTH), PARAMETER :: FMTLOGUNITHEADA = "("
   CHARACTER(len=CHARLENGTH), PARAMETER :: FMTLOGUNITHEADB = "a22)"
@@ -3121,7 +3121,7 @@ module AlphaMateModule
       integer(int32) :: i, j, k, l, g, nCumMat, TmpMin, TmpMax, TmpI
       integer(int32), allocatable :: Rank(:), ChromInt(:), MatPar2(:), nVecPar1(:), nVecPar2(:)
 
-      real(real64) :: TmpR, RanNum, Opposite, Adjacent
+      real(real64) :: TmpR, RanNum
       real(real64), allocatable :: TmpVec(:, :)
 
       select type (Spec)
@@ -3545,7 +3545,7 @@ module AlphaMateModule
                   This%SelIntensity = This%SelIntensity + dot_product(This%xVec, Data%SelCriterionPAGEStand * This%GenomeEdit)
                 end if
                 This%SelCriterion = This%SelIntensity * Data%SelCriterionStat%SD + Data%SelCriterionStat%Mean
-                This%MaxPct = (1.0d0 - This%SelIntensity / Spec%MaxSelIntensity) * 100.0d0
+                This%MaxPct = (1.0d0 - (This%SelIntensity - Spec%MinSelIntensity) / (Spec%MaxSelIntensity   - Spec%MinSelIntensity)) * 100.0d0
                 if (Spec%ModeOpt .or. Spec%ModeMax) then
                   This%Objective = This%Objective + This%SelIntensity
                 end if
@@ -3585,23 +3585,22 @@ module AlphaMateModule
 
               ! dF = (F_t+1 - F_t) / (1 - F_t)
               This%CoancestryRateRanMate = (This%FutureCoancestryRanMate - Data%CurrentCoancestryRanMate) / (1.0d0 - Data%CurrentCoancestryRanMate)
-              This%MinPct = (1.0d0 - This%CoancestryRateRanMate / Spec%MinCoancestryRate) * 100.0d0
+              This%MinPct = (Spec%MaxCoancestryRate - This%CoancestryRateRanMate) / (Spec%MaxCoancestryRate - Spec%MinCoancestryRate) * 100.d0
 
               ! Degree
               ! This calculation ASSUMES unit circular shape of selection/coancestry frontier
               ! - given results from ModeMin and ModeMax we can map the solution on the unit circle,
               !   i.e., the circle center is at (MaxCoancestryRate, MinSelIntensity) and solution is
-              !   at (SolCoancestryRate, SolSelIntensity), which is mapped to (Opposite, Adjacent)
+              !   at (SolCoancestryRate, SolSelIntensity), which is mapped to (MinPct, 1 - MaxPct)
               !   on unit circle with center at (1, 0) (MinMode is at (0,0 ) and MaxMode is at (1, 1))
               ! - then we can calculate degrees of the angle between the max-line (MaxCoancestryRate, MinSelIntensity)-(MaxCoancestryRate, MaxSelIntensity)
               !   and the sol-line (MaxCoancestryRate, MinSelIntensity)-(SolCoancestryRate, SolSelIntensity)
               ! - the min-line would be (MaxCoancestryRate, MinSelIntensity)-(MinCoancestryRate, MinSelIntensity)
               ! - the solution y-coordinate on the max-line is adjacent to the angle and
               !   the solution x-coordinate on the min-line is opposite to the angle (if we
-              !   put the min-line parallely up) so we use the arctangent function
-              Opposite = (Spec%MaxCoancestryRate - This%CoancestryRateRanMate) / (Spec%MaxCoancestryRate - Spec%MinCoancestryRate)
-              Adjacent = (This%SelIntensity      - Spec%MinSelIntensity)       / (Spec%MaxSelIntensity   - Spec%MinSelIntensity)
-              This%Degree = atan(Opposite / Adjacent)
+              !   put the min-line parallely up) so we use the arctangent function and convert
+              !   radians to degrees
+              This%Degree = atan(This%MinPct / (100.0d0 - This%MaxPct)) * RAD2DEG
 
 !@todo ModeRan?
               TmpR = 0.0d0
@@ -3902,12 +3901,12 @@ module AlphaMateModule
         ! F_t = DeltaF + (1 - DeltaF) * F_t-1
         Data%TargetCoancestryRanMate = Spec%TargetCoancestryRate + (1.0d0 - Spec%TargetCoancestryRate) * Data%CurrentCoancestryRanMate
         if (LogStdoutInternal) then
-          write(STDOUT, "(a)") " Minimum  rate of coancestry: "//trim(Real2Char(SolMin%CoancestryRateRanMate, fmt=FMTREAL2CHAR))//&
+          write(STDOUT, "(a)") " Minimum  coancestry rate: "//trim(Real2Char(SolMin%CoancestryRateRanMate, fmt=FMTREAL2CHAR))//&
                                " (=coancestry "//trim(Real2Char(SolMin%FutureCoancestryRanMate, fmt=FMTREAL2CHAR))//")"
-          write(STDOUT, "(a)") " Maximum  rate of coancestry: "//trim(Real2Char(SolMax%CoancestryRateRanMate, fmt=FMTREAL2CHAR))//&
+          write(STDOUT, "(a)") " Maximum  coancestry rate: "//trim(Real2Char(SolMax%CoancestryRateRanMate, fmt=FMTREAL2CHAR))//&
                                " (=coancestry "//trim(Real2Char(SolMax%FutureCoancestryRanMate, fmt=FMTREAL2CHAR))//")"
-          write(STDOUT, "(a)") " Percentage above minimum:     "//trim(Real2Char(Spec%MinPct, fmt="(f7.2)"))
-          write(STDOUT, "(a)") " Targeted rate of coancestry: "//trim(Real2Char(Spec%TargetCoancestryRate, fmt=FMTREAL2CHAR))//&
+          write(STDOUT, "(a)") " Percentage above minimum: "//trim(Real2Char(Spec%MinPct, fmt="(f7.1)"))
+          write(STDOUT, "(a)") " Targeted coancestry rate: "//trim(Real2Char(Spec%TargetCoancestryRate, fmt=FMTREAL2CHAR))//&
                                " (=coancestry "//trim(Real2Char(Data%TargetCoancestryRanMate, fmt=FMTREAL2CHAR))//")"
           write(STDOUT, "(a)") ""
         end if
@@ -4007,17 +4006,17 @@ module AlphaMateModule
                                 " (=selection criterion"//trim(Real2Char(SolMin%SelCriterion, fmt=FMTREAL2CHAR))//")"
             write(STDOUT, "(a)") " Maximum  selection intensity: "//trim(Real2Char(SolMax%SelIntensity, fmt=FMTREAL2CHAR))//&
                                 " (=selection criterion"//trim(Real2Char(SolMax%SelCriterion, fmt=FMTREAL2CHAR))//")"
-            write(STDOUT, "(a)") " Percentage below maximum:      "//trim(Real2Char(Spec%MaxPct, fmt="(f7.2)"))
+            write(STDOUT, "(a)") " Percentage below maximum:     "//trim(Real2Char(Spec%MaxPct, fmt="(f7.1)"))
             write(STDOUT, "(a)") " Targeted selection intensity: "//trim(Real2Char(SolMax%SelIntensity * TargetSelCritRat, fmt=FMTREAL2CHAR))//&
                                 " (=selection criterion"//trim(Real2Char(SolMax%SelCriterion * TargetSelCritRat, fmt=FMTREAL2CHAR))//")"
             write(STDOUT, "(a)") ""
 
-            write(STDOUT, "(a)") " Minimum  rate of coancestry: "//trim(Real2Char(SolMin%CoancestryRateRanMate, fmt=FMTREAL2CHAR))//&
+            write(STDOUT, "(a)") " Minimum  coancestry rate: "//trim(Real2Char(SolMin%CoancestryRateRanMate, fmt=FMTREAL2CHAR))//&
                                 " (=coancestry "//trim(Real2Char(SolMin%FutureCoancestryRanMate, fmt=FMTREAL2CHAR))//")"
-            write(STDOUT, "(a)") " Maximum  rate of coancestry: "//trim(Real2Char(SolMax%CoancestryRateRanMate, fmt=FMTREAL2CHAR))//&
+            write(STDOUT, "(a)") " Maximum  coancestry rate: "//trim(Real2Char(SolMax%CoancestryRateRanMate, fmt=FMTREAL2CHAR))//&
                                 " (=coancestry "//trim(Real2Char(SolMax%FutureCoancestryRanMate, fmt=FMTREAL2CHAR))//")"
-            write(STDOUT, "(a)") " Percentage above minimum:     "//trim(Real2Char(TargetCoaRat * 100.0d0, fmt="(f7.2)"))
-            write(STDOUT, "(a)") " Targeted rate of coancestry: "//trim(Real2Char(Spec%TargetCoancestryRate, fmt=FMTREAL2CHAR))//&
+            write(STDOUT, "(a)") " Percentage above minimum: "//trim(Real2Char(TargetCoaRat * 100.0d0, fmt="(f7.1)"))
+            write(STDOUT, "(a)") " Targeted coancestry rate: "//trim(Real2Char(Spec%TargetCoancestryRate, fmt=FMTREAL2CHAR))//&
                                 " (=coancestry "//trim(Real2Char(Data%TargetCoancestryRanMate, fmt=FMTREAL2CHAR))//")"
             write(STDOUT, "(a)") ""
           end if
@@ -4169,16 +4168,22 @@ module AlphaMateModule
 
         ! Add any previous results to frontier
         if (Spec%ModeMin) then
-          call SolMin%Log(FrontierUnit, Iteration=-1, AcceptRate=-1.0d0, String="ModeMin", StringNum=15)
+          call SolMin%Log   (FrontierUnit, Iteration=-1, AcceptPct=-1.0d0, String="ModeMin",    StringNum=15)
+        end if
+        if (Spec%ModeMinPct) then
+          call SolMinPct%Log(FrontierUnit, Iteration=-1, AcceptPct=-1.0d0, String="ModeMinPct", StringNum=15)
         end if
         if (Spec%ModeMax) then
-          call SolMax%Log(FrontierUnit, Iteration=-1, AcceptRate=-1.0d0, String="ModeMax", StringNum=15)
+          call SolMax%Log   (FrontierUnit, Iteration=-1, AcceptPct=-1.0d0, String="ModeMax",    StringNum=15)
+        end if
+        if (Spec%ModeMaxPct) then
+          call SolMaxPct%Log(FrontierUnit, Iteration=-1, AcceptPct=-1.0d0, String="ModeMaxPct", StringNum=15)
         end if
         if (Spec%ModeOpt) then
-          call SolOpt%Log(FrontierUnit, Iteration=-1, AcceptRate=-1.0d0, String="ModeOpt", StringNum=15)
+          call SolOpt%Log   (FrontierUnit, Iteration=-1, AcceptPct=-1.0d0, String="ModeOpt",    StringNum=15)
         end if
         if (Spec%ModeRan) then
-          call SolRan%Log(FrontierUnit, Iteration=-1, AcceptRate=-1.0d0, String="ModeRan", StringNum=15)
+          call SolRan%Log   (FrontierUnit, Iteration=-1, AcceptPct=-1.0d0, String="ModeRan",    StringNum=15)
         end if
 
         ! Hold modes so that the Evaluate method is not confused what we are optimising for
@@ -4208,7 +4213,7 @@ module AlphaMateModule
           if (LogStdoutInternal) then
             write(STDOUT, "(a)") ""
             write(STDOUT, "(a)") " Point "//trim(Int2Char(Point))//" out of "//trim(Int2Char(Spec%nFrontierPoints))
-            write(STDOUT, "(a)") " Targeted rate of coancestry "//trim(Real2Char(Spec%TargetCoancestryRate, fmt=FMTREAL2CHAR))//&
+            write(STDOUT, "(a)") " Targeted coancestry rate: "//trim(Real2Char(Spec%TargetCoancestryRate, fmt=FMTREAL2CHAR))//&
                                 " (=coancestry "//trim(Real2Char(Data%TargetCoancestryRanMate, fmt=FMTREAL2CHAR))//")"
             write(STDOUT, "(a)") ""
           end if
@@ -4230,7 +4235,7 @@ module AlphaMateModule
           end if
 
           ! Output
-          call SolFrontier%Log(FrontierUnit, Iteration=-1, AcceptRate=-1.0d0, String=trim("ModeFrontier"//trim(Int2Char(Point))), StringNum=15)
+          call SolFrontier%Log(FrontierUnit, Iteration=-1, AcceptPct=-1.0d0, String=trim("ModeFrontier"//trim(Int2Char(Point))), StringNum=15)
           call SolFrontier%WriteContributions(Data, ContribFile)
           call SolFrontier%WriteMatingPlan(Data, MatingFile)
 
@@ -4462,7 +4467,7 @@ module AlphaMateModule
 
       ! --- Optimisation log ---
 
-      nCol = 10
+      nCol = 13
       if (Spec%GenericIndCritGiven) then
         nCol = nCol + Spec%nGenericIndCrit
       end if
@@ -4478,45 +4483,67 @@ module AlphaMateModule
       if (.not. allocated(This%ColnameLogPopUnit)) then
         allocate(This%ColnameLogPopUnit(nCol))
       end if
+
       !                          1234567890123456789012
       This%ColnameLogUnit(1)  = "             Iteration"
-      This%ColnameLogUnit(2)  = "            AcceptRate"
+      This%ColnameLogUnit(2)  = "             AcceptPct"
       This%ColnameLogUnit(3)  = "             Objective"
       This%ColnameLogUnit(4)  = "             Penalties"
-      This%ColnameLogUnit(5)  = "          SelCriterion"
-      This%ColnameLogUnit(6)  = "          SelIntensity"
-      This%ColnameLogUnit(7)  = "            Coancestry"
-      This%ColnameLogUnit(8)  = "        CoancestryRate"
-      This%ColnameLogUnit(9)  = "            Inbreeding"
-      This%ColnameLogUnit(10) = "        InbreedingRate"
+      This%ColnameLogUnit(5)  = "        FrontierDegree"
+      This%ColnameLogUnit(6)  = "          SelCriterion"
+      This%ColnameLogUnit(7)  = "          SelIntensity"
+      This%ColnameLogUnit(8)  = "  BelowMaxSelCriterPct"
+      This%ColnameLogUnit(9)  = "            Coancestry"
+      This%ColnameLogUnit(10) = "        CoancestryRate"
+      This%ColnameLogUnit(11) = " AboveMinCoancestryPct"
+      This%ColnameLogUnit(12) = "            Inbreeding"
+      This%ColnameLogUnit(13) = "        InbreedingRate"
+
+      This%ColnameLogStdout(1)  =         "  Iteration"
+      This%ColnameLogStdout(2)  =         "  AcceptPct"
+      This%ColnameLogStdout(3)  =         "  Objective"
+      This%ColnameLogStdout(4)  =         "  Penalties"
+      This%ColnameLogStdout(5)  =         "     Degree"
+      This%ColnameLogStdout(6)  =         "  SelCriter"
+      This%ColnameLogStdout(7)  =         "  SelIntens"
+      This%ColnameLogStdout(8)  =         "     MaxPct"
+      This%ColnameLogStdout(9)  =         " Coancestry"
+      This%ColnameLogStdout(10) =         "    ...Rate"
+      This%ColnameLogStdout(11) =         "     MinPct"
+      This%ColnameLogStdout(12) =         " Inbreeding"
+      This%ColnameLogStdout(13) =         "    ...Rate"
+
       nColTmp = nCol
       if (Spec%GenericIndCritGiven) then
         do i = 1, Spec%nGenericIndCrit
           nColTmp = nColTmp + 1
+          !                               12345678901
           This%ColnameLogUnit(nColTmp) = "GenIndCrit"//trim(Int2Char(i))
           This%ColnameLogUnit(nColTmp) = adjustr(This%ColnameLogUnit(nColTmp))
+          Tmp = This%ColnameLogUnit(nColTmp)
+          This%ColnameLogStdout(nColTmp) = Tmp(11:21)
+          This%ColnameLogStdout(nColTmp) = adjustr(This%ColnameLogStdout(nColTmp))
         end do
       end if
       if (Spec%GenericMatCritGiven) then
         do i = 1, Spec%nGenericMatCrit
           nColTmp = nColTmp + 1
+          !                               12345678901
           This%ColnameLogUnit(nColTmp) = "GenMatCrit"//trim(Int2Char(i))
           This%ColnameLogUnit(nColTmp) = adjustr(This%ColnameLogUnit(nColTmp))
+          Tmp = This%ColnameLogUnit(nColTmp)
+          This%ColnameLogStdout(nColTmp) = Tmp(11:21)
+          This%ColnameLogStdout(nColTmp) = adjustr(This%ColnameLogStdout(nColTmp))
         end do
       end if
-      do i = 1, nCol
-        Tmp = This%ColnameLogUnit(i)
-        This%ColnameLogStdout(i) = Tmp(9:22)
-        This%ColnameLogStdout(i) = adjustr(This%ColnameLogStdout(i))
-      end do
       This%ColnameLogPopUnit = This%ColnameLogUnit
       !                            1234567890123456789012
       This%ColnameLogPopUnit(2) = "              Solution"
-      This%FmtLogStdoutHead  = trim(FMTLOGSTDOUTHEADA) //trim(Int2Char(nCol))  //trim(FMTLOGSTDOUTHEADB)
-      This%FmtLogStdout      = trim(FMTLOGSTDOUTA)     //trim(Int2Char(nCol-1))//trim(FMTLOGSTDOUTB)
-      This%FmtLogUnitHead    = trim(FMTLOGUNITHEADA)   //trim(Int2Char(nCol)  )//trim(FMTLOGUNITHEADB)
-      This%FmtLogUnit        = trim(FMTLOGUNITA)       //trim(Int2Char(nCol-1))//trim(FMTLOGUNITB)
-      This%FmtLogPopUnit     = trim(FMTLOGPOPUNITA)    //trim(Int2Char(nCol-2))//trim(FMTLOGUNITB)
+      This%FmtLogStdoutHead  = trim(FMTLOGSTDOUTHEADA) //trim(Int2Char(nCol))        //trim(FMTLOGSTDOUTHEADB)
+      This%FmtLogStdout      = trim(FMTLOGSTDOUTA)     //trim(Int2Char(nColTmp-nCol))//trim(FMTLOGSTDOUTB)
+      This%FmtLogUnitHead    = trim(FMTLOGUNITHEADA)   //trim(Int2Char(nCol)  )      //trim(FMTLOGUNITHEADB)
+      This%FmtLogUnit        = trim(FMTLOGUNITA)       //trim(Int2Char(nCol-1))      //trim(FMTLOGUNITB)
+      This%FmtLogPopUnit     = trim(FMTLOGPOPUNITA)    //trim(Int2Char(nCol-2))      //trim(FMTLOGUNITB)
 
       ! --- Contributions output ---
 
@@ -4576,14 +4603,14 @@ module AlphaMateModule
     !> @date   March 16, 2017
     !> @return Output to file or standard output
     !---------------------------------------------------------------------------
-    subroutine LogAlphaMateSol(This, LogUnit, Iteration, AcceptRate, String, StringNum) ! not pure due to IO
+    subroutine LogAlphaMateSol(This, LogUnit, Iteration, AcceptPct, String, StringNum) ! not pure due to IO
       implicit none
-      class(AlphaMateSol), intent(in)              :: This       !< AlphaMateSol holder
-      integer(int32), intent(in), optional         :: LogUnit    !< Unit to write to (default STDOUT)
-      integer(int32), intent(in)                   :: Iteration  !< Generation/Iteration
-      real(real64), intent(in)                     :: AcceptRate !< Acceptance rate
-      character(len=*), intent(in), optional       :: String     !< Additional string that will be written before the head
-      integer(int32), optional                     :: StringNum  !< How much space is needed for the String
+      class(AlphaMateSol), intent(in)              :: This      !< AlphaMateSol holder
+      integer(int32), intent(in), optional         :: LogUnit   !< Unit to write to (default STDOUT)
+      integer(int32), intent(in)                   :: Iteration !< Generation/Iteration
+      real(real64), intent(in)                     :: AcceptPct !< Acceptance rate
+      character(len=*), intent(in), optional       :: String    !< Additional string that will be written before the head
+      integer(int32), optional                     :: StringNum !< How much space is needed for the String
       integer(int32) :: Unit
       character(len=CHARLENGTH) :: Fmt, StringFmt
 
@@ -4606,24 +4633,24 @@ module AlphaMateModule
           if (present(String)) then
             write(Unit, StringFmt, Advance="No") trim(adjustl(String))
           end if
-          write(Unit, Fmt) Iteration, AcceptRate, This%Objective, This%Penalty, This%SelCriterion, This%SelIntensity, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%FutureInbreeding, This%InbreedingRate, This%GenericIndCrit, This%GenericMatCrit
+          write(Unit, Fmt) Iteration, AcceptPct, This%Objective, This%Penalty, This%Degree, This%SelCriterion, This%SelIntensity, This%MaxPct, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%MinPct, This%FutureInbreeding, This%InbreedingRate, This%GenericIndCrit, This%GenericMatCrit
         else
           if (present(String)) then
             write(Unit, StringFmt, Advance="No") trim(adjustl(String))
           end if
-          write(Unit, Fmt) Iteration, AcceptRate, This%Objective, This%Penalty, This%SelCriterion, This%SelIntensity, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%FutureInbreeding, This%InbreedingRate, This%GenericIndCrit
+          write(Unit, Fmt) Iteration, AcceptPct, This%Objective, This%Penalty, This%Degree, This%SelCriterion, This%SelIntensity, This%MaxPct, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%MinPct, This%FutureInbreeding, This%InbreedingRate, This%GenericIndCrit
         end if
       else
         if (allocated(This%GenericMatCrit)) then
           if (present(String)) then
             write(Unit, StringFmt, Advance="No") trim(adjustl(String))
           end if
-          write(Unit, Fmt) Iteration, AcceptRate, This%Objective, This%Penalty, This%SelCriterion, This%SelIntensity, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%FutureInbreeding, This%InbreedingRate,                      This%GenericMatCrit
+          write(Unit, Fmt) Iteration, AcceptPct, This%Objective, This%Penalty, This%Degree, This%SelCriterion, This%SelIntensity, This%MaxPct, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%MinPct, This%FutureInbreeding, This%InbreedingRate,                      This%GenericMatCrit
         else
           if (present(String)) then
             write(Unit, StringFmt, Advance="No") trim(adjustl(String))
           end if
-          write(Unit, Fmt) Iteration, AcceptRate, This%Objective, This%Penalty, This%SelCriterion, This%SelIntensity, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%FutureInbreeding, This%InbreedingRate
+          write(Unit, Fmt) Iteration, AcceptPct, This%Objective, This%Penalty, This%Degree, This%SelCriterion, This%SelIntensity, This%MaxPct, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%MinPct, This%FutureInbreeding, This%InbreedingRate
         end if
       end if
     end subroutine
@@ -4673,15 +4700,15 @@ module AlphaMateModule
       end if
       if (allocated(This%GenericIndCrit)) then
         if (allocated(This%GenericMatCrit)) then
-          write(Unit, This%FmtLogPopUnit) Iteration, i, This%Objective, This%Penalty, This%SelCriterion, This%SelIntensity, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%FutureInbreeding, This%InbreedingRate, This%GenericIndCrit, This%GenericMatCrit
+          write(Unit, This%FmtLogPopUnit) Iteration, i, This%Objective, This%Penalty, This%Degree, This%SelCriterion, This%SelIntensity, This%MaxPct, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%MinPct, This%FutureInbreeding, This%InbreedingRate, This%GenericIndCrit, This%GenericMatCrit
         else
-          write(Unit, This%FmtLogPopUnit) Iteration, i, This%Objective, This%Penalty, This%SelCriterion, This%SelIntensity, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%FutureInbreeding, This%InbreedingRate, This%GenericIndCrit
+          write(Unit, This%FmtLogPopUnit) Iteration, i, This%Objective, This%Penalty, This%Degree, This%SelCriterion, This%SelIntensity, This%MaxPct, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%MinPct, This%FutureInbreeding, This%InbreedingRate, This%GenericIndCrit
         end if
       else
         if (allocated(This%GenericMatCrit)) then
-          write(Unit, This%FmtLogPopUnit) Iteration, i, This%Objective, This%Penalty, This%SelCriterion, This%SelIntensity, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%FutureInbreeding, This%InbreedingRate,                      This%GenericMatCrit
+          write(Unit, This%FmtLogPopUnit) Iteration, i, This%Objective, This%Penalty, This%Degree, This%SelCriterion, This%SelIntensity, This%MaxPct, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%MinPct, This%FutureInbreeding, This%InbreedingRate,                      This%GenericMatCrit
         else
-          write(Unit, This%FmtLogPopUnit) Iteration, i, This%Objective, This%Penalty, This%SelCriterion, This%SelIntensity, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%FutureInbreeding, This%InbreedingRate
+          write(Unit, This%FmtLogPopUnit) Iteration, i, This%Objective, This%Penalty, This%Degree, This%SelCriterion, This%SelIntensity, This%MaxPct, This%FutureCoancestryRanMate, This%CoancestryRateRanMate, This%MinPct, This%FutureInbreeding, This%InbreedingRate
         end if
       end if
     end subroutine
