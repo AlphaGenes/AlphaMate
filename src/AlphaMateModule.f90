@@ -54,7 +54,7 @@
 module AlphaMateModule
   use ISO_Fortran_Env, STDIN => input_unit, STDOUT => output_unit, STDERR => error_unit
   use, intrinsic :: IEEE_Arithmetic
-  use ConstantModule, only : FILELENGTH, SPECOPTIONLENGTH, IDLENGTH, RAD2DEG
+  use ConstantModule, only : FILELENGTH, SPECOPTIONLENGTH, IDLENGTH, RAD2DEG, DEG2RAD
   use OrderPackModule, only : MrgRnk
   use AlphaHouseMod, only : CountLines, Char2Int, Char2Double, Int2Char, Real2Char, &
                             RandomOrder, SetSeed, ToLower, FindLoc, &
@@ -72,6 +72,13 @@ module AlphaMateModule
   public :: AlphaMateSpec, AlphaMateData, AlphaMateSol
   ! Functions
   public :: AlphaMateTitle, AlphaMateSearch
+  public :: MinPct2Degree, Degree2MinPct, MaxPct2Degree, Degree2MaxPct
+  public :: Degree2SelIntensity, SelIntensity2Degree
+  public :: Degree2CoancestryRate, CoancestryRate2Degree
+  public :: MinPct2CoancestryRate, CoancestryRate2MinPct
+  public :: MaxPct2SelIntensity, SelIntensity2MaxPct
+  public :: Coancestry2CoancestryRate, CoancestryRate2Coancestry
+  public :: SelCriterion2SelIntensity, SelIntensity2SelCriterion
 
   ! Module parameters
   INTEGER,                   PARAMETER :: CHARLENGTH = 100
@@ -153,7 +160,7 @@ module AlphaMateModule
     integer(int32) :: RanAlgStricter
 
     ! Data&Spec derived quantities
-    ! @todo (not sure if this should be in data though?)
+! @todo (not sure if this should be in data though?)
     real(real64) :: MaxSelCriterion, MaxSelIntensity, MinSelCriterion, MinSelIntensity
     real(real64) :: MaxCoancestry, MaxCoancestryRate, MinCoancestry, MinCoancestryRate
 
@@ -168,7 +175,7 @@ module AlphaMateModule
     ! Raw data
     type(RelMat) :: Coancestry
     type(InbVec) :: Inbreeding
-    real(real64), allocatable :: SelCriterion(:), SelCriterionStand(:), SelCriterionPAGE(:), SelCriterionPAGEStand(:)
+    real(real64), allocatable :: SelCriterion(:), SelIntensity(:), SelCriterionPAGE(:), SelIntensityPAGE(:)
     integer(int32), allocatable :: Gender(:)
     real(real64), allocatable :: GenericIndCrit(:, :), GenericMatCrit(:, :, :)
     ! Data summaries
@@ -191,6 +198,7 @@ module AlphaMateModule
 
   !> @brief AlphaMate solution
   type, extends(AlphaEvolveSol) :: AlphaMateSol
+    ! Solution results
     real(real64)                :: Penalty
     real(real64)                :: PenaltyCoancestryRate
     real(real64)                :: PenaltyInbreedingRate
@@ -216,6 +224,17 @@ module AlphaMateModule
     integer(int32), allocatable :: MatingPlan(:, :)
     real(real64), allocatable   :: GenomeEdit(:)
 
+    ! Targets
+    real(real64)                :: TargetDegree
+    real(real64)                :: TargetSelCriterion
+    real(real64)                :: TargetSelIntensity
+    real(real64)                :: TargetMaxPct
+    real(real64)                :: TargetCoancestry
+    real(real64)                :: TargetCoancestryRate
+    real(real64)                :: TargetMinPct
+    real(real64)                :: TargetInbreeding
+    real(real64)                :: TargetInbreedingRate
+
     ! Column headers and formats for logging
     character(len=CHARLENGTH)      :: FmtLogStdoutHead
     character(len=CHARLENGTH)      :: FmtLogStdout
@@ -234,6 +253,7 @@ module AlphaMateModule
 
     contains
       procedure :: Initialise   => InitialiseAlphaMateSol
+      procedure :: SetTargets   => SetTargetsAlphaMateSol
       procedure :: Assign       => AssignAlphaMateSol
       procedure :: UpdateMean   => UpdateMeanAlphaMateSol
       procedure :: Evaluate     => FixSolEtcMateAndEvaluateAlphaMateSol
@@ -2115,15 +2135,15 @@ module AlphaMateModule
       ! --- Selection criterion ---
 
       allocate(This%SelCriterion(This%nInd))
-      allocate(This%SelCriterionStand(This%nInd))
+      allocate(This%SelIntensity(This%nInd))
       if (Spec%PAGEPar) then
         allocate(This%SelCriterionPAGE(This%nInd))
-        allocate(This%SelCriterionPAGEStand(This%nInd))
+        allocate(This%SelIntensityPAGE(This%nInd))
       end if
 
       if (.not. Spec%SelCriterionGiven) then
         This%SelCriterion = 0.0d0
-        This%SelCriterionStand = 0.0d0
+        This%SelIntensity = 0.0d0
       else
         nIndTmp = CountLines(Spec%SelCriterionFile)
         if (LogStdoutInternal) then
@@ -2429,12 +2449,12 @@ module AlphaMateModule
       end if
 
       ! Obtain limit/target based on given rates
-      ! F_t = DeltaF + (1 - DeltaF) * F_t-1
-      This%TargetCoancestryRanMate       = Spec%TargetCoancestryRate + (1.0d0 - Spec%TargetCoancestryRate) * This%CurrentCoancestryRanMate
-      This%TargetCoancestryRanMateNoSelf = Spec%TargetCoancestryRate + (1.0d0 - Spec%TargetCoancestryRate) * This%CurrentCoancestryRanMateNoSelf
+! @todo
+      This%TargetCoancestryRanMate       = CoancestryRate2Coancestry(CoancestryRate=Spec%TargetCoancestryRate, CurrentCoancestry=This%CurrentCoancestryRanMate)
+      This%TargetCoancestryRanMateNoSelf = CoancestryRate2Coancestry(CoancestryRate=Spec%TargetCoancestryRate, CurrentCoancestry=This%CurrentCoancestryRanMateNoSelf)
       if (Spec%GenderGiven) then
         ! @todo Is this a good target? It does not take into account relatedness between male parents and between female parents
-        This%TargetCoancestryGenderMate  = Spec%TargetCoancestryRate + (1.0d0 - Spec%TargetCoancestryRate) * This%CurrentCoancestryGenderMate
+        This%TargetCoancestryGenderMate  = CoancestryRate2Coancestry(CoancestryRate=Spec%TargetCoancestryRate, CurrentCoancestry=This%CurrentCoancestryGenderMate)
       end if
 
       if (LogStdoutInternal) then
@@ -2443,7 +2463,7 @@ module AlphaMateModule
         write(STDOUT, "(a)") "                     Among     Between"
         write(STDOUT, "(a)") "    - n:       "//trim( Int2Char(This%CoancestryStat%All%n,    fmt=FMTINT2CHAR)) //" "//trim( Int2Char(This%CoancestryStat%OffDiag%n,      fmt=FMTINT2CHAR))
         write(STDOUT, "(a)") "    - average: "//trim(Real2Char(This%CoancestryStat%All%Mean, fmt=FMTREAL2CHAR))//" "//trim(Real2Char(This%CoancestryStat%OffDiag%Mean,   fmt=FMTREAL2CHAR))
-        write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(This%CoancestryStat%All%SD,   fmt=FMTREAL2CHAR))//" "//trim(Real2Char(This%CoancestryStat%OffDiag%SD,     fmt=FMTREAL2CHAR))
+        write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(This%CoancestryStat%All%Sd,   fmt=FMTREAL2CHAR))//" "//trim(Real2Char(This%CoancestryStat%OffDiag%Sd,     fmt=FMTREAL2CHAR))
         write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(This%CoancestryStat%All%Min,  fmt=FMTREAL2CHAR))//" "//trim(Real2Char(This%CoancestryStat%OffDiag%Min,    fmt=FMTREAL2CHAR))
         write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(This%CoancestryStat%All%Max,  fmt=FMTREAL2CHAR))//" "//trim(Real2Char(This%CoancestryStat%OffDiag%Max,    fmt=FMTREAL2CHAR))
         ! @todo: how does this interplay with the different modes
@@ -2458,7 +2478,7 @@ module AlphaMateModule
           write(STDOUT, "(a)") "    (=expected inbreeding in their progeny under random mating between genders)"
           write(STDOUT, "(a)") "    - n:       "//trim( Int2Char(This%CoancestryStatGenderDiff%All%n,    fmt=FMTINT2CHAR))
           write(STDOUT, "(a)") "    - average: "//trim(Real2Char(This%CoancestryStatGenderDiff%All%Mean, fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(This%CoancestryStatGenderDiff%All%SD,   fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(This%CoancestryStatGenderDiff%All%Sd,   fmt=FMTREAL2CHAR))
           write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(This%CoancestryStatGenderDiff%All%Min,  fmt=FMTREAL2CHAR))
           write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(This%CoancestryStatGenderDiff%All%Max,  fmt=FMTREAL2CHAR))
           ! @todo: how does this interplay with the different modes
@@ -2471,7 +2491,7 @@ module AlphaMateModule
           write(STDOUT, "(a)") "                     Among     Between"
           write(STDOUT, "(a)") "    - n:       "//trim( Int2Char(This%CoancestryStatGender1%All%n,    fmt=FMTINT2CHAR)) //" "//trim( Int2Char(This%CoancestryStatGender1%OffDiag%n,    fmt=FMTINT2CHAR))
           write(STDOUT, "(a)") "    - average: "//trim(Real2Char(This%CoancestryStatGender1%All%Mean, fmt=FMTREAL2CHAR))//" "//trim(Real2Char(This%CoancestryStatGender1%OffDiag%Mean, fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(This%CoancestryStatGender1%All%SD,   fmt=FMTREAL2CHAR))//" "//trim(Real2Char(This%CoancestryStatGender1%OffDiag%SD,   fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(This%CoancestryStatGender1%All%Sd,   fmt=FMTREAL2CHAR))//" "//trim(Real2Char(This%CoancestryStatGender1%OffDiag%Sd,   fmt=FMTREAL2CHAR))
           write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(This%CoancestryStatGender1%All%Min,  fmt=FMTREAL2CHAR))//" "//trim(Real2Char(This%CoancestryStatGender1%OffDiag%Min,  fmt=FMTREAL2CHAR))
           write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(This%CoancestryStatGender1%All%Max,  fmt=FMTREAL2CHAR))//" "//trim(Real2Char(This%CoancestryStatGender1%OffDiag%Max,  fmt=FMTREAL2CHAR))
 
@@ -2480,7 +2500,7 @@ module AlphaMateModule
           write(STDOUT, "(a)") "                     Among     Between"
           write(STDOUT, "(a)") "    - n:       "//trim( Int2Char(This%CoancestryStatGender2%All%n,    fmt=FMTINT2CHAR)) //" "//trim( Int2Char(This%CoancestryStatGender2%OffDiag%n,    fmt=FMTINT2CHAR))
           write(STDOUT, "(a)") "    - average: "//trim(Real2Char(This%CoancestryStatGender2%All%Mean, fmt=FMTREAL2CHAR))//" "//trim(Real2Char(This%CoancestryStatGender2%OffDiag%Mean, fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(This%CoancestryStatGender2%All%SD,   fmt=FMTREAL2CHAR))//" "//trim(Real2Char(This%CoancestryStatGender2%OffDiag%SD,   fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(This%CoancestryStatGender2%All%Sd,   fmt=FMTREAL2CHAR))//" "//trim(Real2Char(This%CoancestryStatGender2%OffDiag%Sd,   fmt=FMTREAL2CHAR))
           write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(This%CoancestryStatGender2%All%Min,  fmt=FMTREAL2CHAR))//" "//trim(Real2Char(This%CoancestryStatGender2%OffDiag%Min,  fmt=FMTREAL2CHAR))
           write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(This%CoancestryStatGender2%All%Max,  fmt=FMTREAL2CHAR))//" "//trim(Real2Char(This%CoancestryStatGender2%OffDiag%Max,  fmt=FMTREAL2CHAR))
         end if
@@ -2516,13 +2536,13 @@ module AlphaMateModule
       This%CurrentInbreeding = This%InbreedingStat%Mean
 
       ! Obtain limit/target based on given rates
-      ! F_t = DeltaF + (1 - DeltaF) * F_t-1
-      This%TargetInbreeding = Spec%TargetInbreedingRate + (1.0d0 - Spec%TargetInbreedingRate) * This%CurrentInbreeding
+!@todo
+      This%TargetInbreeding = CoancestryRate2Coancestry(CoancestryRate=Spec%TargetInbreedingRate, CurrentCoancestry=This%CurrentInbreeding)
 
       if (LogStdoutInternal) then
         write(STDOUT, "(a)") "  - n:       "//trim( Int2Char(This%InbreedingStat%n,    fmt=FMTINT2CHAR))
         write(STDOUT, "(a)") "  - average: "//trim(Real2Char(This%InbreedingStat%Mean, fmt=FMTREAL2CHAR))
-        write(STDOUT, "(a)") "  - st.dev.: "//trim(Real2Char(This%InbreedingStat%SD,   fmt=FMTREAL2CHAR))
+        write(STDOUT, "(a)") "  - st.dev.: "//trim(Real2Char(This%InbreedingStat%Sd,   fmt=FMTREAL2CHAR))
         write(STDOUT, "(a)") "  - minimum: "//trim(Real2Char(This%InbreedingStat%Min,  fmt=FMTREAL2CHAR))
         write(STDOUT, "(a)") "  - maximum: "//trim(Real2Char(This%InbreedingStat%Max,  fmt=FMTREAL2CHAR))
         ! @todo: how does this interplay with the different modes
@@ -2545,16 +2565,18 @@ module AlphaMateModule
         end if
 
         This%SelCriterionStat = DescStat(This%SelCriterion)
-        This%SelCriterionStand = (This%SelCriterion - This%SelCriterionStat%Mean) / This%SelCriterionStat%SD
+        This%SelIntensity = SelCriterion2SelIntensity(SelCriterion=This%SelCriterion,&
+                                                      Mean=This%SelCriterionStat%Mean,&
+                                                      Sd=This%SelCriterionStat%Sd)
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") "  - n:       "//trim( Int2Char(This%SelCriterionStat%n,    fmt=FMTINT2CHAR))
           write(STDOUT, "(a)") "  - average: "//trim(Real2Char(This%SelCriterionStat%Mean, fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") "  - st.dev.: "//trim(Real2Char(This%SelCriterionStat%SD,   fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "  - st.dev.: "//trim(Real2Char(This%SelCriterionStat%Sd,   fmt=FMTREAL2CHAR))
           write(STDOUT, "(a)") "  - minimum: "//trim(Real2Char(This%SelCriterionStat%Min,  fmt=FMTREAL2CHAR))
           write(STDOUT, "(a)") "  - maximum: "//trim(Real2Char(This%SelCriterionStat%Max,  fmt=FMTREAL2CHAR))
         end if
 
-        if (This%SelCriterionStat%SD .eq. 0.0) then
+        if (This%SelCriterionStat%Sd .eq. 0.0) then
           write(STDERR, "(a)") " ERROR: There is no variation in selection criterion!"
           write(STDERR, "(a)") " "
           stop 1
@@ -2566,22 +2588,24 @@ module AlphaMateModule
 
         if (Spec%PAGEPar) then
           ! must have the same scale as selection criterion!!!!
-          This%SelCriterionPAGEStand = (This%SelCriterionPAGE - This%SelCriterionStat%Mean) / This%SelCriterionStat%SD
+          This%SelIntensityPAGE = SelCriterion2SelIntensity(SelCriterion=This%SelCriterionPAGE,&
+                                                            Mean=This%SelCriterionStat%Mean,&
+                                                            Sd=This%SelCriterionStat%Sd)
           ! only the PAGE bit of SelCriterion
           This%SelCriterionPAGE = This%SelCriterionPAGE - This%SelCriterion
-          This%SelCriterionPAGEStand = This%SelCriterionPAGEStand - This%SelCriterionStand
+          This%SelIntensityPAGE = This%SelIntensityPAGE - This%SelIntensity
           This%SelCriterionPAGEStat = DescStat(This%SelCriterionPAGE)
           if (LogStdoutInternal) then
             write(STDOUT, "(a)") " "
             write(STDOUT, "(a)") "Selection criterion increments with PAGE"
             write(STDOUT, "(a)") "  - n:       "//trim( Int2Char(This%SelCriterionPAGEStat%n,    fmt=FMTINT2CHAR))
             write(STDOUT, "(a)") "  - average: "//trim(Real2Char(This%SelCriterionPAGEStat%Mean, fmt=FMTREAL2CHAR))
-            write(STDOUT, "(a)") "  - st.dev.: "//trim(Real2Char(This%SelCriterionPAGEStat%SD,   fmt=FMTREAL2CHAR))
+            write(STDOUT, "(a)") "  - st.dev.: "//trim(Real2Char(This%SelCriterionPAGEStat%Sd,   fmt=FMTREAL2CHAR))
             write(STDOUT, "(a)") "  - minimum: "//trim(Real2Char(This%SelCriterionPAGEStat%Min,  fmt=FMTREAL2CHAR))
             write(STDOUT, "(a)") "  - maximum: "//trim(Real2Char(This%SelCriterionPAGEStat%Max,  fmt=FMTREAL2CHAR))
           end if
 
-          if (This%SelCriterionPAGEStat%SD .eq. 0.0) then
+          if (This%SelCriterionPAGEStat%Sd .eq. 0.0) then
             write(STDERR, "(a)") " ERROR: There is no variation in selection criterion increments with PAGE!"
             write(STDERR, "(a)") " "
             stop 1
@@ -2611,7 +2635,7 @@ module AlphaMateModule
           This%GenericIndCritStat(Crit) = DescStat(This%GenericIndCrit(:, Crit))
           write(STDOUT, "(a)") "    - n:       "//trim( Int2Char(This%GenericIndCritStat(Crit)%n,    fmt=FMTINT2CHAR))
           write(STDOUT, "(a)") "    - average: "//trim(Real2Char(This%GenericIndCritStat(Crit)%Mean, fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(This%GenericIndCritStat(Crit)%SD,   fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(This%GenericIndCritStat(Crit)%Sd,   fmt=FMTREAL2CHAR))
           write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(This%GenericIndCritStat(Crit)%Min,  fmt=FMTREAL2CHAR))
           write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(This%GenericIndCritStat(Crit)%Max,  fmt=FMTREAL2CHAR))
           write(GenericIndCritSummaryUnit, "(a, f)") "Mean criterion "//trim(Int2Char(Crit)), This%GenericIndCritStat(Crit)%Mean
@@ -2638,7 +2662,7 @@ module AlphaMateModule
             This%GenericMatCritStat(Crit) = DescStatMatrix(This%GenericMatCrit(:, :, Crit))
             write(STDOUT, "(a)") "    - n:       "//trim( Int2Char(This%GenericMatCritStat(Crit)%All%n,    fmt=FMTINT2CHAR))
             write(STDOUT, "(a)") "    - average: "//trim(Real2Char(This%GenericMatCritStat(Crit)%All%Mean, fmt=FMTREAL2CHAR))
-            write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(This%GenericMatCritStat(Crit)%All%SD,   fmt=FMTREAL2CHAR))
+            write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(This%GenericMatCritStat(Crit)%All%Sd,   fmt=FMTREAL2CHAR))
             write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(This%GenericMatCritStat(Crit)%All%Min,  fmt=FMTREAL2CHAR))
             write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(This%GenericMatCritStat(Crit)%All%Max,  fmt=FMTREAL2CHAR))
             write(GenericMatCritSummaryUnit, "(a, f)") "Mean criterion "//trim(Int2Char(Crit)), This%GenericMatCritStat(Crit)%All%Mean
@@ -2647,7 +2671,7 @@ module AlphaMateModule
               This%GenericMatCritStat(Crit) = DescStatLowTriMatrix(This%GenericMatCrit(:, :, Crit))
               write(STDOUT, "(a)") "    - n:       "//trim( Int2Char(This%GenericMatCritStat(Crit)%All%n,    fmt=FMTINT2CHAR))
               write(STDOUT, "(a)") "    - average: "//trim(Real2Char(This%GenericMatCritStat(Crit)%All%Mean, fmt=FMTREAL2CHAR))
-              write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(This%GenericMatCritStat(Crit)%All%SD,   fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(This%GenericMatCritStat(Crit)%All%Sd,   fmt=FMTREAL2CHAR))
               write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(This%GenericMatCritStat(Crit)%All%Min,  fmt=FMTREAL2CHAR))
               write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(This%GenericMatCritStat(Crit)%All%Max,  fmt=FMTREAL2CHAR))
               write(GenericMatCritSummaryUnit, "(a, f)") "Mean criterion "//trim(Int2Char(Crit)), This%GenericMatCritStat(Crit)%All%Mean
@@ -2655,7 +2679,7 @@ module AlphaMateModule
               This%GenericMatCritStat(Crit) = DescStatLowTriMatrix(This%GenericMatCrit(:, :, Crit), Diag=.false.)
               write(STDOUT, "(a)") "    - n:       "//trim( Int2Char(This%GenericMatCritStat(Crit)%OffDiag%n,    fmt=FMTINT2CHAR))
               write(STDOUT, "(a)") "    - average: "//trim(Real2Char(This%GenericMatCritStat(Crit)%OffDiag%Mean, fmt=FMTREAL2CHAR))
-              write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(This%GenericMatCritStat(Crit)%OffDiag%SD,   fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(This%GenericMatCritStat(Crit)%OffDiag%Sd,   fmt=FMTREAL2CHAR))
               write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(This%GenericMatCritStat(Crit)%OffDiag%Min,  fmt=FMTREAL2CHAR))
               write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(This%GenericMatCritStat(Crit)%OffDiag%Max,  fmt=FMTREAL2CHAR))
               write(GenericMatCritSummaryUnit, "(a, f)") "Mean criterion "//trim(Int2Char(Crit)), This%GenericMatCritStat(Crit)%OffDiag%Mean
@@ -2712,7 +2736,7 @@ module AlphaMateModule
       write(Unit, "(a)") " SelCriterion:"
       if (allocated(This%SelCriterion)) then
         do Ind = 1, This%nInd
-          write(Unit, "(a, 2f)") This%Coancestry%OriginalId(Ind), This%SelCriterion(Ind), This%SelCriterionStand(Ind)
+          write(Unit, "(a, 2f)") This%Coancestry%OriginalId(Ind), This%SelCriterion(Ind), This%SelIntensity(Ind)
         end do
       else
         write(Unit, "(a)") " not allocated"
@@ -2722,7 +2746,7 @@ module AlphaMateModule
       write(Unit, "(a)") " SelCriterionPAGE:"
       if (allocated(This%SelCriterionPAGE)) then
         do Ind = 1, This%nInd
-          write(Unit, "(a, f)") This%Coancestry%OriginalId(Ind), This%SelCriterionPAGE(Ind), This%SelCriterionPAGEStand(Ind)
+          write(Unit, "(a, f)") This%Coancestry%OriginalId(Ind), This%SelCriterionPAGE(Ind), This%SelIntensityPAGE(Ind)
         end do
       else
         write(Unit, "(a)") " not allocated"
@@ -2973,7 +2997,150 @@ module AlphaMateModule
             allocate(This%GenomeEdit(Spec%nInd))
             This%GenomeEdit = 0.0d0
           end if
+          This%TargetDegree = IEEE_Value(x=This%TargetDegree, class=IEEE_Quiet_NaN)
+          This%TargetSelCriterion = IEEE_Value(x=This%TargetSelCriterion, class=IEEE_Quiet_NaN)
+          This%TargetSelIntensity = IEEE_Value(x=This%TargetSelIntensity, class=IEEE_Quiet_NaN)
+          This%TargetMaxPct = IEEE_Value(x=This%TargetMaxPct, class=IEEE_Quiet_NaN)
+          This%TargetCoancestry = IEEE_Value(x=This%TargetCoancestry, class=IEEE_Quiet_NaN)
+          This%TargetCoancestryRate = IEEE_Value(x=This%TargetCoancestryRate, class=IEEE_Quiet_NaN)
+          This%TargetMinPct = IEEE_Value(x=This%TargetMinPct, class=IEEE_Quiet_NaN)
+          This%TargetInbreeding = IEEE_Value(x=This%TargetInbreeding, class=IEEE_Quiet_NaN)
+          This%TargetInbreedingRate = IEEE_Value(x=This%TargetInbreedingRate, class=IEEE_Quiet_NaN)
       end select
+    end subroutine
+
+    !###########################################################################
+
+    !---------------------------------------------------------------------------
+    !> @brief  Set targets for an AlphaMate solution
+    !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date   April 13, 2017
+    !---------------------------------------------------------------------------
+    pure subroutine SetTargetsAlphaMateSol(This, Degree, SelIntensity, MaxPct, &
+                                           CoancestryRate, MinPct, InbreedingRate, &
+                                           Data, SolMin, SolMax)
+      implicit none
+
+      ! Argument
+      class(AlphaMateSol), intent(inout)        :: This           !< @return AlphaMateSol holder
+      real(real64), intent(in), optional        :: Degree         !< Selection/Coancestry frontier degree
+      real(real64), intent(in), optional        :: SelIntensity   !< Selection intensity
+      real(real64), intent(in), optional        :: MaxPct         !< Maximum selection intensity percentage (100 means the maximum possible selection intensity)
+      real(real64), intent(in), optional        :: CoancestryRate !< Coancestry rate
+      real(real64), intent(in), optional        :: MinPct         !< Minimum coancestry percentage (100 means the minimum possible coancestry)
+      real(real64), intent(in), optional        :: InbreedingRate !< Inbreeding rate
+      type(AlphaMateData), intent(in), optional :: Data           !< AlphaMateData holder
+      type(AlphaMateSol), intent(in), optional  :: SolMin         !< Minimum coancestry solution
+      type(AlphaMateSol), intent(in), optional  :: SolMax         !< Maximum selection  solution
+
+      if      (present(Degree)) then
+        This%TargetDegree = Degree
+        This%TargetMaxPct = Degree2MaxPct(Degree=This%TargetDegree)
+        This%TargetMinPct = Degree2MinPct(Degree=This%TargetDegree)
+        if (present(SolMin) .and. present(SolMax)) then
+          This%TargetCoancestryRate = MinPct2CoancestryRate(MinPct=This%TargetMinPct,&
+                                                            MinCoancestryRate=SolMin%CoancestryRateRanMate,&
+                                                            MaxCoancestryRate=SolMax%CoancestryRateRanMate)
+          This%TargetSelIntensity = MaxPct2SelIntensity(MaxPct=This%TargetMaxPct,&
+                                                        MinSelIntensity=SolMin%SelIntensity,&
+                                                        MaxSelIntensity=SolMax%SelIntensity)
+          if (present(Data)) then
+            This%TargetCoancestry = CoancestryRate2Coancestry(CoancestryRate=This%TargetCoancestryRate,&
+                                                              CurrentCoancestry=Data%CurrentCoancestryRanMate)
+            This%TargetSelCriterion = SelIntensity2SelCriterion(SelIntensity=This%TargetSelIntensity,&
+                                                                Mean=Data%SelCriterionStat%Mean,&
+                                                                Sd=Data%SelCriterionStat%Sd)
+          end if
+        end if
+      else if (present(SelIntensity)) then
+        This%SelIntensity = SelIntensity
+        if (present(Data)) then
+            This%TargetSelCriterion = SelIntensity2SelCriterion(SelIntensity=This%TargetSelIntensity,&
+                                                                Mean=Data%SelCriterionStat%Mean,&
+                                                                Sd=Data%SelCriterionStat%Sd)
+        end if
+        if (present(SolMin) .and. present(SolMax)) then
+          This%TargetMaxPct = SelIntensity2MaxPct(SelIntensity=This%TargetSelIntensity,&
+                                                  MinSelIntensity=SolMin%SelIntensity,&
+                                                  MaxSelIntensity=SolMax%SelIntensity)
+          This%TargetDegree = MaxPct2Degree(MaxPct=This%TargetMaxPct)
+          This%TargetMinPct = Degree2MinPct(Degree=This%TargetDegree)
+          This%TargetCoancestryRate = MinPct2CoancestryRate(MinPct=This%TargetMinPct,&
+                                                            MinCoancestryRate=SolMin%CoancestryRateRanMate,&
+                                                            MaxCoancestryRate=SolMax%CoancestryRateRanMate)
+          if (present(Data)) then
+            This%TargetCoancestry = CoancestryRate2Coancestry(CoancestryRate=This%TargetCoancestryRate,&
+                                                              CurrentCoancestry=Data%CurrentCoancestryRanMate)
+          end if
+        end if
+      else if (present(MaxPct)) then
+        This%TargetMaxPct = MaxPct
+        This%TargetDegree = MaxPct2Degree(MaxPct=This%TargetMaxPct)
+        This%TargetMinPct = Degree2MinPct(Degree=This%TargetDegree)
+        if (present(SolMin) .and. present(SolMax)) then
+          This%TargetCoancestryRate = MinPct2CoancestryRate(MinPct=This%TargetMinPct,&
+                                                            MinCoancestryRate=SolMin%CoancestryRateRanMate,&
+                                                            MaxCoancestryRate=SolMax%CoancestryRateRanMate)
+          This%TargetSelIntensity = MaxPct2SelIntensity(MaxPct=This%TargetMaxPct,&
+                                                        MinSelIntensity=SolMin%SelIntensity,&
+                                                        MaxSelIntensity=SolMax%SelIntensity)
+          if (present(Data)) then
+            This%TargetCoancestry = CoancestryRate2Coancestry(CoancestryRate=This%TargetCoancestryRate,&
+                                                              CurrentCoancestry=Data%CurrentCoancestryRanMate)
+            This%TargetSelCriterion = SelIntensity2SelCriterion(SelIntensity=This%TargetSelIntensity,&
+                                                                Mean=Data%SelCriterionStat%Mean,&
+                                                                Sd=Data%SelCriterionStat%Sd)
+          end if
+        end if
+      else if (present(CoancestryRate)) then
+        This%TargetCoancestryRate = CoancestryRate
+        if (present(Data)) then
+          This%TargetCoancestry = CoancestryRate2Coancestry(CoancestryRate=This%TargetCoancestryRate,&
+                                                            CurrentCoancestry=Data%CurrentCoancestryRanMate)
+        end if
+        if (present(SolMin) .and. present(SolMax)) then
+          This%TargetMinPct = CoancestryRate2MinPct(CoancestryRate=This%TargetCoancestryRate,&
+                                                    MinCoancestryRate=SolMin%CoancestryRateRanMate,&
+                                                    MaxCoancestryRate=SolMax%CoancestryRateRanMate)
+          This%TargetDegree = MinPct2Degree(MinPct=This%TargetMinPct)
+          This%TargetMaxPct = Degree2MaxPct(Degree=This%TargetDegree)
+          This%TargetSelIntensity = MaxPct2SelIntensity(MaxPct=This%TargetMaxPct,&
+                                                        MinSelIntensity=SolMin%SelIntensity,&
+                                                        MaxSelIntensity=SolMax%SelIntensity)
+          if (present(Data)) then
+            This%TargetSelCriterion = SelIntensity2SelCriterion(SelIntensity=This%TargetSelIntensity,&
+                                                                Mean=Data%SelCriterionStat%Mean,&
+                                                                Sd=Data%SelCriterionStat%Sd)
+          end if
+        end if
+      else if (present(MinPct)) then
+        This%TargetMinPct = MinPct
+        This%TargetDegree = MinPct2Degree(MinPct=This%TargetMinPct)
+        This%TargetMaxPct = Degree2MaxPct(Degree=This%TargetMaxPct)
+        if (present(SolMin) .and. present(SolMax)) then
+          This%TargetCoancestryRate = MinPct2CoancestryRate(MinPct=This%TargetMinPct,&
+                                                            MinCoancestryRate=SolMin%CoancestryRateRanMate,&
+                                                            MaxCoancestryRate=SolMax%CoancestryRateRanMate)
+          This%TargetSelIntensity = MaxPct2SelIntensity(MaxPct=This%TargetMaxPct,&
+                                                        MinSelIntensity=SolMin%SelIntensity,&
+                                                        MaxSelIntensity=SolMax%SelIntensity)
+          if (present(Data)) then
+            This%TargetCoancestry = CoancestryRate2Coancestry(CoancestryRate=This%TargetCoancestryRate,&
+                                                              CurrentCoancestry=Data%CurrentCoancestryRanMate)
+            This%TargetSelCriterion = SelIntensity2SelCriterion(SelIntensity=This%TargetSelIntensity,&
+                                                                Mean=Data%SelCriterionStat%Mean,&
+                                                                Sd=Data%SelCriterionStat%Sd)
+          end if
+        end if
+      end if
+
+      if (present(InbreedingRate)) then
+        This%TargetInbreedingRate = InbreedingRate
+        if (present(Data)) then
+          This%TargetInbreeding = CoancestryRate2Coancestry(CoancestryRate=This%TargetInbreedingRate,&
+                                                            CurrentCoancestry=Data%CurrentInbreeding)
+        end if
+      end if
     end subroutine
 
     !###########################################################################
@@ -3035,6 +3202,15 @@ module AlphaMateModule
             allocate(Out%GenomeEdit(size(In%GenomeEdit)))
             Out%GenomeEdit = In%GenomeEdit
           end if
+          Out%TargetDegree = In%TargetDegree
+          Out%TargetSelCriterion = In%TargetSelCriterion
+          Out%TargetSelIntensity = In%TargetSelIntensity
+          Out%TargetMaxPct = In%TargetMaxPct
+          Out%TargetCoancestry = In%TargetCoancestry
+          Out%TargetCoancestryRate = In%TargetCoancestryRate
+          Out%TargetMinPct = In%TargetMinPct
+          Out%TargetInbreeding = In%TargetInbreeding
+          Out%TargetInbreedingRate = In%TargetInbreedingRate
       end select
     end subroutine
 
@@ -3099,6 +3275,16 @@ module AlphaMateModule
           if (allocated(This%GenomeEdit)) then
             This%GenomeEdit              = This%GenomeEdit                * kR + Add%GenomeEdit                / n
           end if
+          ! Constant
+          ! This%TargetDegree
+          ! This%TargetSelCriterion
+          ! This%TargetSelIntensity
+          ! This%TargetMaxPct
+          ! This%TargetCoancestry
+          ! This%TargetCoancestryRate
+          ! This%TargetMinPct
+          ! This%TargetInbreeding
+          ! This%TargetInbreedingRate
       end select
     end subroutine
 
@@ -3540,12 +3726,14 @@ module AlphaMateModule
               ! --- Selection criterion ---
 
               if (Spec%SelCriterionGiven) then
-                This%SelIntensity = dot_product(This%xVec, Data%SelCriterionStand)
+                This%SelIntensity = dot_product(This%xVec, Data%SelIntensity)
                 if (Spec%PAGEPar) then
-                  This%SelIntensity = This%SelIntensity + dot_product(This%xVec, Data%SelCriterionPAGEStand * This%GenomeEdit)
+                  This%SelIntensity = This%SelIntensity + dot_product(This%xVec, Data%SelIntensityPAGE * This%GenomeEdit)
                 end if
-                This%SelCriterion = This%SelIntensity * Data%SelCriterionStat%SD + Data%SelCriterionStat%Mean
-                This%MaxPct = (1.0d0 - (This%SelIntensity - Spec%MinSelIntensity) / (Spec%MaxSelIntensity   - Spec%MinSelIntensity)) * 100.0d0
+                ! Inlined SelIntensity2SelCriterion
+                This%SelCriterion = This%SelIntensity * Data%SelCriterionStat%Sd + Data%SelCriterionStat%Mean
+                ! Inlined MaxPct
+                This%MaxPct = (This%SelIntensity - Spec%MinSelIntensity) / (Spec%MaxSelIntensity - Spec%MinSelIntensity) * 100.0d0
                 if (Spec%ModeOpt .or. Spec%ModeMax) then
                   This%Objective = This%Objective + This%SelIntensity
                 end if
@@ -3583,8 +3771,9 @@ module AlphaMateModule
               ! x'Cx
               This%FutureCoancestryRanMate = dot_product(TmpVec(:, 1), This%xVec)
 
-              ! dF = (F_t+1 - F_t) / (1 - F_t)
+              ! Inlined Coancestry2CoancestryRate
               This%CoancestryRateRanMate = (This%FutureCoancestryRanMate - Data%CurrentCoancestryRanMate) / (1.0d0 - Data%CurrentCoancestryRanMate)
+              ! Inlined CoancestryRate2MinPct
               This%MinPct = (Spec%MaxCoancestryRate - This%CoancestryRateRanMate) / (Spec%MaxCoancestryRate - Spec%MinCoancestryRate) * 100.d0
 
               ! Degree
@@ -3592,15 +3781,15 @@ module AlphaMateModule
               ! - given results from ModeMin and ModeMax we can map the solution on the unit circle,
               !   i.e., the circle center is at (MaxCoancestryRate, MinSelIntensity) and solution is
               !   at (SolCoancestryRate, SolSelIntensity), which is mapped to (MinPct, 1 - MaxPct)
-              !   on unit circle with center at (1, 0) (MinMode is at (0,0 ) and MaxMode is at (1, 1))
+              !   on unit circle with center at (1, 0) (MinMode is at (0, 0) and MaxMode is at (1, 1))
               ! - then we can calculate degrees of the angle between the max-line (MaxCoancestryRate, MinSelIntensity)-(MaxCoancestryRate, MaxSelIntensity)
               !   and the sol-line (MaxCoancestryRate, MinSelIntensity)-(SolCoancestryRate, SolSelIntensity)
-              ! - the min-line would be (MaxCoancestryRate, MinSelIntensity)-(MinCoancestryRate, MinSelIntensity)
+              ! - the min-line is (MaxCoancestryRate, MinSelIntensity)-(MinCoancestryRate, MinSelIntensity)
               ! - the solution y-coordinate on the max-line is adjacent to the angle and
               !   the solution x-coordinate on the min-line is opposite to the angle (if we
-              !   put the min-line parallely up) so we use the arctangent function and convert
-              !   radians to degrees
-              This%Degree = atan(This%MinPct / (100.0d0 - This%MaxPct)) * RAD2DEG
+              !   put the min-line parallely up) so we use the arctangent function to compute
+              !   angle degrees
+              This%Degree = atan((100.0d0 - This%MinPct) / This%MaxPct) * RAD2DEG
 
 !@todo ModeRan?
               TmpR = 0.0d0
@@ -3634,7 +3823,7 @@ module AlphaMateModule
               end do
               ! TODO: different number of progeny per mating???
               This%FutureInbreeding = TmpR / Spec%nMat
-              ! dF = (F_t+1 - F_t) / (1 - F_t)
+              ! Inlined Coancestry2CoancestryRate
               This%InbreedingRate = (This%FutureInbreeding - Data%CurrentInbreeding) / (1.0d0 - Data%CurrentInbreeding)
               TmpR = This%InbreedingRate - Spec%TargetInbreedingRate
               if (.not. Spec%TargetInbreedingRateWeightBelow .and. (This%InbreedingRate .lt. Spec%TargetInbreedingRate)) then
@@ -3711,8 +3900,8 @@ module AlphaMateModule
 
       integer(int32) :: nParam, Point, FrontierUnit
 
+!@todo
       real(real64) :: HoldTargetDegree
-      real(real64) :: HoldTargetCoancestryRanMate, HoldTargetCoancestryRate
       real(real64), allocatable :: InitEqual(:, :)
 
       logical :: LogStdoutInternal, HoldTargetDegreeWeightBelow, HoldTargetCoancestryRateWeightBelow
@@ -3866,12 +4055,12 @@ module AlphaMateModule
         Spec%ModeFrontier = HoldModeFrontier
       end if
 
-      ! --- Percentage above minimum future coancestry/inbreeding ---
+      ! --- Percentage of minimum future coancestry/inbreeding ---
 
       if (Spec%ModeMinPct) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " "
-          write(STDOUT, "(a)") " Optimise contributions for a 'percentage' above minimum future coancestry/inbreeding"
+          write(STDOUT, "(a)") " Optimise contributions for a percentage of minimum future coancestry/inbreeding"
           write(STDOUT, "(a)") " "
         end if
 
@@ -3888,26 +4077,27 @@ module AlphaMateModule
         HoldModeFrontier = Spec%ModeFrontier
         Spec%ModeFrontier = .false.
 
-        ! Hold old results
-        HoldTargetCoancestryRanMate = Data%TargetCoancestryRanMate
-        HoldTargetCoancestryRate = Spec%TargetCoancestryRate
-
-        ! This is the rate we target
-        ! How do we obtain it?
-        ! - given MinPct we simply compute the target coancestry rate as the
-        !   minimum possible coancestry rate plus the percentage of difference
-        !   between the maximum and the minimum possible coancestry rates
-        Spec%TargetCoancestryRate = SolMin%CoancestryRateRanMate + Spec%MinPct / 100 * (SolMax%CoancestryRateRanMate - SolMin%CoancestryRateRanMate)
-        ! F_t = DeltaF + (1 - DeltaF) * F_t-1
-        Data%TargetCoancestryRanMate = Spec%TargetCoancestryRate + (1.0d0 - Spec%TargetCoancestryRate) * Data%CurrentCoancestryRanMate
+        call SolMinPct%SetTargets(MinPct=Spec%MinPct, Data=Data, SolMin=SolMin, SolMax=SolMax)
         if (LogStdoutInternal) then
+          write(STDOUT, "(a)") " Minimum  selection intensity: "//trim(Real2Char(SolMin%SelIntensity, fmt=FMTREAL2CHAR))//&
+                               " (=selection criterion"//trim(Real2Char(SolMin%SelCriterion, fmt=FMTREAL2CHAR))//")"
+          write(STDOUT, "(a)") " Maximum  selection intensity: "//trim(Real2Char(SolMax%SelIntensity, fmt=FMTREAL2CHAR))//&
+                               " (=selection criterion"//trim(Real2Char(SolMax%SelCriterion, fmt=FMTREAL2CHAR))//")"
+          write(STDOUT, "(a)") " Percentage of maximum:        "//trim(Real2Char(SolMinPct%TargetMaxPct, fmt="(f7.1)"))
+          write(STDOUT, "(a)") " Targeted selection intensity: "//trim(Real2Char(SolMinPct%TargetSelIntensity, fmt=FMTREAL2CHAR))//&
+                               " (=selection criterion"//trim(Real2Char(SolMinPct%TargetSelCriterion, fmt=FMTREAL2CHAR))//")"
+          write(STDOUT, "(a)") ""
+
           write(STDOUT, "(a)") " Minimum  coancestry rate: "//trim(Real2Char(SolMin%CoancestryRateRanMate, fmt=FMTREAL2CHAR))//&
-                               " (=coancestry "//trim(Real2Char(SolMin%FutureCoancestryRanMate, fmt=FMTREAL2CHAR))//")"
+                              " (=coancestry "//trim(Real2Char(SolMin%FutureCoancestryRanMate, fmt=FMTREAL2CHAR))//")"
           write(STDOUT, "(a)") " Maximum  coancestry rate: "//trim(Real2Char(SolMax%CoancestryRateRanMate, fmt=FMTREAL2CHAR))//&
-                               " (=coancestry "//trim(Real2Char(SolMax%FutureCoancestryRanMate, fmt=FMTREAL2CHAR))//")"
-          write(STDOUT, "(a)") " Percentage above minimum: "//trim(Real2Char(Spec%MinPct, fmt="(f7.1)"))
-          write(STDOUT, "(a)") " Targeted coancestry rate: "//trim(Real2Char(Spec%TargetCoancestryRate, fmt=FMTREAL2CHAR))//&
-                               " (=coancestry "//trim(Real2Char(Data%TargetCoancestryRanMate, fmt=FMTREAL2CHAR))//")"
+                              " (=coancestry "//trim(Real2Char(SolMax%FutureCoancestryRanMate, fmt=FMTREAL2CHAR))//")"
+          write(STDOUT, "(a)") " Percentage of minimum:    "//trim(Real2Char(SolMinPct%TargetMinPct, fmt="(f7.1)"))
+          write(STDOUT, "(a)") " Targeted coancestry rate: "//trim(Real2Char(SolMinPct%TargetCoancestryRate, fmt=FMTREAL2CHAR))//&
+                              " (=coancestry "//trim(Real2Char(SolMinPct%TargetCoancestry, fmt=FMTREAL2CHAR))//")"
+          write(STDOUT, "(a)") ""
+
+          write(STDOUT, "(a)") " Targeted degree: "//trim(Real2Char(SolMinPct%TargetDegree, fmt="(f7.1)"))
           write(STDOUT, "(a)") ""
         end if
 
@@ -3941,16 +4131,14 @@ module AlphaMateModule
         Spec%ModeOpt = HoldModeOpt
         Spec%ModeRan = HoldModeRan
         Spec%ModeFrontier = HoldModeFrontier
-        Spec%TargetCoancestryRateWeightBelow = HoldTargetCoancestryRateWeightBelow
-        Data%TargetCoancestryRanMate = HoldTargetCoancestryRanMate
       end if
 
-      ! --- Percentage below maximum future selection criterion ---
+      ! --- Percentage of maximum future selection criterion ---
 
       if (Spec%ModeMaxPct) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " "
-          write(STDOUT, "(a)") " Optimise contributions for a 'percentage' below maximum future selection criterion"
+          write(STDOUT, "(a)") " Optimise contributions for a 'percentage' of maximum future selection criterion"
           write(STDOUT, "(a)") " "
         end if
 
@@ -3967,60 +4155,29 @@ module AlphaMateModule
         HoldModeFrontier = Spec%ModeFrontier
         Spec%ModeFrontier = .false.
 
-        ! Hold old results
-        HoldTargetCoancestryRanMate = Data%TargetCoancestryRanMate
-        HoldTargetCoancestryRate = Spec%TargetCoancestryRate
+        call SolMaxPct%SetTargets(MinPct=Spec%MinPct, Data=Data, SolMin=SolMin, SolMax=SolMax)
+        if (LogStdoutInternal) then
+          write(STDOUT, "(a)") " Minimum  selection intensity: "//trim(Real2Char(SolMin%SelIntensity, fmt=FMTREAL2CHAR))//&
+                               " (=selection criterion"//trim(Real2Char(SolMin%SelCriterion, fmt=FMTREAL2CHAR))//")"
+          write(STDOUT, "(a)") " Maximum  selection intensity: "//trim(Real2Char(SolMax%SelIntensity, fmt=FMTREAL2CHAR))//&
+                               " (=selection criterion"//trim(Real2Char(SolMax%SelCriterion, fmt=FMTREAL2CHAR))//")"
+          write(STDOUT, "(a)") " Percentage of maximum:        "//trim(Real2Char(SolMaxPct%TargetMaxPct, fmt="(f7.1)"))
+          write(STDOUT, "(a)") " Targeted selection intensity: "//trim(Real2Char(SolMaxPct%TargetSelIntensity, fmt=FMTREAL2CHAR))//&
+                               " (=selection criterion"//trim(Real2Char(SolMaxPct%TargetSelCriterion, fmt=FMTREAL2CHAR))//")"
+          write(STDOUT, "(a)") ""
 
-        ! These are the criterion and rate we target
-        ! How do we obtain them?
-        ! - given MaxPct we compute targeted selection criterion (TargetSelCritRat)
-        ! - we need to find target coancestry rate (TargetCoaRate) that will give us TargetSelCritRat
-        ! - we have
-        !   - distance from MinSelCrit    to MaxSelCrit    of 1
-        !   - distance from MinSelCrit    to TargetSelCrit of p
-        !   - distance from TargetSelCrit to MaxSelCrit    of 1 - p (MaxPct)
-        !   - distance from MinCoaRate    to MaxCoaRate    of 1
-        !   - distance from MaxCoaRate    to TargetCoaRate of x
-        !   - distance from MinCoaRate    to TargetCoaRate of y = 1 - x (we need to find this)
-        !   - a triangle with sides:
-        !       x = (TargetCoaRate, MinSelCrit)    to (MaxCoaRate,    MinSelCrit)
-        !       p = (TargetCoaRate, MinSelCrit)    to (TargetCoaRate, TargetSelCrit)
-        !       r = (TargetCoaRate, TargetSelCrit) to (MaxCoaRate,    MinSelCrit)
-        !  - ASSUMING unit circular shape of selection/coancestry frontier the radius (r) is 1
-        !  - using Pythagorean theorem we have
-        !      r^2 = x^2 + p^2
-        !      x^2 = r^2 - p^2
-        !          = 1   - p^2
-        !      x   = sqrt(1 - p^2)
-        !      y = 1 - x
-        !        = 1 - sqrt(1 - p^2)
-        block
-          real(real64) :: TargetSelCritRat, TargetCoaRat
-          TargetSelCritRat = 1.0d0 - Spec%MaxPct / 100
-          TargetCoaRat = 1.0d0 - sqrt(1.0d0 - (TargetSelCritRat * TargetSelCritRat))
-          Spec%TargetCoancestryRate = SolMin%CoancestryRateRanMate + TargetCoaRat * (SolMax%CoancestryRateRanMate - SolMin%CoancestryRateRanMate)
-          ! F_t = DeltaF + (1 - DeltaF) * F_t-1
-          Data%TargetCoancestryRanMate = Spec%TargetCoancestryRate + (1.0d0 - Spec%TargetCoancestryRate) * Data%CurrentCoancestryRanMate
-          if (LogStdoutInternal) then
-            write(STDOUT, "(a)") " Minimum  selection intensity: "//trim(Real2Char(SolMin%SelIntensity, fmt=FMTREAL2CHAR))//&
-                                " (=selection criterion"//trim(Real2Char(SolMin%SelCriterion, fmt=FMTREAL2CHAR))//")"
-            write(STDOUT, "(a)") " Maximum  selection intensity: "//trim(Real2Char(SolMax%SelIntensity, fmt=FMTREAL2CHAR))//&
-                                " (=selection criterion"//trim(Real2Char(SolMax%SelCriterion, fmt=FMTREAL2CHAR))//")"
-            write(STDOUT, "(a)") " Percentage below maximum:     "//trim(Real2Char(Spec%MaxPct, fmt="(f7.1)"))
-            write(STDOUT, "(a)") " Targeted selection intensity: "//trim(Real2Char(SolMax%SelIntensity * TargetSelCritRat, fmt=FMTREAL2CHAR))//&
-                                " (=selection criterion"//trim(Real2Char(SolMax%SelCriterion * TargetSelCritRat, fmt=FMTREAL2CHAR))//")"
-            write(STDOUT, "(a)") ""
+          write(STDOUT, "(a)") " Minimum  coancestry rate: "//trim(Real2Char(SolMin%CoancestryRateRanMate, fmt=FMTREAL2CHAR))//&
+                              " (=coancestry "//trim(Real2Char(SolMin%FutureCoancestryRanMate, fmt=FMTREAL2CHAR))//")"
+          write(STDOUT, "(a)") " Maximum  coancestry rate: "//trim(Real2Char(SolMax%CoancestryRateRanMate, fmt=FMTREAL2CHAR))//&
+                              " (=coancestry "//trim(Real2Char(SolMax%FutureCoancestryRanMate, fmt=FMTREAL2CHAR))//")"
+          write(STDOUT, "(a)") " Percentage of minimum:    "//trim(Real2Char(SolMaxPct%TargetMinPct, fmt="(f7.1)"))
+          write(STDOUT, "(a)") " Targeted coancestry rate: "//trim(Real2Char(SolMaxPct%TargetCoancestryRate, fmt=FMTREAL2CHAR))//&
+                              " (=coancestry "//trim(Real2Char(SolMaxPct%TargetCoancestry, fmt=FMTREAL2CHAR))//")"
+          write(STDOUT, "(a)") ""
 
-            write(STDOUT, "(a)") " Minimum  coancestry rate: "//trim(Real2Char(SolMin%CoancestryRateRanMate, fmt=FMTREAL2CHAR))//&
-                                " (=coancestry "//trim(Real2Char(SolMin%FutureCoancestryRanMate, fmt=FMTREAL2CHAR))//")"
-            write(STDOUT, "(a)") " Maximum  coancestry rate: "//trim(Real2Char(SolMax%CoancestryRateRanMate, fmt=FMTREAL2CHAR))//&
-                                " (=coancestry "//trim(Real2Char(SolMax%FutureCoancestryRanMate, fmt=FMTREAL2CHAR))//")"
-            write(STDOUT, "(a)") " Percentage above minimum: "//trim(Real2Char(TargetCoaRat * 100.0d0, fmt="(f7.1)"))
-            write(STDOUT, "(a)") " Targeted coancestry rate: "//trim(Real2Char(Spec%TargetCoancestryRate, fmt=FMTREAL2CHAR))//&
-                                " (=coancestry "//trim(Real2Char(Data%TargetCoancestryRanMate, fmt=FMTREAL2CHAR))//")"
-            write(STDOUT, "(a)") ""
-          end if
-        end block
+          write(STDOUT, "(a)") " Targeted degree: "//trim(Real2Char(SolMaxPct%TargetDegree, fmt="(f7.1)"))
+          write(STDOUT, "(a)") ""
+        end if
 
         LogFile     = "OptimisationLogModeMaxPct.txt"
         LogPopFile  = "OptimisationLogPopModeMaxPct.txt"
@@ -4052,8 +4209,6 @@ module AlphaMateModule
         Spec%ModeOpt = HoldModeOpt
         Spec%ModeRan = HoldModeRan
         Spec%ModeFrontier = HoldModeFrontier
-        Spec%TargetCoancestryRateWeightBelow = HoldTargetCoancestryRateWeightBelow
-        Data%TargetCoancestryRanMate = HoldTargetCoancestryRanMate
       end if
 
       ! --- Maximum future selection criterion with constraint on coancestry/inbreeding ---
@@ -4075,6 +4230,30 @@ module AlphaMateModule
         Spec%ModeRan = .false.
         HoldModeFrontier = Spec%ModeFrontier
         Spec%ModeFrontier = .false.
+
+        call SolOpt%SetTargets(CoancestryRate=Spec%TargetCoancestryRate, Data=Data, SolMin=SolMin, SolMax=SolMax)
+        if (LogStdoutInternal) then
+          write(STDOUT, "(a)") " Minimum  selection intensity: "//trim(Real2Char(SolMin%SelIntensity, fmt=FMTREAL2CHAR))//&
+                               " (=selection criterion"//trim(Real2Char(SolMin%SelCriterion, fmt=FMTREAL2CHAR))//")"
+          write(STDOUT, "(a)") " Maximum  selection intensity: "//trim(Real2Char(SolMax%SelIntensity, fmt=FMTREAL2CHAR))//&
+                               " (=selection criterion"//trim(Real2Char(SolMax%SelCriterion, fmt=FMTREAL2CHAR))//")"
+          write(STDOUT, "(a)") " Percentage of maximum:        "//trim(Real2Char(SolOpt%TargetMaxPct, fmt="(f7.1)"))
+          write(STDOUT, "(a)") " Targeted selection intensity: "//trim(Real2Char(SolOpt%TargetSelIntensity, fmt=FMTREAL2CHAR))//&
+                               " (=selection criterion"//trim(Real2Char(SolOpt%TargetSelCriterion, fmt=FMTREAL2CHAR))//")"
+          write(STDOUT, "(a)") ""
+
+          write(STDOUT, "(a)") " Minimum  coancestry rate: "//trim(Real2Char(SolMin%CoancestryRateRanMate, fmt=FMTREAL2CHAR))//&
+                              " (=coancestry "//trim(Real2Char(SolMin%FutureCoancestryRanMate, fmt=FMTREAL2CHAR))//")"
+          write(STDOUT, "(a)") " Maximum  coancestry rate: "//trim(Real2Char(SolMax%CoancestryRateRanMate, fmt=FMTREAL2CHAR))//&
+                              " (=coancestry "//trim(Real2Char(SolMax%FutureCoancestryRanMate, fmt=FMTREAL2CHAR))//")"
+          write(STDOUT, "(a)") " Percentage of minimum:    "//trim(Real2Char(SolOpt%TargetMinPct, fmt="(f7.1)"))
+          write(STDOUT, "(a)") " Targeted coancestry rate: "//trim(Real2Char(SolOpt%TargetCoancestryRate, fmt=FMTREAL2CHAR))//&
+                              " (=coancestry "//trim(Real2Char(SolOpt%TargetCoancestry, fmt=FMTREAL2CHAR))//")"
+          write(STDOUT, "(a)") ""
+
+          write(STDOUT, "(a)") " Targeted degree: "//trim(Real2Char(SolOpt%TargetDegree, fmt="(f7.1)"))
+          write(STDOUT, "(a)") ""
+        end if
 
         LogFile     = "OptimisationLogModeOpt.txt"
         LogPopFile  = "OptimisationLogPopModeOpt.txt"
@@ -4163,7 +4342,7 @@ module AlphaMateModule
         open(newunit=FrontierUnit, file="Frontier.txt", status="unknown")
 
         ! Setup
-        call SolFrontier%SetupColNamesAndFormats(Spec=Spec) ! so we can log any previous results
+        call SolFrontier%SetupColNamesAndFormats(Spec=Spec) ! need to do this here so that we can log any previous results
         call SolFrontier%LogHead(LogUnit=FrontierUnit, String="ModeOrPoint", StringNum=15)
 
         ! Add any previous results to frontier
@@ -4200,14 +4379,12 @@ module AlphaMateModule
         HoldTargetCoancestryRateWeightBelow = Spec%TargetCoancestryRateWeightBelow
         Spec%TargetCoancestryRateWeightBelow = .true.
 
-        ! Hold old results
-        HoldTargetCoancestryRanMate = Data%TargetCoancestryRanMate
-        HoldTargetCoancestryRate = Spec%TargetCoancestryRate
-
         ! Evaluate
         do Point = 1, Spec%nFrontierPoints
           ! These are the rates
+!@todo
           Spec%TargetCoancestryRate = Spec%TargetCoancestryRateFrontier(Point)
+!@todo
           ! F_t = DeltaF + (1 - DeltaF) * F_t-1
           Data%TargetCoancestryRanMate = Spec%TargetCoancestryRate + (1.0d0 - Spec%TargetCoancestryRate) * Data%CurrentCoancestryRanMate
           if (LogStdoutInternal) then
@@ -4255,8 +4432,6 @@ module AlphaMateModule
         Spec%ModeMax = HoldModeMax
         Spec%ModeOpt = HoldModeOpt
         Spec%ModeRan = HoldModeRan
-        Spec%TargetCoancestryRate = HoldTargetCoancestryRate
-        Data%TargetCoancestryRanMate = HoldTargetCoancestryRanMate
         Spec%TargetCoancestryRateWeightBelow = HoldTargetCoancestryRateWeightBelow
 
         close(FrontierUnit)
@@ -4283,6 +4458,8 @@ module AlphaMateModule
       else
         Unit = STDOUT
       end if
+
+      ! Solution components
 
       write(Unit, *) "Objective: ", This%Objective
       write(Unit, *) "nParam: ", This%nParam
@@ -4311,6 +4488,20 @@ module AlphaMateModule
         write(Unit, *) Mat, This%MatingPlan(:, Mat)
       end do
       write(Unit, *) "GenomeEdit: ", This%GenomeEdit
+
+      ! Targets
+
+      write(Unit, *) "TargetDegree:", This%TargetDegree
+      write(Unit, *) "TargetSelCriterion:", This%TargetSelCriterion
+      write(Unit, *) "TargetSelIntensity:", This%TargetSelIntensity
+      write(Unit, *) "TargetMaxPct:", This%TargetMaxPct
+      write(Unit, *) "TargetCoancestry:", This%TargetCoancestry
+      write(Unit, *) "TargetCoancestryRate:", This%TargetCoancestryRate
+      write(Unit, *) "TargetMinPct:", This%TargetMinPct
+      write(Unit, *) "TargetInbreeding:", This%TargetInbreeding
+      write(Unit, *) "TargetInbreedingRate:", This%TargetInbreedingRate
+
+      ! Formats for logging
 
       write(Unit, *) "FmtLogStdoutHead: ",        trim(This%FmtLogStdoutHead)
       write(Unit, *) "FmtLogStdout: ",            trim(This%FmtLogStdout)
@@ -4492,10 +4683,10 @@ module AlphaMateModule
       This%ColnameLogUnit(5)  = "        FrontierDegree"
       This%ColnameLogUnit(6)  = "          SelCriterion"
       This%ColnameLogUnit(7)  = "          SelIntensity"
-      This%ColnameLogUnit(8)  = "  BelowMaxSelCriterPct"
+      This%ColnameLogUnit(8)  = "       MaxSelCriterPct"
       This%ColnameLogUnit(9)  = "            Coancestry"
       This%ColnameLogUnit(10) = "        CoancestryRate"
-      This%ColnameLogUnit(11) = " AboveMinCoancestryPct"
+      This%ColnameLogUnit(11) = "      MinCoancestryPct"
       This%ColnameLogUnit(12) = "            Inbreeding"
       This%ColnameLogUnit(13) = "        InbreedingRate"
 
@@ -4714,6 +4905,297 @@ module AlphaMateModule
     end subroutine
 
     !###########################################################################
+
+    !---------------------------------------------------------------------------
+    !> @brief   Convert selection criterion to selection intensity
+    !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date    April 18, 2017
+    !---------------------------------------------------------------------------
+    elemental function SelCriterion2SelIntensity(SelCriterion, Mean, Sd) result(SelIntensity)
+      implicit none
+      real(real64), intent(in) :: SelCriterion !< selection criterion
+      real(real64), intent(in) :: Mean         !< mean of selection criterion
+      real(real64), intent(in) :: Sd           !< standard deviation of selection criterion
+      real(real64)             :: SelIntensity !< @return selection intensity
+      SelIntensity = (SelCriterion - Mean) / Sd
+    end function
+
+    !###########################################################################
+
+    !---------------------------------------------------------------------------
+    !> @brief   Convert selection intensity to selection criterion
+    !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date    April 18, 2017
+    !---------------------------------------------------------------------------
+    elemental function SelIntensity2SelCriterion(SelIntensity, Mean, Sd) result(SelCriterion)
+      implicit none
+      real(real64), intent(in) :: SelIntensity !< selection intensity
+      real(real64), intent(in) :: Mean         !< mean of selection criterion
+      real(real64), intent(in) :: Sd           !< standard deviation of selection criterion
+      real(real64)             :: SelCriterion !< @return selection criterion
+      SelCriterion = SelIntensity * Sd + Mean
+    end function
+
+    !###########################################################################
+
+    !---------------------------------------------------------------------------
+    !> @brief   Convert current and future coancestry to coancestry rate
+    !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date    April 18, 2017
+    !> @details dF = (F_t+1 - F_t) / (1 - F_t)
+    !---------------------------------------------------------------------------
+    pure function Coancestry2CoancestryRate(CurrentCoancestry, FutureCoancestry) result(CoancestryRate)
+      implicit none
+      real(real64), intent(in) :: CurrentCoancestry !< Current coancestry
+      real(real64), intent(in) :: FutureCoancestry  !< Future coancestry
+      real(real64)             :: CoancestryRate  !< @return CoancestryRate
+      CoancestryRate = (FutureCoancestry - CurrentCoancestry) / (1.0d0 - CurrentCoancestry)
+    end function
+
+    !###########################################################################
+
+    !---------------------------------------------------------------------------
+    !> @brief   Convert coancestry rate and current coancestry to future coancestry
+    !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date    April 18, 2017
+    !> @details F_t = DeltaF + (1 - DeltaF) * F_t-1
+    !---------------------------------------------------------------------------
+    pure function CoancestryRate2Coancestry(CoancestryRate, CurrentCoancestry) result(FutureCoancestry)
+      implicit none
+      real(real64), intent(in) :: CoancestryRate    !< CoancestryRate
+      real(real64), intent(in) :: CurrentCoancestry !< Current coancestry
+      real(real64)             :: FutureCoancestry  !< @return Future coancestry
+      FutureCoancestry = CoancestryRate + (1.0d0 - CoancestryRate) * CurrentCoancestry
+    end function
+
+    !###########################################################################
+
+    !---------------------------------------------------------------------------
+    !> @brief   Convert MinPct to Frontier degree
+    !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date    April 13, 2017
+    !> @details Assuming unit circular selection/coancestry frontier and given the
+    !           percentage of minimum inbreeding achieved (x-axis) we can evaluate
+    !           the angle between the maximum selection line and the solution line
+    !           recognising that sin(angle) = opposite/hypothenuse, where
+    !           opposite = MinPct/100 and hypothenuse = 1 (unit circle). Then
+    !           angle = asin(MinPct/100).
+    !---------------------------------------------------------------------------
+    pure function MinPct2Degree(MinPct) result(Degree)
+      implicit none
+      real(real64), intent(in) :: MinPct !< percentage of minimum coancestry achieved (100 means we achieved the minimum possible coancestry)
+      real(real64)             :: Degree !< @return Frontier degree
+      Degree = asin(MinPct / 100.0d0) * RAD2DEG
+    end function
+
+    !###########################################################################
+
+    !---------------------------------------------------------------------------
+    !> @brief   Convert Frontier degree to MinPct
+    !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date    April 13, 2017
+    !> @details Assuming unit circular selection/coancestry frontier and given the
+    !           the angle between the maximum selection line and the solution line
+    !           we can evaluate the percentage of maximum selection intensity achieved
+    !           (y-axis) by recognising that sin(angle) = opposite/hypothenuse, where
+    !           opposite = MinPct/100 and hypothenuse = 1 (unit circle). Then
+    !           MinPct = sin(angle) * 100.
+    !---------------------------------------------------------------------------
+    pure function Degree2MinPct(Degree) result(MinPct)
+      implicit none
+      real(real64), intent(in) :: Degree !< Frontier degree
+      real(real64)             :: MinPct !< @return Percentage of minimum coancestry achieved (100 means we achieved the minimum possible coancestry)
+      MinPct = sin(Degree * DEG2RAD) * 100.0d0
+    end function
+
+    !###########################################################################
+
+    !---------------------------------------------------------------------------
+    !> @brief   Convert MaxPct to Frontier degree
+    !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date    April 13, 2017
+    !> @details Assuming unit circular selection/coancestry frontier and given the
+    !           percentage of maximum selection intensity achieved (y-axis) we can evaluate
+    !           the angle between the maximum selection line and the solution line
+    !           recognising that cos(angle) = adjacent/hypothenuse, where
+    !           adjacent = MaxPct/100 and hypothenuse = 1 (unit circle). Then
+    !           angle = acos(MaxPct/100).
+    !---------------------------------------------------------------------------
+    pure function MaxPct2Degree(MaxPct) result(Degree)
+      implicit none
+      real(real64), intent(in) :: MaxPct !< percentage of maximum selection intensity achieved (100 means we achieved the maximum possible selection intensity)
+      real(real64)             :: Degree !< @return Frontier degree
+      Degree = acos(MaxPct / 100.0d0) * RAD2DEG
+    end function
+
+    !###########################################################################
+
+    !---------------------------------------------------------------------------
+    !> @brief   Convert Frontier degree to MaxPct
+    !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date    April 13, 2017
+    !> @details Assuming unit circular selection/coancestry frontier and given the
+    !           the angle between the maximum selection line and the solution line
+    !           we can evaluate the percentage of maximum selection intensity achieved
+    !           (y-axis) by recognising that cos(angle) = adjacent/hypothenuse, where
+    !           adjacent = MaxPct/100 and hypothenuse = 1 (unit circle). Then
+    !           MaxPct = cos(angle) * 100.
+    !---------------------------------------------------------------------------
+    pure function Degree2MaxPct(Degree) result(MaxPct)
+      implicit none
+      real(real64), intent(in) :: Degree !< Frontier degree
+      real(real64)             :: MaxPct !< @return Percentage of maximum selection intensity achieved (100 means we achieved the maximum possible selection intensity)
+      MaxPct = cos(Degree * DEG2RAD) * 100.0d0
+    end function
+
+    !###########################################################################
+
+    !---------------------------------------------------------------------------
+    !> @brief   Convert MinPct to coancestry rate
+    !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date    April 13, 2017
+    !> @details Compute difference between Max and Min and take (1 - MinPct) of
+    !           the difference as we express MinPct as 100% when solution achieves
+    !           Min
+    !---------------------------------------------------------------------------
+    pure function MinPct2CoancestryRate(MinPct, MinCoancestryRate, MaxCoancestryRate) result(CoancestryRate)
+      implicit none
+      real(real64), intent(in) :: MinPct            !< MinPct of a solution
+      real(real64), intent(in) :: MinCoancestryRate !< Minimum possible coancestry rate
+      real(real64), intent(in) :: MaxCoancestryRate !< Maximum possible coancestry rate
+      real(real64)             :: CoancestryRate    !< @return Coancestry rate at a given MinPct
+      CoancestryRate = MinCoancestryRate + (100.0d0 - MinPct) / 100.0d0 * (MaxCoancestryRate - MinCoancestryRate)
+    end function
+
+    !###########################################################################
+
+    !---------------------------------------------------------------------------
+    !> @brief   Convert coancestry rate to MinPct
+    !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date    April 18, 2017
+    !> @details Compute difference between Max and Min and take (1 - MinPct) of
+    !           the difference as we express MinPct as 100% when solution achieves
+    !           Min
+    !---------------------------------------------------------------------------
+    pure function CoancestryRate2MinPct(CoancestryRate, MinCoancestryRate, MaxCoancestryRate) result(MinPct)
+      implicit none
+      real(real64), intent(in) :: CoancestryRate    !< Coancestry rate at a given MinPct
+      real(real64), intent(in) :: MinCoancestryRate !< Minimum possible coancestry rate
+      real(real64), intent(in) :: MaxCoancestryRate !< Maximum possible coancestry rate
+      real(real64)             :: MinPct            !< @return MinPct of a solution
+      MinPct = (MaxCoancestryRate - CoancestryRate) / (MaxCoancestryRate - MinCoancestryRate) * 100.d0
+    end function
+
+    !###########################################################################
+
+    !---------------------------------------------------------------------------
+    !> @brief   Convert MaxPct to selection intensity
+    !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date    April 13, 2017
+    !> @details Compute difference between Max and Min and take MaxPct of
+    !           the difference as we express MaxPct as 100% when solution achieves
+    !           Max
+    !---------------------------------------------------------------------------
+    pure function MaxPct2SelIntensity(MaxPct, MinSelIntensity, MaxSelIntensity) result(SelIntensity)
+      implicit none
+      real(real64), intent(in) :: MaxPct          !< MaxPct of a solution
+      real(real64), intent(in) :: MinSelIntensity !< Minimum possible selection intensity
+      real(real64), intent(in) :: MaxSelIntensity !< Maximum possible selection intensity
+      real(real64)             :: SelIntensity    !< @return Selection intensity at a given MaxPct
+      SelIntensity = MinSelIntensity + MaxPct / 100.0d0 * (MaxSelIntensity - MinSelIntensity)
+    end function
+
+    !###########################################################################
+
+    !---------------------------------------------------------------------------
+    !> @brief   Convert selection intensity to MaxPct
+    !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date    April 18, 2017
+    !> @details See how close SelIntensity is to MaxSelIntensity
+    !---------------------------------------------------------------------------
+    pure function SelIntensity2MaxPct(SelIntensity, MinSelIntensity, MaxSelIntensity) result(MaxPct)
+      implicit none
+      real(real64), intent(in) :: SelIntensity    !< Selection intensity of a solution
+      real(real64), intent(in) :: MinSelIntensity !< Minimum possible selection intensity
+      real(real64), intent(in) :: MaxSelIntensity !< Maximum possible selection intensity
+      real(real64)             :: MaxPct          !< @return MaxPct of a solution
+      MaxPct = (SelIntensity - MinSelIntensity) / (MaxSelIntensity - MinSelIntensity) * 100.0d0
+    end function
+
+    !###########################################################################
+
+    !---------------------------------------------------------------------------
+    !> @brief   Convert degree to selection intensity
+    !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date    April 18, 2017
+    !---------------------------------------------------------------------------
+    pure function Degree2SelIntensity(Degree, MinSelIntensity, MaxSelIntensity) result(SelIntensity)
+      implicit none
+      real(real64), intent(in) :: Degree          !< Degree
+      real(real64), intent(in) :: MinSelIntensity !< Minimum possible selection intensity
+      real(real64), intent(in) :: MaxSelIntensity !< Maximum possible selection intensity
+      real(real64)             :: SelIntensity    !< @return Selection intensity
+      SelIntensity = MaxPct2SelIntensity(MaxPct=Degree2MaxPct(Degree=Degree),&
+                                         MinSelIntensity=MinSelIntensity,&
+                                         MaxSelIntensity=MaxSelIntensity)
+    end function
+
+    !###########################################################################
+
+    !---------------------------------------------------------------------------
+    !> @brief   Convert selection intensity to degree
+    !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date    April 18, 2017
+    !---------------------------------------------------------------------------
+    pure function SelIntensity2Degree(SelIntensity, MinSelIntensity, MaxSelIntensity) result(Degree)
+      implicit none
+      real(real64), intent(in) :: SelIntensity    !< Selection intensity
+      real(real64), intent(in) :: MinSelIntensity !< Minimum possible selection intensity
+      real(real64), intent(in) :: MaxSelIntensity !< Maximum possible selection intensity
+      real(real64)             :: Degree          !< @return Degree
+      Degree = MaxPct2Degree(MaxPct=SelIntensity2MaxPct(SelIntensity=SelIntensity,&
+                                                        MinSelIntensity=MinSelIntensity,&
+                                                        MaxSelIntensity=MaxSelIntensity))
+    end function
+
+    !###########################################################################
+
+    !---------------------------------------------------------------------------
+    !> @brief   Convert degree to coancestry rate
+    !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date    April 18, 2017
+    !---------------------------------------------------------------------------
+    pure function Degree2CoancestryRate(Degree, MinCoancestryRate, MaxCoancestryRate) result(CoancestryRate)
+      implicit none
+      real(real64), intent(in) :: Degree            !< Degree
+      real(real64), intent(in) :: MinCoancestryRate !< Minimum possible coancestry rate
+      real(real64), intent(in) :: MaxCoancestryRate !< Maximum possible coancestry rate
+      real(real64)             :: CoancestryRate    !< @return Coancestry rate
+      CoancestryRate = MinPct2CoancestryRate(MinPct=Degree2MinPct(Degree=Degree),&
+                                             MinCoancestryRate=MinCoancestryRate,&
+                                             MaxCoancestryRate=MaxCoancestryRate)
+    end function
+
+    !###########################################################################
+
+    !---------------------------------------------------------------------------
+    !> @brief   Convert coancestry rate to degree
+    !> @author  Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date    April 18, 2017
+    !---------------------------------------------------------------------------
+    pure function CoancestryRate2Degree(CoancestryRate, MinCoancestryRate, MaxCoancestryRate) result(Degree)
+      implicit none
+      real(real64), intent(in) :: CoancestryRate      !< Coancestry rate
+      real(real64), intent(in) :: MinCoancestryRate !< Minimum possible coancestry rate
+      real(real64), intent(in) :: MaxCoancestryRate !< Maximum possible coancestry rate
+      real(real64)             :: Degree            !< @return Degree
+      Degree = MinPct2Degree(MinPct=CoancestryRate2MinPct(CoancestryRate=CoancestryRate,&
+                                                          MinCoancestryRate=MinCoancestryRate,&
+                                                          MaxCoancestryRate=MaxCoancestryRate))
+    end function
+
+    !###########################################################################
+
 end module
 
 !###############################################################################
