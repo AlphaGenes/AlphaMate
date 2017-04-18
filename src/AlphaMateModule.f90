@@ -3116,7 +3116,7 @@ module AlphaMateModule
       else if (present(MinPct)) then
         This%TargetMinPct = MinPct
         This%TargetDegree = MinPct2Degree(MinPct=This%TargetMinPct)
-        This%TargetMaxPct = Degree2MaxPct(Degree=This%TargetMaxPct)
+        This%TargetMaxPct = Degree2MaxPct(Degree=This%TargetDegree)
         if (present(SolMin) .and. present(SolMax)) then
           This%TargetCoancestryRate = MinPct2CoancestryRate(MinPct=This%TargetMinPct,&
                                                             MinCoancestryRate=SolMin%CoancestryRateRanMate,&
@@ -3900,16 +3900,28 @@ module AlphaMateModule
 
       integer(int32) :: nParam, Point, FrontierUnit
 
-!@todo
-      real(real64) :: HoldTargetDegree
       real(real64), allocatable :: InitEqual(:, :)
 
-      logical :: LogStdoutInternal, HoldTargetDegreeWeightBelow, HoldTargetCoancestryRateWeightBelow
+      logical :: LogStdoutInternal, HoldTargetCoancestryRateWeightBelow
       logical :: HoldModeMin, HoldModeMax, HoldModeOpt, HoldModeRan, HoldModeFrontier
 
       character(len=FILELENGTH) :: LogFile, LogPopFile, ContribFile, MatingFile
 
       type(AlphaMateSol) :: SolMin, SolMax, SolMinPct, SolMaxPct, SolOpt, SolRan, SolFrontier
+
+      ! Initialise these two solutions here as they are reused further on and we will need sensible defaults in
+      ! case these modes are not run
+      call SolMin%Initialise(Chrom=[0.0d0], Spec=Spec)
+      call SolMax%Initialise(Chrom=[0.0d0], Spec=Spec)
+      SolMin%SelCriterion = IEEE_Value(x=SolMin%SelCriterion, class=IEEE_Quiet_NaN)
+      SolMin%SelIntensity = IEEE_Value(x=SolMin%SelIntensity, class=IEEE_Quiet_NaN)
+      SolMin%CoancestryRateRanMate = IEEE_Value(x=SolMin%CoancestryRateRanMate, class=IEEE_Quiet_NaN)
+      SolMin%FutureCoancestryRanMate = IEEE_Value(x=SolMin%FutureCoancestryRanMate, class=IEEE_Quiet_NaN)
+
+      SolMax%SelCriterion = IEEE_Value(x=SolMax%SelCriterion, class=IEEE_Quiet_NaN)
+      SolMax%SelIntensity = IEEE_Value(x=SolMax%SelIntensity, class=IEEE_Quiet_NaN)
+      SolMax%CoancestryRateRanMate = IEEE_Value(x=SolMax%CoancestryRateRanMate, class=IEEE_Quiet_NaN)
+      SolMax%FutureCoancestryRanMate = IEEE_Value(x=SolMax%FutureCoancestryRanMate, class=IEEE_Quiet_NaN)
 
       HoldModeMin = .false.
       HoldModeMax = .false.
@@ -3940,7 +3952,7 @@ module AlphaMateModule
       if (Spec%ModeMin) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " "
-          write(STDOUT, "(a)") " Optimise contributions for minimum future coancestry/inbreeding"
+          write(STDOUT, "(a)") " Optimise contributions for minimum future coancestry/inbreeding (ModeMin) ..."
           write(STDOUT, "(a)") " "
         end if
 
@@ -4003,7 +4015,7 @@ module AlphaMateModule
       if (Spec%ModeMax) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " "
-          write(STDOUT, "(a)") " Optimise contributions for maximum future selection criterion"
+          write(STDOUT, "(a)") " Optimise contributions for maximum future selection criterion (ModeMax) ..."
           write(STDOUT, "(a)") " "
         end if
 
@@ -4060,7 +4072,7 @@ module AlphaMateModule
       if (Spec%ModeMinPct) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " "
-          write(STDOUT, "(a)") " Optimise contributions for a percentage of minimum future coancestry/inbreeding"
+          write(STDOUT, "(a)") " Optimise contributions for a percentage of minimum future coancestry/inbreeding (ModeMinPct) ..."
           write(STDOUT, "(a)") " "
         end if
 
@@ -4138,7 +4150,7 @@ module AlphaMateModule
       if (Spec%ModeMaxPct) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " "
-          write(STDOUT, "(a)") " Optimise contributions for a 'percentage' of maximum future selection criterion"
+          write(STDOUT, "(a)") " Optimise contributions for a 'percentage' of maximum future selection criterion (ModeMaxPct) ..."
           write(STDOUT, "(a)") " "
         end if
 
@@ -4155,7 +4167,7 @@ module AlphaMateModule
         HoldModeFrontier = Spec%ModeFrontier
         Spec%ModeFrontier = .false.
 
-        call SolMaxPct%SetTargets(MinPct=Spec%MinPct, Data=Data, SolMin=SolMin, SolMax=SolMax)
+        call SolMaxPct%SetTargets(MaxPct=Spec%MaxPct, Data=Data, SolMin=SolMin, SolMax=SolMax)
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " Minimum  selection intensity: "//trim(Real2Char(SolMin%SelIntensity, fmt=FMTREAL2CHAR))//&
                                " (=selection criterion"//trim(Real2Char(SolMin%SelCriterion, fmt=FMTREAL2CHAR))//")"
@@ -4216,7 +4228,7 @@ module AlphaMateModule
       if (Spec%ModeOpt) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " "
-          write(STDOUT, "(a)") " Optimise contributions for maximum future selection criterion with constraint on coancestry/inbreeding"
+          write(STDOUT, "(a)") " Optimise contributions for maximum future selection criterion with constraint on coancestry/inbreeding (ModeOpt) ..."
           write(STDOUT, "(a)") " "
         end if
 
@@ -4292,7 +4304,7 @@ module AlphaMateModule
       if (Spec%ModeRan) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " "
-          write(STDOUT, "(a)") " Evaluate random mating"
+          write(STDOUT, "(a)") " Evaluate random mating (ModeRan) ..."
           write(STDOUT, "(a)") " "
         end if
 
@@ -4336,7 +4348,7 @@ module AlphaMateModule
       if (Spec%ModeFrontier) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " "
-          write(STDOUT, "(a)") " Evaluate frontier"
+          write(STDOUT, "(a)") " Evaluate frontier (ModeFrontier) ..."
         end if
 
         open(newunit=FrontierUnit, file="Frontier.txt", status="unknown")
@@ -4381,17 +4393,29 @@ module AlphaMateModule
 
         ! Evaluate
         do Point = 1, Spec%nFrontierPoints
-          ! These are the rates
-!@todo
-          Spec%TargetCoancestryRate = Spec%TargetCoancestryRateFrontier(Point)
-!@todo
-          ! F_t = DeltaF + (1 - DeltaF) * F_t-1
-          Data%TargetCoancestryRanMate = Spec%TargetCoancestryRate + (1.0d0 - Spec%TargetCoancestryRate) * Data%CurrentCoancestryRanMate
+          call SolFrontier%SetTargets(CoancestryRate=Spec%TargetCoancestryRateFrontier(Point), Data=Data, SolMin=SolMin, SolMax=SolMax)
           if (LogStdoutInternal) then
-            write(STDOUT, "(a)") ""
+            write(STDOUT, "(a)") " "
             write(STDOUT, "(a)") " Point "//trim(Int2Char(Point))//" out of "//trim(Int2Char(Spec%nFrontierPoints))
-            write(STDOUT, "(a)") " Targeted coancestry rate: "//trim(Real2Char(Spec%TargetCoancestryRate, fmt=FMTREAL2CHAR))//&
-                                " (=coancestry "//trim(Real2Char(Data%TargetCoancestryRanMate, fmt=FMTREAL2CHAR))//")"
+            write(STDOUT, "(a)") " Minimum  selection intensity: "//trim(Real2Char(SolMin%SelIntensity, fmt=FMTREAL2CHAR))//&
+                                " (=selection criterion"//trim(Real2Char(SolMin%SelCriterion, fmt=FMTREAL2CHAR))//")"
+            write(STDOUT, "(a)") " Maximum  selection intensity: "//trim(Real2Char(SolMax%SelIntensity, fmt=FMTREAL2CHAR))//&
+                                " (=selection criterion"//trim(Real2Char(SolMax%SelCriterion, fmt=FMTREAL2CHAR))//")"
+            write(STDOUT, "(a)") " Percentage of maximum:        "//trim(Real2Char(SolFrontier%TargetMaxPct, fmt="(f7.1)"))
+            write(STDOUT, "(a)") " Targeted selection intensity: "//trim(Real2Char(SolFrontier%TargetSelIntensity, fmt=FMTREAL2CHAR))//&
+                                " (=selection criterion"//trim(Real2Char(SolFrontier%TargetSelCriterion, fmt=FMTREAL2CHAR))//")"
+            write(STDOUT, "(a)") ""
+
+            write(STDOUT, "(a)") " Minimum  coancestry rate: "//trim(Real2Char(SolMin%CoancestryRateRanMate, fmt=FMTREAL2CHAR))//&
+                                " (=coancestry "//trim(Real2Char(SolMin%FutureCoancestryRanMate, fmt=FMTREAL2CHAR))//")"
+            write(STDOUT, "(a)") " Maximum  coancestry rate: "//trim(Real2Char(SolMax%CoancestryRateRanMate, fmt=FMTREAL2CHAR))//&
+                                " (=coancestry "//trim(Real2Char(SolMax%FutureCoancestryRanMate, fmt=FMTREAL2CHAR))//")"
+            write(STDOUT, "(a)") " Percentage of minimum:    "//trim(Real2Char(SolFrontier%TargetMinPct, fmt="(f7.1)"))
+            write(STDOUT, "(a)") " Targeted coancestry rate: "//trim(Real2Char(SolFrontier%TargetCoancestryRate, fmt=FMTREAL2CHAR))//&
+                                " (=coancestry "//trim(Real2Char(SolFrontier%TargetCoancestry, fmt=FMTREAL2CHAR))//")"
+            write(STDOUT, "(a)") ""
+
+            write(STDOUT, "(a)") " Targeted degree: "//trim(Real2Char(SolFrontier%TargetDegree, fmt="(f7.1)"))
             write(STDOUT, "(a)") ""
           end if
 
