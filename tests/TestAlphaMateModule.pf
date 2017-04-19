@@ -166,7 +166,9 @@ module TestAlphaMateModule
         write(Unit, "(a)") "NumberOfMatings, 2"
         write(Unit, "(a)") "NumberOfMaleParents, 2"
         write(Unit, "(a)") "NumberOfFemaleParents, 2"
-        write(Unit, "(a)") "TargetCoancestryRate, 0.01"
+        write(Unit, "(a)") "TargetDegree, 10"
+        write(Unit, "(a)") "EvaluateFrontier, Yes"
+        ! write(Unit, "(a)") "TargetCoancestryRate, 0.01"
         write(Unit, "(a)") "TargetCoancestryRateWeight, -100.0"
         write(Unit, "(a)") "TargetInbreedingRate, 0.1"
         write(Unit, "(a)") "TargetInbreedingRateWeight, -100.0"
@@ -204,39 +206,11 @@ module TestAlphaMateModule
 ! Best with target_dC > 0.035 & weight = 100 & target_dF=0.1 & weight = 100
 ! 1x3 & 2x4, x'a = 110.00, x'Ax = 0.1984, dC = 0.028, F = 0.062, dF = -0.008
 
-        ! allocate(CalPedNrm(0:Data%RecPed%nInd, 0:Data%RecPed%nInd))
-        ! allocate(ExpPedNrm(0:Data%RecPed%nInd, 0:Data%RecPed%nInd))
-
-        ! CalPedNrm = PedNrm(RecPed=Data%RecPed%Id, nInd=Data%RecPed%nInd)
-        ! !                                      0     A      B dum001       C       D       E       F
-        ! ExpPedNrm(0:Data%RecPed%nInd, 0) = [0.00, 0.00, 0.000, 0.000, 0.0000, 0.0000, 0.0000, 0.0000] ! 0
-        ! ExpPedNrm(0:Data%RecPed%nInd, 1) = [0.00, 1.00, 0.000, 0.000, 0.5000, 0.5000, 0.5000, 0.2500] ! A
-        ! ExpPedNrm(0:Data%RecPed%nInd, 2) = [0.00, 0.00, 1.000, 0.000, 0.5000, 0.0000, 0.2500, 0.6250] ! B
-        ! ExpPedNrm(0:Data%RecPed%nInd, 3) = [0.00, 0.00, 0.000, 1.000, 0.0000, 0.5000, 0.2500, 0.1250] ! dum001
-        ! ExpPedNrm(0:Data%RecPed%nInd, 4) = [0.00, 0.50, 0.500, 0.000, 1.0000, 0.2500, 0.6250, 0.5625] ! C
-        ! ExpPedNrm(0:Data%RecPed%nInd, 5) = [0.00, 0.50, 0.000, 0.500, 0.2500, 1.0000, 0.6250, 0.3125] ! D
-        ! ExpPedNrm(0:Data%RecPed%nInd, 6) = [0.00, 0.50, 0.250, 0.250, 0.6250, 0.6250, 1.1250, 0.6875] ! E
-        ! ExpPedNrm(0:Data%RecPed%nInd, 7) = [0.00, 0.25, 0.625, 0.125, 0.5625, 0.3125, 0.6875, 1.1250] ! F
-
-        ! ! write(STDOUT, "(a9, 2a11, "//Int2Char(Data%RecPed%nInd+1)//"i16)") "", "", "", (Ind1, Ind1 = 0, Data%RecPed%nInd)
-        ! do Ind1 = 0, Data%RecPed%nInd
-        !   ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%RecPed%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%RecPed%OriginalId(Ind1))), "expected  ", ExpPedNrm(0:Data%RecPed%nInd, Ind1)
-        !   ! write(STDOUT, "(i8, a1, 2a11, "//Int2Char(Data%RecPed%nInd+1)//"f16.8)") Ind1, "", adjustr(trim(Data%RecPed%OriginalId(Ind1))), "calculated", CalPedNrm(0:Data%RecPed%nInd, Ind1)
-        !   ! write(STDOUT, "(a)") ""
-        !   ! write(STDOUT, "(2a8, 2a16)") " ", " ", "Expected", "Calculated"
-        !   do Ind2 = 0, Data%RecPed%nInd
-        !     ! write(STDOUT, "(2i8, 2f16.8)") Ind1, Ind2, ExpPedNrm(Ind2, Ind1), CalPedNrm(Ind2, Ind1)
-        !     @AssertEqual(ExpPedNrm(Ind2, Ind1), CalPedNrm(Ind2, Ind1), "Pedigree NRM is not calculated correctly - tiny example for function")
-        !   end do
-        ! end do
-        ! deallocate(CalPedNrm)
-        ! deallocate(ExpPedNrm)
-
         call DeleteNrmFile
         call DeleteSelCritFile
         call DeleteGenderFile
         call DeleteSpecFile
-        call DeleteAlphaMateFiles
+        ! call DeleteAlphaMateFiles
       end subroutine
 
       !#########################################################################

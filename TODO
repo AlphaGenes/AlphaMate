@@ -1,23 +1,18 @@
-DONE ModeMin
-  - 90% trick?
 
-TODO ModeMax
-  - 90% trick?
-
-TODO ModeDegree --> TargetDegree etc.
-  - change Eval function?
+TODO ModeOpt loop over all the targets
 
 TODO ModeRan
   - any good?
 
-TODO ModeFrontier
-  - broken at the moment (objective=0)
-  - add also degree concept
+* Random mating vs mating plan
+  https://en.wikipedia.org/wiki/Iterative_proportional_fitting
 
 * How do we handle when nMat > nDam? Are we mating one dam with several sires?
 * MOET, JIVET, ... any other reproductive technologies?
   - are these not covered with lifting the limit constraints on females?
 * Any other biotechnologies?
+
+* Cut precision in Frontier and Optimisation log files??? Or make it as an option?
 
 * Sort mating plan by contributions
 
@@ -36,15 +31,50 @@ TODO ModeFrontier
 
 * Update/finalise manual
 
-* Parallelize differential evolution algorithm?
-  - code in AlphaMate ready for this
-  - need to figure out how to handle OMP flags and RNG in AlphaEvolve
-    (http://tamupostdoc.blogspot.co.uk/2009/12/random-number-generator-in-openmp.html,
-     http://www.cmiss.org/openCMISS/wiki/RandomNumberGenerationWithOpenMP,
-     https://github.com/robertpincus/i3rc-monte-carlo-model)
-  - is it worth it?
+* Only partial sort/rank with ORDERPACK could speed up eval a lot.
+  http://www.physics.rutgers.edu/~diablo/#3.1
+
+* Parallelisation via OpenMP
+  Option A) parallelise differential evolution algorithm
+  Option B) parallelise multiple optimisation runs of the same problem to avoid local minima?
+  - Some weblinks re implementation
+    * random_number() is slow as threads wait for each other to update RNG Seed, need separate streams!!!
+       * http://tamupostdoc.blogspot.co.uk/2009/12/random-number-generator-in-openmp.html
+       * http://www.cmiss.org/openCMISS/wiki/RandomNumberGenerationWithOpenMP
+    * Intel RNG streams
+       * https://software.intel.com/en-us/node/521846
+       * https://software.intel.com/en-us/forums/intel-math-kernel-library/topic/283349,
 
 * Stop optimisation and restart?
   - checkpointing trick (catch kill command, save current state, and stop, enable
     restart from the saved state)
   - is it worth it?
+
+* Other optimisation algorithms?
+  - Evolution strategies of OpenAI stohastically estimate gradients, but this is
+    continuous optimisation (which I also do in AlphaMate through a hacked
+    solution representation!)
+    https://blog.openai.com/evolution-strategies/
+
+  - Artifical bee colony
+    https://en.wikipedia.org/wiki/Artificial_bee_colony_algorithm
+
+  - Particle swarm optimisation (PSO)
+    https://en.wikipedia.org/wiki/Particle_swarm_optimization
+    This algorithm can be made binary, discrete, or combinatorial:
+      - Roy, R., Dehuri, S., & Cho, S. B. (2012). A Novel Particle Swarm Optimization Algorithm for Multi-Objective Combinatorial Optimization Problem. 'International Journal of Applied Metaheuristic Computing (IJAMC)', 2(4), 41-57
+      - Kennedy, J. & Eberhart, R. C. (1997). A discrete binary version of the particle swarm algorithm, Conference on Systems, Man, and Cybernetics, Piscataway, NJ: IEEE Service Center, pp. 4104-4109
+      - Clerc, M. (2004). Discrete Particle Swarm Optimization, illustrated by the Traveling Salesman Problem, New Optimization Techniques in Engineering, Springer, pp. 219-239
+      - Clerc, M. (2005). Binary Particle Swarm Optimisers: toolbox, derivations, and mathematical insights, Open Archive HAL
+      - Jarboui, B., Damak, N., Siarry, P., and Rebai, A.R. (2008). A combinatorial particle swarm optimization for solving multi-mode resource-constrained project scheduling problems. In Proceedings of Applied Mathematics and Computation, pp. 299-308.
+      - Chen, Wei-neng; Zhang, Jun (2010). "A novel set-based particle swarm optimization method for discrete optimization problem". IEEE Transactions on Evolutionary Computation. 14 (2): 278–300. doi:10.1109/tevc.2009.2030331.
+
+  - Hybrid particle swarm with differential evolution operator (DEPSO)
+    http://www.wiomax.com/team/xie/paper/SMCC03.pdf
+
+  - Multi-objective optimisation notes (Pareto frontier etc.)
+    https://en.wikipedia.org/wiki/Multi-objective_optimization
+
+* Colnames and formats in AlphaMateSpec instead of AlphaMateSol? We have lots of AlphaMateSol, so
+  would save some space and also intialise and assign methods do not carry this data over. would
+  have to pass Spec to Log methods in AlphaEvolve, which we do already for many methods anyhow.
