@@ -2028,7 +2028,7 @@ module AlphaMateModule
     !---------------------------------------------------------------------------
     pure subroutine SetupModeAlphaMateSpec(This, Mode, Data, ModeMinSpec, ModeMaxSpec, &
                                            Degree, SelCriterion, SelIntensity, MaxPct, &
-                                           Coancestry, CoancestryRate, MinPct)
+                                           Coancestry, CoancestryRate, MinPct, TargetCoancestryRateWeightBelow)
       implicit none
       class(AlphaMateSpec), intent(inout)           :: This           !< @return AlphaMateSpec holder
       character(len=*), intent(in)                  :: Mode           !< Mode definition/name
@@ -2042,6 +2042,7 @@ module AlphaMateModule
       real(real64), intent(in), optional            :: Coancestry     !< Targeted coancestry
       real(real64), intent(in), optional            :: CoancestryRate !< Targeted coancestry rate
       real(real64), intent(in), optional            :: MinPct         !< Targeted minim percentage
+      logical, intent(in), optional                 :: TargetCoancestryRateWeightBelow !< Weight deviations bellow the targeted coancestry rate
 
       select case (trim(Mode))
         case ("Min")
@@ -2072,7 +2073,11 @@ module AlphaMateModule
           call This%ModeOptSpec%Initialise(Name="Opt")
           This%ModeOptSpec%ModeSelection = .true.
           This%ModeOptSpec%ModeCoancestry = .true.
-          This%ModeOptSpec%TargetCoancestryRateWeightBelow = This%TargetCoancestryRateWeightBelow
+          if (present(TargetCoancestryRateWeightBelow)) then
+            This%ModeOptSpec%TargetCoancestryRateWeightBelow =      TargetCoancestryRateWeightBelow
+          else
+            This%ModeOptSpec%TargetCoancestryRateWeightBelow = This%TargetCoancestryRateWeightBelow
+          end if
           if      (present(Degree)) then
             call This%ModeOptSpec%SetTargets(Degree=Degree, &
                                              Data=Data, ModeMinSpec=ModeMinSpec, ModeMaxSpec=ModeMaxSpec)
@@ -4233,7 +4238,8 @@ module AlphaMateModule
 
           ! Setup
           call Spec%SetupMode(Mode="Opt", Data=Data, ModeMinSpec=Spec%ModeMinSpec, ModeMaxSpec=Spec%ModeMaxSpec, &
-                              Degree=TARGETDEGREEFRONTIER(Point))
+                              Degree=TARGETDEGREEFRONTIER(Point), TargetCoancestryRateWeightBelow=.true.)
+                              ! TargetCoancestryRateWeightBelow=.true. as we want to get to "exact" degrees
           if (LogStdoutInternal) then
             write(STDOUT, "(a)") " "
             write(STDOUT, "(a)") "  Point "//Int2Char(Point)//" of "//Int2Char(size(TARGETDEGREEFRONTIER))
