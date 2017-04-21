@@ -122,9 +122,9 @@ module AlphaMateModule
   !> @brief Optimisation mode specifications
   type :: AlphaMateModeSpec
     character(len=SPECOPTIONLENGTH) :: Name
-    logical                         :: ModeSelection
-    logical                         :: ModeCoancestry
-    logical                         :: ModeInbreeding
+    logical                         :: ObjectiveSelection
+    logical                         :: ObjectiveCoancestry
+    logical                         :: ObjectiveInbreeding
     real(real64)                    :: TargetDegree
     real(real64)                    :: TargetSelCriterion
     real(real64)                    :: TargetSelIntensity
@@ -470,15 +470,15 @@ module AlphaMateModule
       ! This%TargetCoancestry ! allocatable so skip here
       This%TargetCoancestryRateGiven = .false.
       ! This%TargetCoancestryRate ! allocatable so skip here
-      This%TargetCoancestryRateWeight = -100.0d0
+      This%TargetCoancestryRateWeight = -1000.0d0
       This%TargetCoancestryRateWeightBelow = .false.
       This%TargetMinPctGiven = .false.
       ! This%TargetMinPct ! allocatable so skip here
       This%TargetInbreedingGiven = .false.
-      This%TargetInbreeding = 0.01d0
+      This%TargetInbreeding = 1.0d0 ! set it high so that it does not have any effect
       This%TargetInbreedingRateGiven = .false.
-      This%TargetInbreedingRate = 0.01d0
-      This%TargetInbreedingRateWeight = 0.0d0
+      This%TargetInbreedingRate = 1.0d0 ! set it high so that it does not have any effect
+      This%TargetInbreedingRateWeight = 0.0d0 ! set it to zero so that it does not have any effect
       This%TargetInbreedingRateWeightBelow = .false.
       This%SelfingAllowed = .false.
       This%SelfingWeight = 0.0d0
@@ -2047,32 +2047,38 @@ module AlphaMateModule
       select case (trim(Mode))
         case ("Min")
           call This%ModeMinSpec%Initialise(Name="Min")
-          This%ModeMinSpec%ModeCoancestry = .true.
+          This%ModeMinSpec%ObjectiveCoancestry = .true.
+          This%ModeMinSpec%TargetDegree =  90.0d0
+          This%ModeMinSpec%TargetMinPct = 100.0d0
+          This%ModeMinSpec%TargetMaxPct =   0.0d0
           if      (This%TargetInbreedingGiven) then
-            This%ModeMinSpec%ModeInbreeding = .true.
+            This%ModeMinSpec%ObjectiveInbreeding = .true.
             call This%ModeMinSpec%SetTargets(Data=Data, Inbreeding=This%TargetInbreeding)
           else if (This%TargetInbreedingRateGiven) then
-            This%ModeMinSpec%ModeInbreeding = .true.
+            This%ModeMinSpec%ObjectiveInbreeding = .true.
             call This%ModeMinSpec%SetTargets(Data=Data, InbreedingRate=This%TargetInbreedingRate)
           end if
           call This%ModeSpec%Assign(In=This%ModeMinSpec)
 
         case ("Max")
           call This%ModeMaxSpec%Initialise(Name="Max")
-          This%ModeMaxSpec%ModeSelection = .true.
+          This%ModeMaxSpec%ObjectiveSelection = .true.
+          This%ModeMaxSpec%TargetDegree =   0.0d0
+          This%ModeMaxSpec%TargetMinPct =   0.0d0
+          This%ModeMaxSpec%TargetMaxPct = 100.0d0
           if      (This%TargetInbreedingGiven) then
-            This%ModeMaxSpec%ModeInbreeding = .true.
+            This%ModeMaxSpec%ObjectiveInbreeding = .true.
             call This%ModeMaxSpec%SetTargets(Data=Data, Inbreeding=This%TargetInbreeding)
           else if (This%TargetInbreedingRateGiven) then
-            This%ModeMaxSpec%ModeInbreeding = .true.
+            This%ModeMaxSpec%ObjectiveInbreeding = .true.
             call This%ModeMaxSpec%SetTargets(Data=Data, InbreedingRate=This%TargetInbreedingRate)
           end if
           call This%ModeSpec%Assign(In=This%ModeMaxSpec)
 
         case ("Opt")
           call This%ModeOptSpec%Initialise(Name="Opt")
-          This%ModeOptSpec%ModeSelection = .true.
-          This%ModeOptSpec%ModeCoancestry = .true.
+          This%ModeOptSpec%ObjectiveSelection = .true.
+          This%ModeOptSpec%ObjectiveCoancestry = .true.
           if (present(TargetCoancestryRateWeightBelow)) then
             This%ModeOptSpec%TargetCoancestryRateWeightBelow =      TargetCoancestryRateWeightBelow
           else
@@ -2101,10 +2107,10 @@ module AlphaMateModule
                                              Data=Data, ModeMinSpec=ModeMinSpec, ModeMaxSpec=ModeMaxSpec)
           end if
           if      (This%TargetInbreedingGiven) then
-            This%ModeOptSpec%ModeInbreeding = .true.
+            This%ModeOptSpec%ObjectiveInbreeding = .true.
             call This%ModeOptSpec%SetTargets(Data=Data, Inbreeding=This%TargetInbreeding)
           else if (This%TargetInbreedingRateGiven) then
-            This%ModeOptSpec%ModeInbreeding = .true.
+            This%ModeOptSpec%ObjectiveInbreeding = .true.
             call This%ModeOptSpec%SetTargets(Data=Data, InbreedingRate=This%TargetInbreedingRate)
           end if
           call This%ModeSpec%Assign(In=This%ModeOptSpec)
@@ -2112,7 +2118,13 @@ module AlphaMateModule
         case ("Ran")
           !@todo do we need ModeRanSpec?
           call This%ModeRanSpec%Initialise(Name="Ran")
-          call This%ModeRanSpec%SetTargets(Data=Data, InbreedingRate=This%TargetInbreedingRate)
+          if      (This%TargetInbreedingGiven) then
+            This%ModeRanSpec%ObjectiveInbreeding = .true.
+            call This%ModeRanSpec%SetTargets(Data=Data, Inbreeding=This%TargetInbreeding)
+          else if (This%TargetInbreedingRateGiven) then
+            This%ModeRanSpec%ObjectiveInbreeding = .true.
+            call This%ModeRanSpec%SetTargets(Data=Data, InbreedingRate=This%TargetInbreedingRate)
+          end if
           !@todo???
           This%ModeRanSpec%TargetCoancestryRateWeightBelow = This%TargetCoancestryRateWeightBelow
           call This%ModeSpec%Assign(In=This%ModeRanSpec)
@@ -2135,9 +2147,9 @@ module AlphaMateModule
       real(real64) :: NANREAL64
       NANREAL64 = IEEE_Value(x=NANREAL64, class=IEEE_Quiet_NaN)
       This%Name = Name
-      This%ModeSelection = .false.
-      This%ModeCoancestry = .false.
-      This%ModeInbreeding = .false.
+      This%ObjectiveSelection = .false.
+      This%ObjectiveCoancestry = .false.
+      This%ObjectiveInbreeding = .false.
       This%TargetDegree = NANREAL64
       This%TargetSelCriterion = NANREAL64
       This%TargetSelIntensity = NANREAL64
@@ -2171,9 +2183,9 @@ module AlphaMateModule
       class(AlphaMateModeSpec), intent(out) :: Out !< @return AlphaMateModeSpec holder
       class(AlphaMateModeSpec), intent(in)  :: In  !< AlphaMateModeSpec holder
       Out%Name = In%Name
-      Out%ModeSelection = In%ModeSelection
-      Out%ModeCoancestry = In%ModeCoancestry
-      Out%ModeInbreeding = In%ModeInbreeding
+      Out%ObjectiveSelection = In%ObjectiveSelection
+      Out%ObjectiveCoancestry = In%ObjectiveCoancestry
+      Out%ObjectiveInbreeding = In%ObjectiveInbreeding
       Out%TargetDegree = In%TargetDegree
       Out%TargetSelCriterion = In%TargetSelCriterion
       Out%TargetSelIntensity = In%TargetSelIntensity
@@ -2412,9 +2424,9 @@ module AlphaMateModule
       class(AlphaMateModeSpec), intent(in) :: This !< AlphaMateModeSpec holder
       integer(int32), intent(in)           :: Unit !< Unit to write to
       write(Unit, *) "Name: ", trim(This%Name)
-      write(Unit, *) "ModeSelection: ", This%ModeSelection
-      write(Unit, *) "ModeCoancestry: ", This%ModeCoancestry
-      write(Unit, *) "ModeInbreeding: ", This%ModeInbreeding
+      write(Unit, *) "ObjectiveSelection: ", This%ObjectiveSelection
+      write(Unit, *) "ObjectiveCoancestry: ", This%ObjectiveCoancestry
+      write(Unit, *) "ObjectiveInbreeding: ", This%ObjectiveInbreeding
       write(Unit, *) "TargetDegree: ", This%TargetDegree
       write(Unit, *) "TargetSelCriterion: ", This%TargetSelCriterion
       write(Unit, *) "TargetSelIntensity: ", This%TargetSelIntensity
@@ -3932,7 +3944,7 @@ module AlphaMateModule
                 ! Inlined SelIntensity2MaxPct
                 This%MaxPct = (This%SelIntensity - Spec%ModeMinSpec%SelIntensity) / &
                               (Spec%ModeMaxSpec%SelIntensity - Spec%ModeMinSpec%SelIntensity) * 100.0d0
-                if (Spec%ModeSpec%ModeSelection) then
+                if (Spec%ModeSpec%ObjectiveSelection) then
                   This%Objective = This%Objective + This%SelIntensity
                 end if
               end if
@@ -3996,7 +4008,7 @@ module AlphaMateModule
 
               !@todo ModeRan?
 
-              if (Spec%ModeSpec%ModeCoancestry) then
+              if (Spec%ModeSpec%ObjectiveCoancestry) then
                 TmpR = 0.0d0
                 if      (trim(Spec%ModeSpec%Name) .eq. "Min") then
                   TmpR = Spec%TargetCoancestryRateWeight * This%CoancestryRateRanMate
@@ -4031,7 +4043,7 @@ module AlphaMateModule
               This%FutureInbreeding = TmpR / Spec%nMat
               ! Inlined Coancestry2CoancestryRate
               This%InbreedingRate = (This%FutureInbreeding - Data%CurrentInbreeding) / (1.0d0 - Data%CurrentInbreeding)
-              if (Spec%ModeSpec%ModeInbreeding) then
+              if (Spec%ModeSpec%ObjectiveInbreeding) then
                 TmpR = This%InbreedingRate - Spec%TargetInbreedingRate
                 if (This%InbreedingRate .lt. Spec%TargetInbreedingRate) then
                   if (Spec%TargetInbreedingRateWeightBelow) then
@@ -4115,8 +4127,8 @@ module AlphaMateModule
 
       ! Seting these two modes here in case they are not activated
       ! (need to get those NANs in (to avoid propagating 0s) as other modes use these results)
-      call Spec%SetupMode(Mode="Min")
-      call Spec%SetupMode(Mode="Max")
+      call Spec%SetupMode(Mode="Min", Data=Data)
+      call Spec%SetupMode(Mode="Max", Data=Data)
 
       ! --- Number of parameters to optimise ---
 
