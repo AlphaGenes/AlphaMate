@@ -1,8 +1,10 @@
 
-TODO ModeOpt loop over all the targets
+TODO ModeOpt loop over all the targets in the spec file and then loop over in the AlphaMateSearch
 
 TODO ModeRan
   - any good?
+
+--- BIOLOGICAL CONSIDERATIONS ---
 
 * Random mating vs mating plan
   https://en.wikipedia.org/wiki/Iterative_proportional_fitting
@@ -12,16 +14,21 @@ TODO ModeRan
   - are these not covered with lifting the limit constraints on females?
 * Any other biotechnologies?
 
+--- OTHER ---
+
+* Update/finalise manual
+
 * Cut precision in Frontier and Optimisation log files??? Or make it as an option?
 
 * Sort mating plan by contributions
 
-* Good/sensible starting point for optimisation?
+* Colnames and formats in AlphaMateSpec instead of AlphaMateSol? We have lots of AlphaMateSol, so
+  would save some space and also intialise and assign methods do not carry this data over. would
+  have to pass Spec to Log methods in AlphaEvolve, which we do already for many methods anyhow.
 
 * Generic way of adding costs (similar as with the generic individual/mating values)
   - individual level
   - mating level
-
           Criterion%Cost      = sum(Criterion%GenomeEdit(:)) * PAGEPar1Cost
 
 * Input pedigree and/or genotype data to simplify creation of:
@@ -29,15 +36,82 @@ TODO ModeRan
   - dominance in progeny
   - variance among progeny
 
-* Update/finalise manual
+--- ALGORITHMIC CONSIDERATIONS ---
+
+* Good/sensible starting point for optimisation?
+
+Objectives: J(x)
+  - max genetic gain
+  - min f(coancestry) (is this objective or constraint?)
+  - min/max f(inbreeding) (is this objective or constraint?)
+  - ???
+
+Design variables: x
+  - number of matings: x_n
+  - mate allocation: x_m (per mating or per progeny!?)
+  - edits: x_e
+
+Constraints (g(x) <= 0, h(x) = 0)
+  - f(coancestry) (is this objective or constraint?) <= dC
+  - f(inbreeding) (is this objective or constraint?) <= dF
+  - ?min(x_n) <= x_n <= max(x_n) (integer!, can vary by gender)
+  - ?x_m
+  - sum(x_e) <= n_e
+
+Bounds (side constraints)
+  - ?min(x_n) <= x_n <= max(x_n) (integer!, can vary by gender)
+  - ?x_m
+  - x_e = {0, 1}
+
+Merit function f(J(x), g(x), h(x))
+
+Exterior penalty J(x) + rho * P(x), rho increases over time
+  - quadratic P(x) = sum(g(x)^2) + sum(h(x)^2), might need very large rho to meet constraints
+  - absolute  P(x) = sum(abs(g(x))) + sum(abs(h(x))), more manageable rho, but discontinuos derivatives when g(x) and/or h(x) are zero
+
+Interior penalty (barrier method) J(x) + r * sum(-1 / g(x)) + rho * sum(h(x)^2)
+  - r = barrier parameter (start as a large positive value and decreases)
+  - only for inequality constraints
+  - discontinuos at constraint boundaries
+
+Constraints in GA
+  - penalty
+  - selection operator (do not select solutions that violate constraints)
+  - problem representation (only allow for valid solutions)
+  - repair
+
+Scalarization
+
+Pareto front calculations
+[1] Pareto, V., Manuale di Economia Politica, Societa Editrice Libraria, Milano, Italy, Translated into English by Schwier, A. S. 1971: Manual of Political Economy, Macmillan, New York, 1906.
+
+  - Normal Boundary Intersection (NBI) method (Das and Dennis, 1998)
+    Das I. and Dennis J, “Normal-Boundary Intersection: A New Method for Generating Pareto Optimal Points in Multicriteria Optimization Problems”, SIAM Journal on Optimization, Vol. 8, No.3, 1998, pp. 631-657
+    (generate solutions that are well-distributed)
+    1. Perform single objective optimisations (J_i^star = J_i(x^star), i = 1, 2, ..., k)
+    2. Define utopia point J^u = [J_1^star, J_2^star, ..., J_k^star]
+    3. Utopia line between the anchor points
+    4. Perform a series of optimisations along the line in even increments
+    5. Evaluate which points are Pareto optimal
+
+  - Adaptive weighted sum (AWS) method (Kim and Weck, 2005)
+    Kim I.Y. and de Weck O.L., “Adaptive weighted-sum method for bi-objective optimization: Pareto front generation”, Structural and Multidisciplinary Optimization, 29 (2), 149-158, February 2005
+    - Focuses on regions that are not well covered
+    - Handles non-convex regions (in minimisation)
+    - Less/no non-pareto solutions
+
+--- COMPUTATIONAL CONSIDERATIONS ---
 
 * Only partial sort/rank with ORDERPACK could speed up eval a lot.
   http://www.physics.rutgers.edu/~diablo/#3.1
 
 * Parallelisation via OpenMP
-  Option A) parallelise differential evolution algorithm
-  Option B) parallelise multiple optimisation runs of the same problem to avoid local minima?
-  - Some weblinks re implementation
+  Option A) parallelise differential evolution algorithm (parallel evaluation of solutions, is this needed?)
+  Option B) parallelise multiple optimisation runs
+    - of the same problem to avoid local minima? (and then run one more run with those initial values?)
+    - of different optimisations run (initial modes, evaluate front !!! - NBI)
+
+  - Some weblinks regarding parallel implementation
     * random_number() is slow as threads wait for each other to update RNG Seed, need separate streams!!!
        * http://tamupostdoc.blogspot.co.uk/2009/12/random-number-generator-in-openmp.html
        * http://www.cmiss.org/openCMISS/wiki/RandomNumberGenerationWithOpenMP
@@ -56,9 +130,6 @@ TODO ModeRan
     solution representation!)
     https://blog.openai.com/evolution-strategies/
 
-  - Artifical bee colony
-    https://en.wikipedia.org/wiki/Artificial_bee_colony_algorithm
-
   - Particle swarm optimisation (PSO)
     https://en.wikipedia.org/wiki/Particle_swarm_optimization
     This algorithm can be made binary, discrete, or combinatorial:
@@ -72,9 +143,12 @@ TODO ModeRan
   - Hybrid particle swarm with differential evolution operator (DEPSO)
     http://www.wiomax.com/team/xie/paper/SMCC03.pdf
 
+  - Self-Organising Migratory ALgorithm (SOMA) by Zelinka
+    In one of his examples SOMA maintained more diversity of solutions and found
+    much better global solution!!!
+
+  - Artifical bee colony
+    https://en.wikipedia.org/wiki/Artificial_bee_colony_algorithm
+
   - Multi-objective optimisation notes (Pareto frontier etc.)
     https://en.wikipedia.org/wiki/Multi-objective_optimization
-
-* Colnames and formats in AlphaMateSpec instead of AlphaMateSol? We have lots of AlphaMateSol, so
-  would save some space and also intialise and assign methods do not carry this data over. would
-  have to pass Spec to Log methods in AlphaEvolve, which we do already for many methods anyhow.

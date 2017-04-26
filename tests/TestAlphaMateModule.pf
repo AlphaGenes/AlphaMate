@@ -120,14 +120,14 @@ module TestAlphaMateModule
         integer(int32) :: Unit, File
         character(len=100), dimension(12) :: FILES
         FILES( 1) = "CoancestrySummary.txt"
-        FILES( 2) = "ContributionsModeMin.txt"
+        FILES( 2) = "ContributionsModeMinCoancestry.txt"
         FILES( 3) = "ContributionsModeOpt.txt"
         FILES( 4) = "InbreedingSummary.txt"
-        FILES( 5) = "MatingPlanModeMin.txt"
+        FILES( 5) = "MatingPlanModeMinCoancestry.txt"
         FILES( 6) = "MatingPlanModeOpt.txt"
-        FILES( 7) = "OptimisationLogModeMin.txt"
+        FILES( 7) = "OptimisationLogModeMinCoancestry.txt"
         FILES( 8) = "OptimisationLogModeOpt.txt"
-        FILES( 9) = "OptimisationLogPopModeMin.txt"
+        FILES( 9) = "OptimisationLogPopModeMinCoancestry.txt"
         FILES(10) = "OptimisationLogPopModeOpt.txt"
         FILES(11) = "SeedUsed.txt"
         FILES(12) = "SelCriterionSummary.txt"
@@ -159,7 +159,7 @@ module TestAlphaMateModule
 
         open(newunit=Unit, file=TESTSPECFILE, action="write", status="unknown")
         write(Unit, "(a)") "ModeOpt, Yes"
-        write(Unit, "(a)") "ModeMin, Yes"
+        write(Unit, "(a)") "ModeMinCoancestry, Yes"
         write(Unit, "(2a)") "NrmMatrixFile,", TESTNRMFILE
         write(Unit, "(2a)") "SelCriterionFile,", TESTSELCRITFILE
         write(Unit, "(2a)") "GenderFile,", TESTGENDERFILE
@@ -171,7 +171,7 @@ module TestAlphaMateModule
         ! write(Unit, "(a)") "TargetCoancestryRate, 0.01"
         write(Unit, "(a)") "TargetCoancestryRateWeight, -100.0"
         write(Unit, "(a)") "TargetInbreedingRate, 0.1"
-        write(Unit, "(a)") "TargetInbreedingRateWeight, -100.0"
+        ! write(Unit, "(a)") "TargetInbreedingRateWeight, -100.0"
         write(Unit, "(a)") "EvolAlgNumberOfSolutions, 10"
         write(Unit, "(a)") "EvolAlgNumberOfIterations, 10"
         write(Unit, "(a)") "EvolAlgNumberOfIterationsPrint, 1"
@@ -262,83 +262,83 @@ module TestAlphaMateModule
       !#########################################################################
 
       @test
-      subroutine TestMinPct2Degree
+      subroutine TestMinCoancestryPct2Degree
         implicit none
-        @AssertEqual(90.0d0, MinPct2Degree(100.0d0), TolR64, "MinPct2Degree(100) failed")
-        @AssertEqual(30.0d0, MinPct2Degree( 50.0d0), TolR64, "MinPct2Degree( 50) failed")
-        @AssertEqual( 0.0d0, MinPct2Degree(  0.0d0), TolR64, "MinPct2Degree(  0) failed")
+        @AssertEqual(90.0d0, MinCoancestryPct2Degree(100.0d0), TolR64, "MinCoancestryPct2Degree(100) failed")
+        @AssertEqual(30.0d0, MinCoancestryPct2Degree( 50.0d0), TolR64, "MinCoancestryPct2Degree( 50) failed")
+        @AssertEqual( 0.0d0, MinCoancestryPct2Degree(  0.0d0), TolR64, "MinCoancestryPct2Degree(  0) failed")
       end subroutine
 
       !#########################################################################
 
       @test
-      subroutine TestDegree2MinPct
+      subroutine TestDegree2MinCoancestryPct
         implicit none
-        @AssertEqual(  0.0d0, Degree2MinPct( 0.0d0), TolR64, "Degree2MinPct( 0) failed")
-        @AssertEqual( 50.0d0, Degree2MinPct(30.0d0), TolR64, "Degree2MinPct(30) failed")
-        @AssertEqual(100.0d0, Degree2MinPct(90.0d0), TolR64, "Degree2MinPct(90) failed")
+        @AssertEqual(  0.0d0, Degree2MinCoancestryPct( 0.0d0), TolR64, "Degree2MinCoancestryPct( 0) failed")
+        @AssertEqual( 50.0d0, Degree2MinCoancestryPct(30.0d0), TolR64, "Degree2MinCoancestryPct(30) failed")
+        @AssertEqual(100.0d0, Degree2MinCoancestryPct(90.0d0), TolR64, "Degree2MinCoancestryPct(90) failed")
       end subroutine
 
       !#########################################################################
 
       @test
-      subroutine TestMaxPct2Degree
+      subroutine TestMaxCriterionPct2Degree
         implicit none
-        @AssertEqual( 0.0d0, MaxPct2Degree(100.0d0), TolR64, "MaxPct2Degree(100) failed")
-        @AssertEqual(60.0d0, MaxPct2Degree( 50.0d0), TolR64, "MaxPct2Degree( 50) failed")
-        @AssertEqual(90.0d0, MaxPct2Degree(  0.0d0), TolR64, "MaxPct2Degree(  0) failed")
+        @AssertEqual( 0.0d0, MaxCriterionPct2Degree(100.0d0), TolR64, "MaxCriterionPct2Degree(100) failed")
+        @AssertEqual(60.0d0, MaxCriterionPct2Degree( 50.0d0), TolR64, "MaxCriterionPct2Degree( 50) failed")
+        @AssertEqual(90.0d0, MaxCriterionPct2Degree(  0.0d0), TolR64, "MaxCriterionPct2Degree(  0) failed")
       end subroutine
 
       !#########################################################################
 
       @test
-      subroutine TestDegree2MaxPct
+      subroutine TestDegree2MaxCriterionPct
         implicit none
-        @AssertEqual(100.0d0, Degree2MaxPct( 0.0d0), TolR64, "Degree2MaxPct( 0) failed")
-        @AssertEqual( 50.0d0, Degree2MaxPct(60.0d0), TolR64, "Degree2MaxPct(60) failed")
-        @AssertEqual(  0.0d0, Degree2MaxPct(90.0d0), TolR64, "Degree2MaxPct(90) failed")
+        @AssertEqual(100.0d0, Degree2MaxCriterionPct( 0.0d0), TolR64, "Degree2MaxCriterionPct( 0) failed")
+        @AssertEqual( 50.0d0, Degree2MaxCriterionPct(60.0d0), TolR64, "Degree2MaxCriterionPct(60) failed")
+        @AssertEqual(  0.0d0, Degree2MaxCriterionPct(90.0d0), TolR64, "Degree2MaxCriterionPct(90) failed")
       end subroutine
 
       !#########################################################################
 
       @test
-      subroutine TestMinPct2CoancestryRate
+      subroutine TestMinCoancestryPct2CoancestryRate
         implicit none
-        @AssertEqual(1.0d0, MinPct2CoancestryRate( 0.0d0,  0.0d0, 1.0d0), TolR64, "MinPct2CoancestryRate( 0.0d0,  0.0d0, 1.0d0) failed")
-        @AssertEqual(0.5d0, MinPct2CoancestryRate(50.0d0,  0.0d0, 1.0d0), TolR64, "MinPct2CoancestryRate(50.0d0,  0.0d0, 1.0d0) failed")
-        @AssertEqual(0.0d0, MinPct2CoancestryRate(50.0d0, -1.0d0, 1.0d0), TolR64, "MinPct2CoancestryRate(50.0d0, -1.0d0, 1.0d0) failed")
+        @AssertEqual(1.0d0, MinCoancestryPct2CoancestryRate( 0.0d0,  0.0d0, 1.0d0), TolR64, "MinCoancestryPct2CoancestryRate( 0.0d0,  0.0d0, 1.0d0) failed")
+        @AssertEqual(0.5d0, MinCoancestryPct2CoancestryRate(50.0d0,  0.0d0, 1.0d0), TolR64, "MinCoancestryPct2CoancestryRate(50.0d0,  0.0d0, 1.0d0) failed")
+        @AssertEqual(0.0d0, MinCoancestryPct2CoancestryRate(50.0d0, -1.0d0, 1.0d0), TolR64, "MinCoancestryPct2CoancestryRate(50.0d0, -1.0d0, 1.0d0) failed")
       end subroutine
 
       !#########################################################################
 
       @test
-      subroutine TestCoancestryRate2MinPct
+      subroutine TestCoancestryRate2MinCoancestryPct
         implicit none
-        @AssertEqual( 0.0d0, CoancestryRate2MinPct(1.0d0,  0.0d0, 1.0d0), TolR64, "CoancestryRate2MinPct(1.0d0,  0.0d0, 1.0d0) failed")
-        @AssertEqual(50.0d0, CoancestryRate2MinPct(0.5d0,  0.0d0, 1.0d0), TolR64, "CoancestryRate2MinPct(0.5d0,  0.0d0, 1.0d0) failed")
-        @AssertEqual(50.0d0, CoancestryRate2MinPct(0.0d0, -1.0d0, 1.0d0), TolR64, "CoancestryRate2MinPct(0.0d0, -1.0d0, 1.0d0) failed")
+        @AssertEqual( 0.0d0, CoancestryRate2MinCoancestryPct(1.0d0,  0.0d0, 1.0d0), TolR64, "CoancestryRate2MinCoancestryPct(1.0d0,  0.0d0, 1.0d0) failed")
+        @AssertEqual(50.0d0, CoancestryRate2MinCoancestryPct(0.5d0,  0.0d0, 1.0d0), TolR64, "CoancestryRate2MinCoancestryPct(0.5d0,  0.0d0, 1.0d0) failed")
+        @AssertEqual(50.0d0, CoancestryRate2MinCoancestryPct(0.0d0, -1.0d0, 1.0d0), TolR64, "CoancestryRate2MinCoancestryPct(0.0d0, -1.0d0, 1.0d0) failed")
       end subroutine
 
       !#########################################################################
 
       @test
-      subroutine TestMaxPct2SelIntensity
+      subroutine TestMaxCriterionPct2SelIntensity
         implicit none
-        @AssertEqual(0.0d0, MaxPct2SelIntensity(  0.0d0,  0.0d0, 1.0d0), TolR64, "MaxPct2SelIntensity(  0.0d0,  0.0d0, 1.0d0) failed")
-        @AssertEqual(0.5d0, MaxPct2SelIntensity( 50.0d0,  0.0d0, 1.0d0), TolR64, "MaxPct2SelIntensity( 50.0d0,  0.0d0, 1.0d0) failed")
-        @AssertEqual(1.0d0, MaxPct2SelIntensity(100.0d0,  0.0d0, 1.0d0), TolR64, "MaxPct2SelIntensity(100.0d0,  0.0d0, 1.0d0) failed")
-        @AssertEqual(0.0d0, MaxPct2SelIntensity( 50.0d0, -1.0d0, 1.0d0), TolR64, "MaxPct2SelIntensity( 50.0d0, -1.0d0, 1.0d0) failed")
+        @AssertEqual(0.0d0, MaxCriterionPct2SelIntensity(  0.0d0,  0.0d0, 1.0d0), TolR64, "MaxCriterionPct2SelIntensity(  0.0d0,  0.0d0, 1.0d0) failed")
+        @AssertEqual(0.5d0, MaxCriterionPct2SelIntensity( 50.0d0,  0.0d0, 1.0d0), TolR64, "MaxCriterionPct2SelIntensity( 50.0d0,  0.0d0, 1.0d0) failed")
+        @AssertEqual(1.0d0, MaxCriterionPct2SelIntensity(100.0d0,  0.0d0, 1.0d0), TolR64, "MaxCriterionPct2SelIntensity(100.0d0,  0.0d0, 1.0d0) failed")
+        @AssertEqual(0.0d0, MaxCriterionPct2SelIntensity( 50.0d0, -1.0d0, 1.0d0), TolR64, "MaxCriterionPct2SelIntensity( 50.0d0, -1.0d0, 1.0d0) failed")
       end subroutine
 
       !#########################################################################
 
       @test
-      subroutine TestSelIntensity2MaxPct
+      subroutine TestSelIntensity2MaxCriterionPct
         implicit none
-        @AssertEqual(  0.0d0, SelIntensity2MaxPct( 0.0d0,  0.0d0, 1.0d0), TolR64, "SelIntensity2MaxPct(0.0d0,  0.0d0, 1.0d0) failed")
-        @AssertEqual( 50.0d0, SelIntensity2MaxPct( 0.5d0,  0.0d0, 1.0d0), TolR64, "SelIntensity2MaxPct(0.5d0,  0.0d0, 1.0d0) failed")
-        @AssertEqual(100.0d0, SelIntensity2MaxPct( 1.0d0,  0.0d0, 1.0d0), TolR64, "SelIntensity2MaxPct(1.0d0,  0.0d0, 1.0d0) failed")
-        @AssertEqual( 50.0d0, SelIntensity2MaxPct( 0.0d0, -1.0d0, 1.0d0), TolR64, "SelIntensity2MaxPct(0.0d0, -1.0d0, 1.0d0) failed")
+        @AssertEqual(  0.0d0, SelIntensity2MaxCriterionPct( 0.0d0,  0.0d0, 1.0d0), TolR64, "SelIntensity2MaxCriterionPct(0.0d0,  0.0d0, 1.0d0) failed")
+        @AssertEqual( 50.0d0, SelIntensity2MaxCriterionPct( 0.5d0,  0.0d0, 1.0d0), TolR64, "SelIntensity2MaxCriterionPct(0.5d0,  0.0d0, 1.0d0) failed")
+        @AssertEqual(100.0d0, SelIntensity2MaxCriterionPct( 1.0d0,  0.0d0, 1.0d0), TolR64, "SelIntensity2MaxCriterionPct(1.0d0,  0.0d0, 1.0d0) failed")
+        @AssertEqual( 50.0d0, SelIntensity2MaxCriterionPct( 0.0d0, -1.0d0, 1.0d0), TolR64, "SelIntensity2MaxCriterionPct(0.0d0, -1.0d0, 1.0d0) failed")
       end subroutine
 
       !#########################################################################
