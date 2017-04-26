@@ -1172,36 +1172,216 @@ module AlphaMateModule
                 stop 1
               end if
 
-            ! case ("targetmaxcriterionpct")
-            !   if (allocated(Second)) then
-            !     This%TargetMaxCriterionPctGiven = .true.
-            !     This%TargetMaxCriterionPct = Char2Double(trim(adjustl(Second(1))))
-            !     if (LogStdoutInternal) then
-            !       write(STDOUT, "(a)") " ModeMaxCriterion percentage: "//trim(Real2Char(This%TargetMaxCriterionPct, fmt=FMTREAL2CHAR))
-            !     end if
-            !     if (This%TargetMaxCriterionPct .lt. 0.0d0 .or. This%TargetMaxCriterionPct .gt. 100.0d0) then
-            !       write(STDERR, "(a)") "ERROR: TargetMaxCriterionPct must be between 0 and 100!"
-            !       write(STDERR, "(a)") " "
-            !       stop 1
-            !     end if
-            !   else
-            !     write(STDERR, "(a)") " ERROR: Must specify a value for TargetMaxCriterionPct, i.e., TargetMaxCriterionPct, 10"
-            !     write(STDERR, "(a)") " "
-            !     stop 1
-            !   end if
+            case ("targetselcriterion")
+              if (allocated(Second)) then
+                This%ModeOpt = .true.
+                This%TargetSelCriterionGiven = .true.
+                This%nTargets = This%nTargets + 1
+                block
+                  integer(int32) :: n
+                  real(real64), allocatable :: Tmp(:)
+                  if (allocated(This%TargetSelCriterion)) then
+                    n = size(This%TargetSelCriterion)
+                    allocate(Tmp(n))
+                    Tmp = This%TargetSelCriterion
+                    deallocate(This%TargetSelCriterion)
+                    allocate(This%TargetSelCriterion(n + 1))
+                    This%TargetSelCriterion(1:n) = Tmp
+                    n = n + 1
+                  else
+                    n = 1
+                    allocate(This%TargetSelCriterion(n))
+                  end if
+                  This%TargetSelCriterion(n) = Char2Double(trim(adjustl(Second(1))))
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Targeted selection criterion: "//trim(Real2Char(This%TargetSelCriterion(n), fmt=FMTREAL2CHAR))
+                  end if
+                end block
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a value for TargetSelCriterion, i.e., TargetSelCriterion, 100"
+                write(STDERR, "(a)") " "
+                stop 1
+              end if
 
-            ! case ("targetcoancestryrate")
-            !   if (allocated(Second)) then
-            !     This%TargetCoancestryRateGiven = .true.
-            !     This%TargetCoancestryRate = Char2Double(trim(adjustl(Second(1))))
-            !     if (LogStdoutInternal) then
-            !       write(STDOUT, "(a)") " Targeted rate of coancestry: "//trim(Real2Char(This%TargetCoancestryRate, fmt=FMTREAL2CHAR))
-            !     end if
-            !   else
-            !     write(STDERR, "(a)") " ERROR: Must specify a value for TargetedRateOfCoancestry, i.e., TargetedRateOfCoancestry, 0.01"
-            !     write(STDERR, "(a)") " "
-            !     stop 1
-            !   end if
+            case ("targetselintensity")
+              if (allocated(Second)) then
+                This%ModeOpt = .true.
+                This%TargetSelIntensityGiven = .true.
+                This%nTargets = This%nTargets + 1
+                block
+                  integer(int32) :: n
+                  real(real64), allocatable :: Tmp(:)
+                  if (allocated(This%TargetSelIntensity)) then
+                    n = size(This%TargetSelIntensity)
+                    allocate(Tmp(n))
+                    Tmp = This%TargetSelIntensity
+                    deallocate(This%TargetSelIntensity)
+                    allocate(This%TargetSelIntensity(n + 1))
+                    This%TargetSelIntensity(1:n) = Tmp
+                    n = n + 1
+                  else
+                    n = 1
+                    allocate(This%TargetSelIntensity(n))
+                  end if
+                  This%TargetSelIntensity(n) = Char2Double(trim(adjustl(Second(1))))
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Targeted selection intensity: "//trim(Real2Char(This%TargetSelIntensity(n), fmt=FMTREAL2CHAR))
+                  end if
+                  if ((This%TargetSelIntensity(n) .lt. 0.0d0) .or. (This%TargetSelIntensity(n) .gt. 5.0d0)) then
+                    write(STDERR, "(a)") "ERROR: TargetSelIntensity must be above 0 and (probably) bellow 5!"
+                    write(STDERR, "(a)") " "
+                    stop 1
+                  end if
+                end block
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a value for TargetSelIntensity, i.e., TargetSelIntensity, 2"
+                write(STDERR, "(a)") " "
+                stop 1
+              end if
+
+            case ("targetmaxcriterionpct")
+              if (allocated(Second)) then
+                This%ModeOpt = .true.
+                This%TargetMaxCriterionPctGiven = .true.
+                This%nTargets = This%nTargets + 1
+                block
+                  integer(int32) :: n
+                  real(real64), allocatable :: Tmp(:)
+                  if (allocated(This%TargetMaxCriterionPct)) then
+                    n = size(This%TargetMaxCriterionPct)
+                    allocate(Tmp(n))
+                    Tmp = This%TargetMaxCriterionPct
+                    deallocate(This%TargetMaxCriterionPct)
+                    allocate(This%TargetMaxCriterionPct(n + 1))
+                    This%TargetMaxCriterionPct(1:n) = Tmp
+                    n = n + 1
+                  else
+                    n = 1
+                    allocate(This%TargetMaxCriterionPct(n))
+                  end if
+                  This%TargetMaxCriterionPct(n) = Char2Double(trim(adjustl(Second(1))))
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Targeted percentage of maximum criterion: "//trim(Real2Char(This%TargetMaxCriterionPct(n), fmt=FMTREAL2CHAR))
+                  end if
+                  if ((This%TargetMaxCriterionPct(n) .lt. 0.0d0) .or. (This%TargetMaxCriterionPct(n) .gt. 100.0d0)) then
+                    write(STDERR, "(a)") "ERROR: TargetMaxCriterionPct must be between 0 and 100!"
+                    write(STDERR, "(a)") " "
+                    stop 1
+                  end if
+                end block
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a value for TargetMaxCriterionPct, i.e., TargetMaxCriterionPct, 90"
+                write(STDERR, "(a)") " "
+                stop 1
+              end if
+
+            case ("targetcoancestry")
+              if (allocated(Second)) then
+                This%ModeOpt = .true.
+                This%TargetCoancestryGiven = .true.
+                This%nTargets = This%nTargets + 1
+                block
+                  integer(int32) :: n
+                  real(real64), allocatable :: Tmp(:)
+                  if (allocated(This%TargetCoancestry)) then
+                    n = size(This%TargetCoancestry)
+                    allocate(Tmp(n))
+                    Tmp = This%TargetCoancestry
+                    deallocate(This%TargetCoancestry)
+                    allocate(This%TargetCoancestry(n + 1))
+                    This%TargetCoancestry(1:n) = Tmp
+                    n = n + 1
+                  else
+                    n = 1
+                    allocate(This%TargetCoancestry(n))
+                  end if
+                  This%TargetCoancestry(n) = Char2Double(trim(adjustl(Second(1))))
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Targeted coancestry: "//trim(Real2Char(This%TargetCoancestry(n), fmt=FMTREAL2CHAR))
+                  end if
+                  if ((This%TargetCoancestry(n) .lt. -1.0d0) .or. (This%TargetCoancestry(n) .gt. 1.0d0)) then
+                    write(STDERR, "(a)") "ERROR: TargetCoancestry must be between -1 and +1!"
+                    write(STDERR, "(a)") " "
+                    stop 1
+                  end if
+                end block
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a value for TargetCoancestry, i.e., TargetCoancestry, 0.31"
+                write(STDERR, "(a)") " "
+                stop 1
+              end if
+
+            case ("targetcoancestryrate")
+              if (allocated(Second)) then
+                This%ModeOpt = .true.
+                This%TargetCoancestryRateGiven = .true.
+                This%nTargets = This%nTargets + 1
+                block
+                  integer(int32) :: n
+                  real(real64), allocatable :: Tmp(:)
+                  if (allocated(This%TargetCoancestryRate)) then
+                    n = size(This%TargetCoancestryRate)
+                    allocate(Tmp(n))
+                    Tmp = This%TargetCoancestryRate
+                    deallocate(This%TargetCoancestryRate)
+                    allocate(This%TargetCoancestryRate(n + 1))
+                    This%TargetCoancestryRate(1:n) = Tmp
+                    n = n + 1
+                  else
+                    n = 1
+                    allocate(This%TargetCoancestryRate(n))
+                  end if
+                  This%TargetCoancestryRate(n) = Char2Double(trim(adjustl(Second(1))))
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Targeted rate of coancestry: "//trim(Real2Char(This%TargetCoancestryRate(n), fmt=FMTREAL2CHAR))
+                  end if
+                  if ((This%TargetCoancestryRate(n) .lt. -1.0d0) .or. (This%TargetCoancestryRate(n) .gt. 1.0d0)) then
+                    write(STDERR, "(a)") "ERROR: TargetCoancestryRate must be between -1 and +1!"
+                    write(STDERR, "(a)") " "
+                    stop 1
+                  end if
+                end block
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a value for TargetCoancestryRate, i.e., TargetCoancestryRate, 0.01"
+                write(STDERR, "(a)") " "
+                stop 1
+              end if
+
+            case ("targetmincoancestrypct")
+              if (allocated(Second)) then
+                This%ModeOpt = .true.
+                This%TargetMinCoancestryPctGiven = .true.
+                This%nTargets = This%nTargets + 1
+                block
+                  integer(int32) :: n
+                  real(real64), allocatable :: Tmp(:)
+                  if (allocated(This%TargetMinCoancestryPct)) then
+                    n = size(This%TargetMinCoancestryPct)
+                    allocate(Tmp(n))
+                    Tmp = This%TargetMinCoancestryPct
+                    deallocate(This%TargetMinCoancestryPct)
+                    allocate(This%TargetMinCoancestryPct(n + 1))
+                    This%TargetMinCoancestryPct(1:n) = Tmp
+                    n = n + 1
+                  else
+                    n = 1
+                    allocate(This%TargetMinCoancestryPct(n))
+                  end if
+                  This%TargetMinCoancestryPct(n) = Char2Double(trim(adjustl(Second(1))))
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Targeted percentage of minimum coancestry: "//trim(Real2Char(This%TargetMinCoancestryPct(n), fmt=FMTREAL2CHAR))
+                  end if
+                  if ((This%TargetMinCoancestryPct(n) .lt. 0.0d0) .or. (This%TargetMinCoancestryPct(n) .gt. 100.0d0)) then
+                    write(STDERR, "(a)") "ERROR: TargetMinCoancestryPct must be between 0 and 100!"
+                    write(STDERR, "(a)") " "
+                    stop 1
+                  end if
+                end block
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a value for TargetMinCoancestryPct, i.e., TargetMinCoancestryPct, 90"
+                write(STDERR, "(a)") " "
+                stop 1
+              end if
 
             case ("coancestryweight")
               if (allocated(Second)) then
@@ -1232,33 +1412,136 @@ module AlphaMateModule
                 stop 1
               end if
 
-            ! case ("targetmincoancestrypct")
-            !   if (allocated(Second)) then
-            !     This%TargetMinCoancestryPctGiven = .true.
-            !     This%TargetMinCoancestryPct = Char2Double(trim(adjustl(Second(1))))
-            !     if (LogStdoutInternal) then
-            !       write(STDOUT, "(a)") " ModeMinCoancestry percentage: "//trim(Real2Char(This%TargetMinCoancestryPct, fmt=FMTREAL2CHAR))
-            !     end if
-            !     if (This%TargetMinCoancestryPct .lt. 0.0d0 .or. This%TargetMinCoancestryPct .gt. 100.0d0) then
-            !       write(STDERR, "(a)") "ERROR: TargetMinCoancestryPct must be between 0 and 100!"
-            !       write(STDERR, "(a)") " "
-            !       stop 1
-            !     end if
-            !   else
-            !     write(STDERR, "(a)") " ERROR: Must specify a value for TargetMinCoancestryPct, i.e., TargetMinCoancestryPct, 10"
-            !     write(STDERR, "(a)") " "
-            !     stop 1
-            !   end if
+            case ("targetinbreeding")
+              if (allocated(Second)) then
+                This%TargetInbreedingGiven = .true.
+                ! This%nTargets = This%nTargets + 1
+                ! block
+                !   integer(int32) :: n
+                !   real(real64), allocatable :: Tmp(:)
+                !   if (allocated(This%TargetInbreeding)) then
+                !     n = size(This%TargetInbreeding)
+                !     allocate(Tmp(n))
+                !     Tmp = This%TargetInbreeding
+                !     deallocate(This%TargetInbreeding)
+                !     allocate(This%TargetInbreeding(n + 1))
+                !     This%TargetInbreeding(1:n) = Tmp
+                !     n = n + 1
+                !   else
+                !     n = 1
+                !     allocate(This%TargetInbreeding(n))
+                !   end if
+                !   This%TargetInbreeding(n) = Char2Double(trim(adjustl(Second(1))))
+                !   if (LogStdoutInternal) then
+                !     write(STDOUT, "(a)") " Targeted inbreding: "//trim(Real2Char(This%TargetInbreeding(n), fmt=FMTREAL2CHAR))
+                !   end if
+                !   if ((This%TargetInbreeding(n) .lt. -1.0d0) .or. (This%TargetInbreeding(n) .gt. 1.0d0)) then
+                !     write(STDERR, "(a)") "ERROR: TargetInbreeding must be between -1 and +1!"
+                !     write(STDERR, "(a)") " "
+                !     stop 1
+                !   end if
+                ! end block
+                This%TargetInbreeding = Char2Double(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Targeted inbreding: "//trim(Real2Char(This%TargetInbreeding, fmt=FMTREAL2CHAR))
+                end if
+                if ((This%TargetInbreeding .lt. -1.0d0) .or. (This%TargetInbreeding .gt. 1.0d0)) then
+                  write(STDERR, "(a)") "ERROR: TargetInbreeding must be between -1 and +1!"
+                  write(STDERR, "(a)") " "
+                  stop 1
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a value for TargetInbreeding, i.e., TargetInbreeding, 0.31"
+                write(STDERR, "(a)") " "
+                stop 1
+              end if
 
             case ("targetinbreedingrate")
               if (allocated(Second)) then
+                This%ModeOpt = .true.
                 This%TargetInbreedingRateGiven = .true.
+                ! This%nTargets = This%nTargets + 1
+                ! block
+                !   integer(int32) :: n
+                !   real(real64), allocatable :: Tmp(:)
+                !   if (allocated(This%TargetInbreedingRate)) then
+                !     n = size(This%TargetInbreedingRate)
+                !     allocate(Tmp(n))
+                !     Tmp = This%TargetInbreedingRate
+                !     deallocate(This%TargetInbreedingRate)
+                !     allocate(This%TargetInbreedingRate(n + 1))
+                !     This%TargetInbreedingRate(1:n) = Tmp
+                !     n = n + 1
+                !   else
+                !     n = 1
+                !     allocate(This%TargetInbreedingRate(n))
+                !   end if
+                !   This%TargetInbreedingRate(n) = Char2Double(trim(adjustl(Second(1))))
+                !   if (LogStdoutInternal) then
+                !     write(STDOUT, "(a)") " Targeted rate of inbreeding: "//trim(Real2Char(This%TargetInbreedingRate(n), fmt=FMTREAL2CHAR))
+                !   end if
+                !   if ((This%TargetInbreedingRate(n) .lt. -1.0d0) .or. (This%TargetInbreedingRate(n) .gt. 1.0d0)) then
+                !     write(STDERR, "(a)") "ERROR: TargetInbreedingRate must be between -1 and +1!"
+                !     write(STDERR, "(a)") " "
+                !     stop 1
+                !   end if
+                ! end block
                 This%TargetInbreedingRate = Char2Double(trim(adjustl(Second(1))))
                 if (LogStdoutInternal) then
                   write(STDOUT, "(a)") " Targeted rate of inbreeding: "//trim(Real2Char(This%TargetInbreedingRate, fmt=FMTREAL2CHAR))
                 end if
+                if ((This%TargetInbreedingRate .lt. -1.0d0) .or. (This%TargetInbreedingRate .gt. 1.0d0)) then
+                  write(STDERR, "(a)") "ERROR: TargetInbreedingRate must be between -1 and +1!"
+                  write(STDERR, "(a)") " "
+                  stop 1
+                end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify a value for TargetInbreedingRate, i.e., TargetInbreedingRate, 0.01"
+                write(STDERR, "(a)") " "
+                stop 1
+              end if
+
+            case ("targetmininbreedingpct")
+              if (allocated(Second)) then
+                This%ModeOpt = .true.
+                This%TargetMinInbreedingPctGiven = .true.
+                ! This%nTargets = This%nTargets + 1
+                ! block
+                !   integer(int32) :: n
+                !   real(real64), allocatable :: Tmp(:)
+                !   if (allocated(This%TargetMinInbreedingPct)) then
+                !     n = size(This%TargetMinInbreedingPct)
+                !     allocate(Tmp(n))
+                !     Tmp = This%TargetMinInbreedingPct
+                !     deallocate(This%TargetMinInbreedingPct)
+                !     allocate(This%TargetMinInbreedingPct(n + 1))
+                !     This%TargetMinInbreedingPct(1:n) = Tmp
+                !     n = n + 1
+                !   else
+                !     n = 1
+                !     allocate(This%TargetMinInbreedingPct(n))
+                !   end if
+                !   This%TargetMinInbreedingPct(n) = Char2Double(trim(adjustl(Second(1))))
+                !   if (LogStdoutInternal) then
+                !     write(STDOUT, "(a)") " Targeted percentage of minimum inbreeding: "//trim(Real2Char(This%TargetMinInbreedingPct(n), fmt=FMTREAL2CHAR))
+                !   end if
+                !   if ((This%TargetMinInbreedingPct(n) .lt. 0.0d0) .or. (This%TargetMinInbreedingPct(n) .gt. 100.0d0)) then
+                !     write(STDERR, "(a)") "ERROR: TargetMinInbreedingPct must be between 0 and 100!"
+                !     write(STDERR, "(a)") " "
+                !     stop 1
+                !   end if
+                ! end block
+                This%TargetMinInbreedingPct = Char2Double(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Targeted percentage of minimum inbreeding: "//trim(Real2Char(This%TargetMinInbreedingPct, fmt=FMTREAL2CHAR))
+                end if
+                if ((This%TargetMinInbreedingPct .lt. 0.0d0) .or. (This%TargetMinInbreedingPct .gt. 100.0d0)) then
+                  write(STDERR, "(a)") "ERROR: TargetMinInbreedingPct must be between 0 and 100!"
+                  write(STDERR, "(a)") " "
+                  stop 1
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a value for TargetMinInbreedingPct, i.e., TargetMinInbreedingPct, 90"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
