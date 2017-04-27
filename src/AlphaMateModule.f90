@@ -2842,39 +2842,48 @@ module AlphaMateModule
       class(AlphaMateModeSpec), intent(in) :: This !< AlphaMateModeSpec holder
       type(AlphaMateSpec), intent(in)      :: Spec !< AlphaMateSpec holder
       integer(int32), intent(in)           :: Unit !< Unit to write to
-      write(Unit, "(a)") "   Selection intensity / selection criterion"
-      write(Unit, "(a)") "     @MinCoancestry: "//trim(Real2Char(Spec%ModeMinCoancestrySpec%SelIntensity, fmt=FMTREAL2CHAR))//&
-                         " /"//trim(Real2Char(Spec%ModeMinCoancestrySpec%SelCriterion, fmt=FMTREAL2CHAR))
-      write(Unit, "(a)") "     @MaxCriterion:  "//trim(Real2Char(Spec%ModeMaxCriterionSpec%SelIntensity, fmt=FMTREAL2CHAR))//&
-                         " /"//trim(Real2Char(Spec%ModeMaxCriterionSpec%SelCriterion, fmt=FMTREAL2CHAR))
-      write(Unit, "(a)") "     Pct of max:     "//trim(Real2Char(This%TargetMaxCriterionPct, fmt="(f7.1)"))
-      write(Unit, "(a)") "     Target:         "//trim(Real2Char(This%TargetSelIntensity, fmt=FMTREAL2CHAR))//&
-                         " /"//trim(Real2Char(This%TargetSelCriterion, fmt=FMTREAL2CHAR))
-      write(Unit, "(a)") " "
 
-      write(Unit, "(a)") "   Coancestry rate / coancestry coefficient"
-      write(Unit, "(a)") "     @MinCoancestry: "//trim(Real2Char(Spec%ModeMinCoancestrySpec%CoancestryRate, fmt=FMTREAL2CHAR))//&
-                         " /"//trim(Real2Char(Spec%ModeMinCoancestrySpec%Coancestry, fmt=FMTREAL2CHAR))
-      write(Unit, "(a)") "     @MaxCriterion:  "//trim(Real2Char(Spec%ModeMaxCriterionSpec%CoancestryRate, fmt=FMTREAL2CHAR))//&
-                         " /"//trim(Real2Char(Spec%ModeMaxCriterionSpec%Coancestry, fmt=FMTREAL2CHAR))
-      write(Unit, "(a)") "     Pct of min:     "//trim(Real2Char(This%TargetMinCoancestryPct, fmt="(f7.1)"))
-      write(Unit, "(a)") "     Target:         "//trim(Real2Char(This%TargetCoancestryRate, fmt=FMTREAL2CHAR))//&
-                         " /"//trim(Real2Char(This%TargetCoancestry, fmt=FMTREAL2CHAR))
-      write(Unit, "(a)") " "
+      if (This%ObjectiveCriterion) then
+        write(Unit, "(a)") "   Selection intensity / selection criterion"
+        write(Unit, "(a)") "     @MinCoancestry: "//trim(Real2Char(Spec%ModeMinCoancestrySpec%SelIntensity, fmt=FMTREAL2CHAR))//&
+                          " /"//trim(Real2Char(Spec%ModeMinCoancestrySpec%SelCriterion, fmt=FMTREAL2CHAR))
+        write(Unit, "(a)") "     @MaxCriterion:  "//trim(Real2Char(Spec%ModeMaxCriterionSpec%SelIntensity, fmt=FMTREAL2CHAR))//&
+                          " /"//trim(Real2Char(Spec%ModeMaxCriterionSpec%SelCriterion, fmt=FMTREAL2CHAR))
+        write(Unit, "(a)") "     Pct of max:     "//trim(Real2Char(This%TargetMaxCriterionPct, fmt="(f7.1)"))
+        write(Unit, "(a)") "     Target:         "//trim(Real2Char(This%TargetSelIntensity, fmt=FMTREAL2CHAR))//&
+                          " /"//trim(Real2Char(This%TargetSelCriterion, fmt=FMTREAL2CHAR))
+        write(Unit, "(a)") " "
+      end if
 
-      write(Unit, "(a)") "   Degree"
-      write(Unit, "(a)") "     Target:     "//trim(Real2Char(This%TargetDegree, fmt="(f7.1)"))
-      write(Unit, "(a)") " "
+      if (This%ObjectiveCoancestry) then
+        write(Unit, "(a)") "   Coancestry rate / coancestry coefficient"
+        write(Unit, "(a)") "     @MinCoancestry: "//trim(Real2Char(Spec%ModeMinCoancestrySpec%CoancestryRate, fmt=FMTREAL2CHAR))//&
+                          " /"//trim(Real2Char(Spec%ModeMinCoancestrySpec%Coancestry, fmt=FMTREAL2CHAR))
+        write(Unit, "(a)") "     @MaxCriterion:  "//trim(Real2Char(Spec%ModeMaxCriterionSpec%CoancestryRate, fmt=FMTREAL2CHAR))//&
+                          " /"//trim(Real2Char(Spec%ModeMaxCriterionSpec%Coancestry, fmt=FMTREAL2CHAR))
+        write(Unit, "(a)") "     Pct of min:     "//trim(Real2Char(This%TargetMinCoancestryPct, fmt="(f7.1)"))
+        write(Unit, "(a)") "     Target:         "//trim(Real2Char(This%TargetCoancestryRate, fmt=FMTREAL2CHAR))//&
+                          " /"//trim(Real2Char(This%TargetCoancestry, fmt=FMTREAL2CHAR))
+        write(Unit, "(a)") " "
+      end if
 
-      write(Unit, "(a)") "   Inbreeding rate / inbreeding coefficient"
-      write(Unit, "(a)") "     @MinInbreeding: "//trim(Real2Char(Spec%ModeMinInbreedingSpec%Inbreedingrate, fmt=FMTREAL2CHAR))//&
-                         " /"//trim(Real2Char(Spec%ModeMinInbreedingSpec%Inbreeding, fmt=FMTREAL2CHAR))
-      write(Unit, "(a)") "     MaxInbreeding:  "//trim(Real2Char(+1.0d0, fmt=FMTREAL2CHAR))//&
-                         " / ???"
-      write(Unit, "(a)") "     Pct of min:     "//trim(Real2Char(This%TargetMinInbreedingPct, fmt="(f7.1)"))
-      write(Unit, "(a)") "     Target:         "//trim(Real2Char(This%TargetInbreedingRate, fmt=FMTREAL2CHAR))//&
-                         " /"//trim(Real2Char(This%TargetInbreeding, fmt=FMTREAL2CHAR))
-      write(Unit, "(a)") " "
+      if (This%ObjectiveCriterion .and. This%ObjectiveCoancestry) then
+        write(Unit, "(a)") "   Degree"
+        write(Unit, "(a)") "     Target:     "//trim(Real2Char(This%TargetDegree, fmt="(f7.1)"))
+        write(Unit, "(a)") " "
+      end if
+
+      if (This%ObjectiveInbreeding) then
+        write(Unit, "(a)") "   Inbreeding rate / inbreeding coefficient"
+        write(Unit, "(a)") "     @MinInbreeding: "//trim(Real2Char(Spec%ModeMinInbreedingSpec%Inbreedingrate, fmt=FMTREAL2CHAR))//&
+                          " /"//trim(Real2Char(Spec%ModeMinInbreedingSpec%Inbreeding, fmt=FMTREAL2CHAR))
+        write(Unit, "(a)") "     MaxInbreeding:  "//trim(Real2Char(+1.0d0, fmt=FMTREAL2CHAR))//&
+                          " / ???"
+        write(Unit, "(a)") "     Pct of min:     "//trim(Real2Char(This%TargetMinInbreedingPct, fmt="(f7.1)"))
+        write(Unit, "(a)") "     Target:         "//trim(Real2Char(This%TargetInbreedingRate, fmt=FMTREAL2CHAR))//&
+                          " /"//trim(Real2Char(This%TargetInbreeding, fmt=FMTREAL2CHAR))
+        write(Unit, "(a)") " "
+      end if
     end subroutine
 
     !###########################################################################
