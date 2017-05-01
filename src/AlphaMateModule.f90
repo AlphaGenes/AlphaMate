@@ -4509,7 +4509,7 @@ module AlphaMateModule
     subroutine AlphaMateSearch(Spec, Data, LogStdout) ! not pure due to IO
       implicit none
       type(AlphaMateSpec), intent(inout) :: Spec      !< AlphaMateSpec holder (out because we set and reset some parameters for different search modes)
-      type(AlphaMateData), intent(inout) :: Data      !< AlphaMateData holder (out because we set and reset some parameters for different search modes)
+      type(AlphaMateData), intent(in)    :: Data      !< AlphaMateData holder (out because we set and reset some parameters for different search modes)
       logical, intent(in), optional      :: LogStdout !< Log process on stdout (default .false.)
 
       type(AlphaMateSol) :: SolMinCoancestry, SolMinInbreeding, SolMaxCriterion, Sol !< For frontier modes and random mating (no optimisation) mode

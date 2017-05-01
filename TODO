@@ -1,13 +1,14 @@
 
-TODO ModeOpt loop over all the targets in the spec file and then loop over in the AlphaMateSearch
-
 TODO ModeRan
   - any good?
 
 --- BIOLOGICAL CONSIDERATIONS ---
 
-* Random mating vs mating plan
+* Random mating vs mating plan, i.e., mate allocation
   https://en.wikipedia.org/wiki/Iterative_proportional_fitting
+* Future RelMat and realized CoaRate etc.
+
+* coancestry summary on whole rel matrix or just triangle of it?
 
 * How do we handle when nMat > nDam? Are we mating one dam with several sires?
 * MOET, JIVET, ... any other reproductive technologies?
@@ -106,6 +107,8 @@ Pareto front calculations
 
 * Only partial sort/rank with ORDERPACK could speed up eval a lot.
   http://www.physics.rutgers.edu/~diablo/#3.1
+
+* Split components in the solution to simplify code and potentially speed it up
 
 * Parallelisation via OpenMP
   Option A) parallelise differential evolution algorithm (parallel evaluation of solutions, is this needed?)
