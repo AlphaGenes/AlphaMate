@@ -56,7 +56,8 @@ module AlphaMateModule
   use, intrinsic :: IEEE_Arithmetic
   use ConstantModule, only : FILELENGTH, SPECOPTIONLENGTH, IDLENGTH, RAD2DEG, DEG2RAD
   use OrderPackModule, only : MrgRnk
-  use AlphaHouseMod, only : CountLines, Char2Int, Char2Double, Int2Char, Real2Char, &
+  use AlphaHouseMod, only : Append, CountLines, &
+                            Char2Int, Char2Double, Int2Char, Real2Char, &
                             RandomOrder, SetSeed, ToLower, FindLoc, &
                             ParseToFirstWhitespace, SplitLineIntoTwoParts
   use AlphaStatMod, only : Mean, DescStat, DescStatReal64, &
@@ -169,6 +170,8 @@ module AlphaMateModule
     ! Search mode specifications
     logical :: ModeMinCoancestry, ModeMinInbreeding, ModeMaxCriterion, ModeOpt, ModeRan, EvaluateFrontier
     integer(int32) :: nTargets
+    character(len=SPECOPTIONLENGTH), allocatable :: AllTargets(:)
+    real(real64), allocatable :: AllTargetValues(:)
 
     ! Biological specifications
     logical :: NrmInsteadOfCoancestry
@@ -465,6 +468,9 @@ module AlphaMateModule
       This%nPar2 = 0
 
       This%nTargets = 0
+      ! This%AllTargets ! allocatable so skip here
+      ! This%AllTargetValues ! allocatable so skip here
+
       This%TargetDegreeGiven = .false.
       ! This%TargetDegree ! allocatable so skip here
 
@@ -595,7 +601,19 @@ module AlphaMateModule
       write(Unit, *) "ModeMaxCriterion: ",  This%ModeMaxCriterion
       write(Unit, *) "ModeRan: ",  This%ModeRan
       write(Unit, *) "ModeOpt: ",  This%ModeOpt
+
+
       write(Unit, *) "nTargets: ", This%nTargets
+      if (allocated(This%AllTargets)) then
+        write(Unit, *) "AllTargets: ", This%AllTargets
+      else
+        write(Unit, *) "AllTargets: not allocated"
+      end if
+      if (allocated(This%AllTargetValues)) then
+        write(Unit, *) "AllTargetValues: ", This%AllTargetValues
+      else
+        write(Unit, *) "AllTargetValues: not allocated"
+      end if
 
       ! Biological specifications
 
@@ -1143,20 +1161,12 @@ module AlphaMateModule
                 This%nTargets = This%nTargets + 1
                 block
                   integer(int32) :: n
-                  real(real64), allocatable :: Tmp(:)
-                  if (allocated(This%TargetDegree)) then
-                    n = size(This%TargetDegree)
-                    allocate(Tmp(n))
-                    Tmp = This%TargetDegree
-                    deallocate(This%TargetDegree)
-                    allocate(This%TargetDegree(n + 1))
-                    This%TargetDegree(1:n) = Tmp
-                    n = n + 1
-                  else
-                    n = 1
-                    allocate(This%TargetDegree(n))
-                  end if
-                  This%TargetDegree(n) = Char2Double(trim(adjustl(Second(1))))
+                  real(real64) :: Tmp
+                  Tmp = Char2Double(trim(adjustl(Second(1))))
+                  call Append(x=This%TargetDegree, y=Tmp)
+                  n = size(This%TargetDegree)
+                  call Append(x=This%AllTargetValues, y=Tmp)
+                  call Append(x=This%AllTargets,      y="Degree", Len=SPECOPTIONLENGTH)
                   if (LogStdoutInternal) then
                     write(STDOUT, "(a)") " Targeted degree: "//trim(Real2Char(This%TargetDegree(n), fmt=FMTREAL2CHAR))
                   end if
@@ -1179,20 +1189,12 @@ module AlphaMateModule
                 This%nTargets = This%nTargets + 1
                 block
                   integer(int32) :: n
-                  real(real64), allocatable :: Tmp(:)
-                  if (allocated(This%TargetSelCriterion)) then
-                    n = size(This%TargetSelCriterion)
-                    allocate(Tmp(n))
-                    Tmp = This%TargetSelCriterion
-                    deallocate(This%TargetSelCriterion)
-                    allocate(This%TargetSelCriterion(n + 1))
-                    This%TargetSelCriterion(1:n) = Tmp
-                    n = n + 1
-                  else
-                    n = 1
-                    allocate(This%TargetSelCriterion(n))
-                  end if
-                  This%TargetSelCriterion(n) = Char2Double(trim(adjustl(Second(1))))
+                  real(real64) :: Tmp
+                  Tmp = Char2Double(trim(adjustl(Second(1))))
+                  call Append(x=This%TargetSelCriterion, y=Tmp)
+                  n = size(This%TargetSelCriterion)
+                  call Append(x=This%AllTargetValues, y=Tmp)
+                  call Append(x=This%AllTargets,      y="SelCriterion", Len=SPECOPTIONLENGTH)
                   if (LogStdoutInternal) then
                     write(STDOUT, "(a)") " Targeted selection criterion: "//trim(Real2Char(This%TargetSelCriterion(n), fmt=FMTREAL2CHAR))
                   end if
@@ -1210,20 +1212,12 @@ module AlphaMateModule
                 This%nTargets = This%nTargets + 1
                 block
                   integer(int32) :: n
-                  real(real64), allocatable :: Tmp(:)
-                  if (allocated(This%TargetSelIntensity)) then
-                    n = size(This%TargetSelIntensity)
-                    allocate(Tmp(n))
-                    Tmp = This%TargetSelIntensity
-                    deallocate(This%TargetSelIntensity)
-                    allocate(This%TargetSelIntensity(n + 1))
-                    This%TargetSelIntensity(1:n) = Tmp
-                    n = n + 1
-                  else
-                    n = 1
-                    allocate(This%TargetSelIntensity(n))
-                  end if
-                  This%TargetSelIntensity(n) = Char2Double(trim(adjustl(Second(1))))
+                  real(real64) :: Tmp
+                  Tmp = Char2Double(trim(adjustl(Second(1))))
+                  call Append(x=This%TargetSelIntensity, y=Tmp)
+                  n = size(This%TargetSelIntensity)
+                  call Append(x=This%AllTargetValues, y=Tmp)
+                  call Append(x=This%AllTargets,      y="SelIntensity", Len=SPECOPTIONLENGTH)
                   if (LogStdoutInternal) then
                     write(STDOUT, "(a)") " Targeted selection intensity: "//trim(Real2Char(This%TargetSelIntensity(n), fmt=FMTREAL2CHAR))
                   end if
@@ -1246,20 +1240,12 @@ module AlphaMateModule
                 This%nTargets = This%nTargets + 1
                 block
                   integer(int32) :: n
-                  real(real64), allocatable :: Tmp(:)
-                  if (allocated(This%TargetMaxCriterionPct)) then
-                    n = size(This%TargetMaxCriterionPct)
-                    allocate(Tmp(n))
-                    Tmp = This%TargetMaxCriterionPct
-                    deallocate(This%TargetMaxCriterionPct)
-                    allocate(This%TargetMaxCriterionPct(n + 1))
-                    This%TargetMaxCriterionPct(1:n) = Tmp
-                    n = n + 1
-                  else
-                    n = 1
-                    allocate(This%TargetMaxCriterionPct(n))
-                  end if
-                  This%TargetMaxCriterionPct(n) = Char2Double(trim(adjustl(Second(1))))
+                  real(real64) :: Tmp
+                  Tmp = Char2Double(trim(adjustl(Second(1))))
+                  call Append(x=This%TargetMaxCriterionPct, y=Tmp)
+                  n = size(This%TargetMaxCriterionPct)
+                  call Append(x=This%AllTargetValues, y=Tmp)
+                  call Append(x=This%AllTargets,      y="MaxCriterionPct", Len=SPECOPTIONLENGTH)
                   if (LogStdoutInternal) then
                     write(STDOUT, "(a)") " Targeted percentage of maximum criterion: "//trim(Real2Char(This%TargetMaxCriterionPct(n), fmt=FMTREAL2CHAR))
                   end if
@@ -1282,20 +1268,12 @@ module AlphaMateModule
                 This%nTargets = This%nTargets + 1
                 block
                   integer(int32) :: n
-                  real(real64), allocatable :: Tmp(:)
-                  if (allocated(This%TargetCoancestry)) then
-                    n = size(This%TargetCoancestry)
-                    allocate(Tmp(n))
-                    Tmp = This%TargetCoancestry
-                    deallocate(This%TargetCoancestry)
-                    allocate(This%TargetCoancestry(n + 1))
-                    This%TargetCoancestry(1:n) = Tmp
-                    n = n + 1
-                  else
-                    n = 1
-                    allocate(This%TargetCoancestry(n))
-                  end if
-                  This%TargetCoancestry(n) = Char2Double(trim(adjustl(Second(1))))
+                  real(real64) :: Tmp
+                  Tmp = Char2Double(trim(adjustl(Second(1))))
+                  call Append(x=This%TargetCoancestry, y=Tmp)
+                  n = size(This%TargetCoancestry)
+                  call Append(x=This%AllTargetValues, y=Tmp)
+                  call Append(x=This%AllTargets,      y="Coancestry", Len=SPECOPTIONLENGTH)
                   if (LogStdoutInternal) then
                     write(STDOUT, "(a)") " Targeted coancestry: "//trim(Real2Char(This%TargetCoancestry(n), fmt=FMTREAL2CHAR))
                   end if
@@ -1318,19 +1296,12 @@ module AlphaMateModule
                 This%nTargets = This%nTargets + 1
                 block
                   integer(int32) :: n
-                  real(real64), allocatable :: Tmp(:)
-                  if (allocated(This%TargetCoancestryRate)) then
-                    n = size(This%TargetCoancestryRate)
-                    allocate(Tmp(n))
-                    Tmp = This%TargetCoancestryRate
-                    deallocate(This%TargetCoancestryRate)
-                    allocate(This%TargetCoancestryRate(n + 1))
-                    This%TargetCoancestryRate(1:n) = Tmp
-                    n = n + 1
-                  else
-                    n = 1
-                    allocate(This%TargetCoancestryRate(n))
-                  end if
+                  real(real64) :: Tmp
+                  Tmp = Char2Double(trim(adjustl(Second(1))))
+                  call Append(x=This%TargetCoancestryRate, y=Tmp)
+                  n = size(This%TargetCoancestryRate)
+                  call Append(x=This%AllTargetValues, y=Tmp)
+                  call Append(x=This%AllTargets,      y="CoancestryRate", Len=SPECOPTIONLENGTH)
                   This%TargetCoancestryRate(n) = Char2Double(trim(adjustl(Second(1))))
                   if (LogStdoutInternal) then
                     write(STDOUT, "(a)") " Targeted rate of coancestry: "//trim(Real2Char(This%TargetCoancestryRate(n), fmt=FMTREAL2CHAR))
@@ -1354,20 +1325,12 @@ module AlphaMateModule
                 This%nTargets = This%nTargets + 1
                 block
                   integer(int32) :: n
-                  real(real64), allocatable :: Tmp(:)
-                  if (allocated(This%TargetMinCoancestryPct)) then
-                    n = size(This%TargetMinCoancestryPct)
-                    allocate(Tmp(n))
-                    Tmp = This%TargetMinCoancestryPct
-                    deallocate(This%TargetMinCoancestryPct)
-                    allocate(This%TargetMinCoancestryPct(n + 1))
-                    This%TargetMinCoancestryPct(1:n) = Tmp
-                    n = n + 1
-                  else
-                    n = 1
-                    allocate(This%TargetMinCoancestryPct(n))
-                  end if
-                  This%TargetMinCoancestryPct(n) = Char2Double(trim(adjustl(Second(1))))
+                  real(real64) :: Tmp
+                  Tmp = Char2Double(trim(adjustl(Second(1))))
+                  call Append(x=This%TargetMinCoancestryPct, y=Tmp)
+                  n = size(This%TargetMinCoancestryPct)
+                  call Append(x=This%AllTargetValues, y=Tmp)
+                  call Append(x=This%AllTargets,      y="MinCoancestryPct", Len=SPECOPTIONLENGTH)
                   if (LogStdoutInternal) then
                     write(STDOUT, "(a)") " Targeted percentage of minimum coancestry: "//trim(Real2Char(This%TargetMinCoancestryPct(n), fmt=FMTREAL2CHAR))
                   end if
@@ -1417,29 +1380,7 @@ module AlphaMateModule
                 This%TargetInbreedingGiven = .true.
                 ! This%nTargets = This%nTargets + 1
                 ! block
-                !   integer(int32) :: n
-                !   real(real64), allocatable :: Tmp(:)
-                !   if (allocated(This%TargetInbreeding)) then
-                !     n = size(This%TargetInbreeding)
-                !     allocate(Tmp(n))
-                !     Tmp = This%TargetInbreeding
-                !     deallocate(This%TargetInbreeding)
-                !     allocate(This%TargetInbreeding(n + 1))
-                !     This%TargetInbreeding(1:n) = Tmp
-                !     n = n + 1
-                !   else
-                !     n = 1
-                !     allocate(This%TargetInbreeding(n))
-                !   end if
-                !   This%TargetInbreeding(n) = Char2Double(trim(adjustl(Second(1))))
-                !   if (LogStdoutInternal) then
-                !     write(STDOUT, "(a)") " Targeted inbreding: "//trim(Real2Char(This%TargetInbreeding(n), fmt=FMTREAL2CHAR))
-                !   end if
-                !   if ((This%TargetInbreeding(n) .lt. -1.0d0) .or. (This%TargetInbreeding(n) .gt. 1.0d0)) then
-                !     write(STDERR, "(a)") "ERROR: TargetInbreeding must be between -1 and +1!"
-                !     write(STDERR, "(a)") " "
-                !     stop 1
-                !   end if
+                !   @todo
                 ! end block
                 This%TargetInbreeding = Char2Double(trim(adjustl(Second(1))))
                 if (LogStdoutInternal) then
@@ -1462,29 +1403,7 @@ module AlphaMateModule
                 This%TargetInbreedingRateGiven = .true.
                 ! This%nTargets = This%nTargets + 1
                 ! block
-                !   integer(int32) :: n
-                !   real(real64), allocatable :: Tmp(:)
-                !   if (allocated(This%TargetInbreedingRate)) then
-                !     n = size(This%TargetInbreedingRate)
-                !     allocate(Tmp(n))
-                !     Tmp = This%TargetInbreedingRate
-                !     deallocate(This%TargetInbreedingRate)
-                !     allocate(This%TargetInbreedingRate(n + 1))
-                !     This%TargetInbreedingRate(1:n) = Tmp
-                !     n = n + 1
-                !   else
-                !     n = 1
-                !     allocate(This%TargetInbreedingRate(n))
-                !   end if
-                !   This%TargetInbreedingRate(n) = Char2Double(trim(adjustl(Second(1))))
-                !   if (LogStdoutInternal) then
-                !     write(STDOUT, "(a)") " Targeted rate of inbreeding: "//trim(Real2Char(This%TargetInbreedingRate(n), fmt=FMTREAL2CHAR))
-                !   end if
-                !   if ((This%TargetInbreedingRate(n) .lt. -1.0d0) .or. (This%TargetInbreedingRate(n) .gt. 1.0d0)) then
-                !     write(STDERR, "(a)") "ERROR: TargetInbreedingRate must be between -1 and +1!"
-                !     write(STDERR, "(a)") " "
-                !     stop 1
-                !   end if
+                !   @todo
                 ! end block
                 This%TargetInbreedingRate = Char2Double(trim(adjustl(Second(1))))
                 if (LogStdoutInternal) then
@@ -1506,30 +1425,7 @@ module AlphaMateModule
                 This%ModeOpt = .true.
                 This%TargetMinInbreedingPctGiven = .true.
                 ! This%nTargets = This%nTargets + 1
-                ! block
-                !   integer(int32) :: n
-                !   real(real64), allocatable :: Tmp(:)
-                !   if (allocated(This%TargetMinInbreedingPct)) then
-                !     n = size(This%TargetMinInbreedingPct)
-                !     allocate(Tmp(n))
-                !     Tmp = This%TargetMinInbreedingPct
-                !     deallocate(This%TargetMinInbreedingPct)
-                !     allocate(This%TargetMinInbreedingPct(n + 1))
-                !     This%TargetMinInbreedingPct(1:n) = Tmp
-                !     n = n + 1
-                !   else
-                !     n = 1
-                !     allocate(This%TargetMinInbreedingPct(n))
-                !   end if
-                !   This%TargetMinInbreedingPct(n) = Char2Double(trim(adjustl(Second(1))))
-                !   if (LogStdoutInternal) then
-                !     write(STDOUT, "(a)") " Targeted percentage of minimum inbreeding: "//trim(Real2Char(This%TargetMinInbreedingPct(n), fmt=FMTREAL2CHAR))
-                !   end if
-                !   if ((This%TargetMinInbreedingPct(n) .lt. 0.0d0) .or. (This%TargetMinInbreedingPct(n) .gt. 100.0d0)) then
-                !     write(STDERR, "(a)") "ERROR: TargetMinInbreedingPct must be between 0 and 100!"
-                !     write(STDERR, "(a)") " "
-                !     stop 1
-                !   end if
+                !   @todo
                 ! end block
                 This%TargetMinInbreedingPct = Char2Double(trim(adjustl(Second(1))))
                 if (LogStdoutInternal) then
@@ -4619,7 +4515,7 @@ module AlphaMateModule
       type(AlphaMateSol) :: SolMinCoancestry, SolMinInbreeding, SolMaxCriterion, Sol !< For frontier modes and random mating (no optimisation) mode
       type(AlphaMateSol), allocatable :: SolOpt(:) !< Optimal solutions
 
-      integer(int32) :: nParam, Point, Target, FrontierUnit
+      integer(int32) :: nParam, Point, Target, Unit
 
       real(real64), allocatable :: InitEqual(:, :)
 
@@ -4654,12 +4550,12 @@ module AlphaMateModule
         nParam = nParam + Data%nInd
       end if
 
-      ! --- Minimum future coancestry ---
+      ! --- Minimum coancestry ---
 
       if (Spec%ModeMinCoancestry) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " "
-          write(STDOUT, "(a)") " Optimise contributions for minimum future coancestry (ModeMinCoancestry) ..."
+          write(STDOUT, "(a)") " Optimise contributions for minimum coancestry (ModeMinCoancestry) ..."
           write(STDOUT, "(a)") " "
         end if
 
@@ -4703,12 +4599,12 @@ module AlphaMateModule
         call SolMinCoancestry%WriteMatingPlan(Data, MatingFile)
       end if
 
-      ! --- Minimum future inbreeding ---
+      ! --- Minimum inbreeding ---
 
       if (Spec%ModeMinInbreeding) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " "
-          write(STDOUT, "(a)") " Optimise contributions for minimum future inbreeding (ModeMinInbreeding) ..."
+          write(STDOUT, "(a)") " Optimise contributions for minimum inbreeding (ModeMinInbreeding) ..."
           write(STDOUT, "(a)") " "
         end if
 
@@ -4763,12 +4659,12 @@ module AlphaMateModule
         call SolMinInbreeding%WriteMatingPlan(Data, MatingFile)
       end if
 
-      ! --- Maximum future selection criterion ---
+      ! --- Maximum selection criterion ---
 
       if (Spec%ModeMaxCriterion) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " "
-          write(STDOUT, "(a)") " Optimise contributions for maximum future selection criterion (ModeMaxCriterion) ..."
+          write(STDOUT, "(a)") " Optimise contributions for maximum selection criterion (ModeMaxCriterion) ..."
           write(STDOUT, "(a)") " "
         end if
 
@@ -4820,18 +4716,18 @@ module AlphaMateModule
           write(STDOUT, "(a)") " Evaluate frontier ..."
         end if
 
-        open(newunit=FrontierUnit, file="Frontier.txt", status="unknown")
+        open(newunit=Unit, file="Frontier.txt", status="unknown")
 
         ! Setup
-        call Sol%SetupColNamesAndFormats(Spec=Spec) ! need to do this here so that we can log previous results
-        call Sol%LogHead(LogUnit=FrontierUnit, String="ModeOrPoint", StringNum=18)
+        call Sol%SetupColNamesAndFormats(Spec=Spec) ! need to do this here so that we can start frontier log and add previous results
+        call Sol%LogHead(LogUnit=Unit, String="ModeOrPoint", StringNum=18)
 
         ! Add minimum coancestry solution to frontier (90 degress with two objectives)
-        call SolMinCoancestry%Log(FrontierUnit, Iteration=-1, AcceptPct=-1.0d0, String="ModeMinCoancestry", StringNum=18)
+        call SolMinCoancestry%Log(Unit, Iteration=-1, AcceptPct=-1.0d0, String="ModeMinCoancestry", StringNum=18)
 
         ! Add minimum inbreeding solution to frontier
         if (Spec%ModeMinInbreeding) then
-          call SolMinInbreeding%Log(FrontierUnit, Iteration=-1, AcceptPct=-1.0d0, String="ModeMinInbreeding", StringNum=18)
+          call SolMinInbreeding%Log(Unit, Iteration=-1, AcceptPct=-1.0d0, String="ModeMinInbreeding", StringNum=18)
         end if
 
         ! Frontier
@@ -4850,7 +4746,7 @@ module AlphaMateModule
             write(STDOUT, "(a)") " "
             call Spec%ModeSpec%LogTargets(Unit=STDOUT, Spec=Spec)
           end if
-          call Sol%SetupColNamesAndFormats(Spec=Spec) ! call again as InitialiseAlphaMateSol and AssignAlphaMateSol "nullify" the  above SetupColNamesAndFormats call (ugly, but works ...)
+          call Sol%SetupColNamesAndFormats(Spec=Spec) ! call again as InitialiseAlphaMateSol and AssignAlphaMateSol called within optimisation "nullify" the  above SetupColNamesAndFormats call (ugly, but works ...)
 
           LogFile     = "OptimisationLogModeFrontier"//trim(Int2Char(Point))//".txt"
           LogPopFile  = "OptimisationLogPopModeFrontier"//trim(Int2Char(Point))//".txt"
@@ -4872,16 +4768,16 @@ module AlphaMateModule
           end if
 
           ! Save
-          call Sol%Log(FrontierUnit, Iteration=-1, AcceptPct=-1.0d0, String=trim("ModeFrontier"//trim(Int2Char(Point))), StringNum=18)
+          call Sol%Log(Unit, Iteration=-1, AcceptPct=-1.0d0, String=trim("ModeFrontier"//trim(Int2Char(Point))), StringNum=18)
           call Sol%WriteContributions(Data, ContribFile)
           call Sol%WriteMatingPlan(Data, MatingFile)
 
         end do
 
         ! Add maximum criterion solution to frontier (0 degress with two objectives)
-        call SolMaxCriterion%Log(FrontierUnit, Iteration=-1, AcceptPct=-1.0d0, String="ModeMaxCriterion", StringNum=18)
+        call SolMaxCriterion%Log(Unit, Iteration=-1, AcceptPct=-1.0d0, String="ModeMaxCriterion", StringNum=18)
 
-        close(FrontierUnit)
+        close(Unit)
 
       end if
 
@@ -4915,62 +4811,117 @@ module AlphaMateModule
         deallocate(InitEqual)
       end if
 
-      ! --- Maximum future selection criterion with constraint on coancestry/inbreeding ---
-      ! ModeMinCoancestry, ModeMinInbreeding, and ModeMaxCriterion should be run prior to this!
+      ! --- Maximum selection criterion with constraint on coancestry and inbreeding ---
+      ! ModeMinCoancestry, ModeMinInbreeding, and ModeMaxCriterion must be run prior to this!
+      ! @todo Will this code have to change in light of more than two objectives using the NBI or AWS method?
 
-      ! if (Spec%ModeOpt) then
-      !   if (LogStdoutInternal) then
-      !     write(STDOUT, "(a)") " "
-      !     write(STDOUT, "(a)") " Optimise contributions for maximum future selection criterion with constraint on coancestry/inbreeding (ModeOpt) ..."
-      !     write(STDOUT, "(a)") " "
-      !   end if
+      if (Spec%ModeOpt .and. (Spec%nTargets .gt. 0)) then
+        if (LogStdoutInternal) then
+          write(STDOUT, "(a)") " "
+          write(STDOUT, "(a)") " Optimise contributions for maximum selection criterion with constraint on coancestry and inbreeding ..."
+        end if
 
-      !   ! Setup
-      !   allocate(SolOpt(Spec%nTargets))
-      !   do Target = 1, Spec%nTargets
-      !     call Spec%SetupMode(Mode="Opt", Data=Data, ModeMinCoancestrySpec=Spec%ModeMinCoancestrySpec, ModeMaxCriterionSpec=Spec%ModeMaxCriterionSpec)
-      !     if (LogStdoutInternal) then
-      !       write(STDOUT, "(a)") "  Target "//Int2Char(Target)//" of "//Int2Char(Spec%nTargets)
-      !       write(STDOUT, "(a)") " "
-      !       call Spec%ModeSpec%LogTargets(Unit=STDOUT, Spec=Spec)
-      !     end if
-      !     call SolOpt(Target)%SetupColNamesAndFormats(Spec=Spec)
+        open(newunit=Unit, file="Targets.txt", status="unknown")
 
-      !     LogFile     = "OptimisationLogModeOptTarget"//Int2Char(Target)//".txt"
-      !     LogPopFile  = "OptimisationLogPopModeOptTarget"//Int2Char(Target)//".txt"
-      !     ContribFile = "ContributionsModeOptTarget"//Int2Char(Target)//".txt"
-      !     MatingFile  = "MatingPlanModeOptTarget"//Int2Char(Target)//".txt"
+        ! Setup
+        call Sol%SetupColNamesAndFormats(Spec=Spec) ! need to do this here so that we can start the target log
+        call Sol%LogHead(LogUnit=Unit, String="Target", StringNum=18)
 
-      !     ! Search
-      !     ! @todo add some clever initial values, say:
-      !     !       - equal contributions for top 2/3 or 1/2 of BV distribution,
-      !     !       - decreasing contributions with decreasing value
-      !     !       - SDP solution, ...?
-      !     if (trim(Spec%EvolAlg) .eq. "DE") then
-      !       call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, &
-      !         nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint, &
-      !         LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
-      !         CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate=Spec%DiffEvolParamCr, FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
-      !         BestSol=SolOpt(Target))!, Status=OptimOK)
-      !       ! if (.not. OptimOK) then
-      !       !   write(STDERR, "(a)") " ERROR: Optimisation failed!"
-      !       !   write(STDERR, "(a)") " "
-      !       !   stop 1
-      !       ! end if
-      !     end if
+        ! Targets
+        do Target = 1, Spec%nTargets
 
-      !     ! Save
-      !     call SolOpt(Target)%WriteContributions(Data, ContribFile)
-      !     call SolOpt(Target)%WriteMatingPlan(Data, MatingFile)
-      !   end do
-      ! end if
+          ! Setup
+          select case (trim(Spec%AllTargets(Target)))
+            case ("Degree")
+              call Spec%SetupMode(Mode="Opt", Data=Data, &
+                                  Degree=Spec%AllTargetValues(Target), &
+                                  ModeMinCoancestrySpec=Spec%ModeMinCoancestrySpec, &
+                                  ModeMinInbreedingSpec=Spec%ModeMinInbreedingSpec, &
+                                  ModeMaxCriterionSpec=Spec%ModeMaxCriterionSpec)
+            case ("SelCriterion")
+              call Spec%SetupMode(Mode="Opt", Data=Data, &
+                                  SelCriterion=Spec%AllTargetValues(Target), &
+                                  ModeMinCoancestrySpec=Spec%ModeMinCoancestrySpec, &
+                                  ModeMinInbreedingSpec=Spec%ModeMinInbreedingSpec, &
+                                  ModeMaxCriterionSpec=Spec%ModeMaxCriterionSpec)
 
-        ! if (Spec%ModeOpt) then
-        !   call SolOpt%Log   (FrontierUnit, Iteration=-1, AcceptPct=-1.0d0, String="ModeOpt",    StringNum=15)
-        ! end if
-        ! if (Spec%ModeRan) then
-        !   call SolRan%Log   (FrontierUnit, Iteration=-1, AcceptPct=-1.0d0, String="ModeRan",    StringNum=15)
-        ! end if
+            case ("SelIntensity")
+              call Spec%SetupMode(Mode="Opt", Data=Data, &
+                                  SelIntensity=Spec%AllTargetValues(Target), &
+                                  ModeMinCoancestrySpec=Spec%ModeMinCoancestrySpec, &
+                                  ModeMinInbreedingSpec=Spec%ModeMinInbreedingSpec, &
+                                  ModeMaxCriterionSpec=Spec%ModeMaxCriterionSpec)
+
+            case ("MaxCriterionPct")
+              call Spec%SetupMode(Mode="Opt", Data=Data, &
+                                  MaxCriterionPct=Spec%AllTargetValues(Target), &
+                                  ModeMinCoancestrySpec=Spec%ModeMinCoancestrySpec, &
+                                  ModeMinInbreedingSpec=Spec%ModeMinInbreedingSpec, &
+                                  ModeMaxCriterionSpec=Spec%ModeMaxCriterionSpec)
+
+            case ("Coancestry")
+              call Spec%SetupMode(Mode="Opt", Data=Data, &
+                                  Coancestry=Spec%AllTargetValues(Target), &
+                                  ModeMinCoancestrySpec=Spec%ModeMinCoancestrySpec, &
+                                  ModeMinInbreedingSpec=Spec%ModeMinInbreedingSpec, &
+                                  ModeMaxCriterionSpec=Spec%ModeMaxCriterionSpec)
+
+            case ("CoancestryRate")
+              call Spec%SetupMode(Mode="Opt", Data=Data, &
+                                  CoancestryRate=Spec%AllTargetValues(Target), &
+                                  ModeMinCoancestrySpec=Spec%ModeMinCoancestrySpec, &
+                                  ModeMinInbreedingSpec=Spec%ModeMinInbreedingSpec, &
+                                  ModeMaxCriterionSpec=Spec%ModeMaxCriterionSpec)
+
+            case ("MinCoancestryPct")
+              call Spec%SetupMode(Mode="Opt", Data=Data, &
+                                  MinCoancestryPct=Spec%AllTargetValues(Target), &
+                                  ModeMinCoancestrySpec=Spec%ModeMinCoancestrySpec, &
+                                  ModeMinInbreedingSpec=Spec%ModeMinInbreedingSpec, &
+                                  ModeMaxCriterionSpec=Spec%ModeMaxCriterionSpec)
+          end select
+
+          if (LogStdoutInternal) then
+            write(STDOUT, "(a)") " "
+            write(STDOUT, "(a)") "  Target "//Int2Char(Target)//" of "//Int2Char(Spec%nTargets)
+            write(STDOUT, "(a)") " "
+            call Spec%ModeSpec%LogTargets(Unit=STDOUT, Spec=Spec)
+          end if
+          call Sol%SetupColNamesAndFormats(Spec=Spec) ! call again as InitialiseAlphaMateSol and AssignAlphaMateSol called within optimisation "nullify" the above SetupColNamesAndFormats call (ugly, but works ...)
+
+          LogFile     = "OptimisationLogModeOptTarget"//trim(Int2Char(Target))//".txt"
+          LogPopFile  = "OptimisationLogPopModeOptTarget"//trim(Int2Char(Target))//".txt"
+          ContribFile = "ContributionsModeOptTarget"//trim(Int2Char(Target))//".txt"
+          MatingFile  = "MatingPlanModeOptTarget"//trim(Int2Char(Target))//".txt"
+
+          ! Search
+          ! @todo add some clever initial values, say:
+          !       - equal contributions for top 2/3 or 1/2 of BV distribution,
+          !       - decreasing contributions with decreasing value
+          !       - SDP solution, ...?
+          if (trim(Spec%EvolAlg) .eq. "DE") then
+            call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, &
+              nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint, &
+              LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
+              CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate=Spec%DiffEvolParamCr, FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
+              BestSol=Sol)!, Status=OptimOK)
+            ! if (.not. OptimOK) then
+            !   write(STDERR, "(a)") " ERROR: Optimisation failed!"
+            !   write(STDERR, "(a)") " "
+            !   stop 1
+            ! end if
+          end if
+
+          ! Save
+          call Sol%Log(Unit, Iteration=-1, AcceptPct=-1.0d0, String=trim("ModeOpt"//trim(Int2Char(Target))), StringNum=18)
+          call Sol%WriteContributions(Data, ContribFile)
+          call Sol%WriteMatingPlan(Data, MatingFile)
+
+        end do
+
+        close(Unit)
+
+      end if
 
     end subroutine
 
@@ -5741,7 +5692,7 @@ module AlphaMateModule
     !---------------------------------------------------------------------------
     pure function CoancestryRate2Degree(CoancestryRate, MinCoancestryRate, MaxCoancestryRate) result(Degree)
       implicit none
-      real(real64), intent(in) :: CoancestryRate      !< Coancestry rate
+      real(real64), intent(in) :: CoancestryRate    !< Coancestry rate
       real(real64), intent(in) :: MinCoancestryRate !< Minimum possible coancestry rate
       real(real64), intent(in) :: MaxCoancestryRate !< Maximum possible coancestry rate
       real(real64)             :: Degree            !< @return Degree
