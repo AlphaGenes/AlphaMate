@@ -2111,6 +2111,23 @@ module AlphaMateModule
         stop 1
       end if
 
+      if (This%SeedFileGiven .and. This%SeedGiven) then
+        if (LogStdoutInternal) then
+          write(STDOUT, "(a)") " NOTE: The specification Seed has priority over SeedFile."
+          write(STDOUT, "(a)") " "
+        end if
+        This%SeedFile = ""
+        This%SeedFileGiven = .false.
+      end if
+
+      if (This%nMat .le. 0) then
+        write(STDERR, "(a)") " ERROR: Number of matings must be larger than zero!"
+        write(STDERR, "(a)") " "
+        stop 1
+      end if
+
+      ! The nPar tests are in ReadAlphaMateData where we count number of individuals and males and females
+
       if (This%LimitPar .and. This%EqualizePar) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " NOTE: The specification Equalize*Contributions has priority over Limit*Contributions."
@@ -2132,12 +2149,10 @@ module AlphaMateModule
       end if
 
       if (.not. This%GenderGiven) then
-        This%nPar1 = This%nPar
         This%EqualizePar1 = This%EqualizePar
         This%LimitPar1 = This%LimitPar
         This%PAGEPar1 = This%PAGEPar
       else
-        This%nPar = This%nPar1 + This%nPar2
         if (This%EqualizePar) then
           if (.not. This%EqualizePar1) then
             This%EqualizePar1 = This%EqualizePar
@@ -2174,22 +2189,9 @@ module AlphaMateModule
         end if
       end if
 
-      if (This%nMat .le. 0) then
-        write(STDERR, "(a)") " ERROR: Number of matings must be larger than zero!"
-        write(STDERR, "(a)") " "
-        stop 1
-      end if
-
-      if (This%nPar .le. 0) then
-        write(STDERR, "(a)") " ERROR: Number of parents must be larger than zero!"
-        write(STDERR, "(a)") " "
-        stop 1
-      end if
-
-      if (This%GenderGiven .and. ((This%nPar1 .le. 0) .or. (This%nPar2 .le. 0))) then
-        write(STDERR, "(a)") " ERROR: Number of parents must be larger than zero!"
-        write(STDERR, "(a)") " ERROR: Number of   male parents: "//trim(Int2Char(This%nPar1))
-        write(STDERR, "(a)") " ERROR: Number of female parents: "//trim(Int2Char(This%nPar2))
+      if ((.not. This%SelCriterionGiven) .and. This%PAGEPar) then
+        write(STDERR, "(a)") " ERROR: Can not use PAGE when selection criterion file is not given!"
+        ! @todo what about using the GenericIndCrit values?
         write(STDERR, "(a)") " "
         stop 1
       end if
@@ -2199,46 +2201,6 @@ module AlphaMateModule
         ! @todo what is the solution? Provide the same individual both as male and a female?
         write(STDERR, "(a)") " "
         stop 1
-      end if
-
-      if ((.not. This%SelCriterionGiven) .and. This%PAGEPar) then
-        write(STDERR, "(a)") " ERROR: Can not use PAGE when selection criterion file is not given!"
-        ! @todo what about using the GenericIndCrit values?
-        write(STDERR, "(a)") " "
-        stop 1
-      end if
-
-      if (This%PAGEPar) then
-        if (This%GenderGiven) then
-          if (This%PAGEPar1Max .gt. This%nPar1) then
-            write(STDERR, "(a)") " ERROR: Can not PAGE more males than there are male parents!"
-            write(STDERR, "(a)") " ERROR: Number of      male parents: "//trim(Int2Char(This%nPar1))
-            write(STDERR, "(a)") " ERROR: Max number of male for PAGE: "//trim(Int2Char(This%PAGEPar1Max))
-            write(STDERR, "(a)") " "
-          end if
-          if (This%PAGEPar2Max .gt. This%nPar2) then
-            write(STDERR, "(a)") " ERROR: Can not PAGE more females than there are female parents!"
-            write(STDERR, "(a)") " ERROR: Number of      female parents: "//trim(Int2Char(This%nPar2))
-            write(STDERR, "(a)") " ERROR: Max number of female for PAGE: "//trim(Int2Char(This%PAGEPar2Max))
-            write(STDERR, "(a)") " "
-          end if
-        else
-          if (This%PAGEParMax .gt. This%nPar) then
-            write(STDERR, "(a)") " ERROR: Can not PAGE more individuals than there are parents!"
-            write(STDERR, "(a)") " ERROR: Number of                  parents: "//trim(Int2Char(This%nPar))
-            write(STDERR, "(a)") " ERROR: Max number of individuals for PAGE: "//trim(Int2Char(This%PAGEParMax))
-            write(STDERR, "(a)") " "
-          end if
-        end if
-      end if
-
-      if (This%SeedFileGiven .and. This%SeedGiven) then
-        if (LogStdoutInternal) then
-          write(STDOUT, "(a)") " NOTE: The specification Seed has priority over SeedFile."
-          write(STDOUT, "(a)") " "
-        end if
-        This%SeedFile = ""
-        This%SeedFileGiven = .false.
       end if
     end subroutine
 
@@ -2790,7 +2752,7 @@ module AlphaMateModule
     subroutine ReadAlphaMateData(This, Spec, LogStdout) ! not pure due to IO
       implicit none
       class(AlphaMateData), intent(out)  :: This      !< @return AlphaMateData holder
-      type(AlphaMateSpec), intent(inout) :: Spec      !< AlphaMateSpec holder (inout because we save some info also in Spec that is based on Data)
+      type(AlphaMateSpec), intent(inout) :: Spec      !< AlphaMateSpec holder (inout because we save some info in Spec that is based on Data)
       logical, optional                  :: LogStdout !< Log process on stdout (default .false.)
 
       integer(int32) :: Ind, IndLoc, IndLoc2, nIndTmp, Mat, nMatTmp, GenderTmp, l, m, IndPair(2), Crit
@@ -2826,14 +2788,6 @@ module AlphaMateModule
 
       if (LogStdoutInternal) then
         write(STDOUT, "(a)") " Number of individuals in the coancestry matrix file: "//trim(Int2Char(This%nInd))
-      end if
-
-      if (This%nInd .lt. Spec%nPar) then
-        write(STDERR, "(a)") "ERROR: Number of individuals can not be smaller than number of parents!"
-        write(STDERR, "(a)") "ERROR: Number of individuals: "//trim(Int2Char(This%nInd))
-        write(STDERR, "(a)") "ERROR: Number of     parents: "//trim(Int2Char(Spec%nPar))
-        write(STDERR, "(a)") " "
-        stop 1
       end if
 
       ! --- Selection criterion ---
@@ -2881,11 +2835,18 @@ module AlphaMateModule
         close(SelCriterionUnit)
       end if
 
-      ! --- Gender ---
+      ! --- Gender (and number of parents when not provided as a limit/constraint) ---
 
       allocate(This%Gender(This%nInd))
-      This%Gender = 0
-      if (Spec%GenderGiven) then
+      if (.not. Spec%GenderGiven) then
+        This%Gender = 0
+        if (Spec%nPar .eq. 0) then
+          ! when number of parents is not provided all selection candidates form the parent pool,
+          ! albeit some/most will have zero contributions
+          Spec%nPar = This%nInd
+        end if
+        Spec%nPar1 = Spec%nPar
+      else
         nIndTmp = CountLines(Spec%GenderFile)
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " Number of individuals in the gender file: "//trim(Int2Char(nIndTmp))
@@ -2927,19 +2888,75 @@ module AlphaMateModule
         write(STDOUT, "(a)") " Number of   males: "//trim(Int2Char(This%nMal))
         write(STDOUT, "(a)") " Number of females: "//trim(Int2Char(This%nFem))
 
-        if (Spec%nPar1 > This%nMal) then
+        ! when number of parents is not provided all selection candidates form the parent pool,
+        ! albeit some/most will have zero contributions
+        if (Spec%nPar1 .eq. 0) then
+          Spec%nPar1 = This%nMal
+        end if
+        if (Spec%nPar2 .eq. 0) then
+          Spec%nPar2 = This%nFem
+        end if
+        Spec%nPar = Spec%nPar1 + Spec%nPar2
+
+        if (Spec%nPar1 .gt. This%nMal) then
           write(STDERR, "(a)") " ERROR: Number of male parents can not be larger than number of males"
           write(STDERR, "(a)") " ERROR: Number of male parents: "//trim(Int2Char(Spec%nPar1))
           write(STDERR, "(a)") " ERROR: Number of        males: "//trim(Int2Char(This%nMal))
           write(STDERR, "(a)") " "
           stop 1
         end if
-        if (Spec%nPar2 > This%nFem) then
+        if (Spec%nPar2 .gt. This%nFem) then
           write(STDERR, "(a)") " ERROR: Number of female parents can not be larger than number of females"
           write(STDERR, "(a)") " ERROR: Number of female parents: "//trim(Int2Char(Spec%nPar2))
           write(STDERR, "(a)") " ERROR: Number of        females: "//trim(Int2Char(This%nFem))
           write(STDERR, "(a)") " "
           stop 1
+        end if
+      end if
+
+      if (Spec%nPar .le. 0) then
+        write(STDERR, "(a)") " ERROR: Number of specified/derived parents must be larger than zero!"
+        write(STDERR, "(a)") " "
+        stop 1
+      end if
+
+      if (Spec%GenderGiven .and. ((Spec%nPar1 .le. 0) .or. (Spec%nPar2 .le. 0))) then
+        write(STDERR, "(a)") " ERROR: Number of specified/derived parents must be larger than zero!"
+        write(STDERR, "(a)") " ERROR: Number of   male parents: "//trim(Int2Char(Spec%nPar1))
+        write(STDERR, "(a)") " ERROR: Number of female parents: "//trim(Int2Char(Spec%nPar2))
+        write(STDERR, "(a)") " "
+        stop 1
+      end if
+
+      if (This%nInd .lt. Spec%nPar) then
+        write(STDERR, "(a)") "ERROR: Number of individuals can not be smaller than number of parents!"
+        write(STDERR, "(a)") "ERROR: Number of individuals:               "//trim(Int2Char(This%nInd))
+        write(STDERR, "(a)") "ERROR: Number of specified/derived parents: "//trim(Int2Char(Spec%nPar))
+        write(STDERR, "(a)") " "
+        stop 1
+      end if
+
+      if (Spec%PAGEPar) then
+        if (Spec%GenderGiven) then
+          if (Spec%PAGEPar1Max .gt. Spec%nPar1) then
+            write(STDERR, "(a)") " ERROR: Can not PAGE more males than there are male parents!"
+            write(STDERR, "(a)") " ERROR: Number of      male parents: "//trim(Int2Char(Spec%nPar1))
+            write(STDERR, "(a)") " ERROR: Max number of male for PAGE: "//trim(Int2Char(Spec%PAGEPar1Max))
+            write(STDERR, "(a)") " "
+          end if
+          if (Spec%PAGEPar2Max .gt. Spec%nPar2) then
+            write(STDERR, "(a)") " ERROR: Can not PAGE more females than there are female parents!"
+            write(STDERR, "(a)") " ERROR: Number of      female parents: "//trim(Int2Char(Spec%nPar2))
+            write(STDERR, "(a)") " ERROR: Max number of female for PAGE: "//trim(Int2Char(Spec%PAGEPar2Max))
+            write(STDERR, "(a)") " "
+          end if
+        else
+          if (Spec%PAGEParMax .gt. Spec%nPar) then
+            write(STDERR, "(a)") " ERROR: Can not PAGE more individuals than there are parents!"
+            write(STDERR, "(a)") " ERROR: Number of                  parents: "//trim(Int2Char(Spec%nPar))
+            write(STDERR, "(a)") " ERROR: Max number of individuals for PAGE: "//trim(Int2Char(Spec%PAGEParMax))
+            write(STDERR, "(a)") " "
+          end if
         end if
       end if
 
