@@ -41,7 +41,7 @@
 ! DESCRIPTION:
 !> @brief    Mate selection / Optimum contribution selection
 !
-!> @details  Optimize contributions or individuals to the next generation and
+!> @details  Optimise contributions or individuals to the next generation and
 !!           generate a mating plan
 !
 !> @author   Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
@@ -163,9 +163,9 @@ module AlphaMateModule
     character(len=FILELENGTH) :: SpecFile, RelMtxFile, SelCriterionFile, GenderFile, SeedFile
     character(len=FILELENGTH) :: GenericIndCritFile, GenericMatCritFile
     character(len=FILELENGTH) :: OutputBasename
-    logical :: RelMtxGiven, SelCriterionGiven, GenderGiven, SeedFileGiven, GenericIndCritGiven, GenericMatCritGiven
+    logical :: RelMtxGiven, NrmInsteadOfCoancestry, SelCriterionGiven, GenderGiven, SeedFileGiven, GenericIndCritGiven, GenericMatCritGiven, SeedGiven
     integer(int32) :: Seed
-    logical :: SeedGiven
+    integer(int32) :: nGenericIndCrit, nGenericMatCrit
 
     ! Search mode specifications
     logical :: ModeMinCoancestry, ModeMinInbreeding, ModeMaxCriterion, ModeOpt, ModeRan, EvaluateFrontier
@@ -173,8 +173,7 @@ module AlphaMateModule
     character(len=SPECOPTIONLENGTH), allocatable :: AllTargets(:)
     real(real64), allocatable :: AllTargetValues(:)
 
-    ! Biological specifications
-    logical :: NrmInsteadOfCoancestry
+    ! Targets
     logical :: TargetDegreeGiven
     logical :: TargetSelCriterionGiven, TargetSelIntensityGiven, TargetMaxCriterionPctGiven
     logical :: TargetCoancestryGiven, TargetCoancestryRateGiven, TargetMinCoancestryPctGiven
@@ -184,12 +183,13 @@ module AlphaMateModule
     real(real64), allocatable :: TargetCoancestry(:), TargetCoancestryRate(:), TargetMinCoancestryPct(:)
     real(real64) :: TargetInbreeding, TargetInbreedingRate, TargetMinInbreedingPct
     real(real64) :: CoancestryWeight, InbreedingWeight, SelfingWeight
-    logical :: SelfingAllowed, CoancestryWeightBelow, InbreedingWeightBelow
-    integer(int32) :: nInd, nMat, nPar, nPar1, nPar2 ! NOTE: nInd is here just for OO-flexibility (do not use it; the main one is in Data!!!)
-    logical :: EqualizePar, EqualizePar1, EqualizePar2, LimitPar, LimitPar1, LimitPar2
-    real(real64) :: LimitParMin, LimitPar1Min, LimitPar2Min, LimitParMax, LimitPar1Max, LimitPar2Max, LimitParMinWeight, LimitPar1MinWeight, LimitPar2MinWeight
-    integer(int32) :: nGenericIndCrit, nGenericMatCrit
+    logical :: CoancestryWeightBelow, InbreedingWeightBelow
     real(real64), allocatable :: GenericIndCritWeight(:), GenericMatCritWeight(:)
+
+    ! Biological specifications
+    integer(int32) :: nInd, nMat, nPar, nPar1, nPar2 ! NOTE: nInd is here just for OO-flexibility (do not use it; the main one is in Data!!!)
+    logical :: SelfingAllowed, EqualizePar, EqualizePar1, EqualizePar2, LimitPar, LimitPar1, LimitPar2
+    real(real64) :: LimitParMin, LimitPar1Min, LimitPar2Min, LimitParMax, LimitPar1Max, LimitPar2Max, LimitParMinWeight, LimitPar1MinWeight, LimitPar2MinWeight
     logical :: PAGEPar, PAGEPar1, PAGEPar2
     integer(int32) :: PAGEParMax, PAGEPar1Max, PAGEPar2Max
     real(real64) :: PAGEParCost, PAGEPar1Cost, PAGEPar2Cost
@@ -303,7 +303,7 @@ module AlphaMateModule
 
     !###########################################################################
 
-    ! TODO: make this clearer with objective being dG - l * dF etc.
+    ! @todo make this clearer with objective being dG - l * dF etc.
 
     ! With two individuals there are four genome combinations, hence four coefficients
     ! that measure similarity between the two individuals. The COEFFICIENT OF COANCESTRY
@@ -408,7 +408,7 @@ module AlphaMateModule
       write(STDOUT, "(a)") "                            *                     *                           "
       write(STDOUT, "(a)") "                            ***********************                           "
       write(STDOUT, "(a)") "                                                                              "
-      write(STDOUT, "(a)") "         Software for optimizing contributions to the next generation         "
+      write(STDOUT, "(a)") "         Software for optimising contributions to the next generation         "
       write(STDOUT, "(a)") "                       http://AlphaGenes.Roslin.ed.ac.uk                      "
       write(STDOUT, "(a)") "                                 No liability                                 "
       write(STDOUT, "(a)") " "
@@ -442,13 +442,13 @@ module AlphaMateModule
       This%SeedFile = ""
 
       This%RelMtxGiven = .false.
+      This%NrmInsteadOfCoancestry = .false.
       This%SelCriterionGiven = .false.
       This%GenderGiven = .false.
       This%GenericIndCritGiven = .false.
       This%GenericMatCritGiven = .false.
       This%SeedFileGiven = .false.
       This%SeedGiven = .false.
-      This%NrmInsteadOfCoancestry = .false.
 
       ! Search mode specifications
 
@@ -459,13 +459,7 @@ module AlphaMateModule
       This%ModeRan = .false.
       This%EvaluateFrontier = .false.
 
-      ! Biological specifications
-
-      This%nInd = 0
-      This%nMat = 0
-      This%nPar = 0
-      This%nPar1 = 0
-      This%nPar2 = 0
+      ! Targets
 
       This%nTargets = 0
       ! This%AllTargets ! allocatable so skip here
@@ -499,10 +493,19 @@ module AlphaMateModule
       This%TargetMinInbreedingPctGiven = .false.
       This%TargetMinInbreedingPct = 100.0d0 ! not used anyhow as TargetMinInbreedingPctGiven = .false.
 
-      This%SelfingAllowed = .false.
-      This%SelfingWeight = -1 ! -1000.0d0
       ! This%GenericIndCritWeight ! allocatable so skip here
       ! This%GenericMatCritWeight ! allocatable so skip here
+
+      ! Biological specifications
+
+      This%nInd = 0
+      This%nMat = 0
+      This%nPar = 0
+      This%nPar1 = 0
+      This%nPar2 = 0
+
+      This%SelfingAllowed = .false.
+      This%SelfingWeight = -1 ! -1000.0d0
 
       This%EqualizePar  = .false.
       This%EqualizePar1 = .false.
@@ -586,24 +589,27 @@ module AlphaMateModule
       write(Unit, *) "Seed: ",                    This%Seed
 
       write(Unit, *) "RelMtxGiven: ",            This%RelMtxGiven
+      write(Unit, *) "NrmInsteadOfCoancestry: ", This%NrmInsteadOfCoancestry
       write(Unit, *) "SelCriterionGiven: ",      This%SelCriterionGiven
       write(Unit, *) "GenderGiven: ",            This%GenderGiven
       write(Unit, *) "GenericIndCritGiven: ",    This%GenericIndCritGiven
       write(Unit, *) "GenericMatCritGiven: ",    This%GenericMatCritGiven
       write(Unit, *) "SeedFileGiven: ",          This%SeedFileGiven
       write(Unit, *) "SeedGiven: ",              This%SeedGiven
-      write(Unit, *) "NrmInsteadOfCoancestry: ", This%NrmInsteadOfCoancestry
 
       ! Search mode specifications
 
-      write(Unit, *) "ModeMinCoancestry: ",  This%ModeMinCoancestry
-      write(Unit, *) "ModeMinInbreeding: ",  This%ModeMinInbreeding
+      write(Unit, *) "ModeMinCoancestry: ", This%ModeMinCoancestry
+      write(Unit, *) "ModeMinInbreeding: ", This%ModeMinInbreeding
       write(Unit, *) "ModeMaxCriterion: ",  This%ModeMaxCriterion
-      write(Unit, *) "ModeRan: ",  This%ModeRan
-      write(Unit, *) "ModeOpt: ",  This%ModeOpt
+      write(Unit, *) "ModeRan: ",           This%ModeRan
+      write(Unit, *) "ModeOpt: ",           This%ModeOpt
+      write(Unit, *) "EvaluateFrontier: ",  This%EvaluateFrontier
 
+      ! Targets
 
       write(Unit, *) "nTargets: ", This%nTargets
+
       if (allocated(This%AllTargets)) then
         write(Unit, *) "AllTargets: ", This%AllTargets
       else
@@ -614,16 +620,6 @@ module AlphaMateModule
       else
         write(Unit, *) "AllTargetValues: not allocated"
       end if
-
-      ! Biological specifications
-
-      write(Unit, *) "nInd: ",  This%nInd
-      write(Unit, *) "nMat: ",  This%nMat
-      write(Unit, *) "nPar: ",  This%nPar
-      write(Unit, *) "nPar1: ", This%nPar1
-      write(Unit, *) "nPar2: ", This%nPar2
-
-      write(Unit, *) "nTargets: ",                        This%nTargets
 
       write(Unit, *) "TargetDegreeGiven: ",               This%TargetDegreeGiven
       if (allocated(This%TargetDegree)) then
@@ -681,8 +677,6 @@ module AlphaMateModule
       write(Unit, *) "TargetMinInbreedingPctGiven: ",     This%TargetMinInbreedingPctGiven
       write(Unit, *) "TargetMinInbreedingPct: ",          This%TargetMinInbreedingPct
 
-      write(Unit, *) "SelfingAllowed: ",                  This%SelfingAllowed
-      write(Unit, *) "SelfingWeight: ",                   This%SelfingWeight
       if (allocated(This%GenericIndCritWeight)) then
         write(Unit, *) "GenericIndCritWeight: ", This%GenericIndCritWeight
       else
@@ -693,6 +687,17 @@ module AlphaMateModule
       else
         write(Unit, *) "GenericMatCritWeight: not allocated"
       end if
+
+      ! Biological specifications
+
+      write(Unit, *) "nInd: ",  This%nInd
+      write(Unit, *) "nMat: ",  This%nMat
+      write(Unit, *) "nPar: ",  This%nPar
+      write(Unit, *) "nPar1: ", This%nPar1
+      write(Unit, *) "nPar2: ", This%nPar2
+
+      write(Unit, *) "SelfingAllowed: ",   This%SelfingAllowed
+      write(Unit, *) "SelfingWeight: ",    This%SelfingWeight
 
       write(Unit, *) "EqualizePar:  ", This%EqualizePar
       write(Unit, *) "EqualizePar1: ", This%EqualizePar1
@@ -1105,55 +1110,7 @@ module AlphaMateModule
                 stop 1
               end if
 
-            ! Biological specifications
-            case ("numberofmatings")
-              if (allocated(Second)) then
-                This%nMat = Char2Int(trim(adjustl(Second(1))))
-                if (LogStdoutInternal) then
-                  write(STDOUT, "(a)") " Number of matings: "//trim(Int2Char(This%nMat))
-                end if
-              else
-                write(STDERR, "(a)") " ERROR: Must specify a number for NumberOfMatings, i.e., NumberOfMatings, 10"
-                write(STDERR, "(a)") " "
-                stop 1
-              end if
-
-            case ("numberofparents")
-              if (allocated(Second)) then
-                This%nPar = Char2Int(trim(adjustl(Second(1))))
-                if (LogStdoutInternal) then
-                  write(STDOUT, "(a)") " Number of parents: "//trim(Int2Char(This%nPar))
-                end if
-              else
-                write(STDERR, "(a)") " ERROR: Must specify a number for NumberOfParents, i.e., NumberOfParents, 20"
-                write(STDERR, "(a)") " "
-                stop 1
-              end if
-
-            case ("numberofmaleparents")
-              if (allocated(Second)) then
-                This%nPar1 = Char2Int(trim(adjustl(Second(1))))
-                if (LogStdoutInternal) then
-                  write(STDOUT, "(a)") " Number of male parents: "//trim(Int2Char(This%nPar1))
-                end if
-              else
-                write(STDERR, "(a)") " ERROR: Must specify a number for NumberOfMaleParents, i.e., NumberOfMaleParents, 10"
-                write(STDERR, "(a)") " "
-                stop 1
-              end if
-
-            case ("numberoffemaleparents")
-              if (allocated(Second)) then
-                This%nPar2 = Char2Int(trim(adjustl(Second(1))))
-                if (LogStdoutInternal) then
-                  write(STDOUT, "(a)") " Number of female parents: "//trim(Int2Char(This%nPar2))
-                end if
-              else
-                write(STDERR, "(a)") " ERROR: Must specify a number for NumberOfFemaleParents, i.e., NumberOfFemaleParents, 10"
-                write(STDERR, "(a)") " "
-                stop 1
-              end if
-
+            ! Targets
             case ("targetdegree")
               if (allocated(Second)) then
                 This%ModeOpt = .true.
@@ -1471,6 +1428,55 @@ module AlphaMateModule
                 stop 1
               end if
 
+            ! Biological specifications
+            case ("numberofmatings")
+              if (allocated(Second)) then
+                This%nMat = Char2Int(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Number of matings: "//trim(Int2Char(This%nMat))
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a number for NumberOfMatings, i.e., NumberOfMatings, 10"
+                write(STDERR, "(a)") " "
+                stop 1
+              end if
+
+            case ("numberofparents")
+              if (allocated(Second)) then
+                This%nPar = Char2Int(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Number of parents: "//trim(Int2Char(This%nPar))
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a number for NumberOfParents, i.e., NumberOfParents, 20"
+                write(STDERR, "(a)") " "
+                stop 1
+              end if
+
+            case ("numberofmaleparents")
+              if (allocated(Second)) then
+                This%nPar1 = Char2Int(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Number of male parents: "//trim(Int2Char(This%nPar1))
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a number for NumberOfMaleParents, i.e., NumberOfMaleParents, 10"
+                write(STDERR, "(a)") " "
+                stop 1
+              end if
+
+            case ("numberoffemaleparents")
+              if (allocated(Second)) then
+                This%nPar2 = Char2Int(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Number of female parents: "//trim(Int2Char(This%nPar2))
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a number for NumberOfFemaleParents, i.e., NumberOfFemaleParents, 10"
+                write(STDERR, "(a)") " "
+                stop 1
+              end if
+
             case ("equalizecontributions")
               if (allocated(Second)) then
                 if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
@@ -1699,7 +1705,7 @@ module AlphaMateModule
                 if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
                   This%SelfingAllowed = .true.
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Allow selfing"
+                    write(STDOUT, "(a)") " Selfing allowed"
                   end if
                 end if
               else
@@ -2188,25 +2194,16 @@ module AlphaMateModule
         stop 1
       end if
 
-      if (This%nMat > This%nPar) then
-        if (LogStdoutInternal) then
-          write(STDOUT, "(a)") " NOTE: Number of matings is larger than the number of parents! Was this intented?"
-          write(STDOUT, "(a)") " NOTE: Number of matings: "//trim(Int2Char(This%nMat))
-          write(STDOUT, "(a)") " NOTE: Number of parents: "//trim(Int2Char(This%nPar))
-          write(STDOUT, "(a)") " "
-        end if
-      end if
-
       if (This%GenderGiven .and. This%SelfingAllowed) then
         write(STDERR, "(a)") " ERROR: When gender matters, AlphaMate can not perform selfing! See the manual for a solution."
-        ! @todo: what is the solution? Provide the same individual both as male and a female?
+        ! @todo what is the solution? Provide the same individual both as male and a female?
         write(STDERR, "(a)") " "
         stop 1
       end if
 
       if ((.not. This%SelCriterionGiven) .and. This%PAGEPar) then
         write(STDERR, "(a)") " ERROR: Can not use PAGE when selection criterion file is not given!"
-        ! @todo: what about using the GenericIndCrit values?
+        ! @todo what about using the GenericIndCrit values?
         write(STDERR, "(a)") " "
         stop 1
       end if
@@ -2993,10 +2990,10 @@ module AlphaMateModule
       end if
 
       if (Spec%nMat .gt. This%nPotMat) then
-        ! @todo what about MOET, AI, JIVET, ... etc?
+        ! @todo Might need to change this if we would do in-vitro fertilisation
         write(STDERR, "(a)") " ERROR: Number of specified matings is larger than the number of all potential matings!"
-        write(STDERR, "(a)") " ERROR: Number of all potential matings: "//trim(Int2Char(This%nPotMat))
         write(STDERR, "(a)") " ERROR: Number of     specified matings: "//trim(Int2Char(Spec%nMat))
+        write(STDERR, "(a)") " ERROR: Number of all potential matings: "//trim(Int2Char(This%nPotMat))
         if (Spec%GenderGiven) then
           write(STDERR, "(a)") " ERROR: = no. of males * no. of females"
           write(STDERR, "(a)") " ERROR: = (no. of males = "//trim(Int2Char(This%nPotPar1))//", no. of females = "//trim(Int2Char(This%nPotPar2))
@@ -3871,15 +3868,15 @@ module AlphaMateModule
               ! traverses from top to the defined number of parents checking when the sum of
               ! interegrised values gives Spec%nMat. If values below 0.5 are found, they are
               ! changed to 1 contribution to achieve nMat. If this still does not give Spec%nMat,
-              ! then we start adding on contributions to each parent (starting at those contributing
+              ! then we start adding contributions to each parent (starting at those contributing
               ! the least and work up to those contributing most - to avoid local minima) until
               ! we reach Spec%nMat. How to treat values for the individuals that do not contribute
               ! is unlcear. None of the tested methods seemed to be very different. Intuitively,
               ! using properly ordered negative values should inform optim. alg. which individuals
               ! should less likely contribute, but this did not seem to be the case - better final
               ! solution was found when this strategy was not implemented - either zeroing
-              ! values for those individuals (was the fastest) or giving random value (was
-              ! marginally better, but slower). Potential advantage of not preserving the
+              ! values for those individuals was the fastest or giving random value was
+              ! marginally better, but slower. Potential advantage of not preserving the
               ! order is that this gives more randomness and more solutions being explored.
 
               ! "Parent1"
@@ -4404,7 +4401,7 @@ module AlphaMateModule
                 TmpMin = minval(This%MatingPlan(:, j))
                 TmpR = TmpR + Data%Coancestry%Value(TmpMax, TmpMin)
               end do
-              ! @Todo: different number of progeny per mating???
+              ! @todo different number of progeny per mating? Might be relevant for in-vitro fertilisation
               This%Inbreeding = TmpR / Spec%nMat
               ! Inlined Coancestry2CoancestryRate
               This%InbreedingRate = (This%Inbreeding - Data%Inbreeding) / (1.0d0 - Data%Inbreeding)
@@ -4412,7 +4409,7 @@ module AlphaMateModule
               This%MinInbreedingPct = (+1.0d0 - This%InbreedingRate) / &
                                       (+1.0d0 - Spec%ModeMinInbreedingSpec%InbreedingRate) * 100.d0
 
-              ! @todo: Pareto front formulation for this objective too?
+              ! @todo Pareto front formulation for this objective too?
               if (Spec%ModeSpec%ObjectiveInbreeding) then
                 if      (trim(Spec%ModeSpec%Name) .eq. "MinInbreeding") then
                   This%Objective = This%Objective - This%InbreedingRate
@@ -4504,8 +4501,8 @@ module AlphaMateModule
     !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date   March 16, 2017
     !---------------------------------------------------------------------------
-    ! @todo: the best random mating?
-    ! @todo: return solutions?
+    ! @todo the best random mating?
+    ! @todo return solutions?
     subroutine AlphaMateSearch(Spec, Data, LogStdout) ! not pure due to IO
       implicit none
       type(AlphaMateSpec), intent(inout) :: Spec      !< AlphaMateSpec holder (out because we set and reset some parameters for different search modes)
@@ -4783,7 +4780,7 @@ module AlphaMateModule
 
       ! --- Random mating ---
 
-      ! @todo: is this mode any good?
+      ! @todo is this mode any good?
       if (Spec%ModeRan) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " "
@@ -4796,7 +4793,7 @@ module AlphaMateModule
         call Sol%SetupColNamesAndFormats(Spec=Spec)
 
         LogFile = "OptimisationLogModeRan.txt"
-        ! @todo: other reports from here - at least the best random solution?
+        ! @todo other reports from here - at least the best random solution?
 
         ! Search
         ! @todo Can we do this in a better way where we take "structure" of Chrom into account?
@@ -5158,7 +5155,7 @@ module AlphaMateModule
       This%ColnameLogUnit(5)  = "        FrontierDegree"
       This%ColnameLogUnit(6)  = "          SelCriterion"
       This%ColnameLogUnit(7)  = "          SelIntensity"
-      This%ColnameLogUnit(8)  = "       MaxSelCriterPct" ! @todo: Can we extend this to MaxSelCriterPct?
+      This%ColnameLogUnit(8)  = "       MaxSelCriterPct" ! @todo Can we extend this to MaxSelCriterPct?
       This%ColnameLogUnit(9)  = "            Coancestry"
       This%ColnameLogUnit(10) = "        CoancestryRate"
       This%ColnameLogUnit(11) = "      MinCoancestryPct"
