@@ -4,7 +4,7 @@ SET(ALPHAMATE_src
 )
 
 SET(ALPHARELATE_src
-  ../../AlphaRelate/src/AlphaRelateModule.f90
+  ../alpharelate/src/AlphaRelateModule.f90
 )
 
 ADD_DEFINITIONS(-D COMMIT=${VERSION})
