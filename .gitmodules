@@ -1,0 +1,6 @@
+[submodule "alphahouse"]
+	path = alphahouse
+	url = https://bitbucket.org/hickeyjohnteam/alphahouse.git
+[submodule "alphacmakefiles"]
+	path = alphacmakefiles
+	url = https://bitbucket.org/hickeyjohnteam/alphacmakefiles.git
