@@ -6,5 +6,8 @@ NrmMatrixFile                        ,RelMat.txt
 SelCriterionFile                     ,Ebv.txt
 GenderFile                           ,Gender.txt
 NumberOfMatings                      ,50
+NumberOfMaleParents                  ,10
+NumberOfFemaleParents                ,50
+EqualizeFemaleContributions          ,Yes
 Seed                                 ,19791123
 Stop

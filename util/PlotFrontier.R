@@ -10,7 +10,7 @@ library(package="methods")
 library(package="utils")
 
 args <- commandArgs(trailingOnly=TRUE)
-if (length(args)<1) {
+if (length(args) < 1) {
   FindYLim <- TRUE
   FindXLim <- TRUE
   ylim <- xlim <- NULL
@@ -30,8 +30,8 @@ ColRoslinOrange <- rgb(red=219, green= 79, blue= 15, maxColorValue=255) ## orang
 ColRoslinGray   <- rgb(red= 83, green= 83, blue= 83, maxColorValue=255) ## orange
 
 LogFiles <- dir(pattern="OptimisationLog")
-if (length(LogFiles) < 1 & !file.exists("Frontier.txt")) {
-  stop("ERROR: No optimisation and frontier log files to plot!")
+if (length(LogFiles) < 1 & (!file.exists("Frontier.txt") | !file.exists("Targets.txt"))) {
+  stop("ERROR: No optimisation and frontier or target log files to plot!")
 }
 
 pdf(file="Frontier.pdf", width=10, height=10*2/3, pointsize=14)
@@ -41,9 +41,9 @@ if (length(LogFiles) > 0) {
   LogFileCount <- 0
   Dat <- vector(mode="list", length=length(LogFiles))
   for (LogFile in LogFiles) {
-    ## LogFile <- "OptimisationLogMinimumInbreeding.txt"
-    ## LogFile <- "OptimisationLogOptimumGain.txt"
-    LogFileCount <- LogFileCount+1
+    ## LogFile <- "OptimisationLogModeMinCoancestry.txt"
+    ## LogFile <- "OptimisationLogModeMaxCriterion.txt"
+    LogFileCount <- LogFileCount + 1
     Dat[[LogFileCount]] <- read.table(file=LogFile, header=TRUE)
     #Dat[[LogFileCount]] <- Dat[[LogFileCount]][order(Dat[[LogFileCount]]$CoancestryRate), ]
     if (FindYLim) {
@@ -57,20 +57,22 @@ if (length(LogFiles) > 0) {
   ## Plot the data
   LogFileCount <- 0
   for (LogFile in LogFiles) {
-    ## LogFile <- "OptimisationLogMinimumInbreeding.txt"
+    ## LogFile <- "OptimisationLogModeMinCoancestry.txt"
     ## LogFile <- "OptimisationLogOptimumGain.txt"
     LogFileCount <- LogFileCount + 1
 
-    if (LogFile == "OptimisationLogMinimumInbreeding.txt") {
+    if (LogFile == "OptimisationLogModeMinCoancestry.txt") {
       Col <- ColRoslinBlue
-    } else if (LogFile == "OptimisationLogRandomMating.txt") {
+    } else if (grepl(pattern="OptimisationLogModeOptTarget",x=LogFile)) {
+      Col <- ColRoslinGreen
+    } else if (LogFile == "OptimisationLogModeMaxCriterion.txt") {
       Col <- ColRoslinOrange
-    } else if (LogFile == "OptimisationLogOptimumGain.txt") {
+    } else if (LogFile == "OptimisationLogModeRan.txt") {
       Col <- ColRoslinViolet
     } else {
       Col <- ColRoslinGray
     }
-    if (LogFile == "OptimisationLogRandomMating.txt") {
+    if (LogFile == "OptimisationLogModeRan.txt") {
       Sel <- which.max(Dat[[LogFileCount]]$Step)
       Ratio <- 2
       Type <- "o"
@@ -78,9 +80,10 @@ if (length(LogFiles) > 0) {
       # Option to plot less points
       Sel <- rep(TRUE, times=nrow(Dat[[LogFileCount]]))
       Test <- which.max(Dat[[LogFileCount]]$Iteration)
-      Ratio <- Dat[[LogFileCount]][Sel, "OptCriterion"] / Dat[[LogFileCount]][Sel, "OptCriterion"][Test]
+      Ratio <- Dat[[LogFileCount]][Sel, "Objective"] / Dat[[LogFileCount]][Sel, "Objective"][Test]
       Ratio <- Ratio + min(Ratio)
       Ratio <- Ratio / max(Ratio)
+      Ratio <- 1
       Type <- "b"
     }
     if (LogFileCount == 1) {
@@ -94,45 +97,51 @@ if (length(LogFiles) > 0) {
                pch=21, lwd=0.5, ylim=ylim, xlim=xlim, col=Col, bg=Col, cex=0.5*Ratio)
       }
     }
-    if (LogFile %in% c("OptimisationLogMinimumInbreeding.txt", "OptimisationLogOptimumGain.txt")) {
+    if (LogFile %in% c("OptimisationLogModeMinCoancestry.txt", "OptimisationLogModeMaxCriterion.txt")) {
       abline(h=Dat[[LogFileCount]][Test, ]$SelIntensity,  lwd=1, lty=2, col=Col)
       abline(v=Dat[[LogFileCount]][Test, ]$CoancestryRate, lwd=1, lty=2, col=Col)
     }
     #readline(prompt=cat("Pause:", LogFile))
   }
-  # TODO
-  # DeltaF <- axis(side=1)
-  # Tmp <- read.csv(file="ConstraintPopulationInbreeding.txt", header=FALSE)
-  # CoefF <- Tmp[Tmp$V1 == "Old_coancestry", "V2"]
-  # CoefF <- DeltaF*(1-CoefF) + CoefF
-  # axis(side=3, at=DeltaF, labels=round(CoefF,digits=3))
-  # mtext(side=3, text="Coef. of inbreeding", line=2.5)
 }
 
-if (file.exists("Frontier.txt")) {
-  Frontier <- read.table(file="Frontier.txt", header=TRUE)
-  Frontier <- Frontier[order(Frontier$CoancestryRate),]
-  Tmp <- installed.packages()
-  if (!("cobs" %in% Tmp[, "Package"])) {
-    install.packages(pkg="cobs")
+if (file.exists("Frontier.txt") | file.exists("Targets.txt")) {
+  if (file.exists("Frontier.txt")) {
+    Frontier <- read.table(file="Frontier.txt", header=TRUE)
+    Frontier <- Frontier[order(Frontier$CoancestryRate), ]
   }
-  if ("cobs" %in% Tmp[, "Package"]) {
-    library(package="cobs")
-    Mat <- matrix(nrow=nrow(Frontier),ncol=3)
-    Mat[,1] <- 1 # fitted value will be >= observed value (0 for =)
-    Mat[,2] <- Frontier$CoancestryRate
-    Mat[,3] <- Frontier$SelIntensity
-    Tmp <- cobs(x=Frontier$CoancestryRate, y=Frontier$SelIntensity, pointwise=Mat, ic="BIC")#, nknots=10)
-    x <- seq(from=min(Frontier$CoancestryRate),
-             to=max(Frontier$CoancestryRate),
-             by=0.0001)
-    y <- predict(Tmp, z=x)
-    lines(y=y[, 2], x=x, pch=21, cex=.5, lwd=2, col=ColRoslinGray)
-    #lines(y=yPAGE[, 2], x=x[-length(x)], pch=21, cex=.5, lwd=2, col=ColRoslinGray, lty=2)
-  } else {
+  if (file.exists("Targets.txt")) {
+    Targets <- read.table(file="Targets.txt", header=TRUE)
+    Targets <- Targets[order(Targets$CoancestryRate), ]
+    if (file.exists("Frontier.txt")) {
+      names(Targets)[1] <- names(Frontier)[1]
+      Frontier <- rbind(Frontier, Targets)
+      Frontier <- Frontier[order(Frontier$CoancestryRate), ]
+    } else {
+      Frontier <- Targets
+    }
+  }
+  # Tmp <- installed.packages()
+  # if (!("cobs" %in% Tmp[, "Package"])) {
+  #   install.packages(pkg="cobs")
+  # }
+  # if ("cobs" %in% Tmp[, "Package"]) {
+  #   library(package="cobs")
+  #   Mat <- matrix(nrow=nrow(Frontier),ncol=3)
+  #   Mat[,1] <- 1 # fitted value will be >= observed value (0 for =)
+  #   Mat[,2] <- Frontier$CoancestryRate
+  #   Mat[,3] <- Frontier$SelIntensity
+  #   Tmp <- cobs(x=Frontier$CoancestryRate, y=Frontier$SelIntensity, pointwise=Mat, ic="BIC")#, nknots=10)
+  #   x <- seq(from=min(Frontier$CoancestryRate),
+  #            to=max(Frontier$CoancestryRate),
+  #            by=0.0001)
+  #   y <- predict(Tmp, z=x)
+  #   lines(y=y[, 2], x=x, pch=21, cex=.5, lwd=2, col=ColRoslinGray)
+  #   #lines(y=yPAGE[, 2], x=x[-length(x)], pch=21, cex=.5, lwd=2, col=ColRoslinGray, lty=2)
+  # } else {
     lines(y=Frontier$SelIntensity, x=Frontier$CoancestryRate,
           pch=21, cex=.5, lwd=2, col=ColRoslinGray)
-  }
+  # }
 }
 
 dev.off()
