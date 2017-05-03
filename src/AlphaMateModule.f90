@@ -225,7 +225,7 @@ module AlphaMateModule
     integer(int32), allocatable :: Gender(:)
     real(real64), allocatable :: GenericIndCrit(:, :), GenericMatCrit(:, :, :)
     ! Data summaries
-    type(DescStatReal64) :: InbreedingStat, SelCriterionStat, SelCriterionPAGEStat
+    type(DescStatReal64) :: InbreedingStat, SelCriterionStat, SelIntensityStat, SelCriterionPAGEStat
     type(DescStatReal64), allocatable :: GenericIndCritStat(:)
     type(DescStatMatrixReal64) :: CoancestryStat, CoancestryStatGender1, CoancestryStatGender2, CoancestryStatGenderDiff
     type(DescStatMatrixReal64), allocatable :: GenericMatCritStat(:)
@@ -2699,44 +2699,43 @@ module AlphaMateModule
       integer(int32), intent(in)           :: Unit !< Unit to write to
 
       if (This%ObjectiveCriterion) then
-        write(Unit, "(a)") "   Selection intensity / selection criterion"
-        write(Unit, "(a)") "     @MinCoancestry: "//trim(Real2Char(Spec%ModeMinCoancestrySpec%SelIntensity, fmt=FMTREAL2CHAR))//&
-                          " /"//trim(Real2Char(Spec%ModeMinCoancestrySpec%SelCriterion, fmt=FMTREAL2CHAR))
-        write(Unit, "(a)") "     @MaxCriterion:  "//trim(Real2Char(Spec%ModeMaxCriterionSpec%SelIntensity, fmt=FMTREAL2CHAR))//&
-                          " /"//trim(Real2Char(Spec%ModeMaxCriterionSpec%SelCriterion, fmt=FMTREAL2CHAR))
+        write(Unit, "(a)") "   Selection criterion / selection intensity"
+        write(Unit, "(a)") "     @MinCoancestry: "//trim(Real2Char(Spec%ModeMinCoancestrySpec%SelCriterion, fmt=FMTREAL2CHAR))//" /" &
+                                                  //trim(Real2Char(Spec%ModeMinCoancestrySpec%SelIntensity, fmt=FMTREAL2CHAR))
+        write(Unit, "(a)") "     @MaxCriterion:  "//trim(Real2Char(Spec%ModeMaxCriterionSpec%SelCriterion, fmt=FMTREAL2CHAR))//" /" &
+                                                  //trim(Real2Char(Spec%ModeMaxCriterionSpec%SelIntensity, fmt=FMTREAL2CHAR))
         write(Unit, "(a)") "     Pct of max:     "//trim(Real2Char(This%TargetMaxCriterionPct, fmt="(f7.1)"))
-        write(Unit, "(a)") "     Target:         "//trim(Real2Char(This%TargetSelIntensity, fmt=FMTREAL2CHAR))//&
-                          " /"//trim(Real2Char(This%TargetSelCriterion, fmt=FMTREAL2CHAR))
+        write(Unit, "(a)") "     Target:         "//trim(Real2Char(This%TargetSelCriterion, fmt=FMTREAL2CHAR))//" /" &
+                                                  //trim(Real2Char(This%TargetSelIntensity, fmt=FMTREAL2CHAR))
         write(Unit, "(a)") " "
       end if
 
       if (This%ObjectiveCoancestry) then
-        write(Unit, "(a)") "   Coancestry rate / coancestry coefficient"
-        write(Unit, "(a)") "     @MinCoancestry: "//trim(Real2Char(Spec%ModeMinCoancestrySpec%CoancestryRate, fmt=FMTREAL2CHAR))//&
-                          " /"//trim(Real2Char(Spec%ModeMinCoancestrySpec%Coancestry, fmt=FMTREAL2CHAR))
-        write(Unit, "(a)") "     @MaxCriterion:  "//trim(Real2Char(Spec%ModeMaxCriterionSpec%CoancestryRate, fmt=FMTREAL2CHAR))//&
-                          " /"//trim(Real2Char(Spec%ModeMaxCriterionSpec%Coancestry, fmt=FMTREAL2CHAR))
+        write(Unit, "(a)") "   Coancestry coefficient / coancestry rate"
+        write(Unit, "(a)") "     @MinCoancestry: "//trim(Real2Char(Spec%ModeMinCoancestrySpec%Coancestry, fmt=FMTREAL2CHAR))//" /" &
+                                                  //trim(Real2Char(Spec%ModeMinCoancestrySpec%CoancestryRate, fmt=FMTREAL2CHAR))
+        write(Unit, "(a)") "     @MaxCriterion:  "//trim(Real2Char(Spec%ModeMaxCriterionSpec%Coancestry, fmt=FMTREAL2CHAR))//" /" &
+                                                  //trim(Real2Char(Spec%ModeMaxCriterionSpec%CoancestryRate, fmt=FMTREAL2CHAR))
         write(Unit, "(a)") "     Pct of min:     "//trim(Real2Char(This%TargetMinCoancestryPct, fmt="(f7.1)"))
-        write(Unit, "(a)") "     Target:         "//trim(Real2Char(This%TargetCoancestryRate, fmt=FMTREAL2CHAR))//&
-                          " /"//trim(Real2Char(This%TargetCoancestry, fmt=FMTREAL2CHAR))
+        write(Unit, "(a)") "     Target:         "//trim(Real2Char(This%TargetCoancestry,     fmt=FMTREAL2CHAR))//" /" &
+                                                  //trim(Real2Char(This%TargetCoancestryRate, fmt=FMTREAL2CHAR))
         write(Unit, "(a)") " "
       end if
 
       if (This%ObjectiveCriterion .and. This%ObjectiveCoancestry) then
         write(Unit, "(a)") "   Degree"
-        write(Unit, "(a)") "     Target:     "//trim(Real2Char(This%TargetDegree, fmt="(f7.1)"))
+        write(Unit, "(a)") "     Target:         "//trim(Real2Char(This%TargetDegree, fmt="(f7.1)"))
         write(Unit, "(a)") " "
       end if
 
       if (This%ObjectiveInbreeding) then
-        write(Unit, "(a)") "   Inbreeding rate / inbreeding coefficient"
-        write(Unit, "(a)") "     @MinInbreeding: "//trim(Real2Char(Spec%ModeMinInbreedingSpec%Inbreedingrate, fmt=FMTREAL2CHAR))//&
-                          " /"//trim(Real2Char(Spec%ModeMinInbreedingSpec%Inbreeding, fmt=FMTREAL2CHAR))
-        write(Unit, "(a)") "     MaxInbreeding:  "//trim(Real2Char(+1.0d0, fmt=FMTREAL2CHAR))//&
-                          " / ???"
+        write(Unit, "(a)") "   Inbreeding coefficient / inbreeding rate"
+        write(Unit, "(a)") "     @MinInbreeding: "//trim(Real2Char(Spec%ModeMinInbreedingSpec%Inbreeding, fmt=FMTREAL2CHAR))//" /" &
+                                                  //trim(Real2Char(Spec%ModeMinInbreedingSpec%Inbreedingrate, fmt=FMTREAL2CHAR))
+        write(Unit, "(a)") "     MaxInbreeding:  "//trim(Real2Char(+1.0d0, fmt=FMTREAL2CHAR))//" / ???"
         write(Unit, "(a)") "     Pct of min:     "//trim(Real2Char(This%TargetMinInbreedingPct, fmt="(f7.1)"))
-        write(Unit, "(a)") "     Target:         "//trim(Real2Char(This%TargetInbreedingRate, fmt=FMTREAL2CHAR))//&
-                          " /"//trim(Real2Char(This%TargetInbreeding, fmt=FMTREAL2CHAR))
+        write(Unit, "(a)") "     Target:         "//trim(Real2Char(This%TargetInbreeding,     fmt=FMTREAL2CHAR))//" /" &
+                                                  //trim(Real2Char(This%TargetInbreedingRate, fmt=FMTREAL2CHAR))
         write(Unit, "(a)") " "
       end if
     end subroutine
@@ -3145,11 +3144,11 @@ module AlphaMateModule
         write(STDOUT, "(a)") " RNG seed: "//trim(Int2Char(Spec%Seed))
       end if
 
-      ! --- Current coancestry summary ---
+      ! --- Current coancestry ---
 
       if (LogStdoutInternal) then
         write(STDOUT, "(a)") " "
-        write(STDOUT, "(a)") " Current coancestry summary (average identity of the four genome combinations of two individuals)"
+        write(STDOUT, "(a)") " Current coancestry (average identity of the four genome combinations of two individuals)"
       end if
 
       ! @todo Should we use DescStatMatrix or DescStatLowTriMatrix?
@@ -3219,11 +3218,11 @@ module AlphaMateModule
       end if
       close(CoancestrySummaryUnit)
 
-      ! --- Current inbreeding summary ---
+      ! --- Current inbreeding ---
 
       if (LogStdoutInternal) then
         write(STDOUT, "(a)") " "
-        write(STDOUT, "(a)") " Current inbreeding summary (identity between the two genomes of an individual)"
+        write(STDOUT, "(a)") " Current inbreeding (identity between the two genomes of an individual)"
       end if
 
       block
@@ -3245,25 +3244,32 @@ module AlphaMateModule
       write(InbreedingSummaryUnit, "(a, f)") "Current, ", This%Inbreeding
       close(InbreedingSummaryUnit)
 
-      ! --- Current selection criterion summary ---
+      ! --- Current selection criterion ---
 
       if (Spec%SelCriterionGiven) then
 
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " "
-          write(STDOUT, "(a)") " Current selection criterion summary"
+          write(STDOUT, "(a)") " Current selection criterion / standardized (=intensity)"
         end if
 
         This%SelCriterionStat = DescStat(This%SelCriterion)
         This%SelIntensity = SelCriterion2SelIntensity(SelCriterion=This%SelCriterion, &
                                                       Mean=This%SelCriterionStat%Mean, &
                                                       Sd=This%SelCriterionStat%Sd)
+        This%SelIntensityStat = DescStat(This%SelIntensity)
+
         if (LogStdoutInternal) then
-          write(STDOUT, "(a)") "  - n:       "//trim( Int2Char(This%SelCriterionStat%n,    fmt=FMTINT2CHAR))
-          write(STDOUT, "(a)") "  - average: "//trim(Real2Char(This%SelCriterionStat%Mean, fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") "  - st.dev.: "//trim(Real2Char(This%SelCriterionStat%Sd,   fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") "  - minimum: "//trim(Real2Char(This%SelCriterionStat%Min,  fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") "  - maximum: "//trim(Real2Char(This%SelCriterionStat%Max,  fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "  - n:       "//trim( Int2Char(This%SelCriterionStat%n,    fmt=FMTINT2CHAR)) //" /"&
+                                              //trim( Int2Char(This%SelIntensityStat%n,    fmt=FMTINT2CHAR))
+          write(STDOUT, "(a)") "  - average: "//trim(Real2Char(This%SelCriterionStat%Mean, fmt=FMTREAL2CHAR))//" /"&
+                                              //trim(Real2Char(This%SelIntensityStat%Mean, fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "  - st.dev.: "//trim(Real2Char(This%SelCriterionStat%Sd,   fmt=FMTREAL2CHAR))//" /"&
+                                              //trim(Real2Char(This%SelIntensityStat%Sd,   fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "  - minimum: "//trim(Real2Char(This%SelCriterionStat%Min,  fmt=FMTREAL2CHAR))//" /"&
+                                              //trim(Real2Char(This%SelIntensityStat%Min,  fmt=FMTREAL2CHAR))
+          write(STDOUT, "(a)") "  - maximum: "//trim(Real2Char(This%SelCriterionStat%Max,  fmt=FMTREAL2CHAR))//" /"&
+                                              //trim(Real2Char(This%SelIntensityStat%Max,  fmt=FMTREAL2CHAR))
         end if
 
         if (This%SelCriterionStat%Sd .eq. 0.0) then
@@ -3313,7 +3319,7 @@ module AlphaMateModule
       if (Spec%GenericIndCritGiven) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " "
-          write(STDOUT, "(a)") " Current generic individual selection criterion summary"
+          write(STDOUT, "(a)") " Current generic individual selection criterion"
         end if
 
         open(newunit=GenericIndCritSummaryUnit, file="GenericIndCritSummary.txt", status="unknown")
@@ -3339,7 +3345,7 @@ module AlphaMateModule
       if (Spec%GenericMatCritGiven) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " "
-          write(STDOUT, "(a)") " Generic mating selection criterion summary"
+          write(STDOUT, "(a)") " Generic mating selection criterion"
         end if
 
         open(newunit=GenericMatCritSummaryUnit, file="GenericMatCritSummary.txt", status="unknown")
@@ -3503,7 +3509,15 @@ module AlphaMateModule
       end if
 
       write(Unit, "(a)") " "
-      write(Unit, "(a)") " SelCriterionStat:"
+      write(Unit, "(a)") " SelIntensityStat:"
+      if (allocated(This%SelCriterion)) then
+        write(Unit, *) This%SelIntensityStat
+      else
+        write(Unit, "(a)") " SelCriterion not allocated"
+      end if
+
+      write(Unit, "(a)") " "
+      write(Unit, "(a)") " SelCriterionPAGEStat:"
       if (allocated(This%SelCriterionPAGE)) then
         write(Unit, *) This%SelCriterionPAGEStat
       else
@@ -4572,7 +4586,7 @@ module AlphaMateModule
       if (Spec%ModeMinCoancestry) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " "
-          write(STDOUT, "(a)") " Optimise contributions for minimum coancestry (ModeMinCoancestry) ..."
+          write(STDOUT, "(a)") " Optimise contributions for minimum future coancestry (ModeMinCoancestry) ..."
           write(STDOUT, "(a)") " "
         end if
 
@@ -4621,7 +4635,7 @@ module AlphaMateModule
       if (Spec%ModeMinInbreeding) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " "
-          write(STDOUT, "(a)") " Optimise contributions for minimum inbreeding (ModeMinInbreeding) ..."
+          write(STDOUT, "(a)") " Optimise contributions for minimum future inbreeding (ModeMinInbreeding) ..."
           write(STDOUT, "(a)") " "
         end if
 
@@ -4681,7 +4695,7 @@ module AlphaMateModule
       if (Spec%ModeMaxCriterion) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " "
-          write(STDOUT, "(a)") " Optimise contributions for maximum selection criterion (ModeMaxCriterion) ..."
+          write(STDOUT, "(a)") " Optimise contributions for maximum future selection criterion (ModeMaxCriterion) ..."
           write(STDOUT, "(a)") " "
         end if
 
@@ -4835,7 +4849,7 @@ module AlphaMateModule
       if (Spec%ModeOpt .and. (Spec%nTargets .gt. 0)) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " "
-          write(STDOUT, "(a)") " Optimise contributions for maximum selection criterion with constraint on coancestry and inbreeding ..."
+          write(STDOUT, "(a)") " Optimise contributions for maximum future selection criterion with constraint on coancestry (and inbreeding) ..."
         end if
 
         open(newunit=Unit, file="Targets.txt", status="unknown")

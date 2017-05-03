@@ -2,7 +2,7 @@
 TODO ModeRan
   - any good?
 
-* Add SelIntensity to stat output
+* Implement NumberOfContributions (nCon), which should encompass both nMat and nProgeny
 
 * Write manual
 
@@ -17,6 +17,9 @@ TODO ModeRan
 * Allow for previous usage
 * Continous generations with already generated progeny that are not yet selection
   candidates (see Mark and Per's solution).
+* Rates of coancestry and inbreeding could be computed via Perez-Enciso regression,
+  which would allow for slight temporary deviations in each incremental step, but
+  keep long-term rates as specified
 
 * Handle MOET/JIVET with variable/derived number of contributions per female -
   now combination of nFemaleParents, nMatings, and EqualizeFemaleContributions
@@ -82,48 +85,6 @@ TODO ModeRan
 
 * Good/sensible starting point for optimisation?
 
-Objectives: J(x)
-  - max genetic gain
-  - min f(coancestry) (is this objective or constraint?)
-  - min/max f(inbreeding) (is this objective or constraint?)
-  - ???
-
-Design variables: x
-  - number of matings: x_n
-  - mate allocation: x_m (per mating or per progeny!?)
-  - edits: x_e
-
-Constraints (g(x) <= 0, h(x) = 0)
-  - f(coancestry) (is this objective or constraint?) <= dC
-  - f(inbreeding) (is this objective or constraint?) <= dF
-  - ?min(x_n) <= x_n <= max(x_n) (integer!, can vary by gender)
-  - ?x_m
-  - sum(x_e) <= n_e
-
-Bounds (side constraints)
-  - ?min(x_n) <= x_n <= max(x_n) (integer!, can vary by gender)
-  - ?x_m
-  - x_e = {0, 1}
-
-Merit function f(J(x), g(x), h(x))
-
-Exterior penalty J(x) + rho * P(x), rho increases over time
-  - quadratic P(x) = sum(g(x)^2) + sum(h(x)^2), might need very large rho to meet constraints
-  - absolute  P(x) = sum(abs(g(x))) + sum(abs(h(x))), more manageable rho, but discontinuos derivatives when g(x) and/or h(x) are zero
-
-Interior penalty (barrier method) J(x) + r * sum(-1 / g(x)) + rho * sum(h(x)^2)
-  - r = barrier parameter (start as a large positive value and decreases)
-  - only for inequality constraints
-  - discontinuos at constraint boundaries
-
-Constraints in GA
-  - penalty
-  - selection operator (do not select solutions that violate constraints)
-  - problem representation (only allow for valid solutions)
-  - repair
-
-Scalarization
-
 Pareto front calculations
 [1] Pareto, V., Manuale di Economia Politica, Societa Editrice Libraria, Milano, Italy, Translated into English by Schwier, A. S. 1971: Manual of Political Economy, Macmillan, New York, 1906.
 
@@ -132,7 +93,7 @@ Pareto front calculations
     (generate solutions that are well-distributed)
     1. Perform single objective optimisations (J_i^star = J_i(x^star), i = 1, 2, ..., k)
     2. Define utopia point J^u = [J_1^star, J_2^star, ..., J_k^star]
-    3. Utopia line between the anchor points
+    3. Normal line between the anchor points
     4. Perform a series of optimisations along the line in even increments
     5. Evaluate which points are Pareto optimal
 
