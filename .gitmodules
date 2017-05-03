@@ -4,3 +4,6 @@
 [submodule "alphacmakefiles"]
 	path = alphacmakefiles
 	url = https://bitbucket.org/hickeyjohnteam/alphacmakefiles.git
+[submodule "alpharelate"]
+	path = alpharelate
+	url = https://bitbucket.org/hickeyjohnteam/alpharelate.git

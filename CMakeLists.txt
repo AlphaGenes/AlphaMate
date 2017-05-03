@@ -2,12 +2,12 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.8.5)
 PROJECT(AlphaMate)
 ENABLE_LANGUAGE(Fortran)
 
-OPTION(RUN_TESTS "Run and compile tests" ON)
+OPTION(RUN_TESTS "Run and compile tests" OFF)
 OPTION(USE_HDF5 "Use hdf" OFF)
 
 SET(CLUSTER 0 CACHE STRING "cluster size")
 # Add our local modlues to the module path
-SET(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/./AlphaCMakeFiles/cmake/modules")
+SET(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/./alphacmakefiles/cmake/modules")
 SET(CMAKE_MACOSX_RPATH 0)
 
 INCLUDE(${CMAKE_MODULE_PATH}/setVersion.cmake)
@@ -65,7 +65,7 @@ INCLUDE(${CMAKE_MODULE_PATH}/findDoxygen.cmake)
 # RELEASE, and TESTING.  You should  review this file and make sure the flags
 # are to your liking.
 INCLUDE(${CMAKE_MODULE_PATH}/SetFortranFlags.cmake)
-SET(SRCAH ./AlphaHouse/src/)
+SET(SRCAH ./alphahouse/src/)
 
 # Have the .mod files placed in the OBJ folder
 SET(CMAKE_Fortran_MODULE_DIRECTORY ${OBJ})
