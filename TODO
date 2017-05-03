@@ -2,6 +2,10 @@
 TODO ModeRan
   - any good?
 
+* Add SelIntensity to stat output
+
+* Write manual
+
 --- BIOLOGICAL CONSIDERATIONS ---
 
 * Random mating vs mating plan, i.e., mate allocation
@@ -10,29 +14,64 @@ TODO ModeRan
 
 * coancestry summary on whole rel matrix or just triangle of it?
 
-* How do we handle when nMat > nDam? Are we mating one dam with several sires?
-* MOET, JIVET, ... any other reproductive technologies?
-  - are these not covered with lifting the limit constraints on females?
-* Any other biotechnologies?
+* Allow for previous usage
+* Continous generations with already generated progeny that are not yet selection
+  candidates (see Mark and Per's solution).
+
+* Handle MOET/JIVET with variable/derived number of contributions per female -
+  now combination of nFemaleParents, nMatings, and EqualizeFemaleContributions
+  allow you to do MOET, but it has to be equal number or progeny for all females.
+  The crux of the problem is in providing nMatings instead of nProgeny. Currently
+  we provide nMatings.
+  Standard/simple example:
+    * we want 100 new progeny
+    * nProgenyPerFemale is 5
+    * so we need 20 females and therefore 20 matings
+    * --> each female contributes 5 progeny
+
+  Working MOET example:
+      * we want 100 new progeny
+    * nProgenyPerFemale is 20 (instead of 5)
+    * so we need 5 females and therefore 5 matings with single-sire mating/insemination
+     or 5 females and 100 matings with multipl-sire mating/insemination
+    * --> each female contributes 20 progeny
+
+  There is no way currently to allow for variable progeny per female. Say:
+    * nProgenyPerFemale can range from 0 to 20
+    * say contributions for females are [0, 5, 10, 20, 20, 20, 15, 10, 0], which
+      sums to 100 new progeny; so here 1 contribution = 1 progeny
+    * 7 females have non-zero contributions, so these will become females that
+      will be subject to MOET/JIVET
+    * these females will be mated, which means we will have 7 matings under MOET
+      or 100 fertilisations under JIVET
+    * --> currently AlphaMate does not enable handling apriori unknown number of
+      matings, albeit this might be changed ont the fly, i.e., see how many contributions
+      are nonzero and this gives nProgeny (will need to put a cap on progeny then)
 
 * Enable several inbreeding targets to simplify exploring the Pareto frontier?
 
---- OTHER ---
-
-* Update/finalise manual
-
 * Cut precision in Frontier and Optimisation log files??? Or make it as an option?
 
-* Sort mating plan by contributions
+* Sort mating plan output by contributions (and unique pairs, ...)?
+* Sort contributions output by ?
 
-* Colnames and formats in AlphaMateSpec instead of AlphaMateSol? We have lots of AlphaMateSol, so
-  would save some space and also intialise and assign methods do not carry this data over. would
+* Colnames and formats in AlphaMateSpec instead of AlphaMateSol? We have lots of AlphaMateSol objects, so
+  would save some little space and also intialise and assign methods do not carry this data over. would
   have to pass Spec to Log methods in AlphaEvolve, which we do already for many methods anyhow.
+
+* Make use of a list of matings that should be avoid/excluded (due to selfing-incompatibility,
+  hybrid necrosis, ...).
+
+* Synthetic varieties in grass breeding, i.e., which parents to mix together?
+
+* Backup matings? Find a sire that is most similar to the proposed mating sire or actualy carry this
+  "burden" in optimisation?
 
 * Generic way of adding costs (similar as with the generic individual/mating values)
   - individual level
   - mating level
           Criterion%Cost      = sum(Criterion%GenomeEdit(:)) * PAGEPar1Cost
+    --> multiobjective optimisation
 
 * Input pedigree and/or genotype data to simplify creation of:
   - relationships

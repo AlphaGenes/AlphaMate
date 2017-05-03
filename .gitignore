@@ -1,3 +1,5 @@
+
+# Build stuff
 CMakeFiles
 CMakeCache.txt
 CMakeCache.txt.tmp
@@ -16,3 +18,14 @@ DoxygenDoc
 .Rhistory
 *.pdf
 pftest_alltests
+
+# AlphaMate outputs
+CoancestrySummary.txt
+ContributionsMode*
+Frontier.txt
+InbreedingSummary.txt
+MatingPlanMode*
+OptimisationLogMode*
+SeedUsed.txt
+SelCriterionSummary.txt
+Targets.txt

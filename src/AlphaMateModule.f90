@@ -3862,11 +3862,14 @@ module AlphaMateModule
               !   - Data%nPotPar1 edit indicators for "parent1" (males   when GenderGiven, all ind when .not. GenderGiven)
               !   - Data%nPotPar2 edit indicators for "parent2" (females when GenderGiven, present only when GenderGiven)
               !
-              ! Say we have Chrom=(| 0, 2, 0, 1 | ... | 2.5, 1.5, 1.0 | 0, 1, 0, 0 | ...) then we:
-              ! - mate male 2 with the first  available female (rank 2.5)
-              ! - mate male 2 with the second available female (rank 1.5)
-              ! - mate male 4 with the third  available female (rank 1.0)
+              ! Say we have Chrom=(| 0, 2, 0, 1 | 1, 2, 0 | 1.5, 2.5, 1.0 | 0, 1, 0, 0 | 0, 0, 0) then we:
+              ! - sort female contributions based on ranks from (1st, 2nd, 2nd) female to (2nd, 1st, 2nd) females
+              ! - then we
+              !   - mate first  male 2 contribution with the first  female 2 contribution
+              !   - mate second male 2 contribution with the first  female 1 contribution
+              !   - mate first  male 4 contribution with the second female 2 contribution
               ! - edit male 2
+              ! - do not edit any of the females
               !
               ! @todo consider spliting the Chrom() vector internally into a type with
               !   separate vectors to simplify the code, e.g.,
