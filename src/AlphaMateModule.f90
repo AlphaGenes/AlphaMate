@@ -188,7 +188,7 @@ module AlphaMateModule
 
     ! Biological specifications
     integer(int32) :: nInd, nMat, nPar, nPar1, nPar2 ! NOTE: nInd is here just for OO-flexibility (do not use it; the main one is in Data!!!)
-    logical :: MateAllocation, SelfingAllowed, EqualizePar, EqualizePar1, EqualizePar2, LimitPar, LimitPar1, LimitPar2
+    logical :: MateAllocation, RandomMateAllocation, SelfingAllowed, EqualizePar, EqualizePar1, EqualizePar2, LimitPar, LimitPar1, LimitPar2
     real(real64) :: LimitParMin, LimitPar1Min, LimitPar2Min, LimitParMax, LimitPar1Max, LimitPar2Max, LimitParMinWeight, LimitPar1MinWeight, LimitPar2MinWeight
     logical :: PAGEPar, PAGEPar1, PAGEPar2
     integer(int32) :: PAGEParMax, PAGEPar1Max, PAGEPar2Max
@@ -505,6 +505,7 @@ module AlphaMateModule
       This%nPar2 = 0
 
       This%MateAllocation = .true.
+      This%RandomMateAllocation = .false.
 
       This%SelfingAllowed = .false.
       This%SelfingWeight = -1 ! -1000.0d0
@@ -699,6 +700,7 @@ module AlphaMateModule
       write(Unit, *) "nPar2: ", This%nPar2
 
       write(Unit, *) "MateAllocation: ", This%MateAllocation
+      write(Unit, *) "RandomMateAllocation: ", This%RandomMateAllocation
 
       write(Unit, *) "SelfingAllowed: ", This%SelfingAllowed
       write(Unit, *) "SelfingWeight: ",  This%SelfingWeight
@@ -1486,11 +1488,25 @@ module AlphaMateModule
                 if (ToLower(trim(adjustl(Second(1)))) .ne. "yes") then
                   This%MateAllocation = .false.
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Mate allocation turned off"
+                    write(STDOUT, "(a)") " Do not allocate matings"
                   end if
                 end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify Yes or No for MateAllocation, i.e., MateAllocation, Yes"
+                write(STDERR, "(a)") " "
+                stop 1
+              end if
+
+            case ("randommateallocation")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                  This%RandomMateAllocation = .true.
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Randomly allocate matings"
+                  end if
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for RandomMateAllocation, i.e., RandomMateAllocation, Yes"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -3939,7 +3955,7 @@ module AlphaMateModule
                 g = 2
               end if
               ! ... ranks to find the top contributors
-              if (.not.(Spec%EqualizePar1 .and. (Spec%nPar1 .eq. Data%nPotPar1))) then
+              if (.not. (Spec%EqualizePar1 .and. (Spec%nPar1 .eq. Data%nPotPar1))) then
                 Rank(1:Data%nPotPar1) = MrgRnk(This%Chrom(1:Data%nPotPar1))
                 Rank(1:Data%nPotPar1) = Rank(Data%nPotPar1:1:-1) ! MrgRnk ranks small to large
               end if
@@ -4212,8 +4228,12 @@ module AlphaMateModule
                     end do
                   end do
                   ! Reorder parent2 contributions according to the rank of matings
-                  Rank(1:Spec%nMat) = MrgRnk(This%Chrom((Data%nPotPar1 + Data%nPotPar2 + 1):(Data%nPotPar1 + Data%nPotPar2 + Spec%nMat)))
-                  MatPar2 = MatPar2(Rank(1:Spec%nMat))
+                  if (Spec%RandomMateAllocation) then
+                    MatPar2 = MatPar2(RandomOrder(n=Spec%nMat))
+                  else
+                    Rank(1:Spec%nMat) = MrgRnk(This%Chrom((Data%nPotPar1 + Data%nPotPar2 + 1):(Data%nPotPar1 + Data%nPotPar2 + Spec%nMat)))
+                    MatPar2 = MatPar2(Rank(1:Spec%nMat))
+                  end if
                 else
                   ! Distribute one half of contributions into matings
                   k = 0
@@ -4237,14 +4257,18 @@ module AlphaMateModule
                     end do
                   end do
                   ! Reorder one half of contributions according to the rank of matings
-                  Rank(1:Spec%nMat) = MrgRnk(This%Chrom((Data%nPotPar1 + 1):(Data%nPotPar1 + Spec%nMat)))
-                  MatPar2 = MatPar2(Rank(1:Spec%nMat))
+                  if (Spec%RandomMateAllocation) then
+                    MatPar2 = MatPar2(RandomOrder(n=Spec%nMat))
+                  else
+                    Rank(1:Spec%nMat) = MrgRnk(This%Chrom((Data%nPotPar1 + 1):(Data%nPotPar1 + Spec%nMat)))
+                    MatPar2 = MatPar2(Rank(1:Spec%nMat))
+                  end if
                 end if
 
                 ! Pair the contributions (=Mating plan)
                 k = Spec%nMat ! MrgRnk ranks small to large
                 if (Spec%GenderGiven .or. Spec%SelfingAllowed) then
-                  ! When gender matters selfing can not happen (we have two distinct sets of parents,
+                  ! When gender matters selfing can not happen (we have two distinct sets of parents;
                   ! unless the user adds individuals of one sex in both sets) and when SelfingAllowed
                   ! we do not need to care about it - faster code
                   do i = 1, Data%nPotPar1
@@ -4597,7 +4621,9 @@ module AlphaMateModule
       end if
 
       if (Spec%MateAllocation) then
-        nParam = nParam + Spec%nMat
+        if (.not. Spec%RandomMateAllocation) then
+          nParam = nParam + Spec%nMat
+        end if
       end if
 
       if (Spec%PAGEPar) then

@@ -8,6 +8,8 @@ TODO ModeRan
 
 --- BIOLOGICAL CONSIDERATIONS ---
 
+* Check the mate-allocation driver (all the sorting etc. is confusing)
+
 * Random mating vs mating plan, i.e., mate allocation
   https://en.wikipedia.org/wiki/Iterative_proportional_fitting to compute expected? coancestry
 * Future RelMat and realized CoaRate etc.
