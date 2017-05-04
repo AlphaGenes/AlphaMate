@@ -35,7 +35,7 @@ TODO ModeRan
     * --> each female contributes 5 progeny
 
   Working MOET example:
-      * we want 100 new progeny
+    * we want 100 new progeny
     * nProgenyPerFemale is 20 (instead of 5)
     * so we need 5 females and therefore 5 matings with single-sire mating/insemination
      or 5 females and 100 matings with multipl-sire mating/insemination

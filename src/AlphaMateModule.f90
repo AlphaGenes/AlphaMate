@@ -2135,7 +2135,7 @@ module AlphaMateModule
         stop 1
       end if
 
-      if (This%TargetInbreedingGiven .or. This%TargetInbreedingRateGiven) then
+      if (This%TargetInbreedingGiven .or. This%TargetInbreedingRateGiven .or. This%TargetMinInbreedingPctGiven) then
         This%ModeMinInbreeding = .true.
       end if
 
@@ -2235,6 +2235,18 @@ module AlphaMateModule
         ! @todo what is the solution? Provide the same individual both as male and a female?
         write(STDERR, "(a)") " "
         stop 1
+      end if
+
+      if ((.not. This%MateAllocation .or. This%RandomMateAllocation) .and. &
+          (This%TargetInbreedingGiven .or. This%TargetInbreedingRateGiven .or. This%TargetMinInbreedingPctGiven)) then
+        This%ModeMinInbreeding = .false.
+        This%TargetInbreedingGiven = .false.
+        This%TargetInbreedingRateGiven  = .false.
+        This%TargetMinInbreedingPctGiven = .false.
+        if (LogStdoutInternal) then
+          write(STDOUT, "(a)") " NOTE: Inbreeding target is not active when mate allocation is random or not performed ."
+          write(STDOUT, "(a)") " "
+        end if
       end if
     end subroutine
 
