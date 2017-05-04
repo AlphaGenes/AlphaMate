@@ -188,7 +188,7 @@ module AlphaMateModule
 
     ! Biological specifications
     integer(int32) :: nInd, nMat, nPar, nPar1, nPar2 ! NOTE: nInd is here just for OO-flexibility (do not use it; the main one is in Data!!!)
-    logical :: SelfingAllowed, EqualizePar, EqualizePar1, EqualizePar2, LimitPar, LimitPar1, LimitPar2
+    logical :: MateAllocation, SelfingAllowed, EqualizePar, EqualizePar1, EqualizePar2, LimitPar, LimitPar1, LimitPar2
     real(real64) :: LimitParMin, LimitPar1Min, LimitPar2Min, LimitParMax, LimitPar1Max, LimitPar2Max, LimitParMinWeight, LimitPar1MinWeight, LimitPar2MinWeight
     logical :: PAGEPar, PAGEPar1, PAGEPar2
     integer(int32) :: PAGEParMax, PAGEPar1Max, PAGEPar2Max
@@ -504,6 +504,8 @@ module AlphaMateModule
       This%nPar1 = 0
       This%nPar2 = 0
 
+      This%MateAllocation = .true.
+
       This%SelfingAllowed = .false.
       This%SelfingWeight = -1 ! -1000.0d0
 
@@ -696,8 +698,10 @@ module AlphaMateModule
       write(Unit, *) "nPar1: ", This%nPar1
       write(Unit, *) "nPar2: ", This%nPar2
 
-      write(Unit, *) "SelfingAllowed: ",   This%SelfingAllowed
-      write(Unit, *) "SelfingWeight: ",    This%SelfingWeight
+      write(Unit, *) "MateAllocation: ", This%MateAllocation
+
+      write(Unit, *) "SelfingAllowed: ", This%SelfingAllowed
+      write(Unit, *) "SelfingWeight: ",  This%SelfingWeight
 
       write(Unit, *) "EqualizePar:  ", This%EqualizePar
       write(Unit, *) "EqualizePar1: ", This%EqualizePar1
@@ -1477,6 +1481,51 @@ module AlphaMateModule
                 stop 1
               end if
 
+            case ("mateallocation")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .ne. "yes") then
+                  This%MateAllocation = .false.
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Mate allocation turned off"
+                  end if
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for MateAllocation, i.e., MateAllocation, Yes"
+                write(STDERR, "(a)") " "
+                stop 1
+              end if
+
+            case ("allowselfing")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                  This%SelfingAllowed = .true.
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Selfing allowed"
+                  end if
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for AllowSelfing, i.e., AllowSelfing, Yes"
+                write(STDERR, "(a)") " "
+                stop 1
+              end if
+
+            case ("selfingweight")
+              if (This%SelfingAllowed) then
+                if (allocated(Second)) then
+                  This%SelfingWeight = Char2Double(trim(adjustl(Second(1))))
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") "Selfing - weight: "//trim(Real2Char(This%SelfingWeight, fmt=FMTREAL2CHAR))
+                  end if
+                  if (This%SelfingWeight .gt. 0.0d0) then
+                    write(STDOUT, "(a)") " NOTE: Positive weight for selfing, i.e., encourage selfing. Was this intended?"
+                  end if
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify a value for SelfingWeight, i.e., SelfingWeight, -1000"
+                  write(STDERR, "(a)") " "
+                  stop 1
+                end if
+              end if
+
             case ("equalizecontributions")
               if (allocated(Second)) then
                 if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
@@ -1695,37 +1744,6 @@ module AlphaMateModule
                   end if
                 else
                   write(STDERR, "(a)") " ERROR: Must specify a value for LimitFemaleContributionsMinWeight, i.e., LimitFemaleContributionsMinWeight, -1000"
-                  write(STDERR, "(a)") " "
-                  stop 1
-                end if
-              end if
-
-            case ("allowselfing")
-              if (allocated(Second)) then
-                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
-                  This%SelfingAllowed = .true.
-                  if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Selfing allowed"
-                  end if
-                end if
-              else
-                write(STDERR, "(a)") " ERROR: Must specify Yes or No for AllowSelfing, i.e., AllowSelfing, Yes"
-                write(STDERR, "(a)") " "
-                stop 1
-              end if
-
-            case ("selfingweight")
-              if (This%SelfingAllowed) then
-                if (allocated(Second)) then
-                  This%SelfingWeight = Char2Double(trim(adjustl(Second(1))))
-                  if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") "Selfing - weight: "//trim(Real2Char(This%SelfingWeight, fmt=FMTREAL2CHAR))
-                  end if
-                  if (This%SelfingWeight .gt. 0.0d0) then
-                    write(STDOUT, "(a)") " NOTE: Positive weight for selfing, i.e., encourage selfing. Was this intended?"
-                  end if
-                else
-                  write(STDERR, "(a)") " ERROR: Must specify a value for SelfingWeight, i.e., SelfingWeight, -1000"
                   write(STDERR, "(a)") " "
                   stop 1
                 end if
@@ -3809,6 +3827,7 @@ module AlphaMateModule
           This%Cost                      = This%Cost                      * kR + Add%Cost                      / n
           This%nVec                      = This%nVec                      * kR + Add%nVec                      / n
           This%xVec                      = This%xVec                      * kR + Add%xVec                      / n
+          ! @todo It does not make sense to average a mating plan, no?
           This%MatingPlan                = This%MatingPlan                * kR + Add%MatingPlan                / n
           if (allocated(This%GenomeEdit)) then
             This%GenomeEdit              = This%GenomeEdit                * kR + Add%GenomeEdit                / n
@@ -4181,87 +4200,89 @@ module AlphaMateModule
 
               ! --- Mate allocation ---
 
-              MatPar2 = 0
-              if (Spec%GenderGiven) then
-                ! Distribute parent2 (=female) contributions into matings
-                k = 0
-                do i = 1, Data%nPotPar2 ! need to loop whole nVecPar2 as some entries are zero
-                  do j = 1, nVecPar2(i)
-                    k = k + 1
-                    MatPar2(k) = Data%IdPotPar2(i)
-                  end do
-                end do
-                ! Reorder parent2 contributions according to the rank of matings
-                Rank(1:Spec%nMat) = MrgRnk(This%Chrom((Data%nPotPar1 + Data%nPotPar2 + 1):(Data%nPotPar1 + Data%nPotPar2 + Spec%nMat)))
-                MatPar2 = MatPar2(Rank(1:Spec%nMat))
-              else
-                ! Distribute one half of contributions into matings
-                k = 0
-                do while (k .lt. Spec%nMat)
-                  do i = 1, Data%nPotPar1 ! need to loop whole nVecPar1 as some entries are zero
-                    l = nVecPar1(i) / 2
-                    if (mod(nVecPar1(i), 2) .eq. 1) then
-                      call random_number(RanNum)
-                      if (RanNum .gt. 0.5) then
-                        l = l + 1
-                      end if
-                    end if
-                    do j = 1, l
-                      if (k .eq. Spec%nMat) then
-                        exit
-                      end if
+              if (Spec%MateAllocation) then
+                MatPar2 = 0
+                if (Spec%GenderGiven) then
+                  ! Distribute parent2 (=female) contributions into matings
+                  k = 0
+                  do i = 1, Data%nPotPar2 ! need to loop whole nVecPar2 as some entries are zero
+                    do j = 1, nVecPar2(i)
                       k = k + 1
-                      MatPar2(k) = Data%IdPotPar1(i)
-                      nVecPar1(i) = nVecPar1(i) - 1
+                      MatPar2(k) = Data%IdPotPar2(i)
                     end do
                   end do
-                end do
-                ! Reorder one half of contributions according to the rank of matings
-                Rank(1:Spec%nMat) = MrgRnk(This%Chrom((Data%nPotPar1 + 1):(Data%nPotPar1 + Spec%nMat)))
-                MatPar2 = MatPar2(Rank(1:Spec%nMat))
-              end if
-
-              ! Pair the contributions (=Mating plan)
-              k = Spec%nMat ! MrgRnk ranks small to large
-              if (Spec%GenderGiven .or. Spec%SelfingAllowed) then
-                ! When gender matters selfing can not happen (we have two distinct sets of parents,
-                ! unless the user adds individuals of one sex in both sets) and when SelfingAllowed
-                ! we do not need to care about it - faster code
-                do i = 1, Data%nPotPar1
-                  do j = 1, nVecPar1(i)
-                    !if (k<2) print*, k, i, j, nVecPar1(i), Spec%nMat, sum(nVecPar1)
-                    This%MatingPlan(1, k) = Data%IdPotPar1(i)
-                    This%MatingPlan(2, k) = MatPar2(k)
-                    k = k - 1
-                  end do
-                end do
-              else
-                ! When gender does not matter, selfing can happen (we have one set of parents)
-                ! and when selfing is not allowed we need to avoid it - slower code
-                do i = 1, Data%nPotPar1
-                  do j = 1, nVecPar1(i)
-                    This%MatingPlan(1, k) = Data%IdPotPar1(i)
-                    if (MatPar2(k) .eq. Data%IdPotPar1(i)) then
-                      ! Try to avoid selfing by swapping the MatPar2 and Rank elements
-                      do l = k, 1, -1
-                        if (MatPar2(l) .ne. Data%IdPotPar1(i)) then
-                          MatPar2([k, l]) = MatPar2([l, k])
-                          This%Chrom(Data%nPotPar1 + Rank([k, l])) = This%Chrom(Data%nPotPar1 + Rank([l, k]))
-                          exit
-                        end if
-                      end do
-                      if (l .lt. 1) then ! Above loop ran out without finding a swap
-                        This%Objective = This%Objective + Spec%SelfingWeight
-                        if (Spec%SelfingWeight .lt. 0.0d0) then
-                          This%PenaltySelfing = This%PenaltySelfing + Spec%SelfingWeight
-                          This%Penalty        = This%Penalty        + Spec%SelfingWeight
+                  ! Reorder parent2 contributions according to the rank of matings
+                  Rank(1:Spec%nMat) = MrgRnk(This%Chrom((Data%nPotPar1 + Data%nPotPar2 + 1):(Data%nPotPar1 + Data%nPotPar2 + Spec%nMat)))
+                  MatPar2 = MatPar2(Rank(1:Spec%nMat))
+                else
+                  ! Distribute one half of contributions into matings
+                  k = 0
+                  do while (k .lt. Spec%nMat)
+                    do i = 1, Data%nPotPar1 ! need to loop whole nVecPar1 as some entries are zero
+                      l = nVecPar1(i) / 2
+                      if (mod(nVecPar1(i), 2) .eq. 1) then
+                        call random_number(RanNum)
+                        if (RanNum .gt. 0.5) then
+                          l = l + 1
                         end if
                       end if
-                    end if
-                    This%MatingPlan(2, k) = MatPar2(k)
-                    k = k - 1
+                      do j = 1, l
+                        if (k .eq. Spec%nMat) then
+                          exit
+                        end if
+                        k = k + 1
+                        MatPar2(k) = Data%IdPotPar1(i)
+                        nVecPar1(i) = nVecPar1(i) - 1
+                      end do
+                    end do
                   end do
-                end do
+                  ! Reorder one half of contributions according to the rank of matings
+                  Rank(1:Spec%nMat) = MrgRnk(This%Chrom((Data%nPotPar1 + 1):(Data%nPotPar1 + Spec%nMat)))
+                  MatPar2 = MatPar2(Rank(1:Spec%nMat))
+                end if
+
+                ! Pair the contributions (=Mating plan)
+                k = Spec%nMat ! MrgRnk ranks small to large
+                if (Spec%GenderGiven .or. Spec%SelfingAllowed) then
+                  ! When gender matters selfing can not happen (we have two distinct sets of parents,
+                  ! unless the user adds individuals of one sex in both sets) and when SelfingAllowed
+                  ! we do not need to care about it - faster code
+                  do i = 1, Data%nPotPar1
+                    do j = 1, nVecPar1(i)
+                      !if (k<2) print*, k, i, j, nVecPar1(i), Spec%nMat, sum(nVecPar1)
+                      This%MatingPlan(1, k) = Data%IdPotPar1(i)
+                      This%MatingPlan(2, k) = MatPar2(k)
+                      k = k - 1
+                    end do
+                  end do
+                else
+                  ! When gender does not matter, selfing can happen (we have one set of parents)
+                  ! and when selfing is not allowed we need to avoid it - slower code
+                  do i = 1, Data%nPotPar1
+                    do j = 1, nVecPar1(i)
+                      This%MatingPlan(1, k) = Data%IdPotPar1(i)
+                      if (MatPar2(k) .eq. Data%IdPotPar1(i)) then
+                        ! Try to avoid selfing by swapping the MatPar2 and Rank elements
+                        do l = k, 1, -1
+                          if (MatPar2(l) .ne. Data%IdPotPar1(i)) then
+                            MatPar2([k, l]) = MatPar2([l, k])
+                            This%Chrom(Data%nPotPar1 + Rank([k, l])) = This%Chrom(Data%nPotPar1 + Rank([l, k]))
+                            exit
+                          end if
+                        end do
+                        if (l .lt. 1) then ! Above loop ran out without finding a swap
+                          This%Objective = This%Objective + Spec%SelfingWeight
+                          if (Spec%SelfingWeight .lt. 0.0d0) then
+                            This%PenaltySelfing = This%PenaltySelfing + Spec%SelfingWeight
+                            This%Penalty        = This%Penalty        + Spec%SelfingWeight
+                          end if
+                        end if
+                      end if
+                      This%MatingPlan(2, k) = MatPar2(k)
+                      k = k - 1
+                    end do
+                  end do
+                end if
               end if
 
               ! --- Selection criterion ---
@@ -4428,76 +4449,78 @@ module AlphaMateModule
 
               ! --- Progeny inbreeding (=inbreeding of a mating) ---
 
-              TmpR = 0.0d0
-              do j = 1, Spec%nMat
-                ! Lower triangle to speedup lookup
-                TmpMax = maxval(This%MatingPlan(:, j))
-                TmpMin = minval(This%MatingPlan(:, j))
-                TmpR = TmpR + Data%Coancestry%Value(TmpMax, TmpMin)
-              end do
-              ! @todo different number of progeny per mating? Might be relevant for in-vitro fertilisation
-              This%Inbreeding = TmpR / Spec%nMat
-              ! Inlined Coancestry2CoancestryRate
-              This%InbreedingRate = (This%Inbreeding - Data%Inbreeding) / (1.0d0 - Data%Inbreeding)
-              ! Inlined CoancestryRate2MinCoancestryPct
-              This%MinInbreedingPct = (+1.0d0 - This%InbreedingRate) / &
-                                      (+1.0d0 - Spec%ModeMinInbreedingSpec%InbreedingRate) * 100.d0
+              if (Spec%MateAllocation) then
+                TmpR = 0.0d0
+                do j = 1, Spec%nMat
+                  ! Lower triangle to speedup lookup
+                  TmpMax = maxval(This%MatingPlan(:, j))
+                  TmpMin = minval(This%MatingPlan(:, j))
+                  TmpR = TmpR + Data%Coancestry%Value(TmpMax, TmpMin)
+                end do
+                ! @todo different number of progeny per mating? Might be relevant for in-vitro fertilisation
+                This%Inbreeding = TmpR / Spec%nMat
+                ! Inlined Coancestry2CoancestryRate
+                This%InbreedingRate = (This%Inbreeding - Data%Inbreeding) / (1.0d0 - Data%Inbreeding)
+                ! Inlined CoancestryRate2MinCoancestryPct
+                This%MinInbreedingPct = (+1.0d0 - This%InbreedingRate) / &
+                                        (+1.0d0 - Spec%ModeMinInbreedingSpec%InbreedingRate) * 100.d0
 
-              ! @todo Pareto front formulation for this objective too?
-              if (Spec%ModeSpec%ObjectiveInbreeding) then
-                if      (trim(Spec%ModeSpec%Name) .eq. "MinInbreeding") then
-                  This%Objective = This%Objective - This%InbreedingRate
-                else if (trim(Spec%ModeSpec%Name) .eq. "Opt") then
+                ! @todo Pareto front formulation for this objective too?
+                if (Spec%ModeSpec%ObjectiveInbreeding) then
+                  if      (trim(Spec%ModeSpec%Name) .eq. "MinInbreeding") then
+                    This%Objective = This%Objective - This%InbreedingRate
+                  else if (trim(Spec%ModeSpec%Name) .eq. "Opt") then
 
-                  ! Weight * (InbreedingRate - TargetInbreedingRate) [negative = good, positive = bad]
-                  !   * smaller InbreedingRate is better
-                  !     c( 0.05,       0.03, 0.02) - 0.02 =  0.03,  0.01,        0.0
-                  !     c(-0.05, 0.00, 0.01, 0.02) - 0.02 = -0.07, -0.02, -0.01, 0.0
-                  !   * this gives inbreeding objective in the [-2, 2] form
-                  !   * this penalty formulation works ~well with large weights as differences tend to be small
-                  ! TmpR = This%InbreedingRate - Spec%ModeSpec%TargetInbreedingRate
-                  ! if (This%InbreedingRate .gt. Spec%ModeSpec%TargetInbreedingRate) then
-                  !   ! CANCEL SelCriterion from the objective (want to focus on inbreeding for such solutions)
-                  !   This%Objective = This%Objective - This%MaxCriterionPct / Spec%ModeSpec%TargetMaxCriterionPct
-                  ! else ! if (This%InbreedingRate .le. Spec%ModeSpec%TargetInbreedingRate) then
-                  !   if (Spec%ModeSpec%InbreedingWeightBelow) then
-                  !     TmpR = abs(TmpR)
-                  !   else
-                  !     TmpR = 0.0d0
-                  !   end if
-                  ! end if
+                    ! Weight * (InbreedingRate - TargetInbreedingRate) [negative = good, positive = bad]
+                    !   * smaller InbreedingRate is better
+                    !     c( 0.05,       0.03, 0.02) - 0.02 =  0.03,  0.01,        0.0
+                    !     c(-0.05, 0.00, 0.01, 0.02) - 0.02 = -0.07, -0.02, -0.01, 0.0
+                    !   * this gives inbreeding objective in the [-2, 2] form
+                    !   * this penalty formulation works ~well with large weights as differences tend to be small
+                    ! TmpR = This%InbreedingRate - Spec%ModeSpec%TargetInbreedingRate
+                    ! if (This%InbreedingRate .gt. Spec%ModeSpec%TargetInbreedingRate) then
+                    !   ! CANCEL SelCriterion from the objective (want to focus on inbreeding for such solutions)
+                    !   This%Objective = This%Objective - This%MaxCriterionPct / Spec%ModeSpec%TargetMaxCriterionPct
+                    ! else ! if (This%InbreedingRate .le. Spec%ModeSpec%TargetInbreedingRate) then
+                    !   if (Spec%ModeSpec%InbreedingWeightBelow) then
+                    !     TmpR = abs(TmpR)
+                    !   else
+                    !     TmpR = 0.0d0
+                    !   end if
+                    ! end if
 
-                  ! Weight * (1 - MinInbreedingPct / TargetMinInbreedingPct) [negative = good, positive = bad]
-                  !   * bigger MinInbreedingPct is better
-                  !     1 - c(50, 60, 70)/70 =  0.28,  0.14, 0
-                  !     1 - c(90, 80, 70)/70 = -0.28, -0.14, 0
-                  !     1 -            0 /70 =  1
-                  !   * this gives inbreeding objective in the [-Inf, Inf] form of the TargetMinInbreedingPct
-                  !   * this penalty formulation works ~well with weights close to -1
-                  TmpR = 1.0d0 - This%MinInbreedingPct / Spec%ModeSpec%TargetMinInbreedingPct
-                  if (This%MinInbreedingPct .lt. Spec%ModeSpec%TargetMinInbreedingPct) then
-                    ! CANCEL SelCriterion from the objective (want to focus on inbreeding for such solutions)
-                    This%Objective = This%Objective - This%MaxCriterionPct / Spec%ModeSpec%TargetMaxCriterionPct
-                  else ! if (This%MinInbreedingPct .ge. Spec%ModeSpec%TargetMinInbreedingPct) then
-                    if (Spec%ModeSpec%InbreedingWeightBelow) then
-                      TmpR = abs(TmpR)
-                    else
-                      TmpR = 0.0d0
+                    ! Weight * (1 - MinInbreedingPct / TargetMinInbreedingPct) [negative = good, positive = bad]
+                    !   * bigger MinInbreedingPct is better
+                    !     1 - c(50, 60, 70)/70 =  0.28,  0.14, 0
+                    !     1 - c(90, 80, 70)/70 = -0.28, -0.14, 0
+                    !     1 -            0 /70 =  1
+                    !   * this gives inbreeding objective in the [-Inf, Inf] form of the TargetMinInbreedingPct
+                    !   * this penalty formulation works ~well with weights close to -1
+                    TmpR = 1.0d0 - This%MinInbreedingPct / Spec%ModeSpec%TargetMinInbreedingPct
+                    if (This%MinInbreedingPct .lt. Spec%ModeSpec%TargetMinInbreedingPct) then
+                      ! CANCEL SelCriterion from the objective (want to focus on inbreeding for such solutions)
+                      This%Objective = This%Objective - This%MaxCriterionPct / Spec%ModeSpec%TargetMaxCriterionPct
+                    else ! if (This%MinInbreedingPct .ge. Spec%ModeSpec%TargetMinInbreedingPct) then
+                      if (Spec%ModeSpec%InbreedingWeightBelow) then
+                        TmpR = abs(TmpR)
+                      else
+                        TmpR = 0.0d0
+                      end if
                     end if
-                  end if
 
-                  TmpR = Spec%InbreedingWeight * TmpR
-                  This%Objective = This%Objective + TmpR
-                  if (Spec%InbreedingWeight .lt. 0.0d0) then
-                    This%PenaltyInbreeding = This%PenaltyInbreeding + TmpR
-                    This%Penalty           = This%Penalty           + TmpR
+                    TmpR = Spec%InbreedingWeight * TmpR
+                    This%Objective = This%Objective + TmpR
+                    if (Spec%InbreedingWeight .lt. 0.0d0) then
+                      This%PenaltyInbreeding = This%PenaltyInbreeding + TmpR
+                      This%Penalty           = This%Penalty           + TmpR
+                    end if
                   end if
                 end if
               end if
 
               ! --- Generic mating criterion ---
 
-              if (Spec%GenericMatCritGiven) then
+              if (Spec%GenericMatCritGiven .and. Spec%MateAllocation) then
                 do k = 1, Spec%nGenericMatCrit
                   TmpR = 0.0d0
                   if (Spec%GenderGiven) then
@@ -4573,9 +4596,9 @@ module AlphaMateModule
         nParam = nParam + Data%nPotPar2
       end if
 
-      ! @todo if (Spec%MateAllocation) then
-      nParam = nParam + Spec%nMat
-      ! @todo end if
+      if (Spec%MateAllocation) then
+        nParam = nParam + Spec%nMat
+      end if
 
       if (Spec%PAGEPar) then
         nParam = nParam + Data%nInd
@@ -4627,7 +4650,9 @@ module AlphaMateModule
         SolMinCoancestry%MaxCriterionPct  =   0.0d0
         call Spec%ModeMinCoancestrySpec%SaveSol2ModeSpec(In=SolMinCoancestry)
         call SolMinCoancestry%WriteContributions(Data, ContribFile)
-        call SolMinCoancestry%WriteMatingPlan(Data, MatingFile)
+        if (Spec%MateAllocation) then
+          call SolMinCoancestry%WriteMatingPlan(Data, MatingFile)
+        end if
       end if
 
       ! --- Minimum inbreeding ---
@@ -4687,7 +4712,9 @@ module AlphaMateModule
           end if
         end if
         call SolMinInbreeding%WriteContributions(Data, ContribFile)
-        call SolMinInbreeding%WriteMatingPlan(Data, MatingFile)
+        if (Spec%MateAllocation) then
+          call SolMinInbreeding%WriteMatingPlan(Data, MatingFile)
+        end if
       end if
 
       ! --- Maximum selection criterion ---
@@ -4734,7 +4761,9 @@ module AlphaMateModule
         SolMaxCriterion%MaxCriterionPct  = 100.0d0
         call Spec%ModeMaxCriterionSpec%SaveSol2ModeSpec(In=SolMaxCriterion)
         call SolMaxCriterion%WriteContributions(Data, ContribFile)
-        call SolMaxCriterion%WriteMatingPlan(Data, MatingFile)
+        if (Spec%MateAllocation) then
+          call SolMaxCriterion%WriteMatingPlan(Data, MatingFile)
+        end if
       end if
 
       ! --- Evaluate frontier ---
@@ -4801,7 +4830,9 @@ module AlphaMateModule
           ! Save
           call Sol%Log(Unit, Iteration=-1, AcceptPct=-1.0d0, String=trim("ModeFrontier"//trim(Int2Char(Point))), StringNum=18)
           call Sol%WriteContributions(Data, ContribFile)
-          call Sol%WriteMatingPlan(Data, MatingFile)
+          if (Spec%MateAllocation) then
+            call Sol%WriteMatingPlan(Data, MatingFile)
+          end if
 
         end do
 
@@ -4946,7 +4977,9 @@ module AlphaMateModule
           ! Save
           call Sol%Log(Unit, Iteration=-1, AcceptPct=-1.0d0, String=trim("ModeOpt"//trim(Int2Char(Target))), StringNum=18)
           call Sol%WriteContributions(Data, ContribFile)
-          call Sol%WriteMatingPlan(Data, MatingFile)
+          if (Spec%MateAllocation) then
+            call Sol%WriteMatingPlan(Data, MatingFile)
+          end if
 
         end do
 
@@ -5139,7 +5172,9 @@ module AlphaMateModule
                                             "                         Parent1", &
                                             "                         Parent2"
       do Mat = 1, size(This%MatingPlan, dim=2)
-        write(MatingUnit, This%FmtMating) Mat, Data%Coancestry%OriginalId(This%MatingPlan(1, Mat)), Data%Coancestry%OriginalId(This%MatingPlan(2, Mat))
+        write(MatingUnit, This%FmtMating) Mat, &
+                                          Data%Coancestry%OriginalId(This%MatingPlan(1, Mat)), &
+                                          Data%Coancestry%OriginalId(This%MatingPlan(2, Mat))
       end do
 
       if (present(MatingFile)) then

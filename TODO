@@ -9,7 +9,7 @@ TODO ModeRan
 --- BIOLOGICAL CONSIDERATIONS ---
 
 * Random mating vs mating plan, i.e., mate allocation
-  https://en.wikipedia.org/wiki/Iterative_proportional_fitting
+  https://en.wikipedia.org/wiki/Iterative_proportional_fitting to compute expected? coancestry
 * Future RelMat and realized CoaRate etc.
 
 * coancestry summary on whole rel matrix or just triangle of it?
