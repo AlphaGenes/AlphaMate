@@ -25,33 +25,55 @@ TODO ModeRan
 
 * Handle MOET/JIVET with variable/derived number of contributions per female -
   now combination of nFemaleParents, nMatings, and EqualizeFemaleContributions
-  allow you to do MOET, but it has to be equal number or progeny for all females.
+  allow you to do MOET, but it has to be equal number of progeny for all females.
   The crux of the problem is in providing nMatings instead of nProgeny. Currently
   we provide nMatings.
   Standard/simple example:
     * we want 100 new progeny
     * nProgenyPerFemale is 5
     * so we need 20 females and therefore 20 matings
-    * --> each female contributes 5 progeny
+    * to handle this case in AlphaMate we specify
+      * nFemaleParents = 20
+      * nMatings = 20
+      * EqualizeFemaleContributions or LimitFemaleContributions to 1
+      --> then each mating will give 5 full-sibs (5 progeny per dam)
 
   Working MOET example:
     * we want 100 new progeny
     * nProgenyPerFemale is 20 (instead of 5)
     * so we need 5 females and therefore 5 matings with single-sire mating/insemination
      or 5 females and 100 matings with multipl-sire mating/insemination
-    * --> each female contributes 20 progeny
+    * to handle the single-sire mating case in AlphaMate we specify
+      * nFemaleParents = 5
+      * nMatings = 5
+      * EqualizeFemaleContributions or LimitFemaleContributions to 1
+      --> then each mating will give 20 full-sibs (20 progeny per dam)
+    * to handle the multiple-sire mating case in AlphaMate we specify
+      * nFemaleParents = 5
+      * nMatings = 100
+      * EqualizeFemaleContributions or LimitFemaleContributions to 20
+      --> then each mating will give 1 progeny and progeny of one dam will be
+          a mix of full-sibs and half-sibs (20 progeny per dam)
 
   There is no way currently to allow for variable progeny per female. Say:
+    * we want 100 new progeny
     * nProgenyPerFemale can range from 0 to 20
     * say contributions for females are [0, 5, 10, 20, 20, 20, 15, 10, 0], which
-      sums to 100 new progeny; so here 1 contribution = 1 progeny
+      sums to 100 new progeny; so here 1 contribution = 1 progeny (before 1 contribution
+      was 1 mating in the standard example and MOET single-sire mating example, while in
+      MOET multiple-sire example 1 contribution was 1 progeny)
     * 7 females have non-zero contributions, so these will become females that
       will be subject to MOET/JIVET
     * these females will be mated, which means we will have 7 matings under MOET
       or 100 fertilisations under JIVET
-    * --> currently AlphaMate does not enable handling apriori unknown number of
-      matings, albeit this might be changed ont the fly, i.e., see how many contributions
-      are nonzero and this gives nProgeny (will need to put a cap on progeny then)
+    --> currently AlphaMate does not enable handling apriori unknown number of
+      matings, albeit this might be changed on the fly, i.e., see how many contributions
+      are nonzero and making sure it sums up to nProgeny (will need to put a cap on progeny then);
+      in addition handling of single-sire vs multipl-sire mating would have to be
+      sorted out (it is easy to do multiple-sire matings - just pair each contribution/progeny with
+      available contributions as suggested by rankings, while single-sire matings
+      would have to be implemented such that number of pairs is reduced from nProgeny
+      to nNon-zeroFemales (hmm, this varies from solution to solution?!), ... TODO)
 
 * Enable several inbreeding targets to simplify exploring the Pareto frontier?
 
