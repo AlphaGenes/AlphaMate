@@ -127,6 +127,8 @@ Pareto front calculations
 
 --- COMPUTATIONAL CONSIDERATIONS ---
 
+* FindLoc is slow on large dataset due to O(n^2). Can we get a better solution for it?
+
 * Only partial sort/rank with ORDERPACK could speed up eval a lot.
   http://www.physics.rutgers.edu/~diablo/#3.1
 

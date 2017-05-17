@@ -2186,41 +2186,6 @@ module AlphaMateModule
         This%EqualizePar1 = This%EqualizePar
         This%LimitPar1 = This%LimitPar
         This%PAGEPar1 = This%PAGEPar
-      else
-        if (This%EqualizePar) then
-          if (.not. This%EqualizePar1) then
-            This%EqualizePar1 = This%EqualizePar
-          end if
-          if (.not. This%EqualizePar2) then
-            This%EqualizePar2 = This%EqualizePar
-          end if
-        end if
-        if (This%LimitPar) then
-          if (.not. This%LimitPar1) then
-            This%LimitPar1 = This%LimitPar
-            This%LimitPar1Min = This%LimitParMin
-            This%LimitPar1Max = This%LimitParMax
-            This%LimitPar1MinWeight = This%LimitParMinWeight
-          end if
-          if (.not. This%LimitPar2) then
-            This%LimitPar2 = This%LimitPar
-            This%LimitPar2Min = This%LimitParMin
-            This%LimitPar2Max = This%LimitParMax
-            This%LimitPar2MinWeight = This%LimitParMinWeight
-          end if
-        end if
-        if (This%PAGEPar) then
-          if (.not. This%PAGEPar1) then
-            This%PAGEPar1 = This%PAGEPar
-            This%PAGEPar1Max = This%PAGEParMax
-            This%PAGEPar1Cost = This%PAGEParCost
-          end if
-          if (.not. This%PAGEPar2) then
-            This%PAGEPar2 = This%PAGEPar
-            This%PAGEPar2Max = This%PAGEParMax
-            This%PAGEPar2Cost = This%PAGEParCost
-          end if
-        end if
       end if
 
       if ((.not. This%SelCriterionGiven) .and. This%PAGEPar) then
@@ -2887,8 +2852,25 @@ module AlphaMateModule
         This%Gender = 0
         if (Spec%nPar .eq. 0) then
           ! when number of parents is not provided all selection candidates form the parent pool,
-          ! albeit some/most will have zero contributions
+          !   albeit some/most will have zero contributions
           Spec%nPar = This%nInd
+        end if
+        if (Spec%EqualizePar) then
+          if (Spec%nMat .lt. Spec%nPar) then
+            write(STDERR, "(a)") " ERROR: Number of parents must be smaller of equal to the number of matings when EqualizeContributions is active!"
+            write(STDERR, "(a)") " ERROR: The number of parents: "//trim(Int2Char(Spec%nPar))
+            write(STDERR, "(a)") " ERROR: The number of matings: "//trim(Int2Char(Spec%nMat))
+            write(STDERR, "(a)") " "
+            stop 1
+          end if
+          if (mod(Spec%nMat, Spec%nPar1) .gt. 0) then
+            write(STDERR, "(a)") " ERROR: The number of male parents and the number of matings must divide without remainder when EqualizeMaleContributions is active!"
+            write(STDERR, "(a)") " ERROR: The number of male parents: "//trim(Int2Char(Spec%nPar1))
+            write(STDERR, "(a)") " ERROR: The number of matings:      "//trim(Int2Char(Spec%nMat))
+            write(STDERR, "(a)") " ERROR: The remainder:              "//trim(Int2Char(mod(Spec%nMat, Spec%nPar1)))
+            write(STDERR, "(a)") " "
+            stop 1
+          end if
         end if
         Spec%nPar1 = Spec%nPar
       else
@@ -2934,12 +2916,46 @@ module AlphaMateModule
         write(STDOUT, "(a)") " Number of females: "//trim(Int2Char(This%nFem))
 
         ! when number of parents is not provided all selection candidates form the parent pool,
-        ! albeit some/most will have zero contributions
+        !   albeit some/most will have zero contributions
         if (Spec%nPar1 .eq. 0) then
           Spec%nPar1 = This%nMal
         end if
+        if (Spec%EqualizePar1) then
+          if (Spec%nMat .lt. Spec%nPar1) then
+            write(STDERR, "(a)") " ERROR: The number of male parents must be smaller or equal to the number of matings when EqualizeMaleContributions is active!"
+            write(STDERR, "(a)") " ERROR: The number of male parents: "//trim(Int2Char(Spec%nPar1))
+            write(STDERR, "(a)") " ERROR: The number of matings:      "//trim(Int2Char(Spec%nMat))
+            write(STDERR, "(a)") " "
+            stop 1
+          end if
+          if (mod(Spec%nMat, Spec%nPar1) .gt. 0) then
+            write(STDERR, "(a)") " ERROR: The number of male parents and the number of matings must divide without remainder when EqualizeMaleContributions is active!"
+            write(STDERR, "(a)") " ERROR: The number of male parents: "//trim(Int2Char(Spec%nPar1))
+            write(STDERR, "(a)") " ERROR: The number of matings:      "//trim(Int2Char(Spec%nMat))
+            write(STDERR, "(a)") " ERROR: The remainder:              "//trim(Int2Char(mod(Spec%nMat, Spec%nPar1)))
+            write(STDERR, "(a)") " "
+            stop 1
+          end if
+        end if
         if (Spec%nPar2 .eq. 0) then
           Spec%nPar2 = This%nFem
+        end if
+        if (Spec%EqualizePar2) then
+          if (Spec%nMat .lt. Spec%nPar2) then
+            write(STDERR, "(a)") " ERROR: Number of female parents must be smaller or equal to the number of matings when EqualizeFemaleContributions is active!"
+            write(STDERR, "(a)") " ERROR: The number of female parents: "//trim(Int2Char(Spec%nPar2))
+            write(STDERR, "(a)") " ERROR: The number of matings:        "//trim(Int2Char(Spec%nMat))
+            write(STDERR, "(a)") " "
+            stop 1
+          end if
+          if (mod(Spec%nMat, Spec%nPar2) .gt. 0) then
+            write(STDERR, "(a)") " ERROR: The number of female parents and the number of matings must divide without remainder when EqualizeFemaleContributions is active!"
+            write(STDERR, "(a)") " ERROR: The number of female parents: "//trim(Int2Char(Spec%nPar2))
+            write(STDERR, "(a)") " ERROR: The number of matings:        "//trim(Int2Char(Spec%nMat))
+            write(STDERR, "(a)") " ERROR: The remainder:                "//trim(Int2Char(mod(Spec%nMat, Spec%nPar2)))
+            write(STDERR, "(a)") " "
+            stop 1
+          end if
         end if
         Spec%nPar = Spec%nPar1 + Spec%nPar2
 
@@ -2959,13 +2975,13 @@ module AlphaMateModule
         end if
       end if
 
-      if (Spec%nPar .le. 0) then
+      if (Spec%nPar .lt. 1) then
         write(STDERR, "(a)") " ERROR: Number of specified/derived parents must be larger than zero!"
         write(STDERR, "(a)") " "
         stop 1
       end if
 
-      if (Spec%GenderGiven .and. ((Spec%nPar1 .le. 0) .or. (Spec%nPar2 .le. 0))) then
+      if (Spec%GenderGiven .and. ((Spec%nPar1 .lt. 1) .or. (Spec%nPar2 .lt. 1))) then
         write(STDERR, "(a)") " ERROR: Number of specified/derived parents must be larger than zero!"
         write(STDERR, "(a)") " ERROR: Number of   male parents: "//trim(Int2Char(Spec%nPar1))
         write(STDERR, "(a)") " ERROR: Number of female parents: "//trim(Int2Char(Spec%nPar2))
@@ -3523,7 +3539,7 @@ module AlphaMateModule
       if (allocated(This%Gender)) then
         write(Unit, *) This%CoancestryStatGender1
       else
-        write(Unit, "(a)") " Gender not allocated"
+        write(Unit, "(a)") " Gender not allocated (so no CoancestryStatGender1)"
       end if
 
       write(Unit, "(a)") " "
@@ -3531,7 +3547,7 @@ module AlphaMateModule
       if (allocated(This%Gender)) then
         write(Unit, *) This%CoancestryStatGender2
       else
-        write(Unit, "(a)") " Gender not allocated"
+        write(Unit, "(a)") " Gender not allocated (so no CoancestryStatGender2)"
       end if
 
       write(Unit, "(a)") " "
@@ -3539,7 +3555,7 @@ module AlphaMateModule
       if (allocated(This%Gender)) then
         write(Unit, *) This%CoancestryStatGenderDiff
       else
-        write(Unit, "(a)") " Gender not allocated"
+        write(Unit, "(a)") " Gender not allocated (so no CoancestryStatGenderDiff)"
       end if
 
       write(Unit, "(a)") " "
@@ -3610,7 +3626,7 @@ module AlphaMateModule
       if (allocated(This%Gender)) then
         write(Unit, "(i)") This%nMal
       else
-        write(Unit, "(a)") " Gender not allocated"
+        write(Unit, "(a)") " Gender not allocated (so no nMal)"
       end if
 
       write(Unit, "(a)") " "
@@ -3618,7 +3634,7 @@ module AlphaMateModule
       if (allocated(This%Gender)) then
         write(Unit, "(i)") This%nFem
       else
-        write(Unit, "(a)") " Gender not allocated"
+        write(Unit, "(a)") " Gender not allocated (so no nFem)"
       end if
 
       write(Unit, "(a)") " "
@@ -3630,7 +3646,7 @@ module AlphaMateModule
       if (allocated(This%Gender)) then
         write(Unit, "(i)") This%IdPotPar2
       else
-        write(Unit, "(a)") " Gender not allocated"
+        write(Unit, "(a)") " Gender not allocated (so no IdPotPar2)"
       end if
 
       write(Unit, "(a)") " "
@@ -3638,7 +3654,7 @@ module AlphaMateModule
       if (allocated(This%Gender)) then
         write(Unit, "(i)") This%IdPotParSeq
       else
-        write(Unit, "(a)") " Gender not allocated"
+        write(Unit, "(a)") " Gender not allocated (so no IdPotParSeq)"
       end if
 
       write(Unit, "(a)") " "
@@ -3654,7 +3670,7 @@ module AlphaMateModule
       if (allocated(This%Gender)) then
         write(Unit, "(f)") This%CoancestryGenderMate
       else
-        write(Unit, "(a)") " Gender not allocated"
+        write(Unit, "(a)") " Gender not allocated (so no CoancestryGenderMate)"
       end if
 
       write(Unit, "(a)") " "
@@ -3968,16 +3984,18 @@ module AlphaMateModule
               end if
               ! ... ranks to find the top contributors
               if (.not. (Spec%EqualizePar1 .and. (Spec%nPar1 .eq. Data%nPotPar1))) then
+                ! @todo partial sort
                 Rank(1:Data%nPotPar1) = MrgRnk(This%Chrom(1:Data%nPotPar1))
+                ! @todo avoid this reorder
                 Rank(1:Data%nPotPar1) = Rank(Data%nPotPar1:1:-1) ! MrgRnk ranks small to large
               end if
               ! ... equal contributions
               if (Spec%EqualizePar1) then
                 if (Spec%nPar1 .eq. Data%nPotPar1) then
-                  ! ... set integers to all the values (no need for sorting here)
+                  ! ... set integers to all the contributors (no need for sorting here)
                   This%Chrom(1:Data%nPotPar1) = dble(Spec%nMat * g) / Spec%nPar1
                 else
-                  ! ... set integers to the top values
+                  ! ... set integers to the top contributors
                   This%Chrom(Rank(1:Spec%nPar1)) = dble(Spec%nMat * g) / Spec%nPar1
                   ! @todo a better way to preserve the order of non contributing individuals? See below!
                   This%Chrom(Rank((Spec%nPar1 + 1):Data%nPotPar1)) = 0.0d0
@@ -4068,18 +4086,20 @@ module AlphaMateModule
 
               ! "Parent2"
               if (Spec%GenderGiven) then
-                ! ... find ranks to find the top values
+                ! ... ranks to find the top contributors
                 if (.not. (Spec%EqualizePar2 .and. (Spec%nPar2 .eq. Data%nPotPar2))) then
+                  ! @todo partial sort
                   Rank(1:Data%nPotPar2) = MrgRnk(This%Chrom((Data%nPotPar1 + 1):(Data%nPotPar1 + Data%nPotPar2)))
+                  ! @todo avoid this reorder
                   Rank(1:Data%nPotPar2) = Rank(Data%nPotPar2:1:-1) ! MrgRnk ranks small to large
                 end if
-                ! ... handle cases with equalized contributions
+                ! ... equal contributions
                 if (Spec%EqualizePar2) then
                   if (Spec%nPar2 .eq. Data%nPotPar2) then
-                    ! ... set integers to all the values (no need for sorting here)
+                    ! ... set integers to all the contributors (no need for sorting here)
                     This%Chrom((Data%nPotPar1 + 1):(Data%nPotPar1 + Data%nPotPar2)) = dble(Spec%nMat) / Spec%nPar2
                   else
-                    ! ... set integers to the top values
+                    ! ... set integers to the top contributors
                     This%Chrom(Data%nPotPar1 + Rank(1:Spec%nPar2)) = dble(Spec%nMat) / Spec%nPar2
                     ! @todo anything better to preserve the order of non contributing individuals? See below!
                     This%Chrom(Data%nPotPar1 + Rank((Spec%nPar2 + 1):Data%nPotPar2)) = 0.0d0
@@ -5211,8 +5231,8 @@ module AlphaMateModule
                                             "                         Parent2"
       do Mat = 1, size(This%MatingPlan, dim=2)
         write(MatingUnit, This%FmtMating) Mat, &
-                                          Data%Coancestry%OriginalId(This%MatingPlan(1, Mat)), &
-                                          Data%Coancestry%OriginalId(This%MatingPlan(2, Mat))
+                                          Data%Coancestry%OriginalId(This%MatingPlan(1:2, Mat))
+
       end do
 
       if (present(MatingFile)) then
