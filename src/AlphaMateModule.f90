@@ -4022,9 +4022,17 @@ module AlphaMateModule
                           This%PenaltyLimitPar1 = This%PenaltyLimitPar1 + TmpR
                           This%Penalty          = This%Penalty          + TmpR
                         end if
+                        ! ... make sure we do not have negative contributions
+                        if (This%Chrom(j) .lt. 0) then
+                          This%Chrom(j) = 0.0d0
+                        end if
                       end if
                       nCumMat = Spec%nMat * g
                     end if
+                    ! ... remove contributions for the remaining contributors
+                    do k = i + 1, Spec%nPar1
+                      This%Chrom(Rank(k)) = 0.0d0
+                    end do
                     exit
                   end if
                 end do
@@ -4094,9 +4102,17 @@ module AlphaMateModule
                             This%PenaltyLimitPar2 = This%PenaltyLimitPar2 + TmpR
                             This%Penalty          = This%Penalty          + TmpR
                           end if
+                          ! ... make sure we do not have negative contributions
+                          if (This%Chrom(j) .lt. 0) then
+                            This%Chrom(j) = 0.0d0
+                          end if
                         end if
                         nCumMat = Spec%nMat
                       end if
+                      ! ... remove contributions for the remaining contributors
+                      do k = i + 1, Spec%nPar2
+                        This%Chrom(Data%nPotPar1 + Rank(k)) = 0.0d0
+                      end do
                       exit
                     end if
                   end do
@@ -4132,13 +4148,6 @@ module AlphaMateModule
               ! "Parent1"
               ! ... get integer values
               ChromInt(1:Data%nPotPar1) = nint(This%Chrom(1:Data%nPotPar1))
-              ! ... remove negatives (do we ever get them?)
-              do i = 1, Data%nPotPar1
-                if (ChromInt(i) .lt. 0) then
-                  write(STDERR, "(a)") "NOTE: encountered negative value in ChromInt, report to Gregor"
-                  ChromInt(i) = 0
-                end if
-              end do
               ! ... map internal to external order
               nVecPar1 = ChromInt(1:Data%nPotPar1)
               if (.not. Spec%GenderGiven) then
@@ -4152,13 +4161,6 @@ module AlphaMateModule
                 nVecPar2 = 0
                 ! ... get integer values
                 ChromInt(1:Data%nPotPar2) = nint(This%Chrom((Data%nPotPar1 + 1):(Data%nPotPar1 + Data%nPotPar2)))
-                ! ... remove negatives
-                do i = 1, Data%nPotPar2
-                  if (ChromInt(i) .lt. 0) then
-                    write(STDERR, "(a)") "NOTE: encountered negative value in ChromInt, report to Gregor"
-                    ChromInt(i) = 0
-                  end if
-                end do
                 ! ... map internal to external order
                 nVecPar2 = ChromInt(1:Data%nPotPar2)
                 This%nVec(Data%IdPotPar2) = nVecPar2
@@ -4246,7 +4248,7 @@ module AlphaMateModule
                   ! we do not need to care about it - faster code
                   do i = 1, Data%nPotPar1
                     do j = 1, nVecPar1(i)
-                      !if (k<2) print*, k, i, j, nVecPar1(i), Spec%nMat, sum(nVecPar1)
+                      ! if (k<2) print*, k, i, j, nVecPar1(i), Spec%nMat, sum(nVecPar1)
                       This%MatingPlan(1, k) = Data%IdPotPar1(i)
                       This%MatingPlan(2, k) = MatPar2(k)
                       k = k - 1
