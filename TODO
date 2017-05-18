@@ -129,10 +129,9 @@ Pareto front calculations
 
 * FindLoc is slow on large dataset due to O(n^2). Can we get a better solution for it?
 
-* Only partial sort/rank with ORDERPACK could speed up eval a lot.
-  http://www.physics.rutgers.edu/~diablo/#3.1
+* Single precision to cut down CPU. Should be fine for what we are doing here.
 
-* Split components in the solution to simplify code and potentially speed it up
+* Split components in the solution to simplify code and potentially speed it up?
 
 * Parallelisation via OpenMP
   Option A) parallelise differential evolution algorithm (parallel evaluation of solutions, is this needed?)

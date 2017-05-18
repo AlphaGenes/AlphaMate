@@ -55,7 +55,7 @@ module AlphaMateModule
   use ISO_Fortran_Env, STDIN => input_unit, STDOUT => output_unit, STDERR => error_unit
   use, intrinsic :: IEEE_Arithmetic
   use ConstantModule, only : FILELENGTH, SPECOPTIONLENGTH, IDLENGTH, RAD2DEG, DEG2RAD
-  use OrderPackModule, only : MrgRnk
+  use OrderPackModule, only : MrgRnk, RapKnr
   use AlphaHouseMod, only : Append, CountLines, &
                             Char2Int, Char2Double, Int2Char, Real2Char, &
                             RandomOrder, SetSeed, ToLower, FindLoc, &
@@ -3982,38 +3982,31 @@ module AlphaMateModule
               else
                 g = 2
               end if
-              ! ... ranks to find the top contributors
+              ! ... ranks to find contributors
               if (.not. (Spec%EqualizePar1 .and. (Spec%nPar1 .eq. Data%nPotPar1))) then
-                ! @todo partial sort
-                Rank(1:Data%nPotPar1) = MrgRnk(This%Chrom(1:Data%nPotPar1))
-                ! @todo avoid this reorder
-                Rank(1:Data%nPotPar1) = Rank(Data%nPotPar1:1:-1) ! MrgRnk ranks small to large
+                Rank(1:Spec%nPar1) = RapKnr(This%Chrom(1:Data%nPotPar1), Spec%nPar1)
               end if
-              ! ... equal contributions
-              if (Spec%EqualizePar1) then
+              if (Spec%EqualizePar1) then ! ... equal contributions
                 if (Spec%nPar1 .eq. Data%nPotPar1) then
-                  ! ... set integers to all the contributors (no need for sorting here)
-                  This%Chrom(1:Data%nPotPar1) = dble(Spec%nMat * g) / Spec%nPar1
+                  This%Chrom(1:Data%nPotPar1) = dble(Spec%nMat * g) / Spec%nPar1 ! no need for indexing here, hence the above if (.not. ...)
                 else
-                  ! ... set integers to the top contributors
+                  This%Chrom(1:Data%nPotPar1) = 0.0d0
                   This%Chrom(Rank(1:Spec%nPar1)) = dble(Spec%nMat * g) / Spec%nPar1
-                  ! @todo a better way to preserve the order of non contributing individuals? See below!
-                  This%Chrom(Rank((Spec%nPar1 + 1):Data%nPotPar1)) = 0.0d0
-                  ! This%Chrom(Rank((Spec%nPar1+1):Data%nPotPar1)) = -1.0d0
                 end if
-              else
-                ! ... unequal contributions
-                ! ... work for the defined number or parents
+              else ! ... unequal contributions
+                TmpVec(1:Spec%nPar1, 1) = This%Chrom(Rank(1:Spec%nPar1)) ! save contributions temporarily
+                This%Chrom(1:Data%nPotPar1) = 0.0d0
+                This%Chrom(Rank(1:Spec%nPar1)) = TmpVec(1:Spec%nPar1, 1) ! put saved contributions back
                 nCumMat = 0
                 do i = 1, Spec%nPar1
                   j = Rank(i)
-                  ! ... these would have "zero" contributions and if we hit them then they need at least minimum contrib
+                  ! .. set/fix minimum usage @todo could consider penalising solution instead?
                   if (This%Chrom(j) .lt. Spec%LimitPar1Min) then
-                    This%Chrom(j) = Spec%LimitPar1Min ! set/fix to minimum usage @todo could consider penalising solution instead?
+                    This%Chrom(j) = Spec%LimitPar1Min
                   end if
-                  ! ... but not above max allowed
+                  ! .. set/fix maximum usage @todo could consider penalising solution instead?
                   if (This%Chrom(j) .gt. Spec%LimitPar1Max) then
-                    This%Chrom(j) = Spec%LimitPar1Max ! set/fix to maximum usage @todo could consider penalising solution instead?
+                    This%Chrom(j) = Spec%LimitPar1Max
                   end if
                   ! ... accumulate and check if we reached Spec%nMat
                   nCumMat = nCumMat + nint(This%Chrom(j)) ! internally real, externally integer
@@ -4035,35 +4028,10 @@ module AlphaMateModule
                     exit
                   end if
                 end do
-                ! ... increment i if we have hit the exit, do loop would have ended with i=Spec%nPar1 + 1
-                if (i .le. Spec%nPar1) then
-                  i = i + 1
-                end if
-                ! ... the other individuals do not contribute
-                if (i .le. Data%nPotPar1) then ! "equal" to capture incremented i + 1 on the do loop exit
-                  ! ... zero (the same for all ind so no order)
-                  This%Chrom(Rank(i:Data%nPotPar1)) = 0.0d0
-                  ! ... negative (the same for all ind so no order)
-                  ! This%Chrom(Rank(i:Data%nPotPar1)) = -1.0d0
-                  ! ... negative (variable with partially preserving order)
-                  !     Found faster convergence than with properly decreasing negative values?
-                  !     I guess it adds some more randomness, i.e., it causes suffling of individuals that just did not make it onto the mating list.
-                  ! This%Chrom(Rank(i:Data%nPotPar1)) = sign(This%Chrom(Rank(i:Data%nPotPar1)), -1.0d0)
-                  ! ... negative and properly decreasing
-                  ! TmpR = maxval(This%Chrom(Rank(i:Data%nPotPar1)))
-                  ! if (TmpR .gt. 0.0d0) then
-                  !     This%Chrom(Rank(i:Data%nPotPar1)) = This%Chrom(Rank(i:Data%nPotPar1)) - abs(TmpR)
-                  ! end if
-                  ! ... negative (random so no order)
-                  ! do j = i, Data%nPotPar1
-                  !   call random_number(RanNum)
-                  !   This%Chrom(Rank(j)) = -1.0d0 * RanNum
-                  ! end do
-                end if
                 ! ... Spec%nMat still not reached?
                 do while (nCumMat .lt. Spec%nMat * g)
                   ! ... add more contributions
-                  do i = Spec%nPar1, 1, -1 ! start with the lowest ranked individuals selected as parents (to avoid local optima)
+                  do i = Spec%nPar1, 1, -1 ! start with the lowest ranked parents (to avoid local optima and keep in line with max use)
                     j = Rank(i)
                     This%Chrom(j) = This%Chrom(j) + 1.0d0
                     ! ... accumulate and check if we reached Spec%nMat
@@ -4086,38 +4054,31 @@ module AlphaMateModule
 
               ! "Parent2"
               if (Spec%GenderGiven) then
-                ! ... ranks to find the top contributors
+                ! ... ranks to find contributors
                 if (.not. (Spec%EqualizePar2 .and. (Spec%nPar2 .eq. Data%nPotPar2))) then
-                  ! @todo partial sort
-                  Rank(1:Data%nPotPar2) = MrgRnk(This%Chrom((Data%nPotPar1 + 1):(Data%nPotPar1 + Data%nPotPar2)))
-                  ! @todo avoid this reorder
-                  Rank(1:Data%nPotPar2) = Rank(Data%nPotPar2:1:-1) ! MrgRnk ranks small to large
+                  Rank(1:Spec%nPar2) = RapKnr(This%Chrom((Data%nPotPar1 + 1):(Data%nPotPar1 + Data%nPotPar2)), Spec%nPar2)
                 end if
-                ! ... equal contributions
-                if (Spec%EqualizePar2) then
+                if (Spec%EqualizePar2) then ! ... equal contributions
                   if (Spec%nPar2 .eq. Data%nPotPar2) then
-                    ! ... set integers to all the contributors (no need for sorting here)
-                    This%Chrom((Data%nPotPar1 + 1):(Data%nPotPar1 + Data%nPotPar2)) = dble(Spec%nMat) / Spec%nPar2
+                    This%Chrom((Data%nPotPar1 + 1):(Data%nPotPar1 + Data%nPotPar2)) = dble(Spec%nMat) / Spec%nPar2 ! no need for indexing here, hence the above if (.not. ...)
                   else
-                    ! ... set integers to the top contributors
+                    This%Chrom((Data%nPotPar1 + 1):(Data%nPotPar1 + Data%nPotPar2)) = 0.0d0
                     This%Chrom(Data%nPotPar1 + Rank(1:Spec%nPar2)) = dble(Spec%nMat) / Spec%nPar2
-                    ! @todo anything better to preserve the order of non contributing individuals? See below!
-                    This%Chrom(Data%nPotPar1 + Rank((Spec%nPar2 + 1):Data%nPotPar2)) = 0.0d0
-                    ! This%Chrom(Data%nPotPar1+Rank((Spec%nPar2+1):Data%nPotPar2)) = -1.0d0
                   end if
-                else
-                  ! ... handle cases with unequal contributions
-                  ! ... work for the defined number or parents
+                else ! ... unequal contributions
+                  TmpVec(1:Spec%nPar2, 1) = This%Chrom(Data%nPotPar1 + Rank(1:Spec%nPar2)) ! save contributions temporarily
+                  This%Chrom((Data%nPotPar1 + 1):(Data%nPotPar1 + Data%nPotPar2)) = 0.0d0
+                  This%Chrom(Data%nPotPar1 + Rank(1:Spec%nPar2)) = TmpVec(1:Spec%nPar2, 1) ! put saved contributions back
                   nCumMat = 0
                   do i = 1, Spec%nPar2
                     j = Data%nPotPar1 + Rank(i)
-                    ! ... these would have "zero" contributions and if we hit them then they need at least minimum contrib
+                    ! .. set/fix minimum usage @todo could consider penalising solution instead?
                     if (This%Chrom(j) .lt. Spec%LimitPar2Min) then
-                      This%Chrom(j) = Spec%LimitPar2Min ! set/fix to minimum usage @todo could consider penalising solution instead?
+                      This%Chrom(j) = Spec%LimitPar2Min
                     end if
-                    ! ... but not above max allowed
+                    ! .. set/fix maximum usage @todo could consider penalising solution instead?
                     if (This%Chrom(j) .gt. Spec%LimitPar2Max) then
-                      This%Chrom(j) = Spec%LimitPar2Max ! set/fix to maximum usage @todo could consider penalising solution instead?
+                      This%Chrom(j) = Spec%LimitPar2Max
                     end if
                     ! ... accumulate and check if we reached Spec%nMat
                     nCumMat = nCumMat + nint(This%Chrom(j)) ! internally real, externally integer
@@ -4139,35 +4100,10 @@ module AlphaMateModule
                       exit
                     end if
                   end do
-                  ! ... increment i if we have hit the exit, do loop would have ended with i=Spec%nPar2+1
-                  if (i .le. Spec%nPar2) then
-                    i = i + 1
-                  end if
-                  ! ... the other individuals do not contribute
-                  if (i .le. Data%nPotPar2) then ! equal to capture incremented i+1 on the do loop exit
-                    ! ... zero (the same for all ind so no order)
-                    This%Chrom(Data%nPotPar1 + Rank(i:Data%nPotPar2)) = 0.0d0
-                    ! ... negative (the same for all ind so no order)
-                    ! This%Chrom(Data%nPotPar1 + Rank(i:Data%nPotPar2)) = -1.0d0
-                    ! ... negative (variable with partially preserving order, i.e., ~large positives become ~large negatives)
-                    !     Found faster convergence than with properly decreasing negative values?
-                    !     I guess it adds some more randomness, i.e., it causes suffling of individuals that just did not make it onto the mating list.
-                    ! This%Chrom(Data%nPotPar1 + Rank(i:Data%nPotPar2)) = sign(This%Chrom(Data%nPotPar1 + Rank(i:Data%nPotPar2)), -1.0d0)
-                    ! ... negative and properly decreasing
-                    ! TmpR = maxval(This%Chrom(Data%nPotPar1 + Rank(i:Data%nPotPar2)))
-                    ! if (TmpR .gt. 0.0d0) then
-                    !     This%Chrom(Data%nPotPar1 + Rank(i:Data%nPotPar2)) = This%Chrom(Data%nPotPar1 + Rank(i:Data%nPotPar2)) - abs(TmpR)
-                    ! end if
-                    ! ... negative (random so no order)
-                    ! do j = i, Data%nPotPar2 ! @todo really need this loop?
-                    !   call random_number(RanNum)
-                    !   This%Chrom(Data%nPotPar1 + Rank(j)) = -1.0d0 * RanNum
-                    ! end do
-                  end if
                   ! ... Spec%nMat still not reached?
                   do while (nCumMat .lt. Spec%nMat)
                     ! ... add more contributions
-                    do i = Spec%nPar2, 1, -1 ! to bottom ranked selected individuals (to avoid local optima)
+                    do i = Spec%nPar2, 1, -1 ! start with the lowest ranked parents (to avoid local optima and keep in line with max use)
                       j = Data%nPotPar1 + Rank(i)
                       This%Chrom(j) = This%Chrom(j) + 1.0d0
                       ! ... accumulate and check if we reached Spec%nMat
@@ -4196,9 +4132,10 @@ module AlphaMateModule
               ! "Parent1"
               ! ... get integer values
               ChromInt(1:Data%nPotPar1) = nint(This%Chrom(1:Data%nPotPar1))
-              ! ... remove negatives
+              ! ... remove negatives (do we ever get them?)
               do i = 1, Data%nPotPar1
                 if (ChromInt(i) .lt. 0) then
+                  write(STDERR, "(a)") "NOTE: encountered negative value in ChromInt, report to Gregor"
                   ChromInt(i) = 0
                 end if
               end do
@@ -4218,6 +4155,7 @@ module AlphaMateModule
                 ! ... remove negatives
                 do i = 1, Data%nPotPar2
                   if (ChromInt(i) .lt. 0) then
+                    write(STDERR, "(a)") "NOTE: encountered negative value in ChromInt, report to Gregor"
                     ChromInt(i) = 0
                   end if
                 end do
@@ -4232,14 +4170,17 @@ module AlphaMateModule
 
               if (Spec%PAGEPar) then
                 if (.not. Spec%GenderGiven) then
+                  ! @todo use RapKnr here too, as we will only really edit few individuals
                   Rank(1:Data%nInd) = MrgRnk(This%Chrom((Data%nPotPar1 + Spec%nMat + 1):(Data%nPotPar1 + Spec%nMat + Data%nInd)))
                   This%GenomeEdit(Rank(Data%nInd:(Data%nInd-Spec%PAGEPar1Max+1):-1)) = 1.0d0 ! MrgRnk ranks small to large
                 else
                   if (Spec%PAGEPar1) then
+                    ! @todo use RapKnr here too, as we will only really edit few individuals
                     Rank(1:Data%nPotPar1) = MrgRnk(This%Chrom((Data%nPotPar1 + Data%nPotPar2 + Spec%nMat + 1):(Data%nPotPar1 + Data%nPotPar2 + Spec%nMat + Data%nPotPar1)))
                     This%GenomeEdit(Data%IdPotPar1(Rank(Data%nPotPar1:(Data%nPotPar1 - Spec%PAGEPar1Max+1):-1))) = 1.0d0 ! MrgRnk ranks small to large
                   end if
                   if (Spec%PAGEPar2) then
+                    ! @todo use RapKnr here too, as we will only really edit few individuals
                     Rank(1:Data%nPotPar2) = MrgRnk(This%Chrom((Data%nPotPar1 + Data%nPotPar2 + Spec%nMat + Data%nPotPar1 + 1):(Data%nPotPar1 + Data%nPotPar2 + Spec%nMat + Data%nPotPar1 + Data%nPotPar2)))
                     This%GenomeEdit(Data%IdPotPar2(Rank(Data%nPotPar2:(Data%nPotPar2 - Spec%PAGEPar2Max + 1):-1))) = 1.0d0 ! MrgRnk ranks small to large
                   end if
