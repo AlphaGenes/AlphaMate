@@ -5088,7 +5088,7 @@ module AlphaMateModule
       character(len=*), intent(in), optional :: ContribFile !< File to write individual contributions to (default STDOUT)
 
       ! Other
-      integer(int32) :: IndRev, Ind, ContribUnit, Rank(Data%nInd)
+      integer(int32) :: ContribUnit, Rank(Data%nInd), nCon, i, Ind
 
       if (.not. present(ContribFile)) then
         ContribUnit = STDOUT
@@ -5099,7 +5099,14 @@ module AlphaMateModule
         open(newunit=ContribUnit, file=ContribFile, status="unknown")
       end if
 
-      Rank = MrgRnk(This%nVec)
+      ! Find contributors
+      nCon = 0
+      do i = 1, Data%nInd
+        if (This%nVec(i) .gt. 0) then
+          nCon = nCon + 1
+        end if
+      end do
+      Rank = RapKnr(This%nVec, nCon)
       if (.not. allocated(This%GenomeEdit)) then
         !                                             1234567890123456789012
         write(ContribUnit, This%FmtContributionHead) "             Id", &
@@ -5108,8 +5115,8 @@ module AlphaMateModule
                                                      "  AvgCoancestry", &
                                                      "   Contribution", &
                                                      "        nMating"
-        do IndRev = Data%nInd, 1, -1 ! MrgRnk ranks small to large
-          Ind = Rank(IndRev)
+        do i = 1, nCon
+          Ind = Rank(i)
           write(ContribUnit, This%FmtContribution) Data%Coancestry%OriginalId(Ind), Data%Gender(Ind), Data%SelCriterion(Ind), &
                                                    mean(Data%Coancestry%Value(1:, Ind)), This%xVec(Ind), This%nVec(Ind)
         end do
@@ -5123,8 +5130,8 @@ module AlphaMateModule
                                                          "        nMating", &
                                                          "     GenomeEdit", &
                                                          "  EditedSelCrit"
-        do IndRev = Data%nInd, 1, -1 ! MrgRnk ranks small to large
-          Ind = Rank(IndRev)
+        do i = 1, nCon
+          Ind = Rank(i)
           write(ContribUnit, This%FmtContributionEdit) Data%Coancestry%OriginalId(Ind), Data%Gender(Ind), Data%SelCriterion(Ind), &
                                                        mean(Data%Coancestry%Value(1:, Ind)), This%xVec(Ind), This%nVec(Ind), &
                                                        nint(This%GenomeEdit(Ind)), Data%SelCriterion(Ind) + This%GenomeEdit(Ind) * Data%SelCriterionPAGE(Ind)
