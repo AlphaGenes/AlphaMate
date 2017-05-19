@@ -4645,7 +4645,7 @@ module AlphaMateModule
         SolMinCoancestry%MinInbreedingPct =   0.0d0
         SolMinCoancestry%MaxCriterionPct  =   0.0d0
         call Spec%ModeMinCoancestrySpec%SaveSol2ModeSpec(In=SolMinCoancestry)
-        call SolMinCoancestry%WriteContributions(Data, ContribFile)
+        call SolMinCoancestry%WriteContributions(Data, Spec, ContribFile)
         if (Spec%MateAllocation) then
           call SolMinCoancestry%WriteMatingPlan(Data, MatingFile)
         end if
@@ -4707,7 +4707,7 @@ module AlphaMateModule
             Spec%ModeMinCoancestrySpec%CoancestryRate = Spec%ModeMinInbreedingSpec%CoancestryRate
           end if
         end if
-        call SolMinInbreeding%WriteContributions(Data, ContribFile)
+        call SolMinInbreeding%WriteContributions(Data, Spec, ContribFile)
         if (Spec%MateAllocation) then
           call SolMinInbreeding%WriteMatingPlan(Data, MatingFile)
         end if
@@ -4756,7 +4756,7 @@ module AlphaMateModule
         SolMinInbreeding%MinInbreedingPct =  0.0d0
         SolMaxCriterion%MaxCriterionPct  = 100.0d0
         call Spec%ModeMaxCriterionSpec%SaveSol2ModeSpec(In=SolMaxCriterion)
-        call SolMaxCriterion%WriteContributions(Data, ContribFile)
+        call SolMaxCriterion%WriteContributions(Data, Spec, ContribFile)
         if (Spec%MateAllocation) then
           call SolMaxCriterion%WriteMatingPlan(Data, MatingFile)
         end if
@@ -4825,7 +4825,7 @@ module AlphaMateModule
 
           ! Save
           call Sol%Log(Unit, Iteration=-1, AcceptPct=-1.0d0, String=trim("ModeFrontier"//trim(Int2Char(Point))), StringNum=18)
-          call Sol%WriteContributions(Data, ContribFile)
+          call Sol%WriteContributions(Data, Spec, ContribFile)
           if (Spec%MateAllocation) then
             call Sol%WriteMatingPlan(Data, MatingFile)
           end if
@@ -4972,7 +4972,7 @@ module AlphaMateModule
 
           ! Save
           call Sol%Log(Unit, Iteration=-1, AcceptPct=-1.0d0, String=trim("ModeOpt"//trim(Int2Char(Target))), StringNum=18)
-          call Sol%WriteContributions(Data, ContribFile)
+          call Sol%WriteContributions(Data, Spec, ContribFile)
           if (Spec%MateAllocation) then
             call Sol%WriteMatingPlan(Data, MatingFile)
           end if
@@ -5079,12 +5079,13 @@ module AlphaMateModule
     !> @date   April 7, 2017
     !> @return Output to file or standard output
     !---------------------------------------------------------------------------
-    subroutine WriteContributions(This, Data, ContribFile) ! not pure due to IO
+    subroutine WriteContributions(This, Data, Spec, ContribFile) ! not pure due to IO
       implicit none
 
       ! Arguments
       class(AlphaMateSol), intent(in)        :: This        !< AlphaMateSol holder
       type(AlphaMateData), intent(in)        :: Data        !< AlphaMateData holder
+      type(AlphaMateSpec), intent(in)        :: Spec        !< AlphaMateSpec holder
       character(len=*), intent(in), optional :: ContribFile !< File to write individual contributions to (default STDOUT)
 
       ! Other
@@ -5108,21 +5109,38 @@ module AlphaMateModule
       end do
       Rank = RapKnr(This%nVec, nCon)
       if (.not. allocated(This%GenomeEdit)) then
-        !                                             1234567890123456789012
-        write(ContribUnit, This%FmtContributionHead) "             Id", &
+        !                                             12345678901234567890123456789012
+        write(ContribUnit, This%FmtContributionHead) "                              Id", &
                                                      "         Gender", &
                                                      "   SelCriterion", &
                                                      "  AvgCoancestry", &
                                                      "   Contribution", &
                                                      "        nMating"
-        do i = 1, nCon
-          Ind = Rank(i)
-          write(ContribUnit, This%FmtContribution) Data%Coancestry%OriginalId(Ind), Data%Gender(Ind), Data%SelCriterion(Ind), &
-                                                   mean(Data%Coancestry%Value(1:, Ind)), This%xVec(Ind), This%nVec(Ind)
-        end do
+        if (.not. Spec%GenderGiven) then
+          do i = 1, nCon
+            Ind = Rank(i)
+            write(ContribUnit, This%FmtContribution) Data%Coancestry%OriginalId(Ind), Data%Gender(Ind), Data%SelCriterion(Ind), &
+                                                     mean(Data%Coancestry%Value(1:, Ind)), This%xVec(Ind), This%nVec(Ind)
+          end do
+        else
+          do i = 1, nCon
+            Ind = Rank(i)
+            if (Data%Gender(Ind) .eq. 1) then
+              write(ContribUnit, This%FmtContribution) Data%Coancestry%OriginalId(Ind), Data%Gender(Ind), Data%SelCriterion(Ind), &
+                                                       mean(Data%Coancestry%Value(1:, Ind)), This%xVec(Ind), This%nVec(Ind)
+            end if
+          end do
+          do i = 1, nCon
+            Ind = Rank(i)
+            if (Data%Gender(Ind) .eq. 2) then
+              write(ContribUnit, This%FmtContribution) Data%Coancestry%OriginalId(Ind), Data%Gender(Ind), Data%SelCriterion(Ind), &
+                                                       mean(Data%Coancestry%Value(1:, Ind)), This%xVec(Ind), This%nVec(Ind)
+            end if
+          end do
+        end if
       else
         !                                                 12345678901234567890123456789012
-        write(ContribUnit, This%FmtContributionHeadEdit) "                             Id", &
+        write(ContribUnit, This%FmtContributionHeadEdit) "                              Id", &
                                                          "         Gender", &
                                                          "   SelCriterion", &
                                                          "  AvgCoancestry", &
@@ -5130,12 +5148,31 @@ module AlphaMateModule
                                                          "        nMating", &
                                                          "     GenomeEdit", &
                                                          "  EditedSelCrit"
-        do i = 1, nCon
-          Ind = Rank(i)
-          write(ContribUnit, This%FmtContributionEdit) Data%Coancestry%OriginalId(Ind), Data%Gender(Ind), Data%SelCriterion(Ind), &
-                                                       mean(Data%Coancestry%Value(1:, Ind)), This%xVec(Ind), This%nVec(Ind), &
-                                                       nint(This%GenomeEdit(Ind)), Data%SelCriterion(Ind) + This%GenomeEdit(Ind) * Data%SelCriterionPAGE(Ind)
-        end do
+        if (.not. Spec%GenderGiven) then
+          do i = 1, nCon
+            Ind = Rank(i)
+            write(ContribUnit, This%FmtContributionEdit) Data%Coancestry%OriginalId(Ind), Data%Gender(Ind), Data%SelCriterion(Ind), &
+                                                         mean(Data%Coancestry%Value(1:, Ind)), This%xVec(Ind), This%nVec(Ind), &
+                                                         nint(This%GenomeEdit(Ind)), Data%SelCriterion(Ind) + This%GenomeEdit(Ind) * Data%SelCriterionPAGE(Ind)
+          end do
+        else
+          do i = 1, nCon
+            Ind = Rank(i)
+            if (Data%Gender(Ind) .eq. 1) then
+              write(ContribUnit, This%FmtContributionEdit) Data%Coancestry%OriginalId(Ind), Data%Gender(Ind), Data%SelCriterion(Ind), &
+                                                           mean(Data%Coancestry%Value(1:, Ind)), This%xVec(Ind), This%nVec(Ind), &
+                                                           nint(This%GenomeEdit(Ind)), Data%SelCriterion(Ind) + This%GenomeEdit(Ind) * Data%SelCriterionPAGE(Ind)
+            end if
+          end do
+          do i = 1, nCon
+            Ind = Rank(i)
+            if (Data%Gender(Ind) .eq. 2) then
+              write(ContribUnit, This%FmtContributionEdit) Data%Coancestry%OriginalId(Ind), Data%Gender(Ind), Data%SelCriterion(Ind), &
+                                                           mean(Data%Coancestry%Value(1:, Ind)), This%xVec(Ind), This%nVec(Ind), &
+                                                           nint(This%GenomeEdit(Ind)), Data%SelCriterion(Ind) + This%GenomeEdit(Ind) * Data%SelCriterionPAGE(Ind)
+            end if
+          end do
+        end if
       end if
 
       if (present(ContribFile)) then
