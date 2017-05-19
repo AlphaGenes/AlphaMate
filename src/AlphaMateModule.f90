@@ -2209,7 +2209,7 @@ module AlphaMateModule
         This%TargetInbreedingRateGiven  = .false.
         This%TargetMinInbreedingPctGiven = .false.
         if (LogStdoutInternal) then
-          write(STDOUT, "(a)") " NOTE: Inbreeding target is not active when mate allocation is random or not performed ."
+          write(STDOUT, "(a)") " NOTE: Inbreeding target is not active when mate allocation is inactive or random."
           write(STDOUT, "(a)") " "
         end if
       end if
@@ -4590,15 +4590,10 @@ module AlphaMateModule
 
       ! --- Number of parameters to optimise ---
 
-      nParam = Data%nPotPar1
+      nParam = Data%nPotPar1 + Spec%nMat ! must keep Spec%nMat here even if we do not do MateAllocation,
+                                         ! because code, e.g., GenomeEdit, assumes certain Chrom "structure"
       if (Spec%GenderGiven) then
         nParam = nParam + Data%nPotPar2
-      end if
-
-      if (Spec%MateAllocation) then
-        if (.not. Spec%RandomMateAllocation) then
-          nParam = nParam + Spec%nMat
-        end if
       end if
 
       if (Spec%PAGEPar) then
