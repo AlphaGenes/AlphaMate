@@ -11,6 +11,9 @@ TODO ModeRan
 * Random mating vs mating plan, i.e., mate allocation
   https://en.wikipedia.org/wiki/Iterative_proportional_fitting to compute expected? coancestry
 * Future RelMat and realized CoaRate etc.
+* Write a program called Contributions2Matings or GenerateMatingPlan, which would take in
+  contributions and a random mating option or avoidance of selfing etc. Put this funcionality
+  in the module so can be used in AlphaMate too.
 
 * coancestry summary on whole rel matrix or just triangle of it?
 
@@ -77,9 +80,6 @@ TODO ModeRan
 
 * Cut precision in Frontier and Optimisation log files??? Or make it as an option?
 
-* Sort mating plan output by contributions (and unique pairs, ...)?
-* Sort contributions output by ?
-
 * Colnames and formats in AlphaMateSpec instead of AlphaMateSol? We have lots of AlphaMateSol objects, so
   would save some little space and also intialise and assign methods do not carry this data over. would
   have to pass Spec to Log methods in AlphaEvolve, which we do already for many methods anyhow.
@@ -87,7 +87,7 @@ TODO ModeRan
 * Make use of a list of matings that should be avoid/excluded (due to selfing-incompatibility,
   hybrid necrosis, ...).
 
-* Synthetic varieties in grass breeding, i.e., which parents to mix together?
+* Synthetic varieties in grass breeding, i.e., which parents to mix together (group matings)?
 
 * Backup matings? Find a sire that is most similar to the proposed mating sire or actualy carry this
   "burden" in optimisation?
@@ -102,6 +102,8 @@ TODO ModeRan
   - relationships
   - dominance in progeny
   - variance among progeny
+
+* Report expected parent averages and inbreeding for each mating --> can plot histograms of this then
 
 --- ALGORITHMIC CONSIDERATIONS ---
 

@@ -56,7 +56,7 @@ module AlphaMateModule
   use, intrinsic :: IEEE_Arithmetic
   use ConstantModule, only : FILELENGTH, SPECOPTIONLENGTH, IDLENGTH, RAD2DEG, DEG2RAD
   use OrderPackModule, only : MrgRnk, RapKnr
-  use AlphaHouseMod, only : Append, CountLines, &
+  use AlphaHouseMod, only : Append, CountLines, GeneratePairing, &
                             Char2Int, Char2Double, Int2Char, Real2Char, &
                             RandomOrder, SetSeed, ToLower, FindLoc, &
                             ParseToFirstWhitespace, SplitLineIntoTwoParts
@@ -5197,7 +5197,10 @@ module AlphaMateModule
       character(len=*), intent(in), optional :: MatingFile !< File to write mating plan to (default STDOUT)
 
       ! Other
-      integer(int32) :: Mat, MatingUnit
+      integer(int32) :: nMat, Mat, MatingUnit, n, k
+      integer(int32) :: Rank(size(This%MatingPlan, dim=2)), Pair(size(This%MatingPlan, dim=2))
+
+      nMat = size(This%MatingPlan, dim=2)
 
       if (.not. present(MatingFile)) then
         MatingUnit = STDOUT
@@ -5211,10 +5214,31 @@ module AlphaMateModule
       write(MatingUnit, This%FmtMatingHead) "         Mating", &
                                             "                         Parent1", &
                                             "                         Parent2"
-      do Mat = 1, size(This%MatingPlan, dim=2)
-        write(MatingUnit, This%FmtMating) Mat, &
-                                          Data%Coancestry%OriginalId(This%MatingPlan(1:2, Mat))
 
+      ! Ranks of first parent contributions
+      Rank = MrgRnk(This%nVec(This%MatingPlan(1, :))) ! MrgRnk ranks small to large
+
+      ! Write out by the above ranks, but sort within each parent1 so that any repeated matings will appear together
+      k = nMat ! MrgRnk ranks small to large
+      do while (k .gt. 0)
+        ! Contributions of a working parent1
+        n = This%nVec(This%MatingPlan(1, Rank(k)))
+        ! So, we have n contributions of a parent1 and we will work with a batch of
+        !   n matings of this parent with others; these matings will be accessed by
+        !   MatingPlan(:, Rank([k, k-1, k-2, ..., k-(n-1)])
+        ! Generate mating pairs to be able to rank matings, i.e., to be able to put duplicates+ together
+        do Mat = 0, n - 1
+          Pair(Mat + 1) = GeneratePairing(xin=This%MatingPlan(1, Rank(k - Mat)), & ! MrgRnk ranks small to large
+                                          yin=This%MatingPlan(2, Rank(k - Mat)))   ! MrgRnk ranks small to large
+        end do
+        ! Say n=4 then Pair could be [3, 2, 1, 4], which tells us to output Rank([k - ([3, 2, 1, 4] - 1)])
+        Pair(1:n) = Rank([k - (MrgRnk(Pair(1:n)) - 1)])
+        ! Finally, output
+        do Mat = 1, n
+          write(MatingUnit, This%FmtMating) nMat - k + 1, &
+                                            Data%Coancestry%OriginalId(This%MatingPlan(1:2, Pair(Mat)))
+          k = k - 1 ! MrgRnk ranks small to large
+        end do
       end do
 
       if (present(MatingFile)) then
