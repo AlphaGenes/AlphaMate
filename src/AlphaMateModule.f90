@@ -4204,11 +4204,11 @@ module AlphaMateModule
                   end do
                   ! Reorder parent2 contributions according to the rank of matings
                   if (Spec%RandomMateAllocation) then
-                    MatPar2 = MatPar2(RandomOrder(n=Spec%nMat))
+                    Rank(1:Spec%nMat) = RandomOrder(n=Spec%nMat)
                   else
-                    Rank(1:Spec%nMat) = MrgRnk(This%Chrom((Data%nPotPar1 + Data%nPotPar2 + 1):(Data%nPotPar1 + Data%nPotPar2 + Spec%nMat)))
-                    MatPar2 = MatPar2(Rank(1:Spec%nMat))
+                    Rank(1:Spec%nMat) = MrgRnk(This%Chrom((Data%nPotPar1 + Data%nPotPar2 + 1):(Data%nPotPar1 + Data%nPotPar2 + Spec%nMat))) ! MrgRnk ranks small to large
                   end if
+                  MatPar2 = MatPar2(Rank(1:Spec%nMat))
                 else
                   ! Distribute one half of contributions into matings
                   k = 0
@@ -4233,11 +4233,11 @@ module AlphaMateModule
                   end do
                   ! Reorder one half of contributions according to the rank of matings
                   if (Spec%RandomMateAllocation) then
-                    MatPar2 = MatPar2(RandomOrder(n=Spec%nMat))
+                    Rank(1:Spec%nMat) = RandomOrder(n=Spec%nMat)
                   else
-                    Rank(1:Spec%nMat) = MrgRnk(This%Chrom((Data%nPotPar1 + 1):(Data%nPotPar1 + Spec%nMat)))
-                    MatPar2 = MatPar2(Rank(1:Spec%nMat))
+                    Rank(1:Spec%nMat) = MrgRnk(This%Chrom((Data%nPotPar1 + 1):(Data%nPotPar1 + Spec%nMat))) ! MrgRnk ranks small to large
                   end if
+                  MatPar2 = MatPar2(Rank(1:Spec%nMat))
                 end if
 
                 ! Pair the contributions (=Mating plan)
@@ -4246,7 +4246,7 @@ module AlphaMateModule
                   ! When gender matters selfing can not happen (we have two distinct sets of parents;
                   ! unless the user adds individuals of one sex in both sets) and when SelfingAllowed
                   ! we do not need to care about it - faster code
-                  do i = 1, Data%nPotPar1
+                  do i = 1, Data%nPotPar1 ! need to loop whole nVecPar1 as some entries are zero
                     do j = 1, nVecPar1(i)
                       ! if (k<2) print*, k, i, j, nVecPar1(i), Spec%nMat, sum(nVecPar1)
                       This%MatingPlan(1, k) = Data%IdPotPar1(i)
