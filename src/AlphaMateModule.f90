@@ -4172,19 +4172,19 @@ module AlphaMateModule
 
               if (Spec%PAGEPar) then
                 if (.not. Spec%GenderGiven) then
-                  ! @todo use RapKnr here too, as we will only really edit few individuals
-                  Rank(1:Data%nInd) = MrgRnk(This%Chrom((Data%nPotPar1 + Spec%nMat + 1):(Data%nPotPar1 + Spec%nMat + Data%nInd)))
-                  This%GenomeEdit(Rank(Data%nInd:(Data%nInd-Spec%PAGEPar1Max+1):-1)) = 1.0d0 ! MrgRnk ranks small to large
+                  Rank(1:Spec%PAGEPar1Max) = RapKnr(This%Chrom((Data%nPotPar1 + Spec%nMat + 1):(Data%nPotPar1 + Spec%nMat + Data%nInd)), &
+                                                    Spec%PAGEPar1Max)
+                  This%GenomeEdit(Rank(1:Spec%PAGEPar1Max)) = 1.0d0
                 else
                   if (Spec%PAGEPar1) then
-                    ! @todo use RapKnr here too, as we will only really edit few individuals
-                    Rank(1:Data%nPotPar1) = MrgRnk(This%Chrom((Data%nPotPar1 + Data%nPotPar2 + Spec%nMat + 1):(Data%nPotPar1 + Data%nPotPar2 + Spec%nMat + Data%nPotPar1)))
-                    This%GenomeEdit(Data%IdPotPar1(Rank(Data%nPotPar1:(Data%nPotPar1 - Spec%PAGEPar1Max+1):-1))) = 1.0d0 ! MrgRnk ranks small to large
+                    Rank(1:Spec%PAGEPar1Max) = RapKnr(This%Chrom((Data%nPotPar1 + Data%nPotPar2 + Spec%nMat + 1):(Data%nPotPar1 + Data%nPotPar2 + Spec%nMat + Data%nPotPar1)), &
+                                                      Spec%PAGEPar1Max)
+                    This%GenomeEdit(Data%IdPotPar1(Rank(1:Spec%PAGEPar1Max))) = 1.0d0
                   end if
                   if (Spec%PAGEPar2) then
-                    ! @todo use RapKnr here too, as we will only really edit few individuals
-                    Rank(1:Data%nPotPar2) = MrgRnk(This%Chrom((Data%nPotPar1 + Data%nPotPar2 + Spec%nMat + Data%nPotPar1 + 1):(Data%nPotPar1 + Data%nPotPar2 + Spec%nMat + Data%nPotPar1 + Data%nPotPar2)))
-                    This%GenomeEdit(Data%IdPotPar2(Rank(Data%nPotPar2:(Data%nPotPar2 - Spec%PAGEPar2Max + 1):-1))) = 1.0d0 ! MrgRnk ranks small to large
+                    Rank(1:Spec%PAGEPar1Max) = RapKnr(This%Chrom((Data%nPotPar1 + Data%nPotPar2 + Spec%nMat + Data%nPotPar1 + 1):(Data%nPotPar1 + Data%nPotPar2 + Spec%nMat + Data%nPotPar1 + Data%nPotPar2)), &
+                                                      Spec%PAGEPar2Max)
+                    This%GenomeEdit(Data%IdPotPar2(Rank(1:Spec%PAGEPar2Max))) = 1.0d0
                   end if
                 end if
               end if
