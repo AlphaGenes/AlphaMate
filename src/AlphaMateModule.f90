@@ -192,7 +192,7 @@ module AlphaMateModule
     real(real64) :: LimitParMin, LimitPar1Min, LimitPar2Min, LimitParMax, LimitPar1Max, LimitPar2Max, LimitParMinWeight, LimitPar1MinWeight, LimitPar2MinWeight
     logical :: PAGEPar, PAGEPar1, PAGEPar2
     integer(int32) :: PAGEParMax, PAGEPar1Max, PAGEPar2Max
-    real(real64) :: PAGEParCost, PAGEPar1Cost, PAGEPar2Cost
+    ! real(real64) :: PAGEParCost, PAGEPar1Cost, PAGEPar2Cost
 
     ! Algorithm specifications
     ! ... generic evolutionary parameters
@@ -262,7 +262,7 @@ module AlphaMateModule
     real(real64)                :: MinInbreedingPct
     real(real64), allocatable   :: GenericIndCrit(:)
     real(real64), allocatable   :: GenericMatCrit(:)
-    real(real64)                :: Cost
+    ! real(real64)                :: Cost
     integer(int32), allocatable :: nVec(:)
     integer(int32), allocatable :: MatingPlan(:, :)
     real(real64), allocatable   :: GenomeEdit(:)
@@ -532,9 +532,9 @@ module AlphaMateModule
       This%PAGEParMax  = 0
       This%PAGEPar1Max = 0
       This%PAGEPar2Max = 0
-      This%PAGEParCost  = 0.0d0
-      This%PAGEPar1Cost = 0.0d0
-      This%PAGEPar2Cost = 0.0d0
+      ! This%PAGEParCost  = 0.0d0
+      ! This%PAGEPar1Cost = 0.0d0
+      ! This%PAGEPar2Cost = 0.0d0
 
       ! Search algorithm specifications
 
@@ -727,9 +727,9 @@ module AlphaMateModule
       write(Unit, *) "PAGEParMax: ",   This%PAGEParMax
       write(Unit, *) "PAGEPar1Max: ",  This%PAGEPar1Max
       write(Unit, *) "PAGEPar2Max: ",  This%PAGEPar2Max
-      write(Unit, *) "PAGEParCost: ",  This%PAGEParCost
-      write(Unit, *) "PAGEPar1Cost: ", This%PAGEPar1Cost
-      write(Unit, *) "PAGEPar2Cost: ", This%PAGEPar2Cost
+      ! write(Unit, *) "PAGEParCost: ",  This%PAGEParCost
+      ! write(Unit, *) "PAGEPar1Cost: ", This%PAGEPar1Cost
+      ! write(Unit, *) "PAGEPar2Cost: ", This%PAGEPar2Cost
 
       ! Algorithm specifications
 
@@ -1792,19 +1792,19 @@ module AlphaMateModule
                 end if
               end if
 
-            case ("pagecost")
-              if (This%PAGEPar) then
-                if (allocated(Second)) then
-                  This%PAGEParCost = Char2Double(trim(adjustl(Second(1))))
-                  if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Promotion of Alleles by Genome Editing (PAGE) - cost: "//trim(Real2Char(This%PAGEParCost, fmt=FMTREAL2CHAR))
-                  end if
-                else
-                  write(STDERR, "(a)") " ERROR: Must specify a value for PAGECost, i.e., PAGECost, Value"
-                  write(STDERR, "(a)") " "
-                  stop 1
-                end if
-              end if
+            ! case ("pagecost")
+            !   if (This%PAGEPar) then
+            !     if (allocated(Second)) then
+            !       This%PAGEParCost = Char2Double(trim(adjustl(Second(1))))
+            !       if (LogStdoutInternal) then
+            !         write(STDOUT, "(a)") " Promotion of Alleles by Genome Editing (PAGE) - cost: "//trim(Real2Char(This%PAGEParCost, fmt=FMTREAL2CHAR))
+            !       end if
+            !     else
+            !       write(STDERR, "(a)") " ERROR: Must specify a value for PAGECost, i.e., PAGECost, Value"
+            !       write(STDERR, "(a)") " "
+            !       stop 1
+            !     end if
+            !   end if
 
             case ("pagemales")
               if (allocated(Second)) then
@@ -1835,19 +1835,19 @@ module AlphaMateModule
                 end if
               end if
 
-            case ("pagemalescost")
-              if (This%PAGEPar1) then
-                if (allocated(Second)) then
-                  This%PAGEPar1Cost = Char2Double(trim(adjustl(Second(1))))
-                  if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Promotion of Alleles by Genome Editing (PAGE) in males - cost: "//trim(Real2Char(This%PAGEPar1Cost, fmt=FMTREAL2CHAR))
-                  end if
-                else
-                  write(STDERR, "(a)") " ERROR: Must specify a value for PAGEMalesCost, i.e., PAGEMalesCost, Value"
-                  write(STDERR, "(a)") " "
-                  stop 1
-                end if
-              end if
+            ! case ("pagemalescost")
+            !   if (This%PAGEPar1) then
+            !     if (allocated(Second)) then
+            !       This%PAGEPar1Cost = Char2Double(trim(adjustl(Second(1))))
+            !       if (LogStdoutInternal) then
+            !         write(STDOUT, "(a)") " Promotion of Alleles by Genome Editing (PAGE) in males - cost: "//trim(Real2Char(This%PAGEPar1Cost, fmt=FMTREAL2CHAR))
+            !       end if
+            !     else
+            !       write(STDERR, "(a)") " ERROR: Must specify a value for PAGEMalesCost, i.e., PAGEMalesCost, Value"
+            !       write(STDERR, "(a)") " "
+            !       stop 1
+            !     end if
+            !   end if
 
             case ("pagefemales")
               if (allocated(Second)) then
@@ -1878,19 +1878,19 @@ module AlphaMateModule
                 end if
               end if
 
-            case ("pagefemalescost")
-              if (This%PAGEPar2) then
-                if (allocated(Second)) then
-                  This%PAGEPar2Cost = Char2Double(trim(adjustl(Second(1))))
-                  if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Promotion of Alleles by Genome Editing (PAGE) in females - cost: "//trim(Real2Char(This%PAGEPar2Cost, fmt=FMTREAL2CHAR))
-                  end if
-                else
-                  write(STDERR, "(a)") " ERROR: Must specify a value for PAGEFemalesCost, i.e., PAGEFemalesCost, Value"
-                  write(STDERR, "(a)") " "
-                  stop 1
-                end if
-              end if
+            ! case ("pagefemalescost")
+            !   if (This%PAGEPar2) then
+            !     if (allocated(Second)) then
+            !       This%PAGEPar2Cost = Char2Double(trim(adjustl(Second(1))))
+            !       if (LogStdoutInternal) then
+            !         write(STDOUT, "(a)") " Promotion of Alleles by Genome Editing (PAGE) in females - cost: "//trim(Real2Char(This%PAGEPar2Cost, fmt=FMTREAL2CHAR))
+            !       end if
+            !     else
+            !       write(STDERR, "(a)") " ERROR: Must specify a value for PAGEFemalesCost, i.e., PAGEFemalesCost, Value"
+            !       write(STDERR, "(a)") " "
+            !       stop 1
+            !     end if
+            !   end if
 
             ! Algorithm specifications
             case ("evolalgnumberofsolutions")
@@ -3735,7 +3735,7 @@ module AlphaMateModule
             allocate(This%GenericMatCrit(Spec%nGenericMatCrit))
             This%GenericMatCrit = 0.0d0
           end if
-          This%Cost = 0.0d0
+          ! This%Cost = 0.0d0
           allocate(This%nVec(Spec%nInd))
           This%nVec = 0
           allocate(This%MatingPlan(2, Spec%nMat))
@@ -3796,7 +3796,7 @@ module AlphaMateModule
             allocate(Out%GenericMatCrit(size(In%GenericMatCrit)))
             Out%GenericMatCrit = In%GenericMatCrit
           end if
-          Out%Cost = In%Cost
+          ! Out%Cost = In%Cost
           allocate(Out%nVec(size(In%nVec)))
           Out%nVec = In%nVec
           allocate(Out%MatingPlan(size(In%MatingPlan, dim=1), size(In%MatingPlan, dim=2)))
@@ -3863,7 +3863,7 @@ module AlphaMateModule
           if (allocated(This%GenericMatCrit)) then
             This%GenericMatCrit          = This%GenericMatCrit            * kR + Add%GenericMatCrit            / n
           end if
-          This%Cost                      = This%Cost                      * kR + Add%Cost                      / n
+          ! This%Cost                      = This%Cost                      * kR + Add%Cost                      / n
           This%nVec                      = This%nVec                      * kR + Add%nVec                      / n
           ! @todo It does not make sense to average a mating plan, no?
           This%MatingPlan                = This%MatingPlan                * kR + Add%MatingPlan                / n
@@ -4757,6 +4757,7 @@ module AlphaMateModule
       ! --- Evaluate frontier ---
       ! ModeMinCoancestry, ModeMinInbreeding, and ModeMaxCriterion must be run prior to this!
       ! @todo This code will have to change in light of more than two objectives using the NBI or AWS method
+      ! @todo There has to be a clever way of passing solutions from one frontier point to another?
 
       if (Spec%EvaluateFrontier) then
         if (LogStdoutInternal) then
@@ -4794,7 +4795,7 @@ module AlphaMateModule
             write(STDOUT, "(a)") " "
             call Spec%ModeSpec%LogTargets(Unit=STDOUT, Spec=Spec)
           end if
-          call Sol%SetupColNamesAndFormats(Spec=Spec) ! call again as InitialiseAlphaMateSol and AssignAlphaMateSol called within optimisation "nullify" the  above SetupColNamesAndFormats call (ugly, but works ...)
+          call Sol%SetupColNamesAndFormats(Spec=Spec) ! call again as InitialiseAlphaMateSol and AssignAlphaMateSol called within optimisation "nullify" the above SetupColNamesAndFormats call (ugly, but works ...)
 
           LogFile     = "OptimisationLogModeFrontier"//trim(Int2Char(Point))//".txt"
           LogPopFile  = "OptimisationLogPopModeFrontier"//trim(Int2Char(Point))//".txt"
@@ -4997,11 +4998,12 @@ module AlphaMateModule
         Unit = STDOUT
       end if
 
-      ! Solution components
-
+      ! AlphaEvolveSol components
       write(Unit, *) "Objective: ", This%Objective
       write(Unit, *) "nParam: ", This%nParam
       write(Unit, *) "Chrom: ", This%Chrom
+
+      ! AlphaMateSol components
       write(Unit, *) "Penalty: ", This%Penalty
       write(Unit, *) "PenaltyCoancestry: ", This%PenaltyCoancestry
       write(Unit, *) "PenaltyInbreeding: ", This%PenaltyInbreeding
@@ -5010,22 +5012,37 @@ module AlphaMateModule
       write(Unit, *) "PenaltyLimitPar2: ", This%PenaltyLimitPar2
       write(Unit, *) "PenaltyGenericIndCrit: ", This%PenaltyGenericIndCrit
       write(Unit, *) "PenaltyGenericMatCrit: ", This%PenaltyGenericMatCrit
+      write(Unit, *) "Degree: ", This%Degree
       write(Unit, *) "SelCriterion: ", This%SelCriterion
       write(Unit, *) "SelIntensity: ", This%SelIntensity
+      write(Unit, *) "MaxCriterionPct: ", This%MaxCriterionPct
       write(Unit, *) "CoancestryRanMate: ", This%CoancestryRanMate
       write(Unit, *) "CoancestryRateRanMate: ", This%CoancestryRateRanMate
+      write(Unit, *) "MinCoancestryPct: ", This%MinCoancestryPct
       write(Unit, *) "Inbreeding: ", This%Inbreeding
       write(Unit, *) "InbreedingRate: ", This%InbreedingRate
       write(Unit, *) "MinInbreedingPct: ", This%MinInbreedingPct
-      write(Unit, *) "GenericIndCrit: ", This%GenericIndCrit
-      write(Unit, *) "GenericMatCrit: ", This%GenericMatCrit
-      write(Unit, *) "Cost: ", This%Cost
+      if (allocated(This%GenericIndCrit)) then
+        write(Unit, *) "GenericIndCrit: ", This%GenericIndCrit
+      else
+        write(Unit, *) "GenericIndCrit: not allocated"
+      end if
+      if (allocated(This%GenericMatCrit)) then
+        write(Unit, *) "GenericMatCrit: ", This%GenericMatCrit
+      else
+        write(Unit, *) "GenericMatCrit: not allocated"
+      end if
+      ! write(Unit, *) "Cost: ", This%Cost
       write(Unit, *) "nVec: ", This%nVec
       write(Unit, *) "Mating plan:"
       do Mat = 1, size(This%MatingPlan, dim=2)
         write(Unit, *) Mat, This%MatingPlan(:, Mat)
       end do
-      write(Unit, *) "GenomeEdit: ", This%GenomeEdit
+      if (allocated(This%GenomeEdit)) then
+        write(Unit, *) "GenomeEdit: ", This%GenomeEdit
+      else
+        write(Unit, *) "GenomeEdit: not allocated"
+      end if
 
       ! Formats for logging
 
@@ -5306,7 +5323,7 @@ module AlphaMateModule
       This%ColnameLogUnit(5)  = "        FrontierDegree"
       This%ColnameLogUnit(6)  = "          SelCriterion"
       This%ColnameLogUnit(7)  = "          SelIntensity"
-      This%ColnameLogUnit(8)  = "       MaxSelCriterPct" ! @todo Can we extend this to MaxSelCriterPct?
+      This%ColnameLogUnit(8)  = "       MaxSelCriterPct"
       This%ColnameLogUnit(9)  = "            Coancestry"
       This%ColnameLogUnit(10) = "        CoancestryRate"
       This%ColnameLogUnit(11) = "      MinCoancestryPct"

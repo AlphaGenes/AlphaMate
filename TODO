@@ -131,7 +131,7 @@ Pareto front calculations
 
 * FindLoc is slow on large dataset due to O(n^2). Can we get a better solution for it?
 
-* Single precision to cut down CPU. Should be fine for what we are doing here.
+* Single precision to cut down CPU. Single precision should be fine for what we are doing here.
 
 * Split components in the solution to simplify code and potentially speed it up?
 
