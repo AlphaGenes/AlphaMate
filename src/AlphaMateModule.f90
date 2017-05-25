@@ -197,7 +197,7 @@ module AlphaMateModule
     ! Algorithm specifications
     ! ... generic evolutionary parameters
     integer(int32) :: EvolAlgNSol, EvolAlgNIter, EvolAlgNIterStop, EvolAlgNIterPrint
-    real(real64) :: EvolAlgStopTol
+    real(real64) :: EvolAlgStopTolCoancestry, EvolAlgStopTol
     logical :: EvolAlgLogPop
     character(len=SPECOPTIONLENGTH) :: EvolAlg
     ! ... differential evolution
@@ -542,7 +542,8 @@ module AlphaMateModule
       This%EvolAlgNIter = 100000
       This%EvolAlgNIterStop = 1000
       This%EvolAlgNIterPrint = 100
-      This%EvolAlgStopTol = 0.0001d0
+      This%EvolAlgStopTolCoancestry = 0.0001d0
+      This%EvolAlgStopTol = 0.0010d0
       This%EvolAlgLogPop = .false.
       This%EvolAlg = "DE"
 
@@ -733,13 +734,14 @@ module AlphaMateModule
 
       ! Algorithm specifications
 
-      write(Unit, *) "EvolAlgNSol: ",       This%EvolAlgNSol
-      write(Unit, *) "EvolAlgNIter: ",      This%EvolAlgNIter
-      write(Unit, *) "EvolAlgNIterStop: ",  This%EvolAlgNIterStop
-      write(Unit, *) "EvolAlgNIterPrint: ", This%EvolAlgNIterPrint
-      write(Unit, *) "EvolAlgStopTol: ",    This%EvolAlgStopTol
-      write(Unit, *) "EvolAlgLogPop: ",     This%EvolAlgLogPop
-      write(Unit, *) "EvolAlg: ",           This%EvolAlg
+      write(Unit, *) "EvolAlgNSol: ",              This%EvolAlgNSol
+      write(Unit, *) "EvolAlgNIter: ",             This%EvolAlgNIter
+      write(Unit, *) "EvolAlgNIterStop: ",         This%EvolAlgNIterStop
+      write(Unit, *) "EvolAlgNIterPrint: ",        This%EvolAlgNIterPrint
+      write(Unit, *) "EvolAlgStopTolCoancestry: ", This%EvolAlgStopTolCoancestry
+      write(Unit, *) "EvolAlgStopTol: ",           This%EvolAlgStopTol
+      write(Unit, *) "EvolAlgLogPop: ",            This%EvolAlgLogPop
+      write(Unit, *) "EvolAlg: ",                  This%EvolAlg
 
       write(Unit, *) "DiffEvolNIterBurnIn: ",   This%DiffEvolNIterBurnIn
       write(Unit, *) "DiffEvolParamCrBurnIn: ", This%DiffEvolParamCrBurnIn
@@ -1969,14 +1971,26 @@ module AlphaMateModule
                 stop 1
               end if
 
+            case ("evolalgstoptolerancecoancestry")
+              if (allocated(Second)) then
+                This%EvolAlgStopTolCoancestry = Char2Double(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Evolutionary algorithm - stopping tolerance for minimum coancestry or minimum inbreeding optimisations: "//trim(Real2Char(This%EvolAlgStopTolCoancestry, fmt=FMTREAL2CHAR))
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a value for EvolAlgStopToleranceCoancestry, i.e., EvolAlgStopToleranceCoancestry, 0.01"
+                write(STDERR, "(a)") " "
+                stop 1
+              end if
+
             case ("evolalgstoptolerance")
               if (allocated(Second)) then
                 This%EvolAlgStopTol = Char2Double(trim(adjustl(Second(1))))
                 if (LogStdoutInternal) then
-                  write(STDOUT, "(a)") " Evolutionary algorithm - stopping tolerance: "//trim(Real2Char(This%EvolAlgStopTol, fmt=FMTREAL2CHAR))
+                  write(STDOUT, "(a)") " Evolutionary algorithm - stopping tolerance for maximum criterion or optimum/balance optimisations: "//trim(Real2Char(This%EvolAlgStopTol, fmt=FMTREAL2CHAR))
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a value for EvolAlgStopTolerance, i.e., EvolAlgStopTolerance, 0.01"
+                write(STDERR, "(a)") " ERROR: Must specify a value for EvolAlgStopTol, i.e., EvolAlgStopTol, 0.01"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -4342,9 +4356,10 @@ module AlphaMateModule
                 ! Inlined SelIntensity2MaxCriterionPct STOP
                 if (Spec%ModeSpec%ObjectiveCriterion) then
                   if      (trim(Spec%ModeSpec%Name) .eq. "MaxCriterion") then
-                    This%Objective = This%Objective + This%SelIntensity
+                    ! This gives objective in the [0, 1] form of the max SelIntensity
+                    This%Objective = This%Objective + This%SelIntensity / Data%SelCriterionStat%Max
                   else if (trim(Spec%ModeSpec%Name) .eq. "Opt") then
-                    ! This gives SelCriterion objective in the [0, 1] form of the TargetMaxCriterionPct
+                    ! This gives objective in the [0, 1] form of the TargetMaxCriterionPct
                     This%Objective = This%Objective + This%MaxCriterionPct / Spec%ModeSpec%TargetMaxCriterionPct
                   end if
                 end if
@@ -4732,7 +4747,7 @@ module AlphaMateModule
 
         if (trim(Spec%EvolAlg) .eq. "DE") then
           call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, Init=InitEqual, &
-            nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint, &
+            nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTolCoancestry, nIterPrint=Spec%EvolAlgNIterPrint, &
             LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
             CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate=Spec%DiffEvolParamCr, FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
             BestSol=SolMinCoancestry)!, Status=OptimOK)
@@ -4782,7 +4797,7 @@ module AlphaMateModule
 
         if (trim(Spec%EvolAlg) .eq. "DE") then
           call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, Init=InitEqual, &
-            nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint, &
+            nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTolCoancestry, nIterPrint=Spec%EvolAlgNIterPrint, &
             LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
             CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate=Spec%DiffEvolParamCr, FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
             BestSol=SolMinInbreeding)!, Status=OptimOK)
