@@ -2251,10 +2251,10 @@ module AlphaMateModule
     !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date   April 16, 2017
     !---------------------------------------------------------------------------
-    pure subroutine SetupModeAlphaMateSpec(This, Mode, Data, Degree, &
-                                           SelCriterion, SelIntensity,   MaxCriterionPct,                         ModeMaxCriterionSpec,&
-                                           Coancestry,   CoancestryRate, MinCoancestryPct, CoancestryWeightBelow, ModeMinCoancestrySpec, &
-                                           Inbreeding,   InbreedingRate, MinInbreedingPct, InbreedingWeightBelow, ModeMinInbreedingSpec)
+    subroutine SetupModeAlphaMateSpec(This, Mode, Data, Degree, &
+                                      SelCriterion, SelIntensity,   MaxCriterionPct,                         ModeMaxCriterionSpec,&
+                                      Coancestry,   CoancestryRate, MinCoancestryPct, CoancestryWeightBelow, ModeMinCoancestrySpec, &
+                                      Inbreeding,   InbreedingRate, MinInbreedingPct, InbreedingWeightBelow, ModeMinInbreedingSpec) ! @todo not pure due to error stop in SetTargets()
       implicit none
       class(AlphaMateSpec), intent(inout)           :: This                  !< @return AlphaMateSpec holder
       character(len=*), intent(in)                  :: Mode                  !< Mode definition/name
@@ -2485,11 +2485,11 @@ module AlphaMateModule
     !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date   April 13, 2017
     !---------------------------------------------------------------------------
-    pure subroutine SetTargetsAlphaMateModeSpec(This, Data, Degree, &
-                                                SelCriterion, SelIntensity, MaxCriterionPct, &
-                                                Coancestry, CoancestryRate, MinCoancestryPct, &
-                                                Inbreeding, InbreedingRate, MinInbreedingPct, &
-                                                ModeMinCoancestrySpec, ModeMinInbreedingSpec, ModeMaxCriterionSpec)
+    subroutine SetTargetsAlphaMateModeSpec(This, Data, Degree, &
+                                          SelCriterion, SelIntensity, MaxCriterionPct, &
+                                          Coancestry, CoancestryRate, MinCoancestryPct, &
+                                          Inbreeding, InbreedingRate, MinInbreedingPct, &
+                                          ModeMinCoancestrySpec, ModeMinInbreedingSpec, ModeMaxCriterionSpec) ! @todo not pure due to error stop
       implicit none
       class(AlphaMateModeSpec), intent(inout)       :: This                  !< @return AlphaMateModeSpec holder
       type(AlphaMateData), intent(in), optional     :: Data                  !< AlphaMateData holder
@@ -2683,6 +2683,16 @@ module AlphaMateModule
                                                               CurrentCoancestry=Data%Inbreeding)
           end if
         end if
+      end if
+
+      if (This%TargetMinCoancestryPct .eq. 0) then
+        error stop " ERROR: TargetMinCoancestryPct must be greater than zero!"
+      end if
+      if (This%TargetMinInbreedingPct .eq. 0) then
+        error stop " ERROR: TargetMinInbreedingPct must be greater than zero!"
+      end if
+      if (This%TargetMaxCriterionPct .eq. 0) then
+        error stop " ERROR: TargetMaxCriterionPct must be greater than zero!"
       end if
     end subroutine
 
@@ -3932,7 +3942,7 @@ module AlphaMateModule
       integer(int32) :: i, j, k, l, g, nCumMat, TmpMin, TmpMax, TmpI
       integer(int32), allocatable :: Rank(:), ChromInt(:), MatPar2(:), nVecPar1(:), nVecPar2(:)
 
-      real(real64) :: TmpR, RanNum
+      real(real64) :: TmpR, RanNum, Diff, MaxDiff
       real(real64), allocatable :: TmpVec(:, :)
 
       select type (Spec)
@@ -4315,14 +4325,26 @@ module AlphaMateModule
                 end if
                 ! Inlined SelIntensity2SelCriterion
                 This%SelCriterion = This%SelIntensity * Data%SelCriterionStat%Sd + Data%SelCriterionStat%Mean
-                ! Inlined SelIntensity2MaxCriterionPct
-                This%MaxCriterionPct = (This%SelIntensity                      - Spec%ModeMinCoancestrySpec%SelIntensity) / &
-                                       (Spec%ModeMaxCriterionSpec%SelIntensity - Spec%ModeMinCoancestrySpec%SelIntensity) * 100.0d0
+                ! Inlined SelIntensity2MaxCriterionPct START
+                Diff = This%SelIntensity - Spec%ModeMinCoancestrySpec%SelIntensity
+                MaxDiff = Spec%ModeMaxCriterionSpec%SelIntensity - Spec%ModeMinCoancestrySpec%SelIntensity
+                if (MaxDiff .eq. 0) then
+                  if (Diff .ge. 0) then
+                    This%MaxCriterionPct = 100.0d0
+                  else
+                    This%MaxCriterionPct = 0.0d0
+                  end if
+                  ! Not sure about the above fix, but the logic is that if MaxDiff is zero,
+                  ! then whatever positive (or negative) Diff we get, we achieve 100% (or 0%).
+                else
+                  This%MaxCriterionPct = Diff / MaxDiff * 100.0d0
+                end if
+                ! Inlined SelIntensity2MaxCriterionPct STOP
                 if (Spec%ModeSpec%ObjectiveCriterion) then
                   if      (trim(Spec%ModeSpec%Name) .eq. "MaxCriterion") then
                     This%Objective = This%Objective + This%SelIntensity
                   else if (trim(Spec%ModeSpec%Name) .eq. "Opt") then
-                    ! This gives SelCriterion objective in the [0, 1] form of the TargetMaxCriterionPct (Kinghorn)
+                    ! This gives SelCriterion objective in the [0, 1] form of the TargetMaxCriterionPct
                     This%Objective = This%Objective + This%MaxCriterionPct / Spec%ModeSpec%TargetMaxCriterionPct
                   end if
                 end if
@@ -4330,6 +4352,8 @@ module AlphaMateModule
                 if (This%MaxCriterionPct .lt. 0.0d0) then
                   This%MaxCriterionPct = 0.0d0
                 end if
+                ! @todo Should we handle also cases above 100%
+                ! @todo Should we modify Spec%ModeMaxCriterionSpec and Spec%ModeMinCoancestrySpec on the fly?
               end if
 
               ! --- Generic individual criterion ---
@@ -4368,16 +4392,46 @@ module AlphaMateModule
               ! x'Cx
               This%CoancestryRanMate = dot_product(TmpVec(:, 1), This%nVec) / (4 * Spec%nMat * Spec%nMat)
 
-              ! Inlined Coancestry2CoancestryRate
-              This%CoancestryRateRanMate = (This%CoancestryRanMate - Data%CoancestryRanMate) / &
-                                                            (1.0d0 - Data%CoancestryRanMate)
-              ! Inlined CoancestryRate2MinCoancestryPct
-              This%MinCoancestryPct = (Spec%ModeMaxCriterionSpec%CoancestryRate - This%CoancestryRateRanMate) / &
-                                      (Spec%ModeMaxCriterionSpec%CoancestryRate - Spec%ModeMinCoancestrySpec%CoancestryRate) * 100.d0
+              ! Inlined Coancestry2CoancestryRate START
+              Diff    = This%CoancestryRanMate - Data%CoancestryRanMate
+              MaxDiff =                  1.0d0 - Data%CoancestryRanMate
+              if (MaxDiff .eq. 0) then
+                if (Diff .ge. 0) then
+                  This%CoancestryRateRanMate =  1.0d0
+                else if (Diff .eq. 0) then
+                  This%CoancestryRateRanMate =  0.0d0
+                else
+                  This%CoancestryRateRanMate = -1.0d0
+                end if
+                ! Not sure about the above fix, but the logic is that if MaxDiff is zero,
+                ! then whatever positive, zero, or negative) Diff we get, we respetively
+                ! achieve rate of 1, 0, -1
+              else
+                This%CoancestryRateRanMate = Diff / MaxDiff
+              end if
+              ! Inlined Coancestry2CoancestryRate STOP
+
+              ! Inlined CoancestryRate2MinCoancestryPct START
+              Diff = Spec%ModeMaxCriterionSpec%CoancestryRate - This%CoancestryRateRanMate
+              MaxDiff = Spec%ModeMaxCriterionSpec%CoancestryRate - Spec%ModeMinCoancestrySpec%CoancestryRate
+              if (MaxDiff .eq. 0) then
+                if (Diff .ge. 0) then
+                  This%MinCoancestryPct = 100.0d0
+                else
+                  This%MinCoancestryPct = 0.0d0
+                end if
+                ! Not sure about the above fix, but the logic is that if MaxDiff is zero,
+                ! then whatever positive (or negative) Diff we get, we achieve 100% (or 0%).
+              else
+                This%MinCoancestryPct = Diff / MaxDiff * 100.d0
+              end if
+              ! Inlined CoancestryRate2MinCoancestryPct STOP
               ! Handle beyond the nadir point case so that degree calculation will be meaningful
               if (This%MinCoancestryPct .lt. 0.0d0) then
                 This%MinCoancestryPct = 0.0d0
               end if
+              ! @todo Should we handle also cases above 100%
+              ! @todo Should we modify Spec%ModeMaxCriterionSpec and Spec%ModeMinCoancestrySpec on the fly?
 
               ! Degree
               ! This calculation ASSUMES unit circular shape of selection/coancestry frontier
@@ -4392,7 +4446,11 @@ module AlphaMateModule
               !   the solution x-coordinate on the min-line is opposite to the angle (if we
               !   put the min-line parallely up) so we use the arctangent function to compute
               !   angle degrees
-              This%Degree = atan(This%MinCoancestryPct / This%MaxCriterionPct) * RAD2DEG
+              if (This%MinCoancestryPct .eq. 0 .and. This%MaxCriterionPct .eq. 0) then
+                This%Degree = 45.0d0 ! a hack as atan2(0, 0) is not defined; following the logic that atan2(1, 1) = 45
+              else
+                This%Degree = atan2(This%MinCoancestryPct, This%MaxCriterionPct) * RAD2DEG
+              end if
 
               !@todo ModeRan?
 
@@ -4480,11 +4538,39 @@ module AlphaMateModule
                 end do
                 ! @todo different number of progeny per mating? Might be relevant for in-vitro fertilisation
                 This%Inbreeding = TmpR / Spec%nMat
-                ! Inlined Coancestry2CoancestryRate
-                This%InbreedingRate = (This%Inbreeding - Data%Inbreeding) / (1.0d0 - Data%Inbreeding)
-                ! Inlined CoancestryRate2MinCoancestryPct
-                This%MinInbreedingPct = (+1.0d0 - This%InbreedingRate) / &
-                                        (+1.0d0 - Spec%ModeMinInbreedingSpec%InbreedingRate) * 100.d0
+                ! Inlined Coancestry2CoancestryRate START
+                Diff    = This%Inbreeding - Data%Inbreeding
+                MaxDiff =           1.0d0 - Data%Inbreeding
+                if (MaxDiff .eq. 0) then
+                  if (Diff .ge. 0) then
+                    This%InbreedingRate =  1.0d0
+                  else if (Diff .eq. 0) then
+                    This%InbreedingRate =  0.0d0
+                  else
+                    This%InbreedingRate = -1.0d0
+                  end if
+                  ! Not sure about the above fix, but the logic is that if MaxDiff is zero,
+                  ! then whatever positive, zero, or negative) Diff we get, we respetively
+                  ! achieve rate of 1, 0, -1
+                else
+                  This%InbreedingRate = Diff / MaxDiff
+                end if
+                ! Inlined Coancestry2CoancestryRate STOP
+                ! Inlined CoancestryRate2MinCoancestryPct START
+                Diff = 1.0d0 - This%InbreedingRate
+                MaxDiff = 1.0d0 - Spec%ModeMinInbreedingSpec%InbreedingRate
+                if (MaxDiff .eq. 0) then
+                  if (Diff .ge. 0) then
+                    This%MinInbreedingPct = 100.0d0
+                  else
+                    This%MinInbreedingPct = 0.0d0
+                  end if
+                  ! Not sure about the above fix, but the logic is that if MaxDiff is zero,
+                  ! then whatever positive (or negative) Diff we get, we achieve 100% (or 0%).
+                else
+                  This%MinInbreedingPct = Diff / MaxDiff * 100.d0
+                end if
+                ! Inlined CoancestryRate2MinCoancestryPct STOP
 
                 ! @todo Pareto front formulation for this objective too?
                 if (Spec%ModeSpec%ObjectiveInbreeding) then
@@ -5628,8 +5714,25 @@ module AlphaMateModule
       implicit none
       real(real64), intent(in) :: CurrentCoancestry !< Current coancestry
       real(real64), intent(in) :: FutureCoancestry  !< Future coancestry
-      real(real64)             :: CoancestryRate  !< @return CoancestryRate
-      CoancestryRate = (FutureCoancestry - CurrentCoancestry) / (1.0d0 - CurrentCoancestry)
+      real(real64)             :: CoancestryRate    !< @return CoancestryRate
+      real(real64) :: Diff, MaxDiff
+      Diff    = FutureCoancestry - CurrentCoancestry
+      MaxDiff =            1.0d0 - CurrentCoancestry
+      ! @todo What should be done, when we have coancestry estimates that are above 1 or bellow 1?
+      if (MaxDiff .eq. 0) then
+        if (Diff .ge. 0) then
+          CoancestryRate =  1.0d0
+        else if (Diff .eq. 0) then
+          CoancestryRate =  0.0d0
+        else
+          CoancestryRate = -1.0d0
+        end if
+        ! Not sure about the above fix, but the logic is that if MaxDiff is zero,
+        ! then whatever positive, zero, or negative) Diff we get, we respetively
+        ! achieve rate of 1, 0, -1
+      else
+        CoancestryRate = Diff / MaxDiff
+      end if
     end function
 
     !###########################################################################
@@ -5763,7 +5866,20 @@ module AlphaMateModule
       real(real64), intent(in) :: MinCoancestryRate !< Minimum possible coancestry rate
       real(real64), intent(in) :: MaxCoancestryRate !< Maximum possible coancestry rate
       real(real64)             :: MinCoancestryPct  !< @return MinCoancestryPct of a solution
-      MinCoancestryPct = (MaxCoancestryRate - CoancestryRate) / (MaxCoancestryRate - MinCoancestryRate) * 100.d0
+      real(real64) :: Diff, MaxDiff
+      Diff = MaxCoancestryRate - CoancestryRate
+      MaxDiff = MaxCoancestryRate - MinCoancestryRate
+      if (MaxDiff .eq. 0) then
+        if (Diff .ge. 0) then
+          MinCoancestryPct = 100.0d0
+        else
+          MinCoancestryPct = 0.0d0
+        end if
+        ! Not sure about the above fix, but the logic is that if MaxDiff is zero,
+        ! then whatever positive (or negative) Diff we get, we achieve 100% (or 0%).
+      else
+        MinCoancestryPct = Diff / MaxDiff * 100.d0
+      end if
     end function
 
     !###########################################################################
@@ -5799,7 +5915,20 @@ module AlphaMateModule
       real(real64), intent(in) :: MinSelIntensity !< Minimum possible selection intensity
       real(real64), intent(in) :: MaxSelIntensity !< Maximum possible selection intensity
       real(real64)             :: MaxCriterionPct !< @return MaxCriterionPct of a solution
-      MaxCriterionPct = (SelIntensity - MinSelIntensity) / (MaxSelIntensity - MinSelIntensity) * 100.0d0
+      real(real64) :: Diff, MaxDiff
+      Diff = SelIntensity - MinSelIntensity
+      MaxDiff = MaxSelIntensity - MinSelIntensity
+      if (MaxDiff .eq. 0) then
+        if (Diff .ge. 0) then
+          MaxCriterionPct = 100.0d0
+        else
+          MaxCriterionPct = 0.0d0
+        end if
+        ! Not sure about the above fix, but the logic is that if MaxDiff is zero,
+        ! then whatever positive (or negative) Diff we get, we achieve 100% (or 0%).
+      else
+        MaxCriterionPct = Diff / MaxDiff * 100.0d0
+      end if
     end function
 
     !###########################################################################

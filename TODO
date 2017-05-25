@@ -1,6 +1,8 @@
 
-TODO ModeRan
-  - any good?
+* Check behaviour with positive/negative values of coancestry/inbreeding
+* What should be done, when we have coancestry estimates that are above 1 or bellow 1?
+
+* Is ModeRan any good?
 
 * Write manual
 
