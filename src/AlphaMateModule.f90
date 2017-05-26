@@ -4400,9 +4400,9 @@ module AlphaMateModule
               ! --- Selection criterion ---
 
               if (Spec%SelCriterionGiven) then
-                This%SelIntensity = dot_product(This%nVec, Data%SelIntensity) / (2 * Spec%nMat)
+                This%SelIntensity = dot_product(dble(This%nVec), Data%SelIntensity) / (2 * Spec%nMat)
                 if (Spec%PAGEPar) then
-                  This%SelIntensity = This%SelIntensity + dot_product(This%nVec, Data%SelIntensityPAGE * This%GenomeEdit) / (2 * Spec%nMat)
+                  This%SelIntensity = This%SelIntensity + dot_product(dble(This%nVec), Data%SelIntensityPAGE * This%GenomeEdit) / (2 * Spec%nMat)
                 end if
                 ! Inlined SelIntensity2SelCriterion
                 This%SelCriterion = This%SelIntensity * Data%SelCriterionStat%Sd + Data%SelCriterionStat%Mean
@@ -4442,7 +4442,7 @@ module AlphaMateModule
 
               if (Spec%GenericIndCritGiven) then
                 do j = 1, Spec%nGenericIndCrit
-                  TmpR = dot_product(This%nVec, Data%GenericIndCrit(:, j)) / (2 * Spec%nMat)
+                  TmpR = dot_product(dble(This%nVec), Data%GenericIndCrit(:, j)) / (2 * Spec%nMat)
                   This%GenericIndCrit(j) = TmpR
                   TmpR = Spec%GenericIndCritWeight(j) * This%GenericIndCrit(j)
                   This%Objective = This%Objective + TmpR
@@ -4461,7 +4461,7 @@ module AlphaMateModule
 
               ! x'C
               do i = 1, Data%nInd
-                TmpVec(i, 1) = dot_product(This%nVec, Data%Coancestry%Value(1:, i))
+                TmpVec(i, 1) = dot_product(dble(This%nVec), Data%Coancestry%Value(1:, i))
               end do
               ! @todo consider using matmul instead of repeated dot_product?
               ! @todo consider using BLAS/LAPACK - perhaps non-symmetric is more optimised?
@@ -4472,7 +4472,7 @@ module AlphaMateModule
               ! call dsymm(     "l",      "l",   Data%nInd,   1,       1.0d0,   CoaMtx,     Data%nInd,   This%nVec,     Data%nInd,      0,   TmpVec,     Data%nInd)
 
               ! x'Cx
-              This%CoancestryRanMate = dot_product(TmpVec(:, 1), This%nVec) / (4 * Spec%nMat * Spec%nMat)
+              This%CoancestryRanMate = dot_product(TmpVec(:, 1), dble(This%nVec)) / (4 * Spec%nMat * Spec%nMat)
 
               ! Inlined Coancestry2CoancestryRate START
               Diff    = This%CoancestryRanMate - Data%CoancestryRanMate
@@ -5289,33 +5289,33 @@ module AlphaMateModule
         if (.not. Spec%GenderGiven) then
           do i = 1, nCon
             Ind = Rank(i)
-            write(ContribUnit, Spec%FmtContribution) Data%Coancestry%OriginalId(Ind),      &
-                                                     Data%Gender(Ind),                     &
-                                                     Data%SelCriterion(Ind),               &
-                                                     mean(Data%Coancestry%Value(1:, Ind)), &
-                                                     This%nVec(Ind) / (2 * Spec%nMat),     &
+            write(ContribUnit, Spec%FmtContribution) Data%Coancestry%OriginalId(Ind),        &
+                                                     Data%Gender(Ind),                       &
+                                                     Data%SelCriterion(Ind),                 &
+                                                     mean(Data%Coancestry%Value(1:, Ind)),   &
+                                                     dble(This%nVec(Ind)) / (2 * Spec%nMat), &
                                                      This%nVec(Ind)
           end do
         else
           do i = 1, nCon
             Ind = Rank(i)
             if (Data%Gender(Ind) .eq. 1) then
-              write(ContribUnit, Spec%FmtContribution) Data%Coancestry%OriginalId(Ind),      &
-                                                       Data%Gender(Ind),                     &
-                                                       Data%SelCriterion(Ind),               &
-                                                       mean(Data%Coancestry%Value(1:, Ind)), &
-                                                       This%nVec(Ind) / (2 * Spec%nMat),     &
+              write(ContribUnit, Spec%FmtContribution) Data%Coancestry%OriginalId(Ind),        &
+                                                       Data%Gender(Ind),                       &
+                                                       Data%SelCriterion(Ind),                 &
+                                                       mean(Data%Coancestry%Value(1:, Ind)),   &
+                                                       dble(This%nVec(Ind)) / (2 * Spec%nMat), &
                                                        This%nVec(Ind)
             end if
           end do
           do i = 1, nCon
             Ind = Rank(i)
             if (Data%Gender(Ind) .eq. 2) then
-              write(ContribUnit, Spec%FmtContribution) Data%Coancestry%OriginalId(Ind),      &
-                                                       Data%Gender(Ind),                     &
-                                                       Data%SelCriterion(Ind),               &
-                                                       mean(Data%Coancestry%Value(1:, Ind)), &
-                                                       This%nVec(Ind) / (2 * Spec%nMat),     &
+              write(ContribUnit, Spec%FmtContribution) Data%Coancestry%OriginalId(Ind),        &
+                                                       Data%Gender(Ind),                       &
+                                                       Data%SelCriterion(Ind),                 &
+                                                       mean(Data%Coancestry%Value(1:, Ind)),   &
+                                                       dble(This%nVec(Ind)) / (2 * Spec%nMat), &
                                                        This%nVec(Ind)
             end if
           end do
@@ -5333,39 +5333,39 @@ module AlphaMateModule
         if (.not. Spec%GenderGiven) then
           do i = 1, nCon
             Ind = Rank(i)
-            write(ContribUnit, Spec%FmtContributionEdit) Data%Coancestry%OriginalId(Ind),      &
-                                                         Data%Gender(Ind),                     &
-                                                         Data%SelCriterion(Ind),               &
-                                                         mean(Data%Coancestry%Value(1:, Ind)), &
-                                                         This%nVec(Ind) / (2 * Spec%nMat),     &
-                                                         This%nVec(Ind),                       &
-                                                         nint(This%GenomeEdit(Ind)),           &
+            write(ContribUnit, Spec%FmtContributionEdit) Data%Coancestry%OriginalId(Ind),        &
+                                                         Data%Gender(Ind),                       &
+                                                         Data%SelCriterion(Ind),                 &
+                                                         mean(Data%Coancestry%Value(1:, Ind)),   &
+                                                         dble(This%nVec(Ind)) / (2 * Spec%nMat), &
+                                                         This%nVec(Ind),                         &
+                                                         nint(This%GenomeEdit(Ind)),             &
                                                          Data%SelCriterion(Ind) + This%GenomeEdit(Ind) * Data%SelCriterionPAGE(Ind)
           end do
         else
           do i = 1, nCon
             Ind = Rank(i)
             if (Data%Gender(Ind) .eq. 1) then
-              write(ContribUnit, Spec%FmtContributionEdit) Data%Coancestry%OriginalId(Ind),      &
-                                                           Data%Gender(Ind),                     &
-                                                           Data%SelCriterion(Ind),               &
-                                                           mean(Data%Coancestry%Value(1:, Ind)), &
-                                                           This%nVec(Ind) / (2 * Spec%nMat),     &
-                                                           This%nVec(Ind),                       &
-                                                           nint(This%GenomeEdit(Ind)),           &
+              write(ContribUnit, Spec%FmtContributionEdit) Data%Coancestry%OriginalId(Ind),        &
+                                                           Data%Gender(Ind),                       &
+                                                           Data%SelCriterion(Ind),                 &
+                                                           mean(Data%Coancestry%Value(1:, Ind)),   &
+                                                           dble(This%nVec(Ind)) / (2 * Spec%nMat), &
+                                                           This%nVec(Ind),                         &
+                                                           nint(This%GenomeEdit(Ind)),             &
                                                            Data%SelCriterion(Ind) + This%GenomeEdit(Ind) * Data%SelCriterionPAGE(Ind)
             end if
           end do
           do i = 1, nCon
             Ind = Rank(i)
             if (Data%Gender(Ind) .eq. 2) then
-              write(ContribUnit, Spec%FmtContributionEdit) Data%Coancestry%OriginalId(Ind),      &
-                                                           Data%Gender(Ind),                     &
-                                                           Data%SelCriterion(Ind),               &
-                                                           mean(Data%Coancestry%Value(1:, Ind)), &
-                                                           This%nVec(Ind) / (2 * Spec%nMat),     &
-                                                           This%nVec(Ind),                       &
-                                                           nint(This%GenomeEdit(Ind)),           &
+              write(ContribUnit, Spec%FmtContributionEdit) Data%Coancestry%OriginalId(Ind),        &
+                                                           Data%Gender(Ind),                       &
+                                                           Data%SelCriterion(Ind),                 &
+                                                           mean(Data%Coancestry%Value(1:, Ind)),   &
+                                                           dble(This%nVec(Ind)) / (2 * Spec%nMat), &
+                                                           This%nVec(Ind),                         &
+                                                           nint(This%GenomeEdit(Ind)),             &
                                                            Data%SelCriterion(Ind) + This%GenomeEdit(Ind) * Data%SelCriterionPAGE(Ind)
             end if
           end do
