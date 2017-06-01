@@ -1588,7 +1588,6 @@ module AlphaMateModule
             case ("equalizemalecontributions")
               if (allocated(Second)) then
                 if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
-                  This%EqualizePar  = .true.
                   This%EqualizePar1 = .true.
                   if (LogStdoutInternal) then
                     write(STDOUT, "(a)") " Equalize contributions of males"
@@ -1603,7 +1602,6 @@ module AlphaMateModule
             case ("equalizefemalecontributions")
               if (allocated(Second)) then
                 if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
-                  This%EqualizePar  = .true.
                   This%EqualizePar2 = .true.
                   if (LogStdoutInternal) then
                     write(STDOUT, "(a)") " Equalize contributions of females"
@@ -1677,7 +1675,6 @@ module AlphaMateModule
             case ("limitmalecontributions")
               if (allocated(Second)) then
                 if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
-                  This%LimitPar  = .true.
                   This%LimitPar1 = .true.
                   if (LogStdoutInternal) then
                     write(STDOUT, "(a)") " Limit contributions of males"
@@ -1737,7 +1734,6 @@ module AlphaMateModule
             case ("limitfemalecontributions")
               if (allocated(Second)) then
                 if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
-                  This%LimitPar  = .true.
                   This%LimitPar2 = .true.
                   if (LogStdoutInternal) then
                     write(STDOUT, "(a)") " Limit contributions of females"
@@ -2205,21 +2201,37 @@ module AlphaMateModule
 
       if (This%LimitPar .and. This%EqualizePar) then
         if (LogStdoutInternal) then
-          write(STDOUT, "(a)") " NOTE: The specification Equalize*Contributions has priority over Limit*Contributions."
+          write(STDOUT, "(a)") " NOTE: The specification EqualizeContributions has priority over LimitContributions."
           write(STDOUT, "(a)") " "
         end if
         ! ... therefore reset all limit specifications to default values
         This%LimitPar  = .false.
-        This%LimitPar1 = .false.
-        This%LimitPar2 = .false.
-        This%LimitParMin  = 1.0d0
-        This%LimitPar1Min = 1.0d0
-        This%LimitPar2Min = 1.0d0
-        This%LimitParMax  = huge(This%LimitParMax)  - 1.0d0
-        This%LimitPar1Max = huge(This%LimitPar1Max) - 1.0d0
-        This%LimitPar2Max = huge(This%LimitPar2Max) - 1.0d0
+        This%LimitParMin = 1.0d0
+        This%LimitParMax = huge(This%LimitParMax)  - 1.0d0
         This%LimitParMinWeight  = -1000.0d0
+      end if
+
+      if (This%LimitPar1 .and. This%EqualizePar1) then
+        if (LogStdoutInternal) then
+          write(STDOUT, "(a)") " NOTE: The specification EqualizeMaleContributions has priority over LimitMaleContributions."
+          write(STDOUT, "(a)") " "
+        end if
+        ! ... therefore reset all limit specifications to default values
+        This%LimitPar1 = .false.
+        This%LimitPar1Min = 1.0d0
+        This%LimitPar1Max = huge(This%LimitPar1Max) - 1.0d0
         This%LimitPar1MinWeight = -1000.0d0
+      end if
+
+      if (This%LimitPar2 .and. This%EqualizePar2) then
+        if (LogStdoutInternal) then
+          write(STDOUT, "(a)") " NOTE: The specification EqualizeFemaleContributions has priority over LimitFemaleContributions."
+          write(STDOUT, "(a)") " "
+        end if
+        ! ... therefore reset all limit specifications to default values
+        This%LimitPar2 = .false.
+        This%LimitPar2Min = 1.0d0
+        This%LimitPar2Max = huge(This%LimitPar2Max) - 1.0d0
         This%LimitPar2MinWeight = -1000.0d0
       end if
 
@@ -2975,24 +2987,35 @@ module AlphaMateModule
           !   albeit some/most will have zero contributions
           Spec%nPar = This%nInd
         end if
+        Spec%nPar1 = Spec%nPar
         if (Spec%EqualizePar) then
           if (Spec%nMat .lt. Spec%nPar) then
-            write(STDERR, "(a)") " ERROR: Number of parents must be smaller of equal to the number of matings when EqualizeContributions is active!"
+            write(STDERR, "(a)") " ERROR: Number of parents must be smaller or equal to the number of matings when EqualizeContributions is active!"
             write(STDERR, "(a)") " ERROR: The number of parents: "//trim(Int2Char(Spec%nPar))
             write(STDERR, "(a)") " ERROR: The number of matings: "//trim(Int2Char(Spec%nMat))
             write(STDERR, "(a)") " "
             stop 1
           end if
-          if (mod(Spec%nMat, Spec%nPar1) .gt. 0) then
-            write(STDERR, "(a)") " ERROR: The number of male parents and the number of matings must divide without remainder when EqualizeMaleContributions is active!"
-            write(STDERR, "(a)") " ERROR: The number of male parents: "//trim(Int2Char(Spec%nPar1))
-            write(STDERR, "(a)") " ERROR: The number of matings:      "//trim(Int2Char(Spec%nMat))
-            write(STDERR, "(a)") " ERROR: The remainder:              "//trim(Int2Char(mod(Spec%nMat, Spec%nPar1)))
+          if (mod(Spec%nMat, Spec%nPar) .gt. 0) then
+            write(STDERR, "(a)") " ERROR: The number of parents and the number of matings must divide without remainder when EqualizeContributions is active!"
+            write(STDERR, "(a)") " ERROR: The number of parents: "//trim(Int2Char(Spec%nPar))
+            write(STDERR, "(a)") " ERROR: The number of matings: "//trim(Int2Char(Spec%nMat))
+            write(STDERR, "(a)") " ERROR: The remainder:         "//trim(Int2Char(mod(Spec%nMat, Spec%nPar)))
             write(STDERR, "(a)") " "
             stop 1
           end if
         end if
-        Spec%nPar1 = Spec%nPar
+        if (Spec%LimitPar) then
+          if ((Spec%nPar * Spec%LimitParMax) .lt. Spec%nMat) then
+            write(STDERR, "(a)") " ERROR: The number of parents * LimitContributionsMax is to small to achieve specified number of matings!"
+            write(STDERR, "(a)") " ERROR: The number of parents: "//trim(Int2Char(Spec%nPar))
+            write(STDERR, "(a)") " ERROR: LimitContributionsMax: "//trim(Int2Char(nint(Spec%LimitParMax)))
+            write(STDERR, "(a)") " ERROR:         their product: "//trim(Int2Char(Spec%nPar * nint(Spec%LimitParMax)))
+            write(STDERR, "(a)") " ERROR: The number of matings: "//trim(Int2Char(Spec%nMat))
+            write(STDERR, "(a)") " "
+            stop 1
+          end if
+        end if
       else
         nIndTmp = CountLines(Spec%GenderFile)
         if (LogStdoutInternal) then
@@ -3057,6 +3080,18 @@ module AlphaMateModule
             stop 1
           end if
         end if
+        if (Spec%LimitPar1) then
+          if ((Spec%nPar1 * Spec%LimitPar1Max) .lt. Spec%nMat) then
+            write(STDERR, "(a)") " ERROR: The number of male parents * LimitMaleContributionsMax is to small to achieve specified number of matings!"
+            write(STDERR, "(a)") " ERROR: The number of male parents: "//trim(Int2Char(Spec%nPar1))
+            write(STDERR, "(a)") " ERROR: LimitMaleContributionsMax:  "//trim(Int2Char(nint(Spec%LimitPar1Max)))
+            write(STDERR, "(a)") " ERROR:             their product:  "//trim(Int2Char(Spec%nPar1 * nint(Spec%LimitPar1Max)))
+            write(STDERR, "(a)") " ERROR: The number of matings:      "//trim(Int2Char(Spec%nMat))
+            write(STDERR, "(a)") " "
+            stop 1
+          end if
+        end if
+
         if (Spec%nPar2 .eq. 0) then
           Spec%nPar2 = This%nFem
         end if
@@ -3077,6 +3112,18 @@ module AlphaMateModule
             stop 1
           end if
         end if
+        if (Spec%LimitPar2) then
+          if ((Spec%nPar2 * Spec%LimitPar2Max) .lt. Spec%nMat) then
+            write(STDERR, "(a)") " ERROR: The number of female parents * LimitFemaleContributionsMax is to small to achieve specified number of matings!"
+            write(STDERR, "(a)") " ERROR: The number of female parents: "//trim(Int2Char(Spec%nPar2))
+            write(STDERR, "(a)") " ERROR: LimitFemaleContributionsMax:  "//trim(Int2Char(nint(Spec%LimitPar2Max)))
+            write(STDERR, "(a)") " ERROR:               their product:  "//trim(Int2Char(Spec%nPar2 * nint(Spec%LimitPar2Max)))
+            write(STDERR, "(a)") " ERROR: The number of matings:        "//trim(Int2Char(Spec%nMat))
+            write(STDERR, "(a)") " "
+            stop 1
+          end if
+        end if
+
         Spec%nPar = Spec%nPar1 + Spec%nPar2
 
         if (Spec%nPar1 .gt. This%nMal) then
@@ -4108,30 +4155,31 @@ module AlphaMateModule
                   This%Chrom(1:Data%nPotPar1) = 0.0d0
                   This%Chrom(Rank(1:Spec%nPar1)) = dble(Spec%nMat * g) / Spec%nPar1
                 end if
-              else ! ... unequal contributions
-                TmpVec(1:Spec%nPar1, 1) = This%Chrom(Rank(1:Spec%nPar1)) ! save contributions temporarily
-                This%Chrom(1:Data%nPotPar1) = 0.0d0
-                This%Chrom(Rank(1:Spec%nPar1)) = TmpVec(1:Spec%nPar1, 1) ! put saved contributions back
+              else                        ! ... unequal contributions
+                TmpVec(1:Spec%nPar1, 1) = This%Chrom(Rank(1:Spec%nPar1)) ! save top contributions
+                This%Chrom(1:Data%nPotPar1) = 0.0d0                      ! set everyones contributions to zero
+                This%Chrom(Rank(1:Spec%nPar1)) = TmpVec(1:Spec%nPar1, 1) ! put top contributions back
                 nCumMat = 0
                 do i = 1, Spec%nPar1
                   j = Rank(i)
-                  ! .. set/fix minimum usage @todo could consider penalising solution instead?
+                  ! .. cap minimum usage @todo could consider penalising solution instead?
                   if (This%Chrom(j) .lt. Spec%LimitPar1Min) then
                     This%Chrom(j) = Spec%LimitPar1Min
                   end if
-                  ! .. set/fix maximum usage @todo could consider penalising solution instead?
+                  ! .. cap maximum usage @todo could consider penalising solution instead?
                   if (This%Chrom(j) .gt. Spec%LimitPar1Max) then
                     This%Chrom(j) = Spec%LimitPar1Max
                   end if
-                  ! ... accumulate and check if we reached Spec%nMat
+                  ! ... accumulate
                   nCumMat = nCumMat + nint(This%Chrom(j)) ! internally real, externally integer
+                  ! ... did we reach Spec%nMat
                   if (nCumMat .ge. Spec%nMat * g) then
                     ! ... there should be exactly Spec%nMat contributions
                     if (nCumMat .gt. Spec%nMat * g) then
-                      This%Chrom(j) = This%Chrom(j) - dble(nCumMat - Spec%nMat * g)
+                      This%Chrom(j) = This%Chrom(j) - dble(nCumMat - Spec%nMat * g) ! internally real, externally integer
                       ! ... did we go below the minimum usage limit?
                       if (nint(This%Chrom(j)) .lt. Spec%LimitPar1Min) then
-                        TmpR = Spec%LimitPar1MinWeight * (Spec%LimitPar1Min - nint(This%Chrom(j)))
+                        TmpR = Spec%LimitPar1MinWeight * (Spec%LimitPar1Min - nint(This%Chrom(j))) ! internally real, externally integer
                         This%Objective = This%Objective + TmpR
                         if (Spec%LimitPar1MinWeight .lt. 0.0d0) then
                           This%PenaltyLimitPar1 = This%PenaltyLimitPar1 + TmpR
@@ -4151,29 +4199,43 @@ module AlphaMateModule
                     exit
                   end if
                 end do
+
                 ! ... Spec%nMat still not reached?
                 do while (nCumMat .lt. Spec%nMat * g)
                   ! ... add more contributions
-                  do i = Spec%nPar1, 1, -1 ! start with the lowest ranked parents (to avoid local optima and keep in line with max use)
+                  do i = Spec%nPar1, 1, -1 ! start with the lowest ranked parents (to avoid local optima)
                     j = Rank(i)
-                    This%Chrom(j) = This%Chrom(j) + 1.0d0
-                    ! ... accumulate and check if we reached Spec%nMat
-                    nCumMat = nCumMat + 1
-                    if (nCumMat .ge. Spec%nMat * g) then
-                      ! To cater for real vs. integer issues
-                      TmpI = sum(nint(This%Chrom(Rank(1:Spec%nPar1))))
-                      if (TmpI .ne. Spec%nMat * g) then
-                        if (TmpI .gt. Spec%nMat * g) then
-                          This%Chrom(j) = dble(nint(This%Chrom(j)) - 1)
-                        else
-                          This%Chrom(j) = dble(nint(This%Chrom(j)) + 1)
+                    if (nint(This%Chrom(j) + 1.0d0) .le. Spec%LimitPar1Max) then ! make sure we do not go above max
+                      This%Chrom(j) = This%Chrom(j) + 1.0d0
+                      ! ... accumulate
+                      nCumMat = nCumMat + 1
+                      ! ... did we reach Spec%nMat
+                      if (nCumMat .ge. Spec%nMat * g) then
+                        ! Internally real, externally integer
+                        TmpI = sum(nint(This%Chrom(Rank(1:Spec%nPar1))))
+                        if (TmpI .ne. Spec%nMat * g) then
+                          if (TmpI .gt. Spec%nMat * g) then
+                            This%Chrom(j) = dble(nint(This%Chrom(j)) - 1)
+                          else
+                            This%Chrom(j) = dble(nint(This%Chrom(j)) + 1)
+                          end if
                         end if
+                        exit
                       end if
-                      exit
                     end if
                   end do
                 end do
               end if
+
+              ! Left here for debugging
+              ! do i = 1, Data%nPotPar1
+              !   if (nint(This%Chrom(i)) .gt. Spec%LimitPar1Max) then
+              !     print*, "n", i, nint(This%Chrom(i)), This%Chrom(i)
+              !     print*, i, nint(This%Chrom(1:Data%nPotPar1))
+              !     print*, i, This%Chrom(1:Data%nPotPar1)
+              !     stop
+              !   end if
+              ! end do
 
               ! "Parent2"
               if (Spec%GenderGiven) then
@@ -4188,30 +4250,31 @@ module AlphaMateModule
                     This%Chrom((Data%nPotPar1 + 1):(Data%nPotPar1 + Data%nPotPar2)) = 0.0d0
                     This%Chrom(Data%nPotPar1 + Rank(1:Spec%nPar2)) = dble(Spec%nMat) / Spec%nPar2
                   end if
-                else ! ... unequal contributions
-                  TmpVec(1:Spec%nPar2, 1) = This%Chrom(Data%nPotPar1 + Rank(1:Spec%nPar2)) ! save contributions temporarily
-                  This%Chrom((Data%nPotPar1 + 1):(Data%nPotPar1 + Data%nPotPar2)) = 0.0d0
-                  This%Chrom(Data%nPotPar1 + Rank(1:Spec%nPar2)) = TmpVec(1:Spec%nPar2, 1) ! put saved contributions back
+                else                        ! ... unequal contributions
+                  TmpVec(1:Spec%nPar2, 1) = This%Chrom(Data%nPotPar1 + Rank(1:Spec%nPar2)) ! save top contributions
+                  This%Chrom((Data%nPotPar1 + 1):(Data%nPotPar1 + Data%nPotPar2)) = 0.0d0  ! set everyones contributions to zero
+                  This%Chrom(Data%nPotPar1 + Rank(1:Spec%nPar2)) = TmpVec(1:Spec%nPar2, 1) ! put top contributions back
                   nCumMat = 0
                   do i = 1, Spec%nPar2
                     j = Data%nPotPar1 + Rank(i)
-                    ! .. set/fix minimum usage @todo could consider penalising solution instead?
+                    ! .. cap minimum usage @todo could consider penalising solution instead?
                     if (This%Chrom(j) .lt. Spec%LimitPar2Min) then
                       This%Chrom(j) = Spec%LimitPar2Min
                     end if
-                    ! .. set/fix maximum usage @todo could consider penalising solution instead?
+                    ! .. cap maximum usage @todo could consider penalising solution instead?
                     if (This%Chrom(j) .gt. Spec%LimitPar2Max) then
                       This%Chrom(j) = Spec%LimitPar2Max
                     end if
-                    ! ... accumulate and check if we reached Spec%nMat
+                    ! ... accumulate
                     nCumMat = nCumMat + nint(This%Chrom(j)) ! internally real, externally integer
+                    ! ... did we reach Spec%nMat
                     if (nCumMat .ge. Spec%nMat) then
                       ! ... there should be exactly Spec%nMat contributions
                       if (nCumMat .gt. Spec%nMat) then
-                        This%Chrom(j) = This%Chrom(j) - dble(nCumMat - Spec%nMat)
+                        This%Chrom(j) = This%Chrom(j) - dble(nCumMat - Spec%nMat)! internally real, externally integer
                         ! ... did we go below the minimum usage limit?
                         if (nint(This%Chrom(j)) .lt. Spec%LimitPar2Min) then
-                          TmpR = Spec%LimitPar2MinWeight * (Spec%LimitPar2Min - nint(This%Chrom(j)))
+                          TmpR = Spec%LimitPar2MinWeight * (Spec%LimitPar2Min - nint(This%Chrom(j)))! internally real, externally integer
                           This%Objective = This%Objective + TmpR
                           if (Spec%LimitPar2MinWeight .lt. 0.0d0) then
                             This%PenaltyLimitPar2 = This%PenaltyLimitPar2 + TmpR
@@ -4231,25 +4294,29 @@ module AlphaMateModule
                       exit
                     end if
                   end do
+
                   ! ... Spec%nMat still not reached?
                   do while (nCumMat .lt. Spec%nMat)
                     ! ... add more contributions
                     do i = Spec%nPar2, 1, -1 ! start with the lowest ranked parents (to avoid local optima and keep in line with max use)
                       j = Data%nPotPar1 + Rank(i)
-                      This%Chrom(j) = This%Chrom(j) + 1.0d0
-                      ! ... accumulate and check if we reached Spec%nMat
-                      nCumMat = nCumMat + 1
-                      if (nCumMat .eq. Spec%nMat) then
-                        ! To cater for real vs. integer issues
-                        TmpI = sum(nint(This%Chrom(Data%nPotPar1 + Rank(1:Spec%nPar2))))
-                        if (TmpI .ne. Spec%nMat) then
-                          if (TmpI .gt. Spec%nMat) then
-                            This%Chrom(j) = dble(nint(This%Chrom(j)) - 1)
-                          else
-                            This%Chrom(j) = dble(nint(This%Chrom(j)) + 1)
+                      if (nint(This%Chrom(j) + 1.0d0) .le. Spec%LimitPar2Max) then ! make sure we do not go above max
+                        This%Chrom(j) = This%Chrom(j) + 1.0d0
+                        ! ... accumulate
+                        nCumMat = nCumMat + 1
+                        ! ...did we reach Spec%nMat
+                        if (nCumMat .eq. Spec%nMat) then
+                          ! Internally real, externally integer
+                          TmpI = sum(nint(This%Chrom(Data%nPotPar1 + Rank(1:Spec%nPar2))))
+                          if (TmpI .ne. Spec%nMat) then
+                            if (TmpI .gt. Spec%nMat) then
+                              This%Chrom(j) = dble(nint(This%Chrom(j)) - 1)
+                            else
+                              This%Chrom(j) = dble(nint(This%Chrom(j)) + 1)
+                            end if
                           end if
+                          exit
                         end if
-                        exit
                       end if
                     end do
                   end do
