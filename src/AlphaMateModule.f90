@@ -5566,7 +5566,7 @@ module AlphaMateModule
       This%ColnameLogStdout(4)  =         "  Penalties"
       This%ColnameLogStdout(5)  =         "     Degree"
       This%ColnameLogStdout(6)  =         "  SelCriter"
-      This%ColnameLogStdout(7)  =         "  SelIntens"
+      This%ColnameLogStdout(7)  =         "  ...Intens"
       This%ColnameLogStdout(8)  =         "     ...Pct"
       This%ColnameLogStdout(9)  =         " Coancestry"
       This%ColnameLogStdout(10) =         "    ...Rate"

@@ -1,13 +1,34 @@
-EvaluateFrontier                     ,Yes
-TargetMinCoancestryPct               ,80
-TargetMaxCriterionPct                ,90
 TargetDegree                         ,45
 NrmMatrixFile                        ,RelMat.txt
 SelCriterionFile                     ,Ebv.txt
 GenderFile                           ,Gender.txt
-NumberOfMatings                      ,50
+NumberOfMatings                      ,100
 NumberOfMaleParents                  ,10
 NumberOfFemaleParents                ,50
-EqualizeFemaleContributions          ,Yes
+LimitMaleContributions, Yes
+LimitMaleContributionsMin, 5
+LimitMaleContributionsMax, 20
+
+LimitFemaleContributions, Yes
+LimitFemaleContributionsMin, 1
+LimitFemaleContributionsMax, 5
+
 Seed                                 ,19791123
 Stop
+
+
+
+EqualizeFemaleContributions          ,Yes
+EqualizeMaleContributions          ,Yes
+
+
+RandomMateAllocation, Yes
+
+
+
+EvaluateFrontier                     ,Yes
+TargetMinCoancestryPct               ,80
+TargetMaxCriterionPct                ,90
+
+
+
