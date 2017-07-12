@@ -1215,7 +1215,7 @@ module AlphaMateModule
                     write(STDOUT, "(a)") " Targeted selection intensity: "//trim(Real2Char(This%TargetSelIntensity(n), fmt=FMTREAL2CHAR))
                   end if
                   if ((This%TargetSelIntensity(n) .lt. 0.0d0) .or. (This%TargetSelIntensity(n) .gt. 5.0d0)) then
-                    write(STDERR, "(a)") "ERROR: TargetSelIntensity must be above 0 and (probably) bellow 5!"
+                    write(STDERR, "(a)") "ERROR: TargetSelIntensity must be above 0 and (probably) below 5!"
                     write(STDERR, "(a)") " "
                     stop 1
                   end if
@@ -1661,7 +1661,7 @@ module AlphaMateModule
                 if (allocated(Second)) then
                   This%LimitParMinWeight = Char2Double(trim(adjustl(Second(1))))
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Limit contributions - weight for contributions bellow minimum: "//trim(Real2Char(This%LimitParMinWeight, fmt=FMTREAL2CHAR))
+                    write(STDOUT, "(a)") " Limit contributions - weight for contributions below minimum: "//trim(Real2Char(This%LimitParMinWeight, fmt=FMTREAL2CHAR))
                   end if
                   if (This%LimitParMinWeight .gt. 0.0d0) then
                     write(STDOUT, "(a)") " NOTE: Positive weight for limit on minimum contributions, i.e., encourage smaller contributions than defined minimum. Was this intended?"
@@ -1720,7 +1720,7 @@ module AlphaMateModule
                 if (allocated(Second)) then
                   This%LimitPar1MinWeight = Char2Double(trim(adjustl(Second(1))))
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Limit contributions of males - weight for contributions bellow minimum: "//trim(Real2Char(This%LimitPar1MinWeight, fmt=FMTREAL2CHAR))
+                    write(STDOUT, "(a)") " Limit contributions of males - weight for contributions below minimum: "//trim(Real2Char(This%LimitPar1MinWeight, fmt=FMTREAL2CHAR))
                   end if
                   if (This%LimitPar1MinWeight .gt. 0.0d0) then
                     write(STDOUT, "(a)") " NOTE: Positive weight for limit on minimum contributions, i.e., encourage smaller contributions than defined minimum. Was this intended?"
@@ -1779,7 +1779,7 @@ module AlphaMateModule
                 if (allocated(Second)) then
                   This%LimitPar2MinWeight = Char2Double(trim(adjustl(Second(1))))
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Limit contributions of females - weight for contributions bellow minimum:: "//trim(Real2Char(This%LimitPar2MinWeight, fmt=FMTREAL2CHAR))
+                    write(STDOUT, "(a)") " Limit contributions of females - weight for contributions below minimum:: "//trim(Real2Char(This%LimitPar2MinWeight, fmt=FMTREAL2CHAR))
                   end if
                   if (This%LimitPar2MinWeight .gt. 0.0d0) then
                     write(STDOUT, "(a)") " NOTE: Positive weight for limit on minimum contributions, i.e., encourage smaller contributions than defined minimum. Was this intended?"
@@ -2295,12 +2295,12 @@ module AlphaMateModule
       real(real64), intent(in), optional            :: CoancestryRate        !< Targeted coancestry rate
       real(real64), intent(in), optional            :: MinCoancestryPct      !< Targeted minimum coancestry percentage
       type(AlphaMateModeSpec), intent(in), optional :: ModeMaxCriterionSpec  !< Maximum criterion  solution specs
-      logical, intent(in), optional                 :: CoancestryWeightBelow !< Weight deviations bellow the targeted coancestry
+      logical, intent(in), optional                 :: CoancestryWeightBelow !< Weight deviations below the targeted coancestry
       type(AlphaMateModeSpec), intent(in), optional :: ModeMinCoancestrySpec !< Minimum coancestry solution specs
       real(real64), intent(in), optional            :: Inbreeding            !< Targeted inbreeding
       real(real64), intent(in), optional            :: InbreedingRate        !< Targeted inbreeding rate
       real(real64), intent(in), optional            :: MinInbreedingPct      !< Targeted minimum inbreeding percentage
-      logical, intent(in), optional                 :: InbreedingWeightBelow !< Weight deviations bellow the targeted inbreeding
+      logical, intent(in), optional                 :: InbreedingWeightBelow !< Weight deviations below the targeted inbreeding
       type(AlphaMateModeSpec), intent(in), optional :: ModeMinInbreedingSpec !< Minimum inbreeding solution specs
 
       select case (trim(Mode))
@@ -4069,7 +4069,7 @@ module AlphaMateModule
 
       ! Other
       integer(int32) :: i, j, k, l, g, nCumMat, TmpMin, TmpMax, TmpI
-      integer(int32), allocatable :: Rank(:), MatPar2(:), nVecPar1(:)
+      integer(int32), allocatable :: Rank(Data%nInd)), MatPar2(:), nVecPar1(:)
 
       real(real64) :: TmpR, RanNum, Diff, MaxDiff
       real(real64), allocatable :: TmpVec(:, :)
@@ -4086,10 +4086,10 @@ module AlphaMateModule
               call This%Initialise(Chrom=Chrom, Spec=Spec)
               This%Objective = 0.0d0
 
-              allocate(Rank(Data%nInd))
+              allocate(Rank(Data%nInd)) ! a working vector for ranking
+              allocate(nVecPar1(Data%nPotPar1)) ! a working vector for nVec
               allocate(MatPar2(Spec%nMat))
-              allocate(nVecPar1(Data%nPotPar1))
-              allocate(TmpVec(Data%nInd, 1))
+              allocate(TmpVec(Data%nInd, 1)) ! a working vector
 
               ! The solution (based on the mate selection driver) has:
               ! - Data%nInd individual contributions
@@ -4364,7 +4364,6 @@ module AlphaMateModule
               ! --- Mate allocation ---
 
               if (Spec%MateAllocation) then
-                MatPar2 = 0
                 if (Spec%GenderGiven) then
                   ! Distribute parent2 (=female) contributions into matings
                   k = 0
@@ -4385,9 +4384,9 @@ module AlphaMateModule
                   ! Distribute one half of contributions into matings
                   k = 0
                   do while (k .lt. Spec%nMat)
-                    do i = 1, Data%nPotPar1 ! need to loop all males as some do not contribute
-                      l = nVecPar1(i) / 2
-                      if (mod(nVecPar1(i), 2) .eq. 1) then
+                    do i = 1, Data%nPotPar1 ! need to loop all individuals as some do not contribute
+                      l = This%nVec(Data%IdPotPar1(i)) / 2
+                      if (mod(This%nVec(Data%IdPotPar1(i)), 2) .eq. 1) then
                         call random_number(RanNum)
                         if (RanNum .gt. 0.5) then
                           l = l + 1
@@ -4399,7 +4398,7 @@ module AlphaMateModule
                         end if
                         k = k + 1
                         MatPar2(k) = Data%IdPotPar1(i)
-                        nVecPar1(i) = nVecPar1(i) - 1 ! @todo: why do we substract here?
+                        nVecPar1(i) = nVecPar1(i) - 1 ! we substract here to remove "female" contributions
                       end do
                     end do
                   end do
@@ -4414,6 +4413,7 @@ module AlphaMateModule
 
                 ! Pair the contributions (=Mating plan)
                 k = Spec%nMat ! MrgRnk ranks small to large
+                ! We use nVecPar1 below instead of This%nVec because when .not. GenderGiven we modify nVecPar1 above, while can not modify This%nVec
                 if (Spec%GenderGiven .or. Spec%SelfingAllowed) then
                   ! When gender matters selfing can not happen (we have two distinct sets of parents;
                   ! unless the user adds individuals of one sex in both sets) and when SelfingAllowed
@@ -5859,7 +5859,7 @@ module AlphaMateModule
       real(real64) :: Diff, MaxDiff
       Diff    = FutureCoancestry - CurrentCoancestry
       MaxDiff =            1.0d0 - CurrentCoancestry
-      ! @todo What should be done, when we have coancestry estimates that are above 1 or bellow 1?
+      ! @todo What should be done, when we have coancestry estimates that are above 1 or below 1?
       if (MaxDiff .eq. 0) then
         if (Diff .ge. 0) then
           CoancestryRate =  1.0d0
