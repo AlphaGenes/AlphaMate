@@ -4069,7 +4069,7 @@ module AlphaMateModule
 
       ! Other
       integer(int32) :: i, j, k, l, g, nCumMat, TmpMin, TmpMax, TmpI
-      integer(int32), allocatable :: Rank(Data%nInd)), MatPar2(:), nVecPar1(:)
+      integer(int32), allocatable :: Rank(:), MatPar2(:), nVecPar1(:)
 
       real(real64) :: TmpR, RanNum, Diff, MaxDiff
       real(real64), allocatable :: TmpVec(:, :)
@@ -4086,10 +4086,10 @@ module AlphaMateModule
               call This%Initialise(Chrom=Chrom, Spec=Spec)
               This%Objective = 0.0d0
 
-              allocate(Rank(Data%nInd)) ! a working vector for ranking
+              allocate(Rank(Data%nInd))         ! a working vector for ranking
               allocate(nVecPar1(Data%nPotPar1)) ! a working vector for nVec
-              allocate(MatPar2(Spec%nMat))
-              allocate(TmpVec(Data%nInd, 1)) ! a working vector
+              allocate(MatPar2(Spec%nMat))      ! a working vector for MatingPlan
+              allocate(TmpVec(Data%nInd, 1))    ! a working vector for many things
 
               ! The solution (based on the mate selection driver) has:
               ! - Data%nInd individual contributions
