@@ -4326,8 +4326,6 @@ module AlphaMateModule
               ! --- Contributions (nVec) ---
 
               ! "Parent1"
-              ! ... first set all to zero
-              nVecPar1 = 0
               ! ... get integer values
               nVecPar1 = nint(This%Chrom(1:Data%nPotPar1))
               ! ... map internal to external order
@@ -4339,8 +4337,6 @@ module AlphaMateModule
 
               ! "Parent2"
               if (Spec%GenderGiven) then
-                ! ... first set all to zero
-                nVecPar2 = 0
                 ! ... get integer values
                 nVecPar2 = nint(This%Chrom((Data%nPotPar1 + 1):(Data%nPotPar1 + Data%nPotPar2)))
                 ! ... map internal to external order
