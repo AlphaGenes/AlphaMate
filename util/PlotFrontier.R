@@ -27,7 +27,7 @@ ColRoslinBlue   <- rgb(red= 55, green=152, blue=217, maxColorValue=255) ## blue
 ColRoslinViolet <- rgb(red=193, green= 23, blue=115, maxColorValue=255) ## violet
 ColRoslinGreen  <- rgb(red= 95, green=168, blue= 59, maxColorValue=255) ## green
 ColRoslinOrange <- rgb(red=219, green= 79, blue= 15, maxColorValue=255) ## orange
-ColRoslinGray   <- rgb(red= 83, green= 83, blue= 83, maxColorValue=255) ## orange
+ColRoslinGray   <- rgb(red= 83, green= 83, blue= 83, maxColorValue=255) ## gray
 
 LogFiles <- dir(pattern="OptimisationLog")
 if (length(LogFiles) < 1 & (!file.exists("Frontier.txt") | !file.exists("Targets.txt"))) {
@@ -84,7 +84,7 @@ if (length(LogFiles) > 0) {
       Ratio <- Ratio + min(Ratio)
       Ratio <- Ratio / max(Ratio)
       Ratio <- 1
-      Type <- "b"
+      Type <- "o"
     }
     if (LogFileCount == 1) {
       plot(y=Dat[[LogFileCount]][Sel, "SelIntensity"], x=Dat[[LogFileCount]][Sel, "CoancestryRate"], type=Type,
@@ -108,19 +108,17 @@ if (length(LogFiles) > 0) {
 if (file.exists("Frontier.txt") | file.exists("Targets.txt")) {
   if (file.exists("Frontier.txt")) {
     Frontier <- read.table(file="Frontier.txt", header=TRUE)
-    Frontier <- Frontier[order(Frontier$CoancestryRate), ]
   }
   if (file.exists("Targets.txt")) {
     Targets <- read.table(file="Targets.txt", header=TRUE)
-    Targets <- Targets[order(Targets$CoancestryRate), ]
     if (file.exists("Frontier.txt")) {
       names(Targets)[1] <- names(Frontier)[1]
       Frontier <- rbind(Frontier, Targets)
-      Frontier <- Frontier[order(Frontier$CoancestryRate), ]
     } else {
       Frontier <- Targets
     }
   }
+  Frontier <- Frontier[order(Frontier$FrontierDegree), ]
   # Tmp <- installed.packages()
   # if (!("cobs" %in% Tmp[, "Package"])) {
   #   install.packages(pkg="cobs")
@@ -128,7 +126,7 @@ if (file.exists("Frontier.txt") | file.exists("Targets.txt")) {
   # if ("cobs" %in% Tmp[, "Package"]) {
   #   library(package="cobs")
   #   Mat <- matrix(nrow=nrow(Frontier),ncol=3)
-  #   Mat[,1] <- 1 # fitted value will be >= observed value (0 for =)
+  #   Mat[,1] <- -1 # fitted value will be >= observed value (0 for =)
   #   Mat[,2] <- Frontier$CoancestryRate
   #   Mat[,3] <- Frontier$SelIntensity
   #   Tmp <- cobs(x=Frontier$CoancestryRate, y=Frontier$SelIntensity, pointwise=Mat, ic="BIC")#, nknots=10)

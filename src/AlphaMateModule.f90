@@ -953,6 +953,7 @@ module AlphaMateModule
                 write(STDERR, "(a)") " "
                 stop 1
               end if
+
             case ("seed")
               if (allocated(Second)) then
                 This%SeedGiven = .true.
@@ -4061,14 +4062,14 @@ module AlphaMateModule
     subroutine FixSolEtcMateAndEvaluateAlphaMateSol(This, Chrom, Spec, Data) ! not pure due to RNG
       implicit none
       ! Arguments
-      class(AlphaMateSol), intent(inout)           :: This     !< @return AlphaMateSol holder(out as we fix solution)
+      class(AlphaMateSol), intent(inout)           :: This     !< @return AlphaMateSol holder (out because we sometimes need to fix a solution)
       real(real64), intent(in)                     :: Chrom(:) !< A solution
       class(AlphaEvolveSpec), intent(in)           :: Spec     !< AlphaEvolveSpec --> AlphaMateSpec holder
       class(AlphaEvolveData), intent(in), optional :: Data     !< AlphaEvolveData --> AlphaMateData holder
 
       ! Other
       integer(int32) :: i, j, k, l, g, nCumMat, TmpMin, TmpMax, TmpI
-      integer(int32), allocatable :: Rank(:), ChromInt(:), MatPar2(:), nVecPar1(:), nVecPar2(:)
+      integer(int32), allocatable :: Rank(:), MatPar2(:), nVecPar1(:), nVecPar2(:)
 
       real(real64) :: TmpR, RanNum, Diff, MaxDiff
       real(real64), allocatable :: TmpVec(:, :)
@@ -4086,7 +4087,6 @@ module AlphaMateModule
               This%Objective = 0.0d0
 
               allocate(Rank(Data%nInd))
-              allocate(ChromInt(Data%nInd))
               allocate(MatPar2(Spec%nMat))
               allocate(nVecPar1(Data%nPotPar1))
               allocate(nVecPar2(Data%nPotPar2))
@@ -4325,13 +4325,12 @@ module AlphaMateModule
 
               ! --- Contributions (nVec) ---
 
-              nVecPar1 = 0
-
               ! "Parent1"
+              ! ... first set all to zero
+              nVecPar1 = 0
               ! ... get integer values
-              ChromInt(1:Data%nPotPar1) = nint(This%Chrom(1:Data%nPotPar1))
+              nVecPar1 = nint(This%Chrom(1:Data%nPotPar1))
               ! ... map internal to external order
-              nVecPar1 = ChromInt(1:Data%nPotPar1)
               if (.not. Spec%GenderGiven) then
                 This%nVec = nVecPar1
               else
@@ -4340,11 +4339,11 @@ module AlphaMateModule
 
               ! "Parent2"
               if (Spec%GenderGiven) then
+                ! ... first set all to zero
                 nVecPar2 = 0
                 ! ... get integer values
-                ChromInt(1:Data%nPotPar2) = nint(This%Chrom((Data%nPotPar1 + 1):(Data%nPotPar1 + Data%nPotPar2)))
+                nVecPar2 = nint(This%Chrom((Data%nPotPar1 + 1):(Data%nPotPar1 + Data%nPotPar2)))
                 ! ... map internal to external order
-                nVecPar2 = ChromInt(1:Data%nPotPar2)
                 This%nVec(Data%IdPotPar2) = nVecPar2
               end if
 
