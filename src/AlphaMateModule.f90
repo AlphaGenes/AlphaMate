@@ -4069,7 +4069,7 @@ module AlphaMateModule
 
       ! Other
       integer(int32) :: i, j, k, l, g, nCumMat, TmpMin, TmpMax, TmpI
-      integer(int32), allocatable :: Rank(:), MatPar2(:), nVecPar1(:), nVecPar2(:)
+      integer(int32), allocatable :: Rank(:), MatPar2(:), nVecPar1(:)
 
       real(real64) :: TmpR, RanNum, Diff, MaxDiff
       real(real64), allocatable :: TmpVec(:, :)
@@ -4089,7 +4089,6 @@ module AlphaMateModule
               allocate(Rank(Data%nInd))
               allocate(MatPar2(Spec%nMat))
               allocate(nVecPar1(Data%nPotPar1))
-              allocate(nVecPar2(Data%nPotPar2))
               allocate(TmpVec(Data%nInd, 1))
 
               ! The solution (based on the mate selection driver) has:
@@ -4328,7 +4327,7 @@ module AlphaMateModule
               ! "Parent1"
               ! ... get integer values
               nVecPar1 = nint(This%Chrom(1:Data%nPotPar1))
-              ! ... map internal to external order
+              ! ... map chromosome order to data order
               if (.not. Spec%GenderGiven) then
                 This%nVec = nVecPar1
               else
@@ -4337,10 +4336,8 @@ module AlphaMateModule
 
               ! "Parent2"
               if (Spec%GenderGiven) then
-                ! ... get integer values
-                nVecPar2 = nint(This%Chrom((Data%nPotPar1 + 1):(Data%nPotPar1 + Data%nPotPar2)))
-                ! ... map internal to external order
-                This%nVec(Data%IdPotPar2) = nVecPar2
+                ! ... get integer values and map chromosome order to data order
+                This%nVec(Data%IdPotPar2) = nint(This%Chrom((Data%nPotPar1 + 1):(Data%nPotPar1 + Data%nPotPar2)))
               end if
 
               ! --- PAGE ---
@@ -4371,8 +4368,8 @@ module AlphaMateModule
                 if (Spec%GenderGiven) then
                   ! Distribute parent2 (=female) contributions into matings
                   k = 0
-                  do i = 1, Data%nPotPar2 ! need to loop whole nVecPar2 as some entries are zero
-                    do j = 1, nVecPar2(i)
+                  do i = 1, Data%nPotPar2 ! need to loop all females as some do not contribute
+                    do j = 1, This%nVec(Data%IdPotPar2(i))
                       k = k + 1
                       MatPar2(k) = Data%IdPotPar2(i)
                     end do
@@ -4388,7 +4385,7 @@ module AlphaMateModule
                   ! Distribute one half of contributions into matings
                   k = 0
                   do while (k .lt. Spec%nMat)
-                    do i = 1, Data%nPotPar1 ! need to loop whole nVecPar1 as some entries are zero
+                    do i = 1, Data%nPotPar1 ! need to loop all males as some do not contribute
                       l = nVecPar1(i) / 2
                       if (mod(nVecPar1(i), 2) .eq. 1) then
                         call random_number(RanNum)
@@ -4402,7 +4399,7 @@ module AlphaMateModule
                         end if
                         k = k + 1
                         MatPar2(k) = Data%IdPotPar1(i)
-                        nVecPar1(i) = nVecPar1(i) - 1
+                        nVecPar1(i) = nVecPar1(i) - 1 ! @todo: why do we substract here?
                       end do
                     end do
                   end do
@@ -4421,7 +4418,7 @@ module AlphaMateModule
                   ! When gender matters selfing can not happen (we have two distinct sets of parents;
                   ! unless the user adds individuals of one sex in both sets) and when SelfingAllowed
                   ! we do not need to care about it - faster code
-                  do i = 1, Data%nPotPar1 ! need to loop whole nVecPar1 as some entries are zero
+                  do i = 1, Data%nPotPar1 ! need to loop all males as some do not contribute
                     do j = 1, nVecPar1(i)
                       ! if (k<2) print*, k, i, j, nVecPar1(i), Spec%nMat, sum(nVecPar1)
                       This%MatingPlan(1, k) = Data%IdPotPar1(i)
