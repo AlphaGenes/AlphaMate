@@ -2074,7 +2074,7 @@ module AlphaMateModule
               if (allocated(Second)) then
                 This%DiffEvolParamCr1 = Char2Double(trim(adjustl(Second(1))))
                 if (LogStdoutInternal) then
-                  write(STDOUT, "(a)") " Differential evolution algorithm - cross-over parameter 1 (common small moves): "//trim(Real2Char(This%DiffEvolParamCr1, fmt=FMTREAL2CHAR))
+                  write(STDOUT, "(a)") " Differential evolution algorithm - cross-over parameter 1 (common): "//trim(Real2Char(This%DiffEvolParamCr1, fmt=FMTREAL2CHAR))
                 end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify a value for DiffEvolParameterCr1, i.e., DiffEvolParameterCr1, 0.2"
@@ -2086,7 +2086,7 @@ module AlphaMateModule
               if (allocated(Second)) then
                 This%DiffEvolParamCr2 = Char2Double(trim(adjustl(Second(1))))
                 if (LogStdoutInternal) then
-                  write(STDOUT, "(a)") " Differential evolution algorithm - cross-over parameter 2 (rare large moves): "//trim(Real2Char(This%DiffEvolParamCr2, fmt=FMTREAL2CHAR))
+                  write(STDOUT, "(a)") " Differential evolution algorithm - cross-over parameter 2 (rare): "//trim(Real2Char(This%DiffEvolParamCr2, fmt=FMTREAL2CHAR))
                 end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify a value for DiffEvolParameterCr2, i.e., DiffEvolParameterCr2, 0.2"
