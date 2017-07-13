@@ -4847,7 +4847,7 @@ module AlphaMateModule
     !> @date   March 16, 2017
     !---------------------------------------------------------------------------
     ! @todo the best random mating?
-    ! @todo return solutions?
+    ! @todo return all solutions?
     subroutine AlphaMateSearch(Spec, Data, LogStdout) ! not pure due to IO
       implicit none
       type(AlphaMateSpec), intent(inout) :: Spec      !< AlphaMateSpec holder (out because we set and reset some parameters for different search modes)
@@ -4857,8 +4857,9 @@ module AlphaMateModule
       type(AlphaMateSol) :: SolMinCoancestry, SolMinInbreeding, SolMaxCriterion, Sol !< For frontier modes and random mating (no optimisation) mode
       type(AlphaMateSol), allocatable :: SolOpt(:) !< Optimal solutions
 
-      integer(int32) :: nParam, Point, Target, Unit
+      integer(int32) :: nParam, Point, iSol, Target, Unit
 
+      real(real32) :: RanNum, Tmp
       real(real64), allocatable :: InitEqual(:, :)
 
       logical :: LogStdoutInternal !, OptimOK
@@ -4889,6 +4890,8 @@ module AlphaMateModule
         nParam = nParam + Data%nInd
       end if
 
+      allocate(InitEqual(nParam, Spec%EvolAlgNSol))
+
       ! --- Minimum coancestry ---
 
       if (Spec%ModeMinCoancestry) then
@@ -4906,11 +4909,14 @@ module AlphaMateModule
         ContribFile = "ContributionsModeMinCoancestry.txt"
         MatingFile  = "MatingPlanModeMinCoancestry.txt"
 
-        ! Search
-        ! @todo Can we do this in a better way where we take "structure" of Chrom into account?
-        allocate(InitEqual(nParam, nint(Spec%EvolAlgNSol * 0.1)))
-        InitEqual = 1.0d0 ! A couple of solutions that would give equal contributions to everybody
+        ! Initialise
+        ! @todo initialise with SDP solutions?
+        do iSol = 1, Spec%EvolAlgNSol
+          ! Distribute contributions, ranks, ... at random (exact values not important as we use ranks to get top values in evaluate)
+          call random_number(InitEqual(:, iSol))
+        end do
 
+        ! Search
         if (trim(Spec%EvolAlg) .eq. "DE") then
           call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, Init=InitEqual, &
             nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTolCoancestry, nIterPrint=Spec%EvolAlgNIterPrint, &
@@ -4924,8 +4930,6 @@ module AlphaMateModule
           !   stop 1
           ! end if
         end if
-
-        deallocate(InitEqual)
 
         ! Save
         !@todo Do these lines still make sense when we go above two objectives?
@@ -4957,11 +4961,14 @@ module AlphaMateModule
         ContribFile = "ContributionsModeMinInbreeding.txt"
         MatingFile  = "MatingPlanModeMinInbreeding.txt"
 
-        ! Search
-        ! @todo Can we do this in a better way where we take "structure" of Chrom into account?
-        allocate(InitEqual(nParam, nint(Spec%EvolAlgNSol * 0.1)))
-        InitEqual = 1.0d0 ! A couple of solutions that would give equal contributions to everybody
+        ! Initialise
+        ! @todo initialise with SDP solutions?
+        do iSol = 1, Spec%EvolAlgNSol
+          ! Distribute contributions, ranks, ... at random (exact values not important as we use ranks to get top values in evaluate)
+          call random_number(InitEqual(:, iSol))
+        end do
 
+        ! Search
         if (trim(Spec%EvolAlg) .eq. "DE") then
           call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, Init=InitEqual, &
             nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTolCoancestry, nIterPrint=Spec%EvolAlgNIterPrint, &
@@ -4975,8 +4982,6 @@ module AlphaMateModule
           !   stop 1
           ! end if
         end if
-
-        deallocate(InitEqual)
 
         ! Save
         !@todo Do these lines still make sense when we go above two objectives?
@@ -5019,11 +5024,16 @@ module AlphaMateModule
         ContribFile = "ContributionsModeMaxCriterion.txt"
         MatingFile  = "MatingPlanModeMaxCriterion.txt"
 
+        ! Initialise
+        ! @todo initialise with SDP solutions?
+        do iSol = 1, Spec%EvolAlgNSol
+          ! Distribute contributions, ranks, ... at random (exact values not important as we use ranks to get top values in evaluate)
+          call random_number(InitEqual(:, iSol))
+          ! Multiply by standardized selection criterion to boost better individuals
+          InitEqual(1:Data%nPotPar, iSol) = InitEqual(1:Data%nPotPar, iSol) * Data%SelIntensity
+        end do
+
         ! Search
-        ! @todo add some clever initial values, say:
-        !       - equal contributions for top 2/3 or 1/2 of BV distribution,
-        !       - decreasing contributions with decreasing value
-        !       - SDP solution, ...?
         if (trim(Spec%EvolAlg) .eq. "DE") then
           call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, &
             nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint, &
@@ -5097,6 +5107,20 @@ module AlphaMateModule
           ContribFile = "ContributionsModeFrontier"//trim(Int2Char(Point))//".txt"
           MatingFile  = "MatingPlanModeFrontier"//trim(Int2Char(Point))//".txt"
 
+          ! Initialise
+          ! @todo initialise with SDP solutions?
+          ! @todo initialise with solutions from previous target (at least some solutions)?
+          Tmp = (100.0 - 100.0/90.0 * TARGETDEGREEFRONTIER(Point)) / 100.0
+          do iSol = 1, Spec%EvolAlgNSol
+            ! Distribute contributions, ranks, ... at random (exact values not important as we use ranks to get top values in evaluate)
+            call random_number(InitEqual(:, iSol))
+            ! Multiply by standardized selection criterion to boost better individuals (only for a percentage of solutions)
+            call random_number(RanNum)
+            if (RanNum .lt. Tmp) then
+              InitEqual(1:Data%nPotPar, iSol) = InitEqual(1:Data%nPotPar, iSol) * Data%SelIntensity
+            end if
+          end do
+
           ! Search
           if (trim(Spec%EvolAlg) .eq. "DE") then
             call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, &
@@ -5144,11 +5168,14 @@ module AlphaMateModule
         LogFile = "OptimisationLogModeRan.txt"
         ! @todo other reports from here - at least the best random solution?
 
-        ! Search
-        ! @todo Can we do this in a better way where we take "structure" of Chrom into account?
-        allocate(InitEqual(nParam, nint(Spec%EvolAlgNSol * 0.1)))
-        InitEqual = 1.0d0 ! A couple of solutions that would give equal contributions for everybody
+        ! Initialise
+        ! @todo initialise with SDP solutions?
+        do iSol = 1, Spec%EvolAlgNSol
+          ! Distribute contributions, ranks, ... at random (exact values not important as we use ranks to get top values in evaluate)
+          call random_number(InitEqual(:, iSol))
+        end do
 
+        ! Search
         call RandomSearch(Mode="avg", Spec=Spec, Data=Data, nParam=nParam, Init=InitEqual, &
           nSamp=Spec%EvolAlgNSol*Spec%EvolAlgNIter*Spec%RanAlgStricter, nSampStop=Spec%EvolAlgNIterStop*Spec%RanAlgStricter, &
           StopTolerance=Spec%EvolAlgStopTol/Spec%RanAlgStricter, nSampPrint=Spec%EvolAlgNIterPrint, &
@@ -5238,11 +5265,25 @@ module AlphaMateModule
           ContribFile = "ContributionsModeOptTarget"//trim(Int2Char(Target))//".txt"
           MatingFile  = "MatingPlanModeOptTarget"//trim(Int2Char(Target))//".txt"
 
+          ! Initialise
+          ! @todo initialise with SDP solutions?
+          ! @todo initialise with solutions from previous target (at least some solutions)?
+          if (Spec%ModeSpec%ObjectiveCriterion .and. Spec%ModeSpec%ObjectiveCoancestry) then
+            Tmp = (100.0 - 100.0/90.0 * Spec%ModeSpec%TargetDegree)
+          else
+            Tmp = 0.5
+          end if
+          do iSol = 1, Spec%EvolAlgNSol
+            ! Distribute contributions, ranks, ... at random (exact values not important as we use ranks to get top values in evaluate)
+            call random_number(InitEqual(:, iSol))
+            ! Multiply by standardized selection criterion to boost better individuals (only for a percentage of solutions)
+            call random_number(RanNum)
+            if (RanNum .lt. Tmp) then
+              InitEqual(1:Data%nPotPar, iSol) = InitEqual(1:Data%nPotPar, iSol) * Data%SelIntensity
+            end if
+          end do
+
           ! Search
-          ! @todo add some clever initial values, say:
-          !       - equal contributions for top 2/3 or 1/2 of BV distribution,
-          !       - decreasing contributions with decreasing value
-          !       - SDP solution, ...?
           if (trim(Spec%EvolAlg) .eq. "DE") then
             call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, &
               nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint, &
