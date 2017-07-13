@@ -4233,28 +4233,29 @@ module AlphaMateModule
 
                 ! ... Spec%nMat still not reached?
                 do while (nCumMat .lt. Spec%nMat * g)
-                  ! ... add more contributions
-                  do i = Spec%nPar1, 1, -1 ! start with the lowest ranked parents (to avoid local optima)
-                    j = Rank(i)
-                    if (nint(This%Chrom(j) + 1.0d0) .le. Spec%LimitPar1Max) then ! make sure we do not go above max
-                      This%Chrom(j) = This%Chrom(j) + 1.0d0
-                      ! ... accumulate
-                      nCumMat = nCumMat + 1
-                      ! ... did we reach Spec%nMat
-                      if (nCumMat .ge. Spec%nMat * g) then
-                        ! Internally real, externally integer
-                        TmpI = sum(nint(This%Chrom(Rank(1:Spec%nPar1))))
-                        if (TmpI .ne. Spec%nMat * g) then
-                          if (TmpI .gt. Spec%nMat * g) then
-                            This%Chrom(j) = dble(nint(This%Chrom(j)) - 1)
-                          else
-                            This%Chrom(j) = dble(nint(This%Chrom(j)) + 1)
-                          end if
+                  ! ... add more contributions to randomly chosen individuals
+                  call random_number(RanNum)
+                  i = int(RanNum * Spec%nPar1) + 1
+                  j = Rank(i)
+                  if (nint(This%Chrom(j) + 1.0d0) .le. Spec%LimitPar1Max) then ! make sure we do not go above max
+                    This%Chrom(j) = This%Chrom(j) + 1.0d0
+                    ! ... accumulate
+                    nCumMat = nCumMat + 1
+                    ! ... did we reach Spec%nMat
+                    if (nCumMat .ge. Spec%nMat * g) then
+                      ! Internally real, externally integer
+                      TmpI = sum(nint(This%Chrom(Rank(1:Spec%nPar1))))
+                      if (TmpI .ne. Spec%nMat * g) then
+                        if (TmpI .gt. Spec%nMat * g) then
+                          This%Chrom(j) = dble(nint(This%Chrom(j)) - 1)
+                        else
+                          This%Chrom(j) = dble(nint(This%Chrom(j)) + 1)
                         end if
-                        exit
                       end if
+                      exit
                     end if
-                  end do
+                  end if
+                  !end do
                 end do
               end if
 
@@ -4328,28 +4329,29 @@ module AlphaMateModule
 
                   ! ... Spec%nMat still not reached?
                   do while (nCumMat .lt. Spec%nMat)
-                    ! ... add more contributions
-                    do i = Spec%nPar2, 1, -1 ! start with the lowest ranked parents (to avoid local optima and keep in line with max use)
-                      j = Data%nPotPar1 + Rank(i)
-                      if (nint(This%Chrom(j) + 1.0d0) .le. Spec%LimitPar2Max) then ! make sure we do not go above max
-                        This%Chrom(j) = This%Chrom(j) + 1.0d0
-                        ! ... accumulate
-                        nCumMat = nCumMat + 1
-                        ! ...did we reach Spec%nMat
-                        if (nCumMat .eq. Spec%nMat) then
-                          ! Internally real, externally integer
-                          TmpI = sum(nint(This%Chrom(Data%nPotPar1 + Rank(1:Spec%nPar2))))
-                          if (TmpI .ne. Spec%nMat) then
-                            if (TmpI .gt. Spec%nMat) then
-                              This%Chrom(j) = dble(nint(This%Chrom(j)) - 1)
-                            else
-                              This%Chrom(j) = dble(nint(This%Chrom(j)) + 1)
-                            end if
+                    ! ... add more contributions to randomly chosen individuals
+                    call random_number(RanNum)
+                    i = int(RanNum * Spec%nPar2) + 1
+                    j = Data%nPotPar1 + Rank(i)
+                    if (nint(This%Chrom(j) + 1.0d0) .le. Spec%LimitPar2Max) then ! make sure we do not go above max
+                      This%Chrom(j) = This%Chrom(j) + 1.0d0
+                      ! ... accumulate
+                      nCumMat = nCumMat + 1
+                      ! ...did we reach Spec%nMat
+                      if (nCumMat .eq. Spec%nMat) then
+                        ! Internally real, externally integer
+                        TmpI = sum(nint(This%Chrom(Data%nPotPar1 + Rank(1:Spec%nPar2))))
+                        if (TmpI .ne. Spec%nMat) then
+                          if (TmpI .gt. Spec%nMat) then
+                            This%Chrom(j) = dble(nint(This%Chrom(j)) - 1)
+                          else
+                            This%Chrom(j) = dble(nint(This%Chrom(j)) + 1)
                           end if
-                          exit
                         end if
+                        exit
                       end if
-                    end do
+                    end if
+                    ! end do
                   end do
                 end if
               end if
