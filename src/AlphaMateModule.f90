@@ -202,7 +202,8 @@ module AlphaMateModule
     character(len=SPECOPTIONLENGTH) :: EvolAlg
     ! ... differential evolution
     integer(int32) :: DiffEvolNIterBurnIn
-    real(real64) :: DiffEvolParamCrBurnIn, DiffEvolParamCr, DiffEvolParamFBase, DiffEvolParamFHigh1, DiffEvolParamFHigh2
+    real(real64) :: DiffEvolParamCrBurnIn, DiffEvolParamCr1, DiffEvolParamCr2
+    real(real64) :: DiffEvolParamFBase, DiffEvolParamFHigh1, DiffEvolParamFHigh2
     ! ... random search
     integer(int32) :: RanAlgStricter
 
@@ -538,7 +539,15 @@ module AlphaMateModule
 
       ! Search algorithm specifications
 
+      ! Ideally n >> p, say n = 2-20 (or even 50) * p
+      ! However, when p is very large (say 1000), we need to consider computation resources/time.
+      ! For high-dimensional settings n ~ 0.5*p
+      ! Chen et al. (2014) Measuring the curse of dimensionality and its effects on particle swarm optimization
+      ! and differential evolution https://link.springer.com/article/10.1007/s10489-014-0613-2; see also
+      ! https://www.researchgate.net/post/What_is_the_optimal_recommended_population_size_for_differential_evolution2
+      ! @todo change this parameter depending on the number of candidates
       This%EvolAlgNSol = 100
+
       This%EvolAlgNIter = 100000
       This%EvolAlgNIterStop = 1000
       This%EvolAlgNIterPrint = 100
@@ -547,12 +556,22 @@ module AlphaMateModule
       This%EvolAlgLogPop = .false.
       This%EvolAlg = "DE"
 
-      This%DiffEvolNIterBurnIn = 1000
-      This%DiffEvolParamCrBurnIn = 0.4d0
-      This%DiffEvolParamCr = 0.2d0
-      This%DiffEvolParamFBase = 0.1d0
-      This%DiffEvolParamFHigh1 = 1.0d0
-      This%DiffEvolParamFHigh2 = 4.0d0
+      This%DiffEvolNIterBurnIn = 100     ! 1000
+
+      ! Cr [0, 1] should be low (<=0.1) for separable problems and large (0.9) for non-separable (epistatic) problems.
+      ! Also, large values encourage exploration (large moves away from the target vector),
+      ! while low values encourage exploitation (small moves away from the target vector, more closer to the base (a) vector).
+      ! Montgomery and Chen (2010) An analysis of the operation of differential evolution at high and low
+      ! crossover rates http://ieeexplore.ieee.org/document/5586128/
+      This%DiffEvolParamCrBurnIn = 0.9d0 ! 0.4
+      This%DiffEvolParamCr1 = 0.1d0      ! 0.2
+      This%DiffEvolParamCr2 = 0.9d0      ! 0.2
+
+      ! F should be [0 or 2/n, 1.2]
+      ! Large values mean more exploration away from the base (a) vector. Should be large for large Cr.
+      This%DiffEvolParamFBase  = 0.2d0   ! 0.1
+      This%DiffEvolParamFHigh1 = 1.0d0   ! 1.0
+      This%DiffEvolParamFHigh2 = 2.0d0   ! 4.0
 
       This%RanAlgStricter = 10
     end subroutine
@@ -745,7 +764,8 @@ module AlphaMateModule
 
       write(Unit, *) "DiffEvolNIterBurnIn: ",   This%DiffEvolNIterBurnIn
       write(Unit, *) "DiffEvolParamCrBurnIn: ", This%DiffEvolParamCrBurnIn
-      write(Unit, *) "DiffEvolParamCr: ",       This%DiffEvolParamCr
+      write(Unit, *) "DiffEvolParamCr1: ",      This%DiffEvolParamCr1
+      write(Unit, *) "DiffEvolParamCr2: ",      This%DiffEvolParamCr2
       write(Unit, *) "DiffEvolParamFBase: ",    This%DiffEvolParamFBase
       write(Unit, *) "DiffEvolParamFHigh1: ",   This%DiffEvolParamFHigh1
       write(Unit, *) "DiffEvolParamFHigh2: ",   This%DiffEvolParamFHigh2
@@ -2050,14 +2070,26 @@ module AlphaMateModule
                 stop 1
               end if
 
-            case ("diffevolparametercr")
+            case ("diffevolparametercr1")
               if (allocated(Second)) then
-                This%DiffEvolParamCr = Char2Double(trim(adjustl(Second(1))))
+                This%DiffEvolParamCr1 = Char2Double(trim(adjustl(Second(1))))
                 if (LogStdoutInternal) then
-                  write(STDOUT, "(a)") " Differential evolution algorithm - cross-over parameter: "//trim(Real2Char(This%DiffEvolParamCr, fmt=FMTREAL2CHAR))
+                  write(STDOUT, "(a)") " Differential evolution algorithm - cross-over parameter 1 (common small moves): "//trim(Real2Char(This%DiffEvolParamCr1, fmt=FMTREAL2CHAR))
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a value for DiffEvolParameterCr, i.e., DiffEvolParameterCr, 0.2"
+                write(STDERR, "(a)") " ERROR: Must specify a value for DiffEvolParameterCr1, i.e., DiffEvolParameterCr1, 0.2"
+                write(STDERR, "(a)") " "
+                stop 1
+              end if
+
+            case ("diffevolparametercr2")
+              if (allocated(Second)) then
+                This%DiffEvolParamCr2 = Char2Double(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Differential evolution algorithm - cross-over parameter 2 (rare large moves): "//trim(Real2Char(This%DiffEvolParamCr2, fmt=FMTREAL2CHAR))
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a value for DiffEvolParameterCr2, i.e., DiffEvolParameterCr2, 0.2"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -4875,7 +4907,8 @@ module AlphaMateModule
           call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, Init=InitEqual, &
             nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTolCoancestry, nIterPrint=Spec%EvolAlgNIterPrint, &
             LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
-            CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate=Spec%DiffEvolParamCr, FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
+            CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate1=Spec%DiffEvolParamCr1, CRLate2=Spec%DiffEvolParamCr2, &
+            FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
             BestSol=SolMinCoancestry)!, Status=OptimOK)
           ! if (.not. OptimOK) then
           !   write(STDERR, "(a)") " ERROR: Optimisation failed!"
@@ -4925,7 +4958,8 @@ module AlphaMateModule
           call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, Init=InitEqual, &
             nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTolCoancestry, nIterPrint=Spec%EvolAlgNIterPrint, &
             LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
-            CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate=Spec%DiffEvolParamCr, FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
+            CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate1=Spec%DiffEvolParamCr1, CRLate2=Spec%DiffEvolParamCr2, &
+            FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
             BestSol=SolMinInbreeding)!, Status=OptimOK)
           ! if (.not. OptimOK) then
           !   write(STDERR, "(a)") " ERROR: Optimisation failed!"
@@ -4986,7 +5020,8 @@ module AlphaMateModule
           call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, &
             nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint, &
             LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
-            CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate=Spec%DiffEvolParamCr, FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
+            CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate1=Spec%DiffEvolParamCr1, CRLate2=Spec%DiffEvolParamCr2, &
+            FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
             BestSol=SolMaxCriterion)!, Status=OptimOK)
           ! if (.not. OptimOK) then
           !   write(STDERR, "(a)") " ERROR: Optimisation failed!"
@@ -5059,7 +5094,8 @@ module AlphaMateModule
             call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, &
               nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint, &
               LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
-              CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate=Spec%DiffEvolParamCr, FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
+              CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate1=Spec%DiffEvolParamCr1, CRLate2=Spec%DiffEvolParamCr2, &
+              FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
               BestSol=Sol)!, Status=OptimOK)
             ! if (.not. OptimOK) then
             !   write(STDERR, "(a)") " ERROR: Optimisation failed!"
@@ -5203,7 +5239,8 @@ module AlphaMateModule
             call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, &
               nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint, &
               LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
-              CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate=Spec%DiffEvolParamCr, FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
+              CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate1=Spec%DiffEvolParamCr1, CRLate2=Spec%DiffEvolParamCr2, &
+              FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
               BestSol=Sol)!, Status=OptimOK)
             ! if (.not. OptimOK) then
             !   write(STDERR, "(a)") " ERROR: Optimisation failed!"
