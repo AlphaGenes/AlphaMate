@@ -60,7 +60,7 @@ module AlphaMateModule
                             Char2Int, Char2Double, Int2Char, Real2Char, &
                             RandomOrder, SetSeed, ToLower, FindLoc, &
                             ParseToFirstWhitespace, SplitLineIntoTwoParts
-  use AlphaStatMod, only : Mean, DescStat, DescStatReal64, &
+  use AlphaStatMod, only : Mean, StdDev, DescStat, DescStatReal64, &
                            DescStatMatrix, DescStatLowTriMatrix, DescStatMatrixReal64
   use AlphaEvolveModule, only : AlphaEvolveSol, AlphaEvolveSpec, AlphaEvolveData, &
                                 DifferentialEvolution, RandomSearch
@@ -242,6 +242,7 @@ module AlphaMateModule
     ! Raw data
     type(RelMat) :: Coancestry
     real(real64), allocatable :: SelCriterion(:), SelIntensity(:), SelCriterionPAGE(:), SelIntensityPAGE(:)
+    real(real64), allocatable :: AvgCoancestry(:)
     integer(int32), allocatable :: Gender(:)
     real(real64), allocatable :: GenericIndCrit(:, :), GenericMatCrit(:, :, :)
     ! Data summaries
@@ -2960,6 +2961,10 @@ module AlphaMateModule
       This%nInd = This%Coancestry%nInd
        ! Would not normally put data into spec, but need to do it for OO-flexibility (InitialiseAlphaMateSol)
       Spec%nInd = This%Coancestry%nInd
+      allocate(This%AvgCoancestry(This%nInd))
+      do Ind = 1, This%nInd
+        This%AvgCoancestry(Ind) = Mean(This%Coancestry%Value(1:, Ind))
+      end do
 
       if (LogStdoutInternal) then
         write(STDOUT, "(a)") " Number of individuals in the coancestry matrix file: "//trim(Int2Char(This%nInd))
@@ -2996,7 +3001,7 @@ module AlphaMateModule
           else
             read(SelCriterionUnit, *) IdCTmp, SelCriterionTmp
           end if
-          IndLoc = FindLoc(IdCTmp, This%Coancestry%OriginalId(1:))
+          IndLoc = FindLoc(IdCTmp, This%Coancestry%OriginalId(1:)) ! @todo hash-key
           if (IndLoc .eq. 0) then
             write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp)//" from the selection criterion file not present in the coancestry matrix file!"
             write(STDERR, "(a)") " "
@@ -3078,7 +3083,7 @@ module AlphaMateModule
             write(STDERR, "(a)") " "
             stop 1
           end if
-          IndLoc = FindLoc(IdCTmp, This%Coancestry%OriginalId(1:))
+          IndLoc = FindLoc(IdCTmp, This%Coancestry%OriginalId(1:)) ! @todo hash-key
           if (IndLoc .eq. 0) then
             write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp)//" from the gender file not present in the coancestry matrix file!"
             write(STDERR, "(a)") " "
@@ -3311,7 +3316,7 @@ module AlphaMateModule
         open(newunit=GenericIndCritUnit, file=Spec%GenericIndCritFile, status="unknown")
         do Ind = 1, This%nInd
           read(GenericIndCritUnit, *) IdCTmp, GenericIndCritTmp
-          IndLoc = FindLoc(IdCTmp, This%Coancestry%OriginalId(1:))
+          IndLoc = FindLoc(IdCTmp, This%Coancestry%OriginalId(1:)) ! @todo hash-key
           if (IndLoc .eq. 0) then
             write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp)//" from the generic individual criterion file not present in the coancestry matrix file!"
             write(STDERR, "(a)") " "
@@ -3342,20 +3347,20 @@ module AlphaMateModule
         open(newunit=GenericMatCritUnit, file=Spec%GenericMatCritFile, status="unknown")
         do Mat = 1, This%nPotMat
           read(GenericMatCritUnit, *) IdCTmp, IdCTmp2, GenericMatCritTmp
-          IndLoc = FindLoc(IdCTmp, This%Coancestry%OriginalId(1:))
+          IndLoc = FindLoc(IdCTmp, This%Coancestry%OriginalId(1:)) ! @todo hash-key
           if (IndLoc .eq. 0) then
             write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp)//" from the generic mating criterion file not present in the coancestry matrix file!"
             write(STDERR, "(a)") " "
             stop 1
           end if
-          IndLoc2 = FindLoc(IdCTmp2, This%Coancestry%OriginalId(1:))
+          IndLoc2 = FindLoc(IdCTmp2, This%Coancestry%OriginalId(1:)) ! @todo hash-key
           if (IndLoc2 .eq. 0) then
             write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp2)//" from the generic mating criterion file not present in the coancestry matrix file!"
             write(STDERR, "(a)") " "
             stop 1
           end if
           if (Spec%GenderGiven) then
-            l = FindLoc(IndLoc, This%IdPotPar1)
+            l = FindLoc(IndLoc, This%IdPotPar1) ! @todo hash-key
             if (l .eq. 0) then
               write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp)//" from the first column in the generic mating criterion file should be a male!"
               write(STDERR, "(a)") " ERROR: Generic mating criterion file:"
@@ -3365,7 +3370,7 @@ module AlphaMateModule
               write(STDERR, "(a)") " "
               stop 1
             end if
-            m = FindLoc(IndLoc2, This%IdPotPar2)
+            m = FindLoc(IndLoc2, This%IdPotPar2) ! @todo hash-key
             if (m .eq. 0) then
               write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp2)//" from the second column in the generic mating criterion file should be a female!"
               write(STDERR, "(a)") " ERROR: Generic mating criterion file:"
@@ -4860,7 +4865,7 @@ module AlphaMateModule
       integer(int32) :: nParam, Point, iSol, Target, Unit
 
       real(real32) :: RanNum, Tmp
-      real(real64), allocatable :: InitChrom(:, :)
+      real(real64), allocatable :: InitChrom(:, :), AvgCoancestryStd(:), SelIntensity(:)
 
       logical :: LogStdoutInternal !, OptimOK
 
@@ -4892,6 +4897,27 @@ module AlphaMateModule
 
       allocate(InitChrom(nParam, Spec%EvolAlgNSol))
 
+      ! --- Standardized average coancestry ---
+
+      allocate(AvgCoancestryStd(Data%nInd))
+      ! note the front minus as we want to boost less related individuals
+      AvgCoancestryStd = - ((Data%AvgCoancestry - Mean(Data%AvgCoancestry)) / StdDev(Data%AvgCoancestry))
+      ! reorder to chromosome structure
+      if (Spec%GenderGiven) then
+        AvgCoancestryStd = AvgCoancestryStd([Data%IdPotPar1, Data%IdPotPar2])
+      else
+        AvgCoancestryStd = AvgCoancestryStd(Data%IdPotPar1)
+      end if
+
+      ! --- Selection intensity ---
+
+      allocate(SelIntensity(Data%nInd))
+      if (Spec%GenderGiven) then
+        SelIntensity = Data%SelIntensity([Data%IdPotPar1, Data%IdPotPar2])
+      else
+        SelIntensity = Data%SelIntensity(Data%IdPotPar1)
+      end if
+
       ! --- Minimum coancestry ---
 
       if (Spec%ModeMinCoancestry) then
@@ -4911,9 +4937,12 @@ module AlphaMateModule
 
         ! Initialise
         ! @todo initialise with SDP solutions?
-        do iSol = 1, Spec%EvolAlgNSol
+        InitChrom(1:Data%nPotPar, 1) = AvgCoancestryStd
+        do iSol = 2, Spec%EvolAlgNSol
           ! Distribute contributions, ranks, ... at random (exact values not important as we use ranks to get top values in evaluate)
           call random_number(InitChrom(:, iSol))
+          ! Multiply by standardized average coancestry to boost less related individuals
+          InitChrom(1:Data%nPotPar, iSol) = InitChrom(1:Data%nPotPar, iSol) * AvgCoancestryStd
         end do
 
         ! Search
@@ -4963,9 +4992,12 @@ module AlphaMateModule
 
         ! Initialise
         ! @todo initialise with SDP solutions?
-        do iSol = 1, Spec%EvolAlgNSol
+        InitChrom(1:Data%nPotPar, 1) = AvgCoancestryStd
+        do iSol = 2, Spec%EvolAlgNSol
           ! Distribute contributions, ranks, ... at random (exact values not important as we use ranks to get top values in evaluate)
           call random_number(InitChrom(:, iSol))
+          ! Multiply by standardized average coancestry to boost less related individuals
+          InitChrom(1:Data%nPotPar, iSol) = InitChrom(1:Data%nPotPar, iSol) * AvgCoancestryStd
         end do
 
         ! Search
@@ -5026,11 +5058,12 @@ module AlphaMateModule
 
         ! Initialise
         ! @todo initialise with SDP solutions?
-        do iSol = 1, Spec%EvolAlgNSol
+        InitChrom(1:Data%nPotPar, 1) = SelIntensity
+        do iSol = 2, Spec%EvolAlgNSol
           ! Distribute contributions, ranks, ... at random (exact values not important as we use ranks to get top values in evaluate)
           call random_number(InitChrom(:, iSol))
           ! Multiply by standardized selection criterion to boost better individuals
-          InitChrom(1:Data%nPotPar, iSol) = InitChrom(1:Data%nPotPar, iSol) * Data%SelIntensity
+          InitChrom(1:Data%nPotPar, iSol) = InitChrom(1:Data%nPotPar, iSol) * SelIntensity
         end do
 
         ! Search
@@ -5111,13 +5144,18 @@ module AlphaMateModule
           ! @todo initialise with SDP solutions?
           ! @todo initialise with solutions from previous target (at least some solutions)?
           Tmp = (100.0 - 100.0/90.0 * TARGETDEGREEFRONTIER(Point)) / 100.0
-          do iSol = 1, Spec%EvolAlgNSol
+          InitChrom(1:Data%nPotPar, 1) = SelIntensity
+          InitChrom(1:Data%nPotPar, 2) = AvgCoancestryStd
+          do iSol = 3, Spec%EvolAlgNSol
             ! Distribute contributions, ranks, ... at random (exact values not important as we use ranks to get top values in evaluate)
             call random_number(InitChrom(:, iSol))
-            ! Multiply by standardized selection criterion to boost better individuals (only for a percentage of solutions)
             call random_number(RanNum)
             if (RanNum .lt. Tmp) then
-                InitChrom(1:Data%nPotPar, iSol) = InitChrom(1:Data%nPotPar, iSol) * Data%SelIntensity
+              ! Multiply by standardized selection criterion to boost better individuals
+              InitChrom(1:Data%nPotPar, iSol) = InitChrom(1:Data%nPotPar, iSol) * SelIntensity
+            else
+              ! Multiply by standardized average coancestry to boost less related individuals
+              InitChrom(1:Data%nPotPar, iSol) = InitChrom(1:Data%nPotPar, iSol) * AvgCoancestryStd
             end if
           end do
 
@@ -5170,9 +5208,12 @@ module AlphaMateModule
 
         ! Initialise
         ! @todo initialise with SDP solutions?
-        do iSol = 1, Spec%EvolAlgNSol
+        InitChrom(1:Data%nPotPar, 1) = AvgCoancestryStd
+        do iSol = 2, Spec%EvolAlgNSol
           ! Distribute contributions, ranks, ... at random (exact values not important as we use ranks to get top values in evaluate)
           call random_number(InitChrom(:, iSol))
+          ! Multiply by standardized average coancestry to boost less related individuals
+          InitChrom(1:Data%nPotPar, iSol) = InitChrom(1:Data%nPotPar, iSol) * AvgCoancestryStd
         end do
 
         ! Search
@@ -5272,13 +5313,18 @@ module AlphaMateModule
           else
             Tmp = 0.5
           end if
-          do iSol = 1, Spec%EvolAlgNSol
+          InitChrom(1:Data%nPotPar, 1) = SelIntensity
+          InitChrom(1:Data%nPotPar, 2) = AvgCoancestryStd
+          do iSol = 3, Spec%EvolAlgNSol
             ! Distribute contributions, ranks, ... at random (exact values not important as we use ranks to get top values in evaluate)
             call random_number(InitChrom(:, iSol))
-            ! Multiply by standardized selection criterion to boost better individuals (only for a percentage of solutions)
             call random_number(RanNum)
             if (RanNum .lt. Tmp) then
-              InitChrom(1:Data%nPotPar, iSol) = InitChrom(1:Data%nPotPar, iSol) * Data%SelIntensity
+              ! Multiply by standardized selection criterion to boost better individuals
+              InitChrom(1:Data%nPotPar, iSol) = InitChrom(1:Data%nPotPar, iSol) * SelIntensity
+            else
+              ! Multiply by standardized average coancestry to boost less related individuals
+              InitChrom(1:Data%nPotPar, iSol) = InitChrom(1:Data%nPotPar, iSol) * AvgCoancestryStd
             end if
           end do
 
@@ -5309,6 +5355,9 @@ module AlphaMateModule
         close(Unit)
 
       end if
+
+      deallocate(InitChrom)
+      deallocate(AvgCoancestryStd)
 
     end subroutine
 
@@ -5436,7 +5485,7 @@ module AlphaMateModule
             write(ContribUnit, Spec%FmtContribution) Data%Coancestry%OriginalId(Ind),        &
                                                      Data%Gender(Ind),                       &
                                                      Data%SelCriterion(Ind),                 &
-                                                     mean(Data%Coancestry%Value(1:, Ind)),   &
+                                                     Data%AvgCoancestry(Ind),                &
                                                      dble(This%nVec(Ind)) / (2 * Spec%nMat), &
                                                      This%nVec(Ind)
           end do
@@ -5447,7 +5496,7 @@ module AlphaMateModule
               write(ContribUnit, Spec%FmtContribution) Data%Coancestry%OriginalId(Ind),        &
                                                        Data%Gender(Ind),                       &
                                                        Data%SelCriterion(Ind),                 &
-                                                       mean(Data%Coancestry%Value(1:, Ind)),   &
+                                                       Data%AvgCoancestry(Ind),                &
                                                        dble(This%nVec(Ind)) / (2 * Spec%nMat), &
                                                        This%nVec(Ind)
             end if
@@ -5458,7 +5507,7 @@ module AlphaMateModule
               write(ContribUnit, Spec%FmtContribution) Data%Coancestry%OriginalId(Ind),        &
                                                        Data%Gender(Ind),                       &
                                                        Data%SelCriterion(Ind),                 &
-                                                       mean(Data%Coancestry%Value(1:, Ind)),   &
+                                                       Data%AvgCoancestry(Ind),                &
                                                        dble(This%nVec(Ind)) / (2 * Spec%nMat), &
                                                        This%nVec(Ind)
             end if
@@ -5480,7 +5529,7 @@ module AlphaMateModule
             write(ContribUnit, Spec%FmtContributionEdit) Data%Coancestry%OriginalId(Ind),        &
                                                          Data%Gender(Ind),                       &
                                                          Data%SelCriterion(Ind),                 &
-                                                         mean(Data%Coancestry%Value(1:, Ind)),   &
+                                                         Data%AvgCoancestry(Ind),                &
                                                          dble(This%nVec(Ind)) / (2 * Spec%nMat), &
                                                          This%nVec(Ind),                         &
                                                          nint(This%GenomeEdit(Ind)),             &
@@ -5493,7 +5542,7 @@ module AlphaMateModule
               write(ContribUnit, Spec%FmtContributionEdit) Data%Coancestry%OriginalId(Ind),        &
                                                            Data%Gender(Ind),                       &
                                                            Data%SelCriterion(Ind),                 &
-                                                           mean(Data%Coancestry%Value(1:, Ind)),   &
+                                                           Data%AvgCoancestry(Ind),                &
                                                            dble(This%nVec(Ind)) / (2 * Spec%nMat), &
                                                            This%nVec(Ind),                         &
                                                            nint(This%GenomeEdit(Ind)),             &
@@ -5506,7 +5555,7 @@ module AlphaMateModule
               write(ContribUnit, Spec%FmtContributionEdit) Data%Coancestry%OriginalId(Ind),        &
                                                            Data%Gender(Ind),                       &
                                                            Data%SelCriterion(Ind),                 &
-                                                           mean(Data%Coancestry%Value(1:, Ind)),   &
+                                                           Data%AvgCoancestry(Ind),                &
                                                            dble(This%nVec(Ind)) / (2 * Spec%nMat), &
                                                            This%nVec(Ind),                         &
                                                            nint(This%GenomeEdit(Ind)),             &
