@@ -250,7 +250,7 @@ module AlphaMateModule
     type(DescStatMatrixReal64) :: CoancestryStat, CoancestryStatGender1, CoancestryStatGender2, CoancestryStatGenderDiff
     type(DescStatMatrixReal64), allocatable :: GenericMatCritStat(:)
     ! Derived data
-    integer(int32) :: nInd, nPotMat, nPotPar1, nPotPar2, nMal, nFem
+    integer(int32) :: nInd, nPotMat, nPotPar1, nPotPar2, nPotPar, nMal, nFem
     integer(int32), allocatable :: IdPotPar1(:), IdPotPar2(:), IdPotParSeq(:)
     real(real64) :: CoancestryRanMate, CoancestryRanMateNoSelf, CoancestryGenderMate
     real(real64) :: Inbreeding
@@ -3225,7 +3225,8 @@ module AlphaMateModule
 
       if (.not. Spec%GenderGiven) then
         This%nPotPar1 = This%nInd
-        This%nPotPar2 = This%nInd
+        This%nPotPar2 = This%nInd ! @todo Do we need this?
+        This%nPotPar = This%nInd
         allocate(This%IdPotPar1(This%nPotPar1))
         do Ind = 1, This%nInd
           This%IdPotPar1(Ind) = Ind
@@ -3233,6 +3234,7 @@ module AlphaMateModule
       else
         This%nPotPar1 = This%nMal
         This%nPotPar2 = This%nFem
+        This%nPotPar = This%nPotPar1 + This%nPotPar2
         allocate(This%IdPotPar1(This%nPotPar1))
         allocate(This%IdPotPar2(This%nPotPar2))
         allocate(This%IdPotParSeq(This%nInd))
@@ -3822,6 +3824,10 @@ module AlphaMateModule
       write(Unit, "(i)") This%nPotPar2
 
       write(Unit, "(a)") " "
+      write(Unit, "(a)") " nPotPar:"
+      write(Unit, "(i)") This%nPotPar
+
+      write(Unit, "(a)") " "
       write(Unit, "(a)") " nMal:"
       if (allocated(This%Gender)) then
         write(Unit, "(i)") This%nMal
@@ -4273,18 +4279,18 @@ module AlphaMateModule
               if (Spec%GenderGiven) then
                 ! ... ranks to find contributors
                 if (.not. (Spec%EqualizePar2 .and. (Spec%nPar2 .eq. Data%nPotPar2))) then
-                  Rank(1:Spec%nPar2) = RapKnr(This%Chrom((Data%nPotPar1 + 1):(Data%nPotPar1 + Data%nPotPar2)), Spec%nPar2)
+                  Rank(1:Spec%nPar2) = RapKnr(This%Chrom((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)
                 end if
                 if (Spec%EqualizePar2) then ! ... equal contributions
                   if (Spec%nPar2 .eq. Data%nPotPar2) then
-                    This%Chrom((Data%nPotPar1 + 1):(Data%nPotPar1 + Data%nPotPar2)) = dble(Spec%nMat) / Spec%nPar2 ! no need for indexing here, hence the above if (.not. ...)
+                    This%Chrom((Data%nPotPar1 + 1):Data%nPotPar) = dble(Spec%nMat) / Spec%nPar2 ! no need for indexing here, hence the above if (.not. ...)
                   else
-                    This%Chrom((Data%nPotPar1 + 1):(Data%nPotPar1 + Data%nPotPar2)) = 0.0d0
+                    This%Chrom((Data%nPotPar1 + 1):Data%nPotPar) = 0.0d0
                     This%Chrom(Data%nPotPar1 + Rank(1:Spec%nPar2)) = dble(Spec%nMat) / Spec%nPar2
                   end if
                 else                        ! ... unequal contributions
                   TmpVec(1:Spec%nPar2, 1) = This%Chrom(Data%nPotPar1 + Rank(1:Spec%nPar2)) ! save top contributions
-                  This%Chrom((Data%nPotPar1 + 1):(Data%nPotPar1 + Data%nPotPar2)) = 0.0d0  ! set everyones contributions to zero
+                  This%Chrom((Data%nPotPar1 + 1):Data%nPotPar) = 0.0d0  ! set everyones contributions to zero
                   This%Chrom(Data%nPotPar1 + Rank(1:Spec%nPar2)) = TmpVec(1:Spec%nPar2, 1) ! put top contributions back
                   nCumMat = 0
                   do i = 1, Spec%nPar2
@@ -4371,7 +4377,7 @@ module AlphaMateModule
               ! "Parent2"
               if (Spec%GenderGiven) then
                 ! ... get integer values and map chromosome order to data order
-                This%nVec(Data%IdPotPar2) = nint(This%Chrom((Data%nPotPar1 + 1):(Data%nPotPar1 + Data%nPotPar2)))
+                This%nVec(Data%IdPotPar2) = nint(This%Chrom((Data%nPotPar1 + 1):Data%nPotPar))
               end if
 
               ! --- PAGE ---
@@ -4383,12 +4389,12 @@ module AlphaMateModule
                   This%GenomeEdit(Rank(1:Spec%PAGEPar1Max)) = 1.0d0
                 else
                   if (Spec%PAGEPar1) then
-                    Rank(1:Spec%PAGEPar1Max) = RapKnr(This%Chrom((Data%nPotPar1 + Data%nPotPar2 + Spec%nMat + 1):(Data%nPotPar1 + Data%nPotPar2 + Spec%nMat + Data%nPotPar1)), &
+                    Rank(1:Spec%PAGEPar1Max) = RapKnr(This%Chrom((Data%nPotPar + Spec%nMat + 1):(Data%nPotPar + Spec%nMat + Data%nPotPar1)), &
                                                       Spec%PAGEPar1Max)
                     This%GenomeEdit(Data%IdPotPar1(Rank(1:Spec%PAGEPar1Max))) = 1.0d0
                   end if
                   if (Spec%PAGEPar2) then
-                    Rank(1:Spec%PAGEPar1Max) = RapKnr(This%Chrom((Data%nPotPar1 + Data%nPotPar2 + Spec%nMat + Data%nPotPar1 + 1):(Data%nPotPar1 + Data%nPotPar2 + Spec%nMat + Data%nPotPar1 + Data%nPotPar2)), &
+                    Rank(1:Spec%PAGEPar2Max) = RapKnr(This%Chrom((Data%nPotPar + Spec%nMat + Data%nPotPar1 + 1):(Data%nPotPar + Spec%nMat + Data%nPotPar)), &
                                                       Spec%PAGEPar2Max)
                     This%GenomeEdit(Data%IdPotPar2(Rank(1:Spec%PAGEPar2Max))) = 1.0d0
                   end if
@@ -4411,7 +4417,7 @@ module AlphaMateModule
                   if (Spec%RandomMateAllocation) then
                     Rank(1:Spec%nMat) = RandomOrder(n=Spec%nMat)
                   else
-                    Rank(1:Spec%nMat) = MrgRnk(This%Chrom((Data%nPotPar1 + Data%nPotPar2 + 1):(Data%nPotPar1 + Data%nPotPar2 + Spec%nMat))) ! MrgRnk ranks small to large
+                    Rank(1:Spec%nMat) = MrgRnk(This%Chrom((Data%nPotPar + 1):(Data%nPotPar + Spec%nMat))) ! MrgRnk ranks small to large
                   end if
                   MatPar2 = MatPar2(Rank(1:Spec%nMat))
                 else
