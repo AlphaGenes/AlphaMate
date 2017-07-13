@@ -4860,7 +4860,7 @@ module AlphaMateModule
       integer(int32) :: nParam, Point, iSol, Target, Unit
 
       real(real32) :: RanNum, Tmp
-      real(real64), allocatable :: InitEqual(:, :)
+      real(real64), allocatable :: InitChrom(:, :)
 
       logical :: LogStdoutInternal !, OptimOK
 
@@ -4890,7 +4890,7 @@ module AlphaMateModule
         nParam = nParam + Data%nInd
       end if
 
-      allocate(InitEqual(nParam, Spec%EvolAlgNSol))
+      allocate(InitChrom(nParam, Spec%EvolAlgNSol))
 
       ! --- Minimum coancestry ---
 
@@ -4913,12 +4913,12 @@ module AlphaMateModule
         ! @todo initialise with SDP solutions?
         do iSol = 1, Spec%EvolAlgNSol
           ! Distribute contributions, ranks, ... at random (exact values not important as we use ranks to get top values in evaluate)
-          call random_number(InitEqual(:, iSol))
+          call random_number(InitChrom(:, iSol))
         end do
 
         ! Search
         if (trim(Spec%EvolAlg) .eq. "DE") then
-          call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, Init=InitEqual, &
+          call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, Init=InitChrom, &
             nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTolCoancestry, nIterPrint=Spec%EvolAlgNIterPrint, &
             LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
             CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate1=Spec%DiffEvolParamCr1, CRLate2=Spec%DiffEvolParamCr2, &
@@ -4965,12 +4965,12 @@ module AlphaMateModule
         ! @todo initialise with SDP solutions?
         do iSol = 1, Spec%EvolAlgNSol
           ! Distribute contributions, ranks, ... at random (exact values not important as we use ranks to get top values in evaluate)
-          call random_number(InitEqual(:, iSol))
+          call random_number(InitChrom(:, iSol))
         end do
 
         ! Search
         if (trim(Spec%EvolAlg) .eq. "DE") then
-          call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, Init=InitEqual, &
+          call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, Init=InitChrom, &
             nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTolCoancestry, nIterPrint=Spec%EvolAlgNIterPrint, &
             LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
             CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate1=Spec%DiffEvolParamCr1, CRLate2=Spec%DiffEvolParamCr2, &
@@ -5028,9 +5028,9 @@ module AlphaMateModule
         ! @todo initialise with SDP solutions?
         do iSol = 1, Spec%EvolAlgNSol
           ! Distribute contributions, ranks, ... at random (exact values not important as we use ranks to get top values in evaluate)
-          call random_number(InitEqual(:, iSol))
+          call random_number(InitChrom(:, iSol))
           ! Multiply by standardized selection criterion to boost better individuals
-          InitEqual(1:Data%nPotPar, iSol) = InitEqual(1:Data%nPotPar, iSol) * Data%SelIntensity
+          InitChrom(1:Data%nPotPar, iSol) = InitChrom(1:Data%nPotPar, iSol) * Data%SelIntensity
         end do
 
         ! Search
@@ -5113,11 +5113,11 @@ module AlphaMateModule
           Tmp = (100.0 - 100.0/90.0 * TARGETDEGREEFRONTIER(Point)) / 100.0
           do iSol = 1, Spec%EvolAlgNSol
             ! Distribute contributions, ranks, ... at random (exact values not important as we use ranks to get top values in evaluate)
-            call random_number(InitEqual(:, iSol))
+            call random_number(InitChrom(:, iSol))
             ! Multiply by standardized selection criterion to boost better individuals (only for a percentage of solutions)
             call random_number(RanNum)
             if (RanNum .lt. Tmp) then
-              InitEqual(1:Data%nPotPar, iSol) = InitEqual(1:Data%nPotPar, iSol) * Data%SelIntensity
+                InitChrom(1:Data%nPotPar, iSol) = InitChrom(1:Data%nPotPar, iSol) * Data%SelIntensity
             end if
           end do
 
@@ -5172,16 +5172,15 @@ module AlphaMateModule
         ! @todo initialise with SDP solutions?
         do iSol = 1, Spec%EvolAlgNSol
           ! Distribute contributions, ranks, ... at random (exact values not important as we use ranks to get top values in evaluate)
-          call random_number(InitEqual(:, iSol))
+          call random_number(InitChrom(:, iSol))
         end do
 
         ! Search
-        call RandomSearch(Mode="avg", Spec=Spec, Data=Data, nParam=nParam, Init=InitEqual, &
+        call RandomSearch(Mode="avg", Spec=Spec, Data=Data, nParam=nParam, Init=InitChrom, &
           nSamp=Spec%EvolAlgNSol*Spec%EvolAlgNIter*Spec%RanAlgStricter, nSampStop=Spec%EvolAlgNIterStop*Spec%RanAlgStricter, &
           StopTolerance=Spec%EvolAlgStopTol/Spec%RanAlgStricter, nSampPrint=Spec%EvolAlgNIterPrint, &
           LogStdout=LogStdoutInternal, LogFile=LogFile, BestSol=Sol)
 
-        deallocate(InitEqual)
       end if
 
       ! --- Maximum selection criterion with constraint on coancestry and inbreeding ---
@@ -5275,11 +5274,11 @@ module AlphaMateModule
           end if
           do iSol = 1, Spec%EvolAlgNSol
             ! Distribute contributions, ranks, ... at random (exact values not important as we use ranks to get top values in evaluate)
-            call random_number(InitEqual(:, iSol))
+            call random_number(InitChrom(:, iSol))
             ! Multiply by standardized selection criterion to boost better individuals (only for a percentage of solutions)
             call random_number(RanNum)
             if (RanNum .lt. Tmp) then
-              InitEqual(1:Data%nPotPar, iSol) = InitEqual(1:Data%nPotPar, iSol) * Data%SelIntensity
+              InitChrom(1:Data%nPotPar, iSol) = InitChrom(1:Data%nPotPar, iSol) * Data%SelIntensity
             end if
           end do
 
