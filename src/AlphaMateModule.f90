@@ -209,7 +209,7 @@ module AlphaMateModule
     integer(int32) :: RanAlgStricter
 
     ! Modes
-    !@todo do we need ModeRanSpec?
+    ! @todo do we need ModeRanSpec?
     type(AlphaMateModeSpec) :: ModeSpec, ModeMinCoancestrySpec, ModeMinInbreedingSpec, ModeMaxCriterionSpec, ModeRanSpec, ModeOptSpec
 
     ! Column headers and formats for logging
@@ -784,7 +784,7 @@ module AlphaMateModule
       call This%ModeMinInbreedingSpec%Write(Unit)
       write(Unit, *) "ModeMaxCriterionSpec: "
       call This%ModeMaxCriterionSpec%Write(Unit)
-      !@todo do we need ModeRanSpec?
+      ! @todo do we need ModeRanSpec?
       write(Unit, *) "ModeRanSpec: "
       call This%ModeRanSpec%Write(Unit)
       write(Unit, *) "ModeOptSpec: "
@@ -2341,7 +2341,7 @@ module AlphaMateModule
         case ("MinCoancestry") ! Only coancestry!!!
           call This%ModeMinCoancestrySpec%Initialise(Name="MinCoancestry")
           This%ModeMinCoancestrySpec%ObjectiveCoancestry = .true.
-          !@todo Do these lines still make sense when we go above two objectives?
+          ! @todo Do these lines still make sense when we go above two objectives?
           This%ModeMinCoancestrySpec%TargetDegree           =  90.0d0
           This%ModeMinCoancestrySpec%TargetMinCoancestryPct = 100.0d0
           This%ModeMinCoancestrySpec%TargetMinInbreedingPct =   0.0d0
@@ -2351,7 +2351,7 @@ module AlphaMateModule
         case ("MinInbreeding") ! Only inbreeding!!!
           call This%ModeMinInbreedingSpec%Initialise(Name="MinInbreeding")
           This%ModeMinInbreedingSpec%ObjectiveInbreeding = .true.
-          !@todo Do these lines still make sense when we go above two objectives?
+          ! @todo Do these lines still make sense when we go above two objectives?
           This%ModeMinInbreedingSpec%TargetDegree           =  45.0d0
           This%ModeMinInbreedingSpec%TargetMinCoancestryPct =   0.0d0
           This%ModeMinInbreedingSpec%TargetMinInbreedingPct = 100.0d0
@@ -2361,7 +2361,7 @@ module AlphaMateModule
         case ("MaxCriterion") ! Only criterion!!!
           call This%ModeMaxCriterionSpec%Initialise(Name="MaxCriterion")
           This%ModeMaxCriterionSpec%ObjectiveCriterion = .true.
-          !@todo Do these lines still make sense when we go above two objectives?
+          ! @todo Do these lines still make sense when we go above two objectives?
           This%ModeMaxCriterionSpec%TargetDegree           =   0.0d0
           This%ModeMaxCriterionSpec%TargetMinCoancestryPct =   0.0d0
           This%ModeMaxCriterionSpec%TargetMinInbreedingPct =   0.0d0
@@ -2491,11 +2491,11 @@ module AlphaMateModule
           call This%ModeSpec%Assign(In=This%ModeOptSpec)
 
         case ("Ran")
-          !@todo do we need ModeRanSpec?
+          ! @todo do we need ModeRanSpec?
           call This%ModeRanSpec%Initialise(Name="Ran")
-          !@todo???
+          ! @todo???
           This%ModeRanSpec%CoancestryWeightBelow = This%CoancestryWeightBelow
-          !@todo???
+          ! @todo???
           This%ModeRanSpec%InbreedingWeightBelow = This%InbreedingWeightBelow
           call This%ModeSpec%Assign(In=This%ModeRanSpec)
 
@@ -4639,7 +4639,7 @@ module AlphaMateModule
                 This%Degree = atan2(This%MinCoancestryPct, This%MaxCriterionPct) * RAD2DEG
               end if
 
-              !@todo ModeRan?
+              ! @todo ModeRan?
 
               if (Spec%ModeSpec%ObjectiveCoancestry) then
                 if      (trim(Spec%ModeSpec%Name) .eq. "MinCoancestry") then
@@ -4872,6 +4872,9 @@ module AlphaMateModule
 
       character(len=FILELENGTH) :: LogFile, LogPopFile, ContribFile, MatingFile
 
+      real(real32) :: NANREAL32
+      NANREAL32 = IEEE_Value(x=NANREAL32, class=IEEE_Quiet_NaN)
+
       if (present(LogStdout)) then
         LogStdoutInternal = LogStdout
       else
@@ -4897,6 +4900,8 @@ module AlphaMateModule
       end if
 
       allocate(InitChrom(nParam, Spec%EvolAlgNSol))
+      ! Distribute contributions, ranks, ... at random (exact values not important as we use ranks to get top values in evaluate)
+      call random_number(InitChrom)
 
       ! --- Standardized average coancestry ---
 
@@ -4913,6 +4918,7 @@ module AlphaMateModule
       ! --- Selection intensity ---
 
       allocate(SelIntensity(Data%nInd))
+      ! reorder to chromosome structure
       if (Spec%GenderGiven) then
         SelIntensity = Data%SelIntensity([Data%IdPotPar1, Data%IdPotPar2])
       else
@@ -4938,12 +4944,17 @@ module AlphaMateModule
 
         ! Initialise
         ! @todo initialise with SDP solutions?
+        ! ... approximate minimum coancestry solution
         InitChrom(1:Data%nPotPar, 1) = AvgCoancestryStd
-        do iSol = 2, Spec%EvolAlgNSol
-          ! Distribute contributions, ranks, ... at random (exact values not important as we use ranks to get top values in evaluate)
-          call random_number(InitChrom(:, iSol))
-          ! Multiply by standardized average coancestry to boost less related individuals
-          InitChrom(1:Data%nPotPar, iSol) = InitChrom(1:Data%nPotPar, iSol) * AvgCoancestryStd
+        ! ... another one
+        InitChrom(1:Data%nPotPar, 2) = AvgCoancestryStd
+        ! ... noiser solutions
+        do iSol = 3, Spec%EvolAlgNSol
+          call random_number(RanNum)
+          if (RanNum .lt. 0.75) then
+            ! Multiply by standardized average coancestry to boost less related individuals
+            InitChrom(1:Data%nPotPar, iSol) = InitChrom(1:Data%nPotPar, iSol) * AvgCoancestryStd
+          end if
         end do
 
         ! Search
@@ -4962,7 +4973,7 @@ module AlphaMateModule
         end if
 
         ! Save
-        !@todo Do these lines still make sense when we go above two objectives?
+        ! @todo Do these lines still make sense when we go above two objectives?
         SolMinCoancestry%Degree           =  90.0d0
         SolMinCoancestry%MinCoancestryPct = 100.0d0
         SolMinCoancestry%MinInbreedingPct =   0.0d0
@@ -4993,12 +5004,17 @@ module AlphaMateModule
 
         ! Initialise
         ! @todo initialise with SDP solutions?
+        ! ... approximate minimum coancestry solution
         InitChrom(1:Data%nPotPar, 1) = AvgCoancestryStd
-        do iSol = 2, Spec%EvolAlgNSol
-          ! Distribute contributions, ranks, ... at random (exact values not important as we use ranks to get top values in evaluate)
-          call random_number(InitChrom(:, iSol))
-          ! Multiply by standardized average coancestry to boost less related individuals
-          InitChrom(1:Data%nPotPar, iSol) = InitChrom(1:Data%nPotPar, iSol) * AvgCoancestryStd
+        ! ... another one
+        InitChrom(1:Data%nPotPar, 2) = AvgCoancestryStd
+        ! ... noiser solutions
+        do iSol = 3, Spec%EvolAlgNSol
+          call random_number(RanNum)
+          if (RanNum .lt. 0.75) then
+            ! Multiply by standardized average coancestry to boost less related individuals
+            InitChrom(1:Data%nPotPar, iSol) = InitChrom(1:Data%nPotPar, iSol) * AvgCoancestryStd
+          end if
         end do
 
         ! Search
@@ -5017,7 +5033,7 @@ module AlphaMateModule
         end if
 
         ! Save
-        !@todo Do these lines still make sense when we go above two objectives?
+        ! @todo Do these lines still make sense when we go above two objectives?
         SolMinInbreeding%Degree           =  45.0d0
         SolMinInbreeding%MinCoancestryPct =   0.0d0
         SolMinInbreeding%MinInbreedingPct = 100.0d0
@@ -5058,14 +5074,48 @@ module AlphaMateModule
         MatingFile  = "MatingPlanModeMaxCriterion.txt"
 
         ! Initialise
-        ! @todo initialise with SDP solutions?
-        InitChrom(1:Data%nPotPar, 1) = SelIntensity
-        do iSol = 2, Spec%EvolAlgNSol
-          ! Distribute contributions, ranks, ... at random (exact values not important as we use ranks to get top values in evaluate)
-          call random_number(InitChrom(:, iSol))
-          ! Multiply by standardized selection criterion to boost better individuals
-          InitChrom(1:Data%nPotPar, iSol) = InitChrom(1:Data%nPotPar, iSol) * SelIntensity
+        ! ... exact truncation selection solution with equal contributions
+          InitChrom(RapKnr(SelIntensity(1:Data%nPotPar1),                  Spec%nPar1), 1) = dble(Spec%nMat) / Spec%nPar1
+        if (Spec%GenderGiven) then
+          InitChrom((Data%nPotPar1 + RapKnr(SelIntensity((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), 1) = dble(Spec%nMat) / Spec%nPar2
+        end if
+        ! ... another one
+          InitChrom(RapKnr(SelIntensity(1:Data%nPotPar1),                  Spec%nPar1), 2) = dble(Spec%nMat) / Spec%nPar1
+        if (Spec%GenderGiven) then
+          InitChrom((Data%nPotPar1 + RapKnr(SelIntensity((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), 2) = dble(Spec%nMat) / Spec%nPar2
+        end if
+        ! ... approximate truncation selection solution
+        InitChrom(1:Data%nPotPar, 3) = SelIntensity
+        InitChrom(1:Data%nPotPar, 4) = SelIntensity
+        ! ... noiser solutions
+        do iSol = 5, Spec%EvolAlgNSol
+          call random_number(RanNum)
+          if (RanNum .lt. 0.75) then
+            ! Multiply by standardized selection criterion to boost better individuals
+            InitChrom(1:Data%nPotPar, iSol) = InitChrom(1:Data%nPotPar, iSol) * SelIntensity
+          end if
         end do
+
+! do Unit = 1, Spec%nInd
+!   write(STDOUT, "(i2,a10,i2,2f8.4)") Unit, Data%Coancestry%OriginalId(Unit), Data%Gender(Unit), Data%SelCriterion(Unit), Data%SelIntensity(Unit)
+! end do
+
+! print*,"Data%IdPotPar1",Data%IdPotPar1
+! print*,"Data%IdPotPar2",Data%IdPotPar2
+! print*,"Spec%nMat,Spec%nPar1,Spec%nPar2",Spec%nMat,Spec%nPar1,Spec%nPar2
+
+! print*,"SelIntensity(1:Data%nPotPar1)",SelIntensity(1:Data%nPotPar1)
+! print*,"RapKnr...",RapKnr(SelIntensity(1:Data%nPotPar1),                  Spec%nPar1)
+! print*,"SelIntensity((Data%nPotPar1 + 1):Data%nPotPar)",SelIntensity((Data%nPotPar1 + 1):Data%nPotPar)
+! print*,"RapKnr",RapKnr(SelIntensity((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)
+
+! do iSol = 1, Spec%EvolAlgNSol
+!   print*,iSol
+!   do Unit = 1, nParam
+!     print*,Unit, InitChrom(Unit,iSol)
+!   end do
+! end do
+! pause
 
         ! Search
         if (trim(Spec%EvolAlg) .eq. "DE") then
@@ -5083,7 +5133,7 @@ module AlphaMateModule
         end if
 
         ! Save
-        !@todo Do these lines still make sense when we go above two objectives?
+        ! @todo Do these lines still make sense when we go above two objectives?
         SolMaxCriterion%Degree           =   0.0d0
         SolMaxCriterion%MinCoancestryPct =   0.0d0
         SolMinInbreeding%MinInbreedingPct =  0.0d0
@@ -5112,11 +5162,11 @@ module AlphaMateModule
         call Spec%LogHead(LogUnit=Unit, String="ModeOrPoint", StringNum=18)
 
         ! Add minimum coancestry solution to frontier (90 degress with two objectives)
-        call SolMinCoancestry%Log(Spec=Spec, LogUnit=Unit, Iteration=-1, AcceptPct=-1.0d0, String="ModeMinCoancestry", StringNum=18)
+        call SolMinCoancestry%Log(Spec=Spec, LogUnit=Unit, Iteration=-1, AcceptPct=NANREAL32, String="ModeMinCoancestry", StringNum=18)
 
         ! Add minimum inbreeding solution to frontier
         if (Spec%ModeMinInbreeding) then
-          call SolMinInbreeding%Log(Spec=Spec, LogUnit=Unit, Iteration=-1, AcceptPct=-1.0d0, String="ModeMinInbreeding", StringNum=18)
+          call SolMinInbreeding%Log(Spec=Spec, LogUnit=Unit, Iteration=-1, AcceptPct=NANREAL32, String="ModeMinInbreeding", StringNum=18)
         end if
 
         ! Frontier
@@ -5144,19 +5194,42 @@ module AlphaMateModule
           ! Initialise
           ! @todo initialise with SDP solutions?
           ! @todo initialise with solutions from previous target (at least some solutions)?
+          ! ... exact truncation selection solution with equal contributions
+            InitChrom(RapKnr(SelIntensity(1:Data%nPotPar1),                  Spec%nPar1), 1) = dble(Spec%nMat) / Spec%nPar1
+          if (Spec%GenderGiven) then
+            InitChrom(RapKnr(SelIntensity((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2), 1) = dble(Spec%nMat) / Spec%nPar2
+          end if
+          ! ... approximate truncation selection solution
+          InitChrom(1:Data%nPotPar, 2) = SelIntensity
+          ! ... approximate minimum coancestry solution
+          InitChrom(1:Data%nPotPar, 3) = AvgCoancestryStd
+          ! ... another one
+          InitChrom(1:Data%nPotPar, 4) = AvgCoancestryStd
+          ! ... noiser solutions
           Tmp = (100.0 - 100.0/90.0 * TARGETDEGREEFRONTIER(Point)) / 100.0
-          InitChrom(1:Data%nPotPar, 1) = SelIntensity
-          InitChrom(1:Data%nPotPar, 2) = AvgCoancestryStd
-          do iSol = 3, Spec%EvolAlgNSol
-            ! Distribute contributions, ranks, ... at random (exact values not important as we use ranks to get top values in evaluate)
-            call random_number(InitChrom(:, iSol))
+          do iSol = 5, Spec%EvolAlgNSol
             call random_number(RanNum)
-            if (RanNum .lt. Tmp) then
-              ! Multiply by standardized selection criterion to boost better individuals
-              InitChrom(1:Data%nPotPar, iSol) = InitChrom(1:Data%nPotPar, iSol) * SelIntensity
-            else
-              ! Multiply by standardized average coancestry to boost less related individuals
-              InitChrom(1:Data%nPotPar, iSol) = InitChrom(1:Data%nPotPar, iSol) * AvgCoancestryStd
+            if (RanNum .lt. 0.75) then
+              call random_number(RanNum)
+              if (RanNum .lt. Tmp) then
+                call random_number(RanNum)
+                if (RanNum .lt. 0.5) then
+                  ! Multiply by standardized selection criterion to boost better individuals
+                  InitChrom(1:Data%nPotPar, iSol) =   InitChrom(1:Data%nPotPar, iSol) * SelIntensity
+                else
+                  ! Multiply by product to boost better that are less individuals (note the - in front!)
+                  InitChrom(1:Data%nPotPar, iSol) = - InitChrom(1:Data%nPotPar, iSol) * SelIntensity * AvgCoancestryStd
+                end if
+              else
+                call random_number(RanNum)
+                if (RanNum .lt. 0.5) then
+                  ! Multiply by product to boost better that are less individuals (note the - in front!)
+                  InitChrom(1:Data%nPotPar, iSol) = - InitChrom(1:Data%nPotPar, iSol) * SelIntensity * AvgCoancestryStd
+                else
+                  ! Multiply by standardized average coancestry to boost less related individuals
+                  InitChrom(1:Data%nPotPar, iSol) =   InitChrom(1:Data%nPotPar, iSol) * AvgCoancestryStd
+                end if
+              end if
             end if
           end do
 
@@ -5176,7 +5249,7 @@ module AlphaMateModule
           end if
 
           ! Save
-          call Sol%Log(Spec=Spec, LogUnit=Unit, Iteration=-1, AcceptPct=-1.0d0, String=trim("ModeFrontier"//trim(Int2Char(Point))), StringNum=18)
+          call Sol%Log(Spec=Spec, LogUnit=Unit, Iteration=-1, AcceptPct=NANREAL32, String=trim("ModeFrontier"//trim(Int2Char(Point))), StringNum=18)
           call Sol%WriteContributions(Data=Data, Spec=Spec, ContribFile=ContribFile)
           if (Spec%MateAllocation) then
             call Sol%WriteMatingPlan(Data=Data, Spec=Spec, MatingFile=MatingFile)
@@ -5185,7 +5258,7 @@ module AlphaMateModule
         end do
 
         ! Add maximum criterion solution to frontier (0 degress with two objectives)
-        call SolMaxCriterion%Log(Spec=Spec, LogUnit=Unit, Iteration=-1, AcceptPct=-1.0d0, String="ModeMaxCriterion", StringNum=18)
+        call SolMaxCriterion%Log(Spec=Spec, LogUnit=Unit, Iteration=-1, AcceptPct=NANREAL32, String="ModeMaxCriterion", StringNum=18)
 
         close(Unit)
 
@@ -5206,16 +5279,6 @@ module AlphaMateModule
 
         LogFile = "OptimisationLogModeRan.txt"
         ! @todo other reports from here - at least the best random solution?
-
-        ! Initialise
-        ! @todo initialise with SDP solutions?
-        InitChrom(1:Data%nPotPar, 1) = AvgCoancestryStd
-        do iSol = 2, Spec%EvolAlgNSol
-          ! Distribute contributions, ranks, ... at random (exact values not important as we use ranks to get top values in evaluate)
-          call random_number(InitChrom(:, iSol))
-          ! Multiply by standardized average coancestry to boost less related individuals
-          InitChrom(1:Data%nPotPar, iSol) = InitChrom(1:Data%nPotPar, iSol) * AvgCoancestryStd
-        end do
 
         ! Search
         call RandomSearch(Mode="avg", Spec=Spec, Data=Data, nParam=nParam, Init=InitChrom, &
@@ -5308,24 +5371,46 @@ module AlphaMateModule
 
           ! Initialise
           ! @todo initialise with SDP solutions?
-          ! @todo initialise with solutions from previous target (at least some solutions)?
+          ! ... exact truncation selection solution with equal contributions
+            InitChrom(RapKnr(SelIntensity(1:Data%nPotPar1),                  Spec%nPar1), 1) = dble(Spec%nMat) / Spec%nPar1
+          if (Spec%GenderGiven) then
+            InitChrom(RapKnr(SelIntensity((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2), 1) = dble(Spec%nMat) / Spec%nPar2
+          end if
+          ! ... approximate truncation selection solution
+          InitChrom(1:Data%nPotPar, 2) = SelIntensity
+          ! ... approximate minimum coancestry solution
+          InitChrom(1:Data%nPotPar, 3) = AvgCoancestryStd
+          ! ... another one
+          InitChrom(1:Data%nPotPar, 4) = AvgCoancestryStd
+          ! ... noiser solutions
           if (Spec%ModeSpec%ObjectiveCriterion .and. Spec%ModeSpec%ObjectiveCoancestry) then
             Tmp = (100.0 - 100.0/90.0 * Spec%ModeSpec%TargetDegree)
           else
             Tmp = 0.5
           end if
-          InitChrom(1:Data%nPotPar, 1) = SelIntensity
-          InitChrom(1:Data%nPotPar, 2) = AvgCoancestryStd
-          do iSol = 3, Spec%EvolAlgNSol
-            ! Distribute contributions, ranks, ... at random (exact values not important as we use ranks to get top values in evaluate)
-            call random_number(InitChrom(:, iSol))
+          do iSol = 5, Spec%EvolAlgNSol
             call random_number(RanNum)
-            if (RanNum .lt. Tmp) then
-              ! Multiply by standardized selection criterion to boost better individuals
-              InitChrom(1:Data%nPotPar, iSol) = InitChrom(1:Data%nPotPar, iSol) * SelIntensity
-            else
-              ! Multiply by standardized average coancestry to boost less related individuals
-              InitChrom(1:Data%nPotPar, iSol) = InitChrom(1:Data%nPotPar, iSol) * AvgCoancestryStd
+            if (RanNum .lt. 0.75) then
+              call random_number(RanNum)
+              if (RanNum .lt. Tmp) then
+                call random_number(RanNum)
+                if (RanNum .lt. 0.5) then
+                  ! Multiply by standardized selection criterion to boost better individuals
+                  InitChrom(1:Data%nPotPar, iSol) =   InitChrom(1:Data%nPotPar, iSol) * SelIntensity
+                else
+                  ! Multiply by product to boost better that are less individuals (note the - in front!)
+                  InitChrom(1:Data%nPotPar, iSol) = - InitChrom(1:Data%nPotPar, iSol) * SelIntensity * AvgCoancestryStd
+                end if
+              else
+                call random_number(RanNum)
+                if (RanNum .lt. 0.5) then
+                  ! Multiply by product to boost better that are less individuals (note the - in front!)
+                  InitChrom(1:Data%nPotPar, iSol) = - InitChrom(1:Data%nPotPar, iSol) * SelIntensity * AvgCoancestryStd
+                else
+                  ! Multiply by standardized average coancestry to boost less related individuals
+                  InitChrom(1:Data%nPotPar, iSol) =   InitChrom(1:Data%nPotPar, iSol) * AvgCoancestryStd
+                end if
+              end if
             end if
           end do
 
@@ -5345,7 +5430,7 @@ module AlphaMateModule
           end if
 
           ! Save
-          call Sol%Log(Spec=Spec, LogUnit=Unit, Iteration=-1, AcceptPct=-1.0d0, String=trim("ModeOpt"//trim(Int2Char(Target))), StringNum=18)
+          call Sol%Log(Spec=Spec, LogUnit=Unit, Iteration=-1, AcceptPct=NANREAL32, String=trim("ModeOpt"//trim(Int2Char(Target))), StringNum=18)
           call Sol%WriteContributions(Data=Data, Spec=Spec, ContribFile=ContribFile)
           if (Spec%MateAllocation) then
             call Sol%WriteMatingPlan(Data=Data, Spec=Spec, MatingFile=MatingFile)
@@ -5800,7 +5885,7 @@ module AlphaMateModule
       class(AlphaEvolveSpec), intent(in)     :: Spec      !< Spec holder
       integer(int32), intent(in), optional   :: LogUnit   !< Unit to write to (default STDOUT)
       integer(int32), intent(in)             :: Iteration !< Generation/Iteration
-      real(real64), intent(in)               :: AcceptPct !< Acceptance rate
+      real(real32), intent(in)               :: AcceptPct !< Acceptance rate
       character(len=*), intent(in), optional :: String    !< Additional string that will be written before the head
       integer(int32), optional               :: StringNum !< How much space is needed for the String
 
