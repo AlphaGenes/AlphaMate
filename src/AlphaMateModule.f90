@@ -95,12 +95,13 @@ module AlphaMateModule
   CHARACTER(len=CHARLENGTH), PARAMETER :: FMTLOGSTDOUTB = "(f11.5))"
 
   CHARACTER(len=CHARLENGTH), PARAMETER :: FMTLOGUNITHEADA = "("
-  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTLOGUNITHEADB = "a22)"
+  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTLOGUNITHEADB = "a17)"
 
-  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTLOGUNITA = "(i22, "
-  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTLOGUNITB = "(1x, es21.13e3))"
+  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTLOGUNITA = "(i17, "
+  ! CHARACTER(len=CHARLENGTH), PARAMETER :: FMTLOGUNITB = "(1x, es21.13e3))"
+  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTLOGUNITB = "(f17.5))"
 
-  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTLOGPOPUNITA = "(2i22, "
+  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTLOGPOPUNITA = "(2i17, "
 
   CHARACTER(len=CHARLENGTH), PARAMETER :: FMTCONTRIBUTIONHEADA = "(a"
   CHARACTER(len=CHARLENGTH), PARAMETER :: FMTCONTRIBUTIONHEADB = ", 5a15)"
@@ -214,12 +215,12 @@ module AlphaMateModule
     ! Column headers and formats for logging
     character(len=CHARLENGTH)      :: FmtLogStdoutHead
     character(len=CHARLENGTH)      :: FmtLogStdout
-    character(len=15), allocatable :: ColnameLogStdout(:)
+    character(len=11), allocatable :: ColnameLogStdout(:)
     character(len=CHARLENGTH)      :: FmtLogUnitHead
     character(len=CHARLENGTH)      :: FmtLogUnit
-    character(len=22), allocatable :: ColnameLogUnit(:)
+    character(len=17), allocatable :: ColnameLogUnit(:)
     character(len=CHARLENGTH)      :: FmtLogPopUnit
-    character(len=22), allocatable :: ColnameLogPopUnit(:)
+    character(len=17), allocatable :: ColnameLogPopUnit(:)
     character(len=CHARLENGTH)      :: FmtContributionHead     ! = "(6a15)"
     character(len=CHARLENGTH)      :: FmtContributionHeadEdit ! = "(8a15)"
     character(len=CHARLENGTH)      :: FmtContribution         ! = "(a??, 4x, i11, 3(4x, f11.5), 4x, i11)"
@@ -5670,63 +5671,64 @@ module AlphaMateModule
         allocate(This%ColnameLogPopUnit(nCol))
       end if
 
-      !                          1234567890123456789012
-      This%ColnameLogUnit(1)  = "             Iteration"
-      This%ColnameLogUnit(2)  = "             AcceptPct"
-      This%ColnameLogUnit(3)  = "             Objective"
-      This%ColnameLogUnit(4)  = "             Penalties"
-      This%ColnameLogUnit(5)  = "        FrontierDegree"
-      This%ColnameLogUnit(6)  = "          SelCriterion"
-      This%ColnameLogUnit(7)  = "          SelIntensity"
-      This%ColnameLogUnit(8)  = "       MaxSelCriterPct"
-      This%ColnameLogUnit(9)  = "            Coancestry"
-      This%ColnameLogUnit(10) = "        CoancestryRate"
-      This%ColnameLogUnit(11) = "      MinCoancestryPct"
-      This%ColnameLogUnit(12) = "            Inbreeding"
-      This%ColnameLogUnit(13) = "        InbreedingRate"
-      This%ColnameLogUnit(14) = "      MinInbreedingPct"
+      !                          12345678901234567
+      This%ColnameLogUnit(1)  = "        Iteration"
+      This%ColnameLogUnit(2)  = "        AcceptPct"
+      This%ColnameLogUnit(3)  = "        Objective"
+      This%ColnameLogUnit(4)  = "        Penalties"
+      This%ColnameLogUnit(5)  = "   FrontierDegree"
+      This%ColnameLogUnit(6)  = "     SelCriterion"
+      This%ColnameLogUnit(7)  = "     SelIntensity"
+      This%ColnameLogUnit(8)  = "  MaxSelCriterPct"
+      This%ColnameLogUnit(9)  = "       Coancestry"
+      This%ColnameLogUnit(10) = "   CoancestryRate"
+      This%ColnameLogUnit(11) = " MinCoancestryPct"
+      This%ColnameLogUnit(12) = "       Inbreeding"
+      This%ColnameLogUnit(13) = "   InbreedingRate"
+      This%ColnameLogUnit(14) = " MinInbreedingPct"
 
-      This%ColnameLogStdout(1)  =         "  Iteration"
-      This%ColnameLogStdout(2)  =         "  AcceptPct"
-      This%ColnameLogStdout(3)  =         "  Objective"
-      This%ColnameLogStdout(4)  =         "  Penalties"
-      This%ColnameLogStdout(5)  =         "     Degree"
-      This%ColnameLogStdout(6)  =         "  SelCriter"
-      This%ColnameLogStdout(7)  =         "  ...Intens"
-      This%ColnameLogStdout(8)  =         "     ...Pct"
-      This%ColnameLogStdout(9)  =         " Coancestry"
-      This%ColnameLogStdout(10) =         "    ...Rate"
-      This%ColnameLogStdout(11) =         "     ...Pct"
-      This%ColnameLogStdout(12) =         " Inbreeding"
-      This%ColnameLogStdout(13) =         "    ...Rate"
-      This%ColnameLogStdout(14) =         "     ...Pct"
+      !                            12345678901
+      This%ColnameLogStdout(1)  = "  Iteration"
+      This%ColnameLogStdout(2)  = "  AcceptPct"
+      This%ColnameLogStdout(3)  = "  Objective"
+      This%ColnameLogStdout(4)  = "  Penalties"
+      This%ColnameLogStdout(5)  = "     Degree"
+      This%ColnameLogStdout(6)  = "  SelCriter"
+      This%ColnameLogStdout(7)  = "  ...Intens"
+      This%ColnameLogStdout(8)  = "     ...Pct"
+      This%ColnameLogStdout(9)  = " Coancestry"
+      This%ColnameLogStdout(10) = "    ...Rate"
+      This%ColnameLogStdout(11) = "     ...Pct"
+      This%ColnameLogStdout(12) = " Inbreeding"
+      This%ColnameLogStdout(13) = "    ...Rate"
+      This%ColnameLogStdout(14) = "     ...Pct"
 
       nColTmp = nCol
       if (This%GenericIndCritGiven) then
         do i = 1, This%nGenericIndCrit
           nColTmp = nColTmp + 1
-          !                               12345678901
+          !                               1234567890
           This%ColnameLogUnit(nColTmp) = "GenIndCrit"//trim(Int2Char(i))
           This%ColnameLogUnit(nColTmp) = adjustr(This%ColnameLogUnit(nColTmp))
           Tmp = This%ColnameLogUnit(nColTmp)
-          This%ColnameLogStdout(nColTmp) = Tmp(11:21)
+          This%ColnameLogStdout(nColTmp) = Tmp(7:17)
           This%ColnameLogStdout(nColTmp) = adjustr(This%ColnameLogStdout(nColTmp))
         end do
       end if
       if (This%GenericMatCritGiven) then
         do i = 1, This%nGenericMatCrit
           nColTmp = nColTmp + 1
-          !                               12345678901
+          !                               1234567890
           This%ColnameLogUnit(nColTmp) = "GenMatCrit"//trim(Int2Char(i))
           This%ColnameLogUnit(nColTmp) = adjustr(This%ColnameLogUnit(nColTmp))
           Tmp = This%ColnameLogUnit(nColTmp)
-          This%ColnameLogStdout(nColTmp) = Tmp(11:21)
+          This%ColnameLogStdout(nColTmp) = Tmp(7:17)
           This%ColnameLogStdout(nColTmp) = adjustr(This%ColnameLogStdout(nColTmp))
         end do
       end if
       This%ColnameLogPopUnit = This%ColnameLogUnit
-      !                            1234567890123456789012
-      This%ColnameLogPopUnit(2) = "              Solution"
+      !                            12345678901234567
+      This%ColnameLogPopUnit(2) = "         Solution"
       This%FmtLogStdoutHead  = trim(FMTLOGSTDOUTHEADA) //trim(Int2Char(nCol))        //trim(FMTLOGSTDOUTHEADB)
       This%FmtLogStdout      = trim(FMTLOGSTDOUTA)     //trim(Int2Char(nColTmp-nCol))//trim(FMTLOGSTDOUTB)
       This%FmtLogUnitHead    = trim(FMTLOGUNITHEADA)   //trim(Int2Char(nCol)  )      //trim(FMTLOGUNITHEADB)
@@ -5762,23 +5764,23 @@ module AlphaMateModule
       character(len=*), intent(in), optional :: String    !< Additional string that will be written before the head
       integer(int32), optional               :: StringNum !< How much space is needed for the String
 
-      character(len=10) :: StringFmt
+      character(len=CHARLENGTH) :: StringFmt
 
       if (present(String)) then
         if (present(StringNum)) then
-          StringFmt = "("//trim(Int2Char(StringNum))//"a)"
+          StringFmt = "(a"//trim(Int2Char(StringNum))//")"
         else
           StringFmt = "(a)"
         end if
       end if
       if (present(LogUnit)) then
         if (present(String)) then
-          write(LogUnit, StringFmt, Advance="No") trim(adjustl(String))
+          write(LogUnit, StringFmt, Advance="No") adjustl(String)
         end if
         write(LogUnit, This%FmtLogUnitHead)  This%ColnameLogUnit
       else
         if (present(String)) then
-          write(STDOUT, StringFmt, Advance="No") trim(adjustl(String))
+          write(STDOUT, StringFmt, Advance="No") adjustl(String)
         end if
         write(STDOUT, This%FmtLogStdoutHead) This%ColnameLogStdout
       end if
@@ -5818,7 +5820,7 @@ module AlphaMateModule
           end if
           if (present(String)) then
             if (present(StringNum)) then
-              StringFmt = "("//trim(Int2Char(StringNum))//"a)"
+              StringFmt = "(a"//trim(Int2Char(StringNum))//")"
             else
               StringFmt = "(a)"
             end if
