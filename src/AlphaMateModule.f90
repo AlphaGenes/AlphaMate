@@ -301,6 +301,19 @@ module AlphaMateModule
       procedure :: LogPop       => LogPopAlphaMateSol
   end type
 
+  !> @brief AlphaMate chromosome
+  type :: AlphaMateChrom
+    real(real64), allocatable   :: ContPar1(:)
+    real(real64), allocatable   :: ContPar2(:)
+    real(real64), allocatable   :: MateRank(:)
+    real(real64), allocatable   :: EditPar1(:)
+    real(real64), allocatable   :: EditPar2(:)
+
+    contains
+      procedure :: Initialise   => InitialiseAlphaMateChrom
+      procedure :: Write        => WriteAlphaMateChrom
+  end type
+
   contains
 
     !###########################################################################
@@ -4099,6 +4112,147 @@ module AlphaMateModule
     !###########################################################################
 
     !---------------------------------------------------------------------------
+    !> @brief  Initialise AlphaMate chromosome
+    !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date   July 14, 2017
+    !---------------------------------------------------------------------------
+    pure subroutine InitialiseAlphaMateChrom(This, Spec, Data, Chrom)
+      implicit none
+
+      ! Argument
+      class(AlphaMateChrom), intent(out) :: This !< @return AlphaMateChrom holder
+      type(AlphaMateSpec), intent(in)    :: Spec !< AlphaMateSpec holder
+      type(AlphaMateData), intent(in)    :: Data !< AlphaMateData holder
+      real(real64), intent(in), optional :: Chrom(:) !< A solution
+
+      integer(int32) :: Start, End
+
+      ! Initialise
+      allocate(This%ContPar1(Data%nPotPar1))
+      if (Spec%GenderGiven) then
+        allocate(This%ContPar2(Data%nPotPar2))
+      end if
+      if (Spec%MateAllocation) then
+        allocate(This%MateRank(Spec%nMat))
+      end if
+      if (Spec%PAGEPar) then
+        if (Spec%PAGEPar1) then
+          allocate(This%EditPar1(Data%nPotPar1))
+        end if
+        if (Spec%GenderGiven) then
+          if (Spec%PAGEPar2) then
+            allocate(This%EditPar2(Data%nPotPar2))
+          end if
+        end if
+      end if
+
+      ! Assign
+      if (present(Chrom)) then
+        Start = 1
+        End = Data%nPotPar1
+        This%ContPar1 = Chrom(Start:End)
+        if (Spec%GenderGiven) then
+          Start = End + 1
+          End = Start - 1 + Data%nPotPar2
+          This%ContPar2 = Chrom(Start:End)
+        end if
+        if (Spec%MateAllocation) then
+          Start = End + 1
+          End = Start - 1 + Spec%nMat
+          This%MateRank = Chrom(Start:End)
+        end if
+        if (Spec%PAGEPar) then
+          if (Spec%PAGEPar1) then
+            Start = End + 1
+            End = Start - 1 + Data%nPotPar1
+            This%EditPar1 = Chrom(Start:End)
+          end if
+          if (Spec%GenderGiven) then
+            if (Spec%PAGEPar2) then
+              Start = End + 1
+              End = Start - 1 + Data%nPotPar2
+              This%EditPar2 = Chrom(Start:End)
+            end if
+          end if
+        end if
+      end if
+
+    end subroutine
+
+    !###########################################################################
+
+    !---------------------------------------------------------------------------
+    !> @brief  Write AlphaMate chromosome to a file or standard output
+    !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date   July 14, 2017
+    !> @return Output to a file or standard output
+    !---------------------------------------------------------------------------
+    subroutine WriteAlphaMateChrom(This, File) ! not pure due to IO
+      implicit none
+      class(AlphaMateChrom), intent(in)      :: This !< AlphaMateChrom holder
+      character(len=*), intent(in), optional :: File !< File (if missing use standard output)
+
+      integer(int32) :: Unit, Param
+      if (present(File)) then
+        open(newunit=Unit, file=File, action="write", status="unknown")
+      else
+        Unit = STDOUT
+      end if
+
+      write(Unit, "(a)") " "
+      write(Unit, "(a)") " ContPar1:"
+      do Param = 1, size(This%ContPar1)
+        write(Unit, "(i0, f)") Param, This%ContPar1(Param)
+      end do
+
+      write(Unit, "(a)") " "
+      write(Unit, "(a)") " ContPar2:"
+      if (allocated(This%ContPar2)) then
+        do Param = 1, size(This%ContPar2)
+          write(Unit, "(i0, f)") Param, This%ContPar2(Param)
+        end do
+      else
+        write(Unit, "(a)") " not allocated"
+      end if
+
+      write(Unit, "(a)") " "
+      write(Unit, "(a)") " MateRank:"
+      if (allocated(This%MateRank)) then
+        do Param = 1, size(This%MateRank)
+          write(Unit, "(i0, f)") Param, This%MateRank(Param)
+        end do
+      else
+        write(Unit, "(a)") " not allocated"
+      end if
+
+      write(Unit, "(a)") " "
+      write(Unit, "(a)") " EditPar1:"
+      if (allocated(This%EditPar1)) then
+        do Param = 1, size(This%EditPar1)
+          write(Unit, "(i0, f)") Param, This%EditPar1(Param)
+        end do
+      else
+        write(Unit, "(a)") " not allocated"
+      end if
+
+      write(Unit, "(a)") " "
+      write(Unit, "(a)") " EditPar2:"
+      if (allocated(This%EditPar2)) then
+        do Param = 1, size(This%EditPar2)
+          write(Unit, "(i0, f)") Param, This%EditPar2(Param)
+        end do
+      else
+        write(Unit, "(a)") " not allocated"
+      end if
+
+      if (present(File)) then
+        close(Unit)
+      end if
+    end subroutine
+
+    !###########################################################################
+
+    !---------------------------------------------------------------------------
     !> @brief  AlphaMate evaluate function plus much MORE (this is the core!!!!)
     !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date   March 16, 2017
@@ -4117,6 +4271,8 @@ module AlphaMateModule
 
       real(real64) :: TmpR, RanNum, Diff, MaxDiff
       real(real64), allocatable :: TmpVec(:, :)
+
+      type(AlphaMateChrom) :: ChromT
 
       select type (Spec)
         class default
@@ -4153,15 +4309,6 @@ module AlphaMateModule
               ! - edit male 2
               ! - do not edit any of the females
               !
-              ! @todo consider spliting the Chrom() vector internally into a type with
-              !   separate vectors to simplify the code, e.g.,
-              !   - Chrom2%ContPar1
-              !   - Chrom2%ContPar2
-              !   - Chrom2%MateRank
-              !   - Chrom2%EditPar1
-              !   - Chrom2%EditPar2
-              !   and then at the end combine it back en exit - since we modify/fix some
-              !   elements of a solution, we need to combine before exit!
 
               ! --- Parse the mate selection driver (=Is the solution valid?) ---
 
