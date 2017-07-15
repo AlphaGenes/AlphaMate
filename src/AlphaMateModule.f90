@@ -5131,12 +5131,24 @@ module AlphaMateModule
 
         ! Initialise
         ! @todo initialise with SDP solutions?
-        ! ... approximate minimum coancestry solution
-        InitChrom(1:Data%nPotPar, 1) = AvgCoancestryStd
+        ! ... approximate minimum coancestry solution with equal contributions
+          InitChrom(1:Data%nPotPar, 1) = 0.0d0
+          InitChrom(                 RapKnr(AvgCoancestryStd(1:Data%nPotPar1),                  Spec%nPar1),  1) = dble(Spec%nMat) / Spec%nPar1
+        if (Spec%GenderGiven) then
+          InitChrom((Data%nPotPar1 + RapKnr(AvgCoancestryStd((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), 1) = dble(Spec%nMat) / Spec%nPar2
+        end if
         ! ... another one
-        InitChrom(1:Data%nPotPar, 2) = AvgCoancestryStd
+          InitChrom(1:Data%nPotPar, 2) = 0.0d0
+          InitChrom(                 RapKnr(AvgCoancestryStd(1:Data%nPotPar1),                  Spec%nPar1),  2) = dble(Spec%nMat) / Spec%nPar1
+        if (Spec%GenderGiven) then
+          InitChrom((Data%nPotPar1 + RapKnr(AvgCoancestryStd((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), 2) = dble(Spec%nMat) / Spec%nPar2
+        end if
+        ! ... approximate minimum coancestry solution - in a different way
+        InitChrom(1:Data%nPotPar, 3) = AvgCoancestryStd
+        ! ... another one
+        InitChrom(1:Data%nPotPar, 4) = AvgCoancestryStd
         ! ... noiser solutions
-        do iSol = 3, Spec%EvolAlgNSol
+        do iSol = 5, Spec%EvolAlgNSol
           call random_number(RanNum)
           if (RanNum .lt. 0.75) then
             ! Multiply by standardized average coancestry to boost less related individuals
@@ -5191,12 +5203,24 @@ module AlphaMateModule
 
         ! Initialise
         ! @todo initialise with SDP solutions?
-        ! ... approximate minimum coancestry solution
-        InitChrom(1:Data%nPotPar, 1) = AvgCoancestryStd
+        ! ... approximate minimum coancestry solution with equal contributions
+          InitChrom(1:Data%nPotPar, 1) = 0.0d0
+          InitChrom(                 RapKnr(AvgCoancestryStd(1:Data%nPotPar1),                  Spec%nPar1),  1) = dble(Spec%nMat) / Spec%nPar1
+        if (Spec%GenderGiven) then
+          InitChrom((Data%nPotPar1 + RapKnr(AvgCoancestryStd((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), 1) = dble(Spec%nMat) / Spec%nPar2
+        end if
         ! ... another one
-        InitChrom(1:Data%nPotPar, 2) = AvgCoancestryStd
+          InitChrom(1:Data%nPotPar, 2) = 0.0d0
+          InitChrom(                 RapKnr(AvgCoancestryStd(1:Data%nPotPar1),                  Spec%nPar1),  2) = dble(Spec%nMat) / Spec%nPar1
+        if (Spec%GenderGiven) then
+          InitChrom((Data%nPotPar1 + RapKnr(AvgCoancestryStd((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), 2) = dble(Spec%nMat) / Spec%nPar2
+        end if
+        ! ... approximate minimum coancestry solution - in a different way
+        InitChrom(1:Data%nPotPar, 3) = AvgCoancestryStd
+        ! ... another one
+        InitChrom(1:Data%nPotPar, 4) = AvgCoancestryStd
         ! ... noiser solutions
-        do iSol = 3, Spec%EvolAlgNSol
+        do iSol = 5, Spec%EvolAlgNSol
           call random_number(RanNum)
           if (RanNum .lt. 0.75) then
             ! Multiply by standardized average coancestry to boost less related individuals
@@ -5275,6 +5299,7 @@ module AlphaMateModule
         end if
         ! ... approximate truncation selection solution
         InitChrom(1:Data%nPotPar, 3) = SelIntensity
+        ! ... another one
         InitChrom(1:Data%nPotPar, 4) = SelIntensity
         ! ... noiser solutions
         do iSol = 5, Spec%EvolAlgNSol
@@ -5370,9 +5395,13 @@ module AlphaMateModule
           end if
           ! ... approximate truncation selection solution
           InitChrom(1:Data%nPotPar, 2) = SelIntensity
+          ! ... approximate minimum coancestry solution with equal contributions
+            InitChrom(1:Data%nPotPar, 3) = 0.0d0
+            InitChrom(                 RapKnr(AvgCoancestryStd(1:Data%nPotPar1),                  Spec%nPar1),  3) = dble(Spec%nMat) / Spec%nPar1
+          if (Spec%GenderGiven) then
+            InitChrom((Data%nPotPar1 + RapKnr(AvgCoancestryStd((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), 3) = dble(Spec%nMat) / Spec%nPar2
+          end if
           ! ... approximate minimum coancestry solution
-          InitChrom(1:Data%nPotPar, 3) = AvgCoancestryStd
-          ! ... another one
           InitChrom(1:Data%nPotPar, 4) = AvgCoancestryStd
           ! ... noiser solutions
           Tmp = (100.0 - 100.0/90.0 * TARGETDEGREEFRONTIER(Point)) / 100.0
@@ -5548,9 +5577,13 @@ module AlphaMateModule
           end if
           ! ... approximate truncation selection solution
           InitChrom(1:Data%nPotPar, 2) = SelIntensity
+          ! ... approximate minimum coancestry solution with equal contributions
+            InitChrom(1:Data%nPotPar, 3) = 0.0d0
+            InitChrom(                 RapKnr(AvgCoancestryStd(1:Data%nPotPar1),                  Spec%nPar1),  3) = dble(Spec%nMat) / Spec%nPar1
+          if (Spec%GenderGiven) then
+            InitChrom((Data%nPotPar1 + RapKnr(AvgCoancestryStd((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), 3) = dble(Spec%nMat) / Spec%nPar2
+          end if
           ! ... approximate minimum coancestry solution
-          InitChrom(1:Data%nPotPar, 3) = AvgCoancestryStd
-          ! ... another one
           InitChrom(1:Data%nPotPar, 4) = AvgCoancestryStd
           ! ... noiser solutions
           if (Spec%ModeSpec%ObjectiveCriterion .and. Spec%ModeSpec%ObjectiveCoancestry) then
