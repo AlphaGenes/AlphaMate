@@ -5238,12 +5238,14 @@ module AlphaMateModule
 
         ! Initialise
         ! ... exact truncation selection solution with equal contributions
-          InitChrom(RapKnr(SelIntensity(1:Data%nPotPar1),                  Spec%nPar1), 1) = dble(Spec%nMat) / Spec%nPar1
+          InitChrom(1:Data%nPotPar, 1) = 0.0d0
+          InitChrom(                 RapKnr(SelIntensity(1:Data%nPotPar1),                  Spec%nPar1),  1) = dble(Spec%nMat) / Spec%nPar1
         if (Spec%GenderGiven) then
           InitChrom((Data%nPotPar1 + RapKnr(SelIntensity((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), 1) = dble(Spec%nMat) / Spec%nPar2
         end if
         ! ... another one
-          InitChrom(RapKnr(SelIntensity(1:Data%nPotPar1),                  Spec%nPar1), 2) = dble(Spec%nMat) / Spec%nPar1
+          InitChrom(1:Data%nPotPar, 2) = 0.0d0
+          InitChrom(                 RapKnr(SelIntensity(1:Data%nPotPar1),                  Spec%nPar1),  2) = dble(Spec%nMat) / Spec%nPar1
         if (Spec%GenderGiven) then
           InitChrom((Data%nPotPar1 + RapKnr(SelIntensity((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), 2) = dble(Spec%nMat) / Spec%nPar2
         end if
@@ -5282,8 +5284,8 @@ module AlphaMateModule
 
         ! Search
         if (trim(Spec%EvolAlg) .eq. "DE") then
-          call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, &
-            nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint, &
+          call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, Init=InitChrom, &
+            nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint, &
             LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
             CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate1=Spec%DiffEvolParamCr1, CRLate2=Spec%DiffEvolParamCr2, &
             FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
@@ -5358,9 +5360,10 @@ module AlphaMateModule
           ! @todo initialise with SDP solutions?
           ! @todo initialise with solutions from previous target (at least some solutions)?
           ! ... exact truncation selection solution with equal contributions
-            InitChrom(RapKnr(SelIntensity(1:Data%nPotPar1),                  Spec%nPar1), 1) = dble(Spec%nMat) / Spec%nPar1
+            InitChrom(1:Data%nPotPar, 1) = 0.0d0
+            InitChrom(                 RapKnr(SelIntensity(1:Data%nPotPar1),                  Spec%nPar1),  1) = dble(Spec%nMat) / Spec%nPar1
           if (Spec%GenderGiven) then
-            InitChrom(RapKnr(SelIntensity((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2), 1) = dble(Spec%nMat) / Spec%nPar2
+            InitChrom((Data%nPotPar1 + RapKnr(SelIntensity((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), 1) = dble(Spec%nMat) / Spec%nPar2
           end if
           ! ... approximate truncation selection solution
           InitChrom(1:Data%nPotPar, 2) = SelIntensity
@@ -5398,8 +5401,8 @@ module AlphaMateModule
 
           ! Search
           if (trim(Spec%EvolAlg) .eq. "DE") then
-            call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, &
-              nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint, &
+            call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, Init=InitChrom, &
+              nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint, &
               LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
               CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate1=Spec%DiffEvolParamCr1, CRLate2=Spec%DiffEvolParamCr2, &
               FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
@@ -5535,9 +5538,10 @@ module AlphaMateModule
           ! Initialise
           ! @todo initialise with SDP solutions?
           ! ... exact truncation selection solution with equal contributions
-            InitChrom(RapKnr(SelIntensity(1:Data%nPotPar1),                  Spec%nPar1), 1) = dble(Spec%nMat) / Spec%nPar1
+            InitChrom(1:Data%nPotPar, 1) = 0.0d0
+            InitChrom(                 RapKnr(SelIntensity(1:Data%nPotPar1),                  Spec%nPar1),  1) = dble(Spec%nMat) / Spec%nPar1
           if (Spec%GenderGiven) then
-            InitChrom(RapKnr(SelIntensity((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2), 1) = dble(Spec%nMat) / Spec%nPar2
+            InitChrom((Data%nPotPar1 + RapKnr(SelIntensity((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), 1) = dble(Spec%nMat) / Spec%nPar2
           end if
           ! ... approximate truncation selection solution
           InitChrom(1:Data%nPotPar, 2) = SelIntensity
@@ -5579,8 +5583,8 @@ module AlphaMateModule
 
           ! Search
           if (trim(Spec%EvolAlg) .eq. "DE") then
-            call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, &
-              nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint, &
+            call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, Init=InitChrom, &
+              nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint, &
               LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
               CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate1=Spec%DiffEvolParamCr1, CRLate2=Spec%DiffEvolParamCr2, &
               FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
