@@ -80,8 +80,6 @@
 
 * Enable several inbreeding targets to simplify exploring the Pareto frontier?
 
-* Cut precision in Frontier and Optimisation log files??? Or make it as an option?
-
 * Colnames and formats in AlphaMateSpec instead of AlphaMateSol? We have lots of AlphaMateSol objects, so
   would save some little space and also intialise and assign methods do not carry this data over. would
   have to pass Spec to Log methods in AlphaEvolve, which we do already for many methods anyhow.
@@ -109,8 +107,6 @@
 
 --- ALGORITHMIC CONSIDERATIONS ---
 
-* Good/sensible starting point for optimisation?
-
 Pareto front calculations
 [1] Pareto, V., Manuale di Economia Politica, Societa Editrice Libraria, Milano, Italy, Translated into English by Schwier, A. S. 1971: Manual of Political Economy, Macmillan, New York, 1906.
 
@@ -135,12 +131,11 @@ Pareto front calculations
 
 * Single precision to cut down CPU. Single precision should be fine for what we are doing here.
 
-* Split components in the solution to simplify code and potentially speed it up?
-
 * Parallelisation via OpenMP
   Option A) parallelise differential evolution algorithm (parallel evaluation of solutions, is this needed?)
   Option B) parallelise multiple optimisation runs
     - of the same problem to avoid local minima? (and then run one more run with those initial values?)
+    - as above but with migration between the sub-populations?
     - of different optimisations run (initial modes, evaluate front !!! - NBI)
 
   - Some weblinks regarding parallel implementation
@@ -164,7 +159,7 @@ Pareto front calculations
 
   - Particle swarm optimisation (PSO)
     https://en.wikipedia.org/wiki/Particle_swarm_optimization
-    This algorithm can be made binary, discrete, or combinatorial:
+    This algorithm can be made binary, discrete, or combinatorial (the same holds for DE!):
       - Roy, R., Dehuri, S., & Cho, S. B. (2012). A Novel Particle Swarm Optimization Algorithm for Multi-Objective Combinatorial Optimization Problem. 'International Journal of Applied Metaheuristic Computing (IJAMC)', 2(4), 41-57
       - Kennedy, J. & Eberhart, R. C. (1997). A discrete binary version of the particle swarm algorithm, Conference on Systems, Man, and Cybernetics, Piscataway, NJ: IEEE Service Center, pp. 4104-4109
       - Clerc, M. (2004). Discrete Particle Swarm Optimization, illustrated by the Traveling Salesman Problem, New Optimization Techniques in Engineering, Springer, pp. 219-239
