@@ -21,7 +21,7 @@
 
 * Allow for previous usage
 * Continous generations with already generated progeny that are not yet selection
-  candidates (see Mark and Per's solution).
+  candidates (see Mark's and Per's solution, Brian presented smth in AAABG 2017).
 * Rates of coancestry and inbreeding could be computed via Perez-Enciso regression,
   which would allow for slight temporary deviations in each incremental step, but
   keep long-term rates as specified
@@ -80,10 +80,6 @@
 
 * Enable several inbreeding targets to simplify exploring the Pareto frontier?
 
-* Colnames and formats in AlphaMateSpec instead of AlphaMateSol? We have lots of AlphaMateSol objects, so
-  would save some little space and also intialise and assign methods do not carry this data over. would
-  have to pass Spec to Log methods in AlphaEvolve, which we do already for many methods anyhow.
-
 * Make use of a list of matings that should be avoid/excluded (due to selfing-incompatibility,
   hybrid necrosis, ...).
 
@@ -96,7 +92,7 @@
   - individual level
   - mating level
           Criterion%Cost      = sum(Criterion%GenomeEdit(:)) * PAGEPar1Cost
-    --> multiobjective optimisation
+    --> multiobjective optimisation (is cost objective or constraint?)
 
 * Input pedigree and/or genotype data to simplify creation of:
   - relationships

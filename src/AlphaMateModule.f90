@@ -161,9 +161,8 @@ module AlphaMateModule
   !> @brief AlphaMate specifications
   type, extends(AlphaEvolveSpec) :: AlphaMateSpec
     ! Inputs
-    character(len=FILELENGTH) :: SpecFile, RelMtxFile, SelCriterionFile, GenderFile, SeedFile
-    character(len=FILELENGTH) :: GenericIndCritFile, GenericMatCritFile
-    character(len=FILELENGTH) :: OutputBasename
+    character(len=FILELENGTH) :: SpecFile, RelMtxFile, SelCriterionFile, GenderFile, SeedFile, &
+                                 GenericIndCritFile, GenericMatCritFile, OutputBasename
     logical :: RelMtxGiven, NrmInsteadOfCoancestry, SelCriterionGiven, GenderGiven, SeedFileGiven, GenericIndCritGiven, GenericMatCritGiven, SeedGiven
     integer(int32) :: Seed
     integer(int32) :: nGenericIndCrit, nGenericMatCrit
@@ -175,13 +174,13 @@ module AlphaMateModule
     real(real64), allocatable :: AllTargetValues(:)
 
     ! Targets
-    logical :: TargetDegreeGiven
-    logical :: TargetSelCriterionGiven, TargetSelIntensityGiven, TargetMaxCriterionPctGiven
-    logical :: TargetCoancestryGiven, TargetCoancestryRateGiven, TargetMinCoancestryPctGiven
-    logical :: TargetInbreedingGiven, TargetInbreedingRateGiven, TargetMinInbreedingPctGiven
-    real(real64), allocatable :: TargetDegree(:)
-    real(real64), allocatable :: TargetSelCriterion(:), TargetSelIntensity(:), TargetMaxCriterionPct(:)
-    real(real64), allocatable :: TargetCoancestry(:), TargetCoancestryRate(:), TargetMinCoancestryPct(:)
+    logical :: TargetDegreeGiven,                                                             &
+               TargetSelCriterionGiven, TargetSelIntensityGiven, TargetMaxCriterionPctGiven,  &
+               TargetCoancestryGiven, TargetCoancestryRateGiven, TargetMinCoancestryPctGiven, &
+               TargetInbreedingGiven, TargetInbreedingRateGiven, TargetMinInbreedingPctGiven
+    real(real64), allocatable :: TargetDegree(:),                                                        &
+                                 TargetSelCriterion(:), TargetSelIntensity(:), TargetMaxCriterionPct(:), &
+                                 TargetCoancestry(:), TargetCoancestryRate(:), TargetMinCoancestryPct(:)
     real(real64) :: TargetInbreeding, TargetInbreedingRate, TargetMinInbreedingPct
     real(real64) :: CoancestryWeight, InbreedingWeight, SelfingWeight
     logical :: CoancestryWeightBelow, InbreedingWeightBelow
@@ -189,11 +188,18 @@ module AlphaMateModule
 
     ! Biological specifications
     integer(int32) :: nInd, nMat, nPar, nPar1, nPar2 ! NOTE: nInd is here just for OO-flexibility (do not use it; the main one is in Data!!!)
-    logical :: MateAllocation, RandomMateAllocation, SelfingAllowed, EqualizePar, EqualizePar1, EqualizePar2, LimitPar, LimitPar1, LimitPar2
-    real(real64) :: LimitParMin, LimitPar1Min, LimitPar2Min, LimitParMax, LimitPar1Max, LimitPar2Max, LimitParMinWeight, LimitPar1MinWeight, LimitPar2MinWeight
+    logical :: MateAllocation, RandomMateAllocation,    &
+               SelfingAllowed,                          &
+               EqualizePar, EqualizePar1, EqualizePar2, &
+               LimitPar, LimitPar1, LimitPar2,          &
+               PreselectPar, PreselectPar1, PreselectPar2
+    real(real64) :: LimitParMin,       LimitPar1Min,       LimitPar2Min, &
+                    LimitParMax,       LimitPar1Max,       LimitPar2Max, &
+                    LimitParMinWeight, LimitPar1MinWeight, LimitPar2MinWeight, &
+                    PreselectParPct,   PreselectPar1Pct,   PreselectPar2Pct
     logical :: PAGEPar, PAGEPar1, PAGEPar2
-    integer(int32) :: PAGEParMax, PAGEPar1Max, PAGEPar2Max
-    ! real(real64) :: PAGEParCost, PAGEPar1Cost, PAGEPar2Cost
+    integer(int32) :: PreselectParN,   PreselectPar1N,     PreselectPar2N, &
+                      PAGEParMax,      PAGEPar1Max,        PAGEPar2Max
 
     ! Algorithm specifications
     ! ... generic evolutionary parameters
@@ -203,8 +209,8 @@ module AlphaMateModule
     character(len=SPECOPTIONLENGTH) :: EvolAlg
     ! ... differential evolution
     integer(int32) :: DiffEvolNIterBurnIn
-    real(real64) :: DiffEvolParamCrBurnIn, DiffEvolParamCr1, DiffEvolParamCr2
-    real(real64) :: DiffEvolParamFBase, DiffEvolParamFHigh1, DiffEvolParamFHigh2
+    real(real64) :: DiffEvolParamCrBurnIn, DiffEvolParamCr1, DiffEvolParamCr2, &
+                    DiffEvolParamFBase, DiffEvolParamFHigh1, DiffEvolParamFHigh2
     ! ... random search
     integer(int32) :: RanAlgStricter
 
@@ -213,20 +219,19 @@ module AlphaMateModule
     type(AlphaMateModeSpec) :: ModeSpec, ModeMinCoancestrySpec, ModeMinInbreedingSpec, ModeMaxCriterionSpec, ModeRanSpec, ModeOptSpec
 
     ! Column headers and formats for logging
-    character(len=CHARLENGTH)      :: FmtLogStdoutHead
-    character(len=CHARLENGTH)      :: FmtLogStdout
+    character(len=CHARLENGTH)      :: FmtLogStdoutHead,        &
+                                      FmtLogStdout,            &
+                                      FmtLogUnitHead,          &
+                                      FmtLogUnit,              &
+                                      FmtLogPopUnit,           &
+                                      FmtContributionHead,     &
+                                      FmtContributionHeadEdit, &
+                                      FmtContribution,         &
+                                      FmtContributionEdit,     &
+                                      FmtMatingHead,           &
+                                      FmtMating
     character(len=11), allocatable :: ColnameLogStdout(:)
-    character(len=CHARLENGTH)      :: FmtLogUnitHead
-    character(len=CHARLENGTH)      :: FmtLogUnit
-    character(len=17), allocatable :: ColnameLogUnit(:)
-    character(len=CHARLENGTH)      :: FmtLogPopUnit
-    character(len=17), allocatable :: ColnameLogPopUnit(:)
-    character(len=CHARLENGTH)      :: FmtContributionHead     ! = "(6a15)"
-    character(len=CHARLENGTH)      :: FmtContributionHeadEdit ! = "(8a15)"
-    character(len=CHARLENGTH)      :: FmtContribution         ! = "(a??, 4x, i11, 3(4x, f11.5), 4x, i11)"
-    character(len=CHARLENGTH)      :: FmtContributionEdit     != "(a??, 4x, i11, 3(4x, f11.5), 2(4x, i11), 4x, f11.5)"
-    character(len=CHARLENGTH)      :: FmtMatingHead           != "(a15, 2a??)"
-    character(len=CHARLENGTH)      :: FmtMating               != "(i15, 1x, 2a??)"
+    character(len=17), allocatable :: ColnameLogUnit(:), ColnameLogPopUnit(:)
 
     contains
       procedure :: Initialise => InitialiseAlphaMateSpec
@@ -242,10 +247,11 @@ module AlphaMateModule
   type, extends(AlphaEvolveData) :: AlphaMateData
     ! Raw data
     type(RelMat) :: Coancestry
-    real(real64), allocatable :: SelCriterion(:), SelIntensity(:), SelCriterionPAGE(:), SelIntensityPAGE(:)
-    real(real64), allocatable :: AvgCoancestry(:)
+    real(real64), allocatable :: SelCriterion(:),     SelIntensity(:),     &
+                                 SelCriterionPAGE(:), SelIntensityPAGE(:), &
+                                 AvgCoancestry(:),                         &
+                                 GenericIndCrit(:, :), GenericMatCrit(:, :, :)
     integer(int32), allocatable :: Gender(:)
-    real(real64), allocatable :: GenericIndCrit(:, :), GenericMatCrit(:, :, :)
     ! Data summaries
     type(DescStatReal64) :: InbreedingStat, SelCriterionStat, SelIntensityStat, SelCriterionPAGEStat
     type(DescStatReal64), allocatable :: GenericIndCritStat(:)
@@ -254,8 +260,8 @@ module AlphaMateModule
     ! Derived data
     integer(int32) :: nInd, nPotMat, nPotPar1, nPotPar2, nPotPar, nMal, nFem
     integer(int32), allocatable :: IdPotPar1(:), IdPotPar2(:), IdPotParSeq(:)
-    real(real64) :: CoancestryRanMate, CoancestryRanMateNoSelf, CoancestryGenderMate
-    real(real64) :: Inbreeding
+    real(real64) :: CoancestryRanMate, CoancestryRanMateNoSelf, CoancestryGenderMate, &
+                    Inbreeding
     contains
       procedure :: Read  => ReadAlphaMateData
       procedure :: Write => WriteAlphaMateData
@@ -541,15 +547,22 @@ module AlphaMateModule
       This%LimitPar1MinWeight = -1000.0d0
       This%LimitPar2MinWeight = -1000.0d0
 
+      This%PreselectPar      = .false.
+      This%PreselectPar1     = .false.
+      This%PreselectPar2     = .false.
+      This%PreselectParPct   = 100.0d0
+      This%PreselectPar1Pct  = 100.0d0
+      This%PreselectPar2Pct  = 100.0d0
+      This%PreselectParN     = 0
+      This%PreselectPar1N    = 0
+      This%PreselectPar2N    = 0
+
       This%PAGEPar  = .false.
       This%PAGEPar1 = .false.
       This%PAGEPar2 = .false.
       This%PAGEParMax  = 0
       This%PAGEPar1Max = 0
       This%PAGEPar2Max = 0
-      ! This%PAGEParCost  = 0.0d0
-      ! This%PAGEPar1Cost = 0.0d0
-      ! This%PAGEPar2Cost = 0.0d0
 
       ! Search algorithm specifications
 
@@ -726,65 +739,72 @@ module AlphaMateModule
 
       ! Biological specifications
 
-      write(Unit, *) "nInd: ",  This%nInd
-      write(Unit, *) "nMat: ",  This%nMat
-      write(Unit, *) "nPar: ",  This%nPar
+      write(Unit, *) "nInd:  ", This%nInd
+      write(Unit, *) "nMat:  ", This%nMat
+      write(Unit, *) "nPar:  ", This%nPar
       write(Unit, *) "nPar1: ", This%nPar1
       write(Unit, *) "nPar2: ", This%nPar2
 
-      write(Unit, *) "MateAllocation: ", This%MateAllocation
+      write(Unit, *) "MateAllocation:       ", This%MateAllocation
       write(Unit, *) "RandomMateAllocation: ", This%RandomMateAllocation
 
       write(Unit, *) "SelfingAllowed: ", This%SelfingAllowed
-      write(Unit, *) "SelfingWeight: ",  This%SelfingWeight
+      write(Unit, *) "SelfingWeight:  ", This%SelfingWeight
 
       write(Unit, *) "EqualizePar:  ", This%EqualizePar
       write(Unit, *) "EqualizePar1: ", This%EqualizePar1
       write(Unit, *) "EqualizePar2: ", This%EqualizePar2
 
-      write(Unit, *) "LimitPar:  ",          This%LimitPar
-      write(Unit, *) "LimitPar1: ",          This%LimitPar1
-      write(Unit, *) "LimitPar2: ",          This%LimitPar2
-      write(Unit, *) "LimitParMin: ",        This%LimitParMin
-      write(Unit, *) "LimitPar1Min: ",       This%LimitPar1Min
-      write(Unit, *) "LimitPar2Min: ",       This%LimitPar2Min
-      write(Unit, *) "LimitParMax: ",        This%LimitParMax
-      write(Unit, *) "LimitPar1Max: ",       This%LimitPar1Max
-      write(Unit, *) "LimitPar2Max: ",       This%LimitPar2Max
-      write(Unit, *) "LimitParMinWeight: ",  This%LimitParMinWeight
+      write(Unit, *) "LimitPar:           ", This%LimitPar
+      write(Unit, *) "LimitPar1:          ", This%LimitPar1
+      write(Unit, *) "LimitPar2:          ", This%LimitPar2
+      write(Unit, *) "LimitParMin:        ", This%LimitParMin
+      write(Unit, *) "LimitPar1Min:       ", This%LimitPar1Min
+      write(Unit, *) "LimitPar2Min:       ", This%LimitPar2Min
+      write(Unit, *) "LimitParMax:        ", This%LimitParMax
+      write(Unit, *) "LimitPar1Max:       ", This%LimitPar1Max
+      write(Unit, *) "LimitPar2Max:       ", This%LimitPar2Max
+      write(Unit, *) "LimitParMinWeight:  ", This%LimitParMinWeight
       write(Unit, *) "LimitPar1MinWeight: ", This%LimitPar1MinWeight
       write(Unit, *) "LimitPar2MinWeight: ", This%LimitPar2MinWeight
 
-      write(Unit, *) "PAGEPar: ",      This%PAGEPar
-      write(Unit, *) "PAGEPar1: ",     This%PAGEPar1
-      write(Unit, *) "PAGEPar2: ",     This%PAGEPar2
-      write(Unit, *) "PAGEParMax: ",   This%PAGEParMax
-      write(Unit, *) "PAGEPar1Max: ",  This%PAGEPar1Max
-      write(Unit, *) "PAGEPar2Max: ",  This%PAGEPar2Max
-      ! write(Unit, *) "PAGEParCost: ",  This%PAGEParCost
-      ! write(Unit, *) "PAGEPar1Cost: ", This%PAGEPar1Cost
-      ! write(Unit, *) "PAGEPar2Cost: ", This%PAGEPar2Cost
+      write(Unit, *) "PreselectPar:     ", This%PreselectPar
+      write(Unit, *) "PreselectPar1:    ", This%PreselectPar1
+      write(Unit, *) "PreselectPar2:    ", This%PreselectPar2
+      write(Unit, *) "PreselectParPct:  ", This%PreselectParPct
+      write(Unit, *) "PreselectPar1Pct: ", This%PreselectPar1Pct
+      write(Unit, *) "PreselectPar2Pct: ", This%PreselectPar2Pct
+      write(Unit, *) "PreselectParN:    ", This%PreselectParN
+      write(Unit, *) "PreselectPar1N:   ", This%PreselectPar1N
+      write(Unit, *) "PreselectPar2N:   ", This%PreselectPar2N
+
+      write(Unit, *) "PAGEPar:     ", This%PAGEPar
+      write(Unit, *) "PAGEPar1:    ", This%PAGEPar1
+      write(Unit, *) "PAGEPar2:    ", This%PAGEPar2
+      write(Unit, *) "PAGEParMax:  ", This%PAGEParMax
+      write(Unit, *) "PAGEPar1Max: ", This%PAGEPar1Max
+      write(Unit, *) "PAGEPar2Max: ", This%PAGEPar2Max
 
       ! Algorithm specifications
 
-      write(Unit, *) "EvolAlgNSol: ",              This%EvolAlgNSol
-      write(Unit, *) "EvolAlgNIter: ",             This%EvolAlgNIter
-      write(Unit, *) "EvolAlgNIterStop: ",         This%EvolAlgNIterStop
-      write(Unit, *) "EvolAlgNIterPrint: ",        This%EvolAlgNIterPrint
+      write(Unit, *) "EvolAlgNSol:              ", This%EvolAlgNSol
+      write(Unit, *) "EvolAlgNIter:             ", This%EvolAlgNIter
+      write(Unit, *) "EvolAlgNIterStop:         ", This%EvolAlgNIterStop
+      write(Unit, *) "EvolAlgNIterPrint:        ", This%EvolAlgNIterPrint
       write(Unit, *) "EvolAlgStopTolCoancestry: ", This%EvolAlgStopTolCoancestry
-      write(Unit, *) "EvolAlgStopTol: ",           This%EvolAlgStopTol
-      write(Unit, *) "EvolAlgLogPop: ",            This%EvolAlgLogPop
-      write(Unit, *) "EvolAlg: ",                  This%EvolAlg
+      write(Unit, *) "EvolAlgStopTol:           ", This%EvolAlgStopTol
+      write(Unit, *) "EvolAlgLogPop:            ", This%EvolAlgLogPop
+      write(Unit, *) "EvolAlg:                  ", This%EvolAlg
 
-      write(Unit, *) "DiffEvolNIterBurnIn: ",   This%DiffEvolNIterBurnIn
+      write(Unit, *) "DiffEvolNIterBurnIn:   ", This%DiffEvolNIterBurnIn
       write(Unit, *) "DiffEvolParamCrBurnIn: ", This%DiffEvolParamCrBurnIn
-      write(Unit, *) "DiffEvolParamCr1: ",      This%DiffEvolParamCr1
-      write(Unit, *) "DiffEvolParamCr2: ",      This%DiffEvolParamCr2
-      write(Unit, *) "DiffEvolParamFBase: ",    This%DiffEvolParamFBase
-      write(Unit, *) "DiffEvolParamFHigh1: ",   This%DiffEvolParamFHigh1
-      write(Unit, *) "DiffEvolParamFHigh2: ",   This%DiffEvolParamFHigh2
+      write(Unit, *) "DiffEvolParamCr1:      ", This%DiffEvolParamCr1
+      write(Unit, *) "DiffEvolParamCr2:      ", This%DiffEvolParamCr2
+      write(Unit, *) "DiffEvolParamFBase:    ", This%DiffEvolParamFBase
+      write(Unit, *) "DiffEvolParamFHigh1:   ", This%DiffEvolParamFHigh1
+      write(Unit, *) "DiffEvolParamFHigh2:   ", This%DiffEvolParamFHigh2
 
-      write(Unit, *) "RanAlgStricter: ",       This%RanAlgStricter
+      write(Unit, *) "RanAlgStricter: ", This%RanAlgStricter
 
       ! Data&Spec derived quantities
 
@@ -804,31 +824,31 @@ module AlphaMateModule
 
       ! Formats for logging
 
-      write(Unit, *) "FmtLogStdoutHead: ",        trim(This%FmtLogStdoutHead)
-      write(Unit, *) "FmtLogStdout: ",            trim(This%FmtLogStdout)
+      write(Unit, *) "FmtLogStdoutHead:        ", trim(This%FmtLogStdoutHead)
+      write(Unit, *) "FmtLogStdout:            ", trim(This%FmtLogStdout)
       if (allocated(This%ColnameLogStdout)) then
-        write(Unit, *) "ColnameLogStdout: ",        This%ColnameLogStdout
+        write(Unit, *) "ColnameLogStdout:        ", This%ColnameLogStdout
       else
         write(Unit, *) "ColnameLogStdout: not allocated"
       end if
-      write(Unit, *) "FmtLogUnitHead: ",          trim(This%FmtLogUnitHead)
+      write(Unit, *) "FmtLogUnitHead:            ", trim(This%FmtLogUnitHead)
       if (allocated(This%ColnameLogUnit)) then
-        write(Unit, *) "ColnameLogUnit: ",          This%ColnameLogUnit
+        write(Unit, *) "ColnameLogUnit:          ", This%ColnameLogUnit
       else
         write(Unit, *) "ColnameLogUnit: not allocated"
       end if
-      write(Unit, *) "FmtLogPopUnit: ",           trim(This%FmtLogPopUnit)
+      write(Unit, *) "FmtLogPopUnit:           ", trim(This%FmtLogPopUnit)
       if (allocated(This%ColnameLogPopUnit)) then
-        write(Unit, *) "ColnameLogPopUnit: ",       This%ColnameLogPopUnit
+        write(Unit, *) "ColnameLogPopUnit:       ", This%ColnameLogPopUnit
       else
         write(Unit, *) "ColnameLogPopUnit: not allocated"
       end if
-      write(Unit, *) "FmtContributionHead: ",     trim(This%FmtContributionHead)
+      write(Unit, *) "FmtContributionHead:     ", trim(This%FmtContributionHead)
       write(Unit, *) "FmtContributionHeadEdit: ", trim(This%FmtContributionHeadEdit)
-      write(Unit, *) "FmtContribution: ",         trim(This%FmtContribution)
-      write(Unit, *) "FmtContributionEdit: ",     trim(This%FmtContributionEdit)
-      write(Unit, *) "FmtMatingHead: ",           trim(This%FmtMatingHead)
-      write(Unit, *) "FmtMating: ",               trim(This%FmtMating)
+      write(Unit, *) "FmtContribution:         ", trim(This%FmtContribution)
+      write(Unit, *) "FmtContributionEdit:     ", trim(This%FmtContributionEdit)
+      write(Unit, *) "FmtMatingHead:           ", trim(This%FmtMatingHead)
+      write(Unit, *) "FmtMating:               ", trim(This%FmtMating)
 
       if (present(File)) then
         close(Unit)
@@ -1562,31 +1582,35 @@ module AlphaMateModule
               end if
 
             case ("randommateallocation")
-              if (allocated(Second)) then
-                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
-                  This%RandomMateAllocation = .true.
-                  if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Randomly allocate matings"
+              if (This%MateAllocation) then
+                if (allocated(Second)) then
+                  if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                    This%RandomMateAllocation = .true.
+                    if (LogStdoutInternal) then
+                      write(STDOUT, "(a)") " Randomly allocate matings"
+                    end if
                   end if
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify Yes or No for RandomMateAllocation, i.e., RandomMateAllocation, Yes"
+                  write(STDERR, "(a)") " "
+                  stop 1
                 end if
-              else
-                write(STDERR, "(a)") " ERROR: Must specify Yes or No for RandomMateAllocation, i.e., RandomMateAllocation, Yes"
-                write(STDERR, "(a)") " "
-                stop 1
               end if
 
             case ("allowselfing")
-              if (allocated(Second)) then
-                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
-                  This%SelfingAllowed = .true.
-                  if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Selfing allowed"
+              if (This%MateAllocation) then
+                if (allocated(Second)) then
+                  if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                    This%SelfingAllowed = .true.
+                    if (LogStdoutInternal) then
+                      write(STDOUT, "(a)") " Selfing allowed"
+                    end if
                   end if
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify Yes or No for AllowSelfing, i.e., AllowSelfing, Yes"
+                  write(STDERR, "(a)") " "
+                  stop 1
                 end if
-              else
-                write(STDERR, "(a)") " ERROR: Must specify Yes or No for AllowSelfing, i.e., AllowSelfing, Yes"
-                write(STDERR, "(a)") " "
-                stop 1
               end if
 
             case ("selfingweight")
@@ -1623,6 +1647,7 @@ module AlphaMateModule
             case ("equalizemalecontributions")
               if (allocated(Second)) then
                 if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                  This%EqualizePar  = .true.
                   This%EqualizePar1 = .true.
                   if (LogStdoutInternal) then
                     write(STDOUT, "(a)") " Equalize contributions of males"
@@ -1637,6 +1662,7 @@ module AlphaMateModule
             case ("equalizefemalecontributions")
               if (allocated(Second)) then
                 if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                  This%EqualizePar  = .true.
                   This%EqualizePar2 = .true.
                   if (LogStdoutInternal) then
                     write(STDOUT, "(a)") " Equalize contributions of females"
@@ -1710,6 +1736,7 @@ module AlphaMateModule
             case ("limitmalecontributions")
               if (allocated(Second)) then
                 if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                  This%LimitPar  = .true.
                   This%LimitPar1 = .true.
                   if (LogStdoutInternal) then
                     write(STDOUT, "(a)") " Limit contributions of males"
@@ -1813,13 +1840,114 @@ module AlphaMateModule
                 if (allocated(Second)) then
                   This%LimitPar2MinWeight = Char2Double(trim(adjustl(Second(1))))
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Limit contributions of females - weight for contributions below minimum:: "//trim(Real2Char(This%LimitPar2MinWeight, fmt=FMTREAL2CHAR))
+                    write(STDOUT, "(a)") " Limit contributions of females - weight for contributions below minimum: "//trim(Real2Char(This%LimitPar2MinWeight, fmt=FMTREAL2CHAR))
                   end if
                   if (This%LimitPar2MinWeight .gt. 0.0d0) then
                     write(STDOUT, "(a)") " NOTE: Positive weight for limit on minimum contributions, i.e., encourage smaller contributions than defined minimum. Was this intended?"
                   end if
                 else
                   write(STDERR, "(a)") " ERROR: Must specify a value for LimitFemaleContributionsMinWeight, i.e., LimitFemaleContributionsMinWeight, -1000"
+                  write(STDERR, "(a)") " "
+                  stop 1
+                end if
+              end if
+
+            case ("preselect")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                  This%PreselectPar = .true.
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Preselect"
+                  end if
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for Preselect, i.e., Preselect, Yes"
+                write(STDERR, "(a)") " "
+                stop 1
+              end if
+
+            case ("preselectpercentage")
+              if (This%PreselectPar) then
+                if (allocated(Second)) then
+                  This%PreselectParPct = Char2Double(trim(adjustl(Second(1))))
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Preselect percentage: "//trim(Real2Char(This%PreselectParPct, fmt=FMTREAL2CHAR))
+                  end if
+                  if (This%PreselectParPct .lt. 0.0d0 .or. This%PreselectParPct .gt. 100.d0) then
+                    write(STDERR, "(a)") " ERROR: The percentage value must be between 0 and 100"
+                    write(STDERR, "(a)") " "
+                    stop 1
+                  end if
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify a number for PreselectPercentage, i.e., PreselectPercentage, 10"
+                  write(STDERR, "(a)") " "
+                  stop 1
+                end if
+              end if
+
+            case ("preselectmales")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                  This%PreselectPar  = .true.
+                  This%PreselectPar1 = .true.
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Preselect males"
+                  end if
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for PreselectMales, i.e., PreselectMales, Yes"
+                write(STDERR, "(a)") " "
+                stop 1
+              end if
+
+            case ("preselectmalespercentage")
+              if (This%PreselectPar1) then
+                if (allocated(Second)) then
+                  This%PreselectPar1Pct = Char2Double(trim(adjustl(Second(1))))
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Preselect males percentage: "//trim(Real2Char(This%PreselectPar1Pct, fmt=FMTREAL2CHAR))
+                  end if
+                  if (This%PreselectPar1Pct .lt. 0.0d0 .or. This%PreselectPar1Pct .gt. 100.d0) then
+                    write(STDERR, "(a)") " ERROR: The percentage value must be between 0 and 100"
+                    write(STDERR, "(a)") " "
+                    stop 1
+                  end if
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify a number for PreselectMalesPercentage, i.e., PreselectMalesPercentage, 10"
+                  write(STDERR, "(a)") " "
+                  stop 1
+                end if
+              end if
+
+            case ("preselectfemales")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                  This%PreselectPar  = .true.
+                  This%PreselectPar2 = .true.
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Preselect females"
+                  end if
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for PreselectFemales, i.e., PreselectFemales, Yes"
+                write(STDERR, "(a)") " "
+                stop 1
+              end if
+
+            case ("preselectfemalespercentage")
+              if (This%PreselectPar2) then
+                if (allocated(Second)) then
+                  This%PreselectPar2Pct = Char2Double(trim(adjustl(Second(1))))
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Preselect females percentage: "//trim(Real2Char(This%PreselectPar2Pct, fmt=FMTREAL2CHAR))
+                  end if
+                  if (This%PreselectPar2Pct .lt. 0.0d0 .or. This%PreselectPar2Pct .gt. 100.d0) then
+                    write(STDERR, "(a)") " ERROR: The percentage value must be between 0 and 100"
+                    write(STDERR, "(a)") " "
+                    stop 1
+                  end if
+                else
+                  write(STDERR, "(a)") " ERROR: Must specify a number for PreselectFemalesPercentage, i.e., PreselectFemalesPercentage, 10"
                   write(STDERR, "(a)") " "
                   stop 1
                 end if
@@ -1853,20 +1981,6 @@ module AlphaMateModule
                 end if
               end if
 
-            ! case ("pagecost")
-            !   if (This%PAGEPar) then
-            !     if (allocated(Second)) then
-            !       This%PAGEParCost = Char2Double(trim(adjustl(Second(1))))
-            !       if (LogStdoutInternal) then
-            !         write(STDOUT, "(a)") " Promotion of Alleles by Genome Editing (PAGE) - cost: "//trim(Real2Char(This%PAGEParCost, fmt=FMTREAL2CHAR))
-            !       end if
-            !     else
-            !       write(STDERR, "(a)") " ERROR: Must specify a value for PAGECost, i.e., PAGECost, Value"
-            !       write(STDERR, "(a)") " "
-            !       stop 1
-            !     end if
-            !   end if
-
             case ("pagemales")
               if (allocated(Second)) then
                 if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
@@ -1896,20 +2010,6 @@ module AlphaMateModule
                 end if
               end if
 
-            ! case ("pagemalescost")
-            !   if (This%PAGEPar1) then
-            !     if (allocated(Second)) then
-            !       This%PAGEPar1Cost = Char2Double(trim(adjustl(Second(1))))
-            !       if (LogStdoutInternal) then
-            !         write(STDOUT, "(a)") " Promotion of Alleles by Genome Editing (PAGE) in males - cost: "//trim(Real2Char(This%PAGEPar1Cost, fmt=FMTREAL2CHAR))
-            !       end if
-            !     else
-            !       write(STDERR, "(a)") " ERROR: Must specify a value for PAGEMalesCost, i.e., PAGEMalesCost, Value"
-            !       write(STDERR, "(a)") " "
-            !       stop 1
-            !     end if
-            !   end if
-
             case ("pagefemales")
               if (allocated(Second)) then
                 if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
@@ -1938,20 +2038,6 @@ module AlphaMateModule
                   stop 1
                 end if
               end if
-
-            ! case ("pagefemalescost")
-            !   if (This%PAGEPar2) then
-            !     if (allocated(Second)) then
-            !       This%PAGEPar2Cost = Char2Double(trim(adjustl(Second(1))))
-            !       if (LogStdoutInternal) then
-            !         write(STDOUT, "(a)") " Promotion of Alleles by Genome Editing (PAGE) in females - cost: "//trim(Real2Char(This%PAGEPar2Cost, fmt=FMTREAL2CHAR))
-            !       end if
-            !     else
-            !       write(STDERR, "(a)") " ERROR: Must specify a value for PAGEFemalesCost, i.e., PAGEFemalesCost, Value"
-            !       write(STDERR, "(a)") " "
-            !       stop 1
-            !     end if
-            !   end if
 
             ! Algorithm specifications
             case ("evolalgnumberofsolutions")
@@ -2252,10 +2338,10 @@ module AlphaMateModule
           write(STDOUT, "(a)") " "
         end if
         ! ... therefore reset all limit specifications to default values
-        This%LimitPar  = .false.
-        This%LimitParMin = 1.0d0
-        This%LimitParMax = huge(This%LimitParMax)  - 1.0d0
-        This%LimitParMinWeight  = -1000.0d0
+        This%LimitPar          = .false.
+        This%LimitParMin       = 1.0d0
+        This%LimitParMax       = huge(This%LimitParMax) - 1.0d0
+        This%LimitParMinWeight = -1000.0d0
       end if
 
       if (This%LimitPar1 .and. This%EqualizePar1) then
@@ -2264,9 +2350,9 @@ module AlphaMateModule
           write(STDOUT, "(a)") " "
         end if
         ! ... therefore reset all limit specifications to default values
-        This%LimitPar1 = .false.
-        This%LimitPar1Min = 1.0d0
-        This%LimitPar1Max = huge(This%LimitPar1Max) - 1.0d0
+        This%LimitPar1          = .false.
+        This%LimitPar1Min       = 1.0d0
+        This%LimitPar1Max       = huge(This%LimitPar1Max) - 1.0d0
         This%LimitPar1MinWeight = -1000.0d0
       end if
 
@@ -2276,16 +2362,26 @@ module AlphaMateModule
           write(STDOUT, "(a)") " "
         end if
         ! ... therefore reset all limit specifications to default values
-        This%LimitPar2 = .false.
-        This%LimitPar2Min = 1.0d0
-        This%LimitPar2Max = huge(This%LimitPar2Max) - 1.0d0
+        This%LimitPar2          = .false.
+        This%LimitPar2Min       = 1.0d0
+        This%LimitPar2Max       = huge(This%LimitPar2Max) - 1.0d0
         This%LimitPar2MinWeight = -1000.0d0
       end if
 
       if (.not. This%GenderGiven) then
-        This%EqualizePar1 = This%EqualizePar
-        This%LimitPar1 = This%LimitPar
-        This%PAGEPar1 = This%PAGEPar
+        This%EqualizePar1       = This%EqualizePar
+
+        This%LimitPar1          = This%LimitPar
+        This%LimitPar1Min       = This%LimitParMin
+        This%LimitPar1Max       = This%LimitParMax
+        This%LimitPar1MinWeight = This%LimitParMinWeight
+
+        This%PreselectPar1      = This%PreselectPar
+        This%PreselectPar1Pct   = This%PreselectParPct
+        This%PreselectPar1N     = This%PreselectParN
+
+        This%PAGEPar1           = This%PAGEPar
+        This%PAGEPar1Max        = This%PAGEParMax
       end if
 
       if ((.not. This%SelCriterionGiven) .and. This%PAGEPar) then
@@ -2304,9 +2400,9 @@ module AlphaMateModule
 
       if ((.not. This%MateAllocation .or. This%RandomMateAllocation) .and. &
           (This%TargetInbreedingGiven .or. This%TargetInbreedingRateGiven .or. This%TargetMinInbreedingPctGiven)) then
-        This%ModeMinInbreeding = .false.
-        This%TargetInbreedingGiven = .false.
-        This%TargetInbreedingRateGiven  = .false.
+        This%ModeMinInbreeding           = .false.
+        This%TargetInbreedingGiven       = .false.
+        This%TargetInbreedingRateGiven   = .false.
         This%TargetMinInbreedingPctGiven = .false.
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " NOTE: Inbreeding target is not active when mate allocation is inactive or random."
@@ -2995,6 +3091,11 @@ module AlphaMateModule
       if (.not. Spec%SelCriterionGiven) then
         This%SelCriterion = 0.0d0
         This%SelIntensity = 0.0d0
+        if (Spec%PreselectPar) then
+          write(STDERR, "(a)") " ERROR: Can not preselect when selection criterion information is not provided!"
+          write(STDERR, "(a)") " "
+          stop 1
+        end if
       else
         nIndTmp = CountLines(Spec%SelCriterionFile)
         if (LogStdoutInternal) then
@@ -3110,7 +3211,7 @@ module AlphaMateModule
         write(STDOUT, "(a)") " Number of females: "//trim(Int2Char(This%nFem))
 
         ! when number of parents is not provided all selection candidates form the parent pool,
-        !   albeit some/most will have zero contributions
+        !   albeit some will have zero contributions
         if (Spec%nPar1 .eq. 0) then
           Spec%nPar1 = This%nMal
         end if
@@ -3180,14 +3281,14 @@ module AlphaMateModule
         if (Spec%nPar1 .gt. This%nMal) then
           write(STDERR, "(a)") " ERROR: Number of male parents can not be larger than number of males"
           write(STDERR, "(a)") " ERROR: Number of male parents: "//trim(Int2Char(Spec%nPar1))
-          write(STDERR, "(a)") " ERROR: Number of        males: "//trim(Int2Char(This%nMal))
+          write(STDERR, "(a)") " ERROR: Number of males:        "//trim(Int2Char(This%nMal))
           write(STDERR, "(a)") " "
           stop 1
         end if
         if (Spec%nPar2 .gt. This%nFem) then
           write(STDERR, "(a)") " ERROR: Number of female parents can not be larger than number of females"
           write(STDERR, "(a)") " ERROR: Number of female parents: "//trim(Int2Char(Spec%nPar2))
-          write(STDERR, "(a)") " ERROR: Number of        females: "//trim(Int2Char(This%nFem))
+          write(STDERR, "(a)") " ERROR: Number of females:        "//trim(Int2Char(This%nFem))
           write(STDERR, "(a)") " "
           stop 1
         end if
@@ -3215,26 +3316,66 @@ module AlphaMateModule
         stop 1
       end if
 
+      if (Spec%PreselectPar) then
+        if (Spec%GenderGiven) then
+          Spec%PreselectPar1N = nint(Spec%PreselectPar1Pct / 100.0d0 * This%nMal)
+          if (Spec%PreselectPar1N .lt. Spec%nPar1) then
+            write(STDERR, "(a)") " ERROR: Can not preselect less males than there should be male parents!"
+            write(STDERR, "(a)") " ERROR: Number of males:        "//trim(Int2Char(This%nMal))
+            write(STDERR, "(a)") " ERROR: Number of male parents: "//trim(Int2Char(Spec%nPar1))
+            write(STDERR, "(a)") " ERROR: Preselect percentage:   "//trim(Int2Char(nint(Spec%PreselectPar1Pct)))
+            write(STDERR, "(a)") " ERROR: Preselect number:       "//trim(Int2Char(Spec%PreselectPar1N))
+            write(STDERR, "(a)") " "
+            stop 1
+          end if
+          Spec%PreselectPar2N = nint(Spec%PreselectPar2Pct / 100.0d0 * This%nFem)
+          if (Spec%PreselectPar2N .lt. Spec%nPar2) then
+            write(STDERR, "(a)") " ERROR: Can not preselect less females than there should be female parents!"
+            write(STDERR, "(a)") " ERROR: Number of females:        "//trim(Int2Char(This%nFem))
+            write(STDERR, "(a)") " ERROR: Number of female parents: "//trim(Int2Char(Spec%nPar2))
+            write(STDERR, "(a)") " ERROR: Preselect percentage:     "//trim(Int2Char(nint(Spec%PreselectPar2Pct)))
+            write(STDERR, "(a)") " ERROR: Preselect number:         "//trim(Int2Char(Spec%PreselectPar2N))
+            write(STDERR, "(a)") " "
+            stop 1
+          end if
+        else
+          Spec%PreselectParN = nint(Spec%PreselectParPct / 100.0d0 * This%nInd)
+          Spec%PreselectPar1N = Spec%PreselectParN
+          if (Spec%PreselectParN .lt. Spec%nPar) then
+            write(STDERR, "(a)") " ERROR: Can not preselect less individuals than there should be parents!"
+            write(STDERR, "(a)") " ERROR: Number of individuals: "//trim(Int2Char(This%nInd))
+            write(STDERR, "(a)") " ERROR: Number of parents:     "//trim(Int2Char(Spec%nPar))
+            write(STDERR, "(a)") " ERROR: Preselect percentage:  "//trim(Int2Char(nint(Spec%PreselectParPct)))
+            write(STDERR, "(a)") " ERROR: Preselect number:      "//trim(Int2Char(Spec%PreselectParN))
+            write(STDERR, "(a)") " "
+            stop 1
+          end if
+        end if
+      end if
+
       if (Spec%PAGEPar) then
         if (Spec%GenderGiven) then
           if (Spec%PAGEPar1Max .gt. Spec%nPar1) then
             write(STDERR, "(a)") " ERROR: Can not PAGE more males than there are male parents!"
-            write(STDERR, "(a)") " ERROR: Number of      male parents: "//trim(Int2Char(Spec%nPar1))
+            write(STDERR, "(a)") " ERROR: Number of male parents:      "//trim(Int2Char(Spec%nPar1))
             write(STDERR, "(a)") " ERROR: Max number of male for PAGE: "//trim(Int2Char(Spec%PAGEPar1Max))
             write(STDERR, "(a)") " "
+            stop 1
           end if
           if (Spec%PAGEPar2Max .gt. Spec%nPar2) then
             write(STDERR, "(a)") " ERROR: Can not PAGE more females than there are female parents!"
-            write(STDERR, "(a)") " ERROR: Number of      female parents: "//trim(Int2Char(Spec%nPar2))
+            write(STDERR, "(a)") " ERROR: Number of female parents:      "//trim(Int2Char(Spec%nPar2))
             write(STDERR, "(a)") " ERROR: Max number of female for PAGE: "//trim(Int2Char(Spec%PAGEPar2Max))
             write(STDERR, "(a)") " "
+            stop 1
           end if
         else
           if (Spec%PAGEParMax .gt. Spec%nPar) then
             write(STDERR, "(a)") " ERROR: Can not PAGE more individuals than there are parents!"
-            write(STDERR, "(a)") " ERROR: Number of                  parents: "//trim(Int2Char(Spec%nPar))
+            write(STDERR, "(a)") " ERROR: Number of parents:                  "//trim(Int2Char(Spec%nPar))
             write(STDERR, "(a)") " ERROR: Max number of individuals for PAGE: "//trim(Int2Char(Spec%PAGEParMax))
             write(STDERR, "(a)") " "
+            stop 1
           end if
         end if
       end if
@@ -4302,13 +4443,11 @@ module AlphaMateModule
               ! The approach below assures that we have Spec%nMat contributions for each of
               ! the two parent sets. It does this by ranking internal solution values and
               ! traverses from top to the defined number of parents checking when the sum of
-              ! interegrised values gives Spec%nMat. If values below 0.5 are found, they are
-              ! changed to 1 contribution to achieve nMat. If this still does not give Spec%nMat,
-              ! then we start adding contributions to each parent (starting at those contributing
-              ! the least and work up to those contributing most - to avoid local minima) until
-              ! we reach Spec%nMat. How to treat values for the individuals that do not contribute
+              ! interegrised values gives Spec%nMat. If this still does not give Spec%nMat,
+              ! then we start adding contributions to a random set of parent until Spec%nMat
+              ! is reached. How to treat values for the individuals that do not contribute
               ! is unlcear. None of the tested methods seemed to be very different. Intuitively,
-              ! using properly ordered negative values should inform optim. alg. which individuals
+              ! using ordered negative values should inform optimisation which individuals
               ! should less likely contribute, but this did not seem to be the case - better final
               ! solution was found when this strategy was not implemented - either zeroing
               ! values for those individuals was the fastest or giving random value was
@@ -4320,6 +4459,21 @@ module AlphaMateModule
                 g = 1
               else
                 g = 2
+              end if
+              ! ... preselect
+              if (Spec%PreselectPar1) then
+                ! if (Spec%ModeSpec%ObjectiveCoancestry) then
+                !   Rank(1:Spec%PreselectPar1N) = RapKnr(-Data%AvgCoancestry(Data%IdPotPar1), Spec%PreselectPar1N) ! preselect contributors
+                !   TmpVec(1:Spec%PreselectPar1N, 1) = SChrom%ContPar1(Rank(1:Spec%PreselectPar1N))                ! save contributors
+                !   SChrom%ContPar1 = 0.0d0                                                                        ! set everyones contributions to zero
+                !   SChrom%ContPar1(Rank(1:Spec%PreselectPar1N)) = TmpVec(1:Spec%PreselectPar1N, 1)                ! put contributors back
+                ! end if
+                if (Spec%ModeSpec%ObjectiveCriterion) then
+                  Rank(1:Spec%PreselectPar1N) = RapKnr( Data%SelIntensity(Data%IdPotPar1),  Spec%PreselectPar1N) ! preselect contributors
+                  TmpVec(1:Spec%PreselectPar1N, 1) = SChrom%ContPar1(Rank(1:Spec%PreselectPar1N))                ! save contributors
+                  SChrom%ContPar1 = 0.0d0                                                                        ! set everyones contributions to zero
+                  SChrom%ContPar1(Rank(1:Spec%PreselectPar1N)) = TmpVec(1:Spec%PreselectPar1N, 1)                ! put contributors back
+                end if
               end if
               ! ... ranks to find contributors
               if (.not. (Spec%EqualizePar1 .and. (Spec%nPar1 .eq. Data%nPotPar1))) then
@@ -4421,6 +4575,21 @@ module AlphaMateModule
 
               ! "Parent2"
               if (Spec%GenderGiven) then
+                ! ... preselect
+                if (Spec%PreselectPar2) then
+                  ! if (Spec%ModeSpec%ObjectiveCoancestry) then
+                  !   Rank(1:Spec%PreselectPar2N) = RapKnr(-Data%AvgCoancestry(Data%IdPotPar2), Spec%PreselectPar2N) ! preselect contributors
+                  !   TmpVec(1:Spec%PreselectPar2N, 1) = SChrom%ContPar2(Rank(1:Spec%PreselectPar2N))                ! save contributors
+                  !   SChrom%ContPar2 = 0.0d0                                                                        ! set everyones contributions to zero
+                  !   SChrom%ContPar2(Rank(1:Spec%PreselectPar2N)) = TmpVec(1:Spec%PreselectPar2N, 1)                ! put contributors back
+                  ! end if
+                  if (Spec%ModeSpec%ObjectiveCriterion) then
+                    Rank(1:Spec%PreselectPar2N) = RapKnr(Data%SelIntensity(Data%IdPotPar2),  Spec%PreselectPar2N)  ! preselect contributors
+                    TmpVec(1:Spec%PreselectPar2N, 1) = SChrom%ContPar2(Rank(1:Spec%PreselectPar2N))                ! save contributors
+                    SChrom%ContPar2 = 0.0d0                                                                        ! set everyones contributions to zero
+                    SChrom%ContPar2(Rank(1:Spec%PreselectPar2N)) = TmpVec(1:Spec%PreselectPar2N, 1)                ! put contributors back
+                  end if
+                end if
                 ! ... ranks to find contributors
                 if (.not. (Spec%EqualizePar2 .and. (Spec%nPar2 .eq. Data%nPotPar2))) then
                   Rank(1:Spec%nPar2) = RapKnr(SChrom%ContPar2, Spec%nPar2)
