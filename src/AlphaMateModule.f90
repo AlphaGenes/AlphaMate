@@ -4286,6 +4286,11 @@ module AlphaMateModule
                 end if
               end if
 
+              ! do k = 1, size(Chrom)
+              !   write(STDOUT, "(i3, f)") k, Chrom(k)
+              ! end do
+              ! call SChrom%Write
+
               ! Working vectors
               allocate(Rank(Data%nInd))         ! for ranking many things
               allocate(nVecPar1(Data%nPotPar1)) ! for nVec
@@ -4372,6 +4377,8 @@ module AlphaMateModule
                   end if
                 end do
 
+                ! call SChrom%Write
+
                 ! ... Spec%nMat still not reached?
                 do while (nCumMat .lt. Spec%nMat * g)
                   ! ... add more contributions to randomly chosen individuals
@@ -4400,12 +4407,14 @@ module AlphaMateModule
                 end do
               end if
 
+              ! call SChrom%Write
+
               ! Left here for debugging
               ! do i = 1, Data%nPotPar1
               !   if (nint(SChrom%ContPar1(i)) .gt. Spec%LimitPar1Max) then
               !     print*, "n", i, nint(SChrom%ContPar1(i)), SChrom%ContPar1(i)
-              !     print*, i, nint(SChrom%ContPar1(1:Data%nPotPar1))
-              !     print*, i, SChrom%ContPar1(1:Data%nPotPar1)
+              !     print*, i, nint(SChrom%ContPar1)
+              !     print*, i, SChrom%ContPar1
               !     stop
               !   end if
               ! end do
@@ -4468,6 +4477,8 @@ module AlphaMateModule
                     end if
                   end do
 
+                  ! call SChrom%Write
+
                   ! ... Spec%nMat still not reached?
                   do while (nCumMat .lt. Spec%nMat)
                     ! ... add more contributions to randomly chosen individuals
@@ -4497,12 +4508,14 @@ module AlphaMateModule
                 end if
               end if
 
+              ! call SChrom%Write
+
               ! --- Contributions (nVec) ---
 
               ! "Parent1"
               ! ... get integer values
               nVecPar1 = nint(SChrom%ContPar1)
-              ! ... map chromosome order to data order
+              ! ... map chromosome to data order
               if (.not. Spec%GenderGiven) then
                 This%nVec = nVecPar1
               else
@@ -4511,9 +4524,11 @@ module AlphaMateModule
 
               ! "Parent2"
               if (Spec%GenderGiven) then
-                ! ... get integer values and map chromosome order to data order
+                ! ... get integer values and map chromosome to data order
                 This%nVec(Data%IdPotPar2) = nint(SChrom%ContPar2)
               end if
+
+              ! call This%Write
 
               ! --- PAGE ---
 
@@ -4529,6 +4544,8 @@ module AlphaMateModule
                   end if
                 end if
               end if
+
+              ! call This%Write
 
               ! --- Mate allocation ---
 
@@ -4580,6 +4597,8 @@ module AlphaMateModule
                   MatPar2 = MatPar2(Rank(1:Spec%nMat))
                 end if
 
+                ! print*, MatPar2
+
                 ! Pair the contributions (=Mating plan)
                 k = Spec%nMat ! MrgRnk ranks small to large
                 ! We use nVecPar1 below instead of This%nVec because when .not. GenderGiven we modify nVecPar1 above, while can not modify This%nVec
@@ -4624,6 +4643,8 @@ module AlphaMateModule
                   end do
                 end if
               end if
+
+              ! call This%Write
 
               ! --- Selection criterion ---
 
@@ -4995,6 +5016,9 @@ module AlphaMateModule
                 end if
               end if
 
+              ! call SChrom%Write
+              ! call This%Write
+
           end select
       end select
     end subroutine
@@ -5260,27 +5284,6 @@ module AlphaMateModule
             InitChrom(1:Data%nPotPar, iSol) = InitChrom(1:Data%nPotPar, iSol) * SelIntensity
           end if
         end do
-
-! do Unit = 1, Spec%nInd
-!   write(STDOUT, "(i2,a10,i2,2f8.4)") Unit, Data%Coancestry%OriginalId(Unit), Data%Gender(Unit), Data%SelCriterion(Unit), Data%SelIntensity(Unit)
-! end do
-
-! print*,"Data%IdPotPar1",Data%IdPotPar1
-! print*,"Data%IdPotPar2",Data%IdPotPar2
-! print*,"Spec%nMat,Spec%nPar1,Spec%nPar2",Spec%nMat,Spec%nPar1,Spec%nPar2
-
-! print*,"SelIntensity(1:Data%nPotPar1)",SelIntensity(1:Data%nPotPar1)
-! print*,"RapKnr...",RapKnr(SelIntensity(1:Data%nPotPar1),                  Spec%nPar1)
-! print*,"SelIntensity((Data%nPotPar1 + 1):Data%nPotPar)",SelIntensity((Data%nPotPar1 + 1):Data%nPotPar)
-! print*,"RapKnr",RapKnr(SelIntensity((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)
-
-! do iSol = 1, Spec%EvolAlgNSol
-!   print*,iSol
-!   do Unit = 1, nParam
-!     print*,Unit, InitChrom(Unit,iSol)
-!   end do
-! end do
-! pause
 
         ! Search
         if (trim(Spec%EvolAlg) .eq. "DE") then
@@ -5718,12 +5721,21 @@ module AlphaMateModule
 
       ! Find contributors
       nCon = 0
-      do i = 1, Data%nInd
-        if (This%nVec(i) .gt. 0) then
+      do Ind = 1, Data%nInd
+        if (This%nVec(Ind) .gt. 0) then
           nCon = nCon + 1
         end if
       end do
-      Rank = RapKnr(This%nVec, nCon)
+
+      ! Rank them by number of contributions
+      Rank(1:nCon) = RapKnr(float(This%nVec), nCon) ! @todo float(This%nVec) due to RapKnr bug with integers
+      ! call This%Write
+      ! print*,This%nVec
+      ! print*,Rank(1:nCon)
+      ! print*,Rank
+      ! print*,This%nVec(Rank(1:nCon))
+
+      ! Write them out
       if (.not. allocated(This%GenomeEdit)) then
         !                                             12345678901234567890123456789012
         write(ContribUnit, Spec%FmtContributionHead) "                              Id", &
