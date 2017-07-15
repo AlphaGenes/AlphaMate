@@ -310,7 +310,6 @@ module AlphaMateModule
     real(real64), allocatable   :: EditPar2(:)
 
     contains
-      procedure :: Initialise   => InitialiseAlphaMateChrom
       procedure :: Write        => WriteAlphaMateChrom
   end type
 
@@ -4112,76 +4111,6 @@ module AlphaMateModule
     !###########################################################################
 
     !---------------------------------------------------------------------------
-    !> @brief  Initialise AlphaMate chromosome
-    !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
-    !> @date   July 14, 2017
-    !---------------------------------------------------------------------------
-    pure subroutine InitialiseAlphaMateChrom(This, Spec, Data, Chrom)
-      implicit none
-
-      ! Argument
-      class(AlphaMateChrom), intent(out) :: This !< @return AlphaMateChrom holder
-      type(AlphaMateSpec), intent(in)    :: Spec !< AlphaMateSpec holder
-      type(AlphaMateData), intent(in)    :: Data !< AlphaMateData holder
-      real(real64), intent(in), optional :: Chrom(:) !< A solution
-
-      integer(int32) :: Start, End
-
-      ! Initialise
-      allocate(This%ContPar1(Data%nPotPar1))
-      if (Spec%GenderGiven) then
-        allocate(This%ContPar2(Data%nPotPar2))
-      end if
-      if (Spec%MateAllocation) then
-        allocate(This%MateRank(Spec%nMat))
-      end if
-      if (Spec%PAGEPar) then
-        if (Spec%PAGEPar1) then
-          allocate(This%EditPar1(Data%nPotPar1))
-        end if
-        if (Spec%GenderGiven) then
-          if (Spec%PAGEPar2) then
-            allocate(This%EditPar2(Data%nPotPar2))
-          end if
-        end if
-      end if
-
-      ! Assign
-      if (present(Chrom)) then
-        Start = 1
-        End = Data%nPotPar1
-        This%ContPar1 = Chrom(Start:End)
-        if (Spec%GenderGiven) then
-          Start = End + 1
-          End = Start - 1 + Data%nPotPar2
-          This%ContPar2 = Chrom(Start:End)
-        end if
-        if (Spec%MateAllocation) then
-          Start = End + 1
-          End = Start - 1 + Spec%nMat
-          This%MateRank = Chrom(Start:End)
-        end if
-        if (Spec%PAGEPar) then
-          if (Spec%PAGEPar1) then
-            Start = End + 1
-            End = Start - 1 + Data%nPotPar1
-            This%EditPar1 = Chrom(Start:End)
-          end if
-          if (Spec%GenderGiven) then
-            if (Spec%PAGEPar2) then
-              Start = End + 1
-              End = Start - 1 + Data%nPotPar2
-              This%EditPar2 = Chrom(Start:End)
-            end if
-          end if
-        end if
-      end if
-
-    end subroutine
-
-    !###########################################################################
-
-    !---------------------------------------------------------------------------
     !> @brief  Write AlphaMate chromosome to a file or standard output
     !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date   July 14, 2017
@@ -4266,13 +4195,13 @@ module AlphaMateModule
       class(AlphaEvolveData), intent(in), optional :: Data     !< AlphaEvolveData --> AlphaMateData holder
 
       ! Other
-      integer(int32) :: i, j, k, l, g, nCumMat, TmpMin, TmpMax, TmpI
+      integer(int32) :: i, j, k, l, g, Start, End, nCumMat, TmpMin, TmpMax, TmpI
       integer(int32), allocatable :: Rank(:), MatPar2(:), nVecPar1(:)
 
       real(real64) :: TmpR, RanNum, Diff, MaxDiff
       real(real64), allocatable :: TmpVec(:, :)
 
-      type(AlphaMateChrom) :: ChromT
+      type(AlphaMateChrom) :: SChrom
 
       select type (Spec)
         class default
@@ -4283,15 +4212,13 @@ module AlphaMateModule
               error stop " ERROR: FixSolEtcMateAndEvaluate works only with argument Data being of type AlphaMateData!"
             class is (AlphaMateData)
 
+              ! --- Initialise ---
+
+              ! Solution
               call This%Initialise(Chrom=Chrom, Spec=Spec)
               This%Objective = 0.0d0
 
-              allocate(Rank(Data%nInd))         ! a working vector for ranking
-              allocate(nVecPar1(Data%nPotPar1)) ! a working vector for nVec
-              allocate(MatPar2(Spec%nMat))      ! a working vector for MatingPlan
-              allocate(TmpVec(Data%nInd, 1))    ! a working vector for many things
-
-              ! The solution (based on the mate selection driver) has:
+              ! A solution (based on the mate selection driver) has:
               ! - Data%nInd individual contributions
               !   - Data%nPotPar1 individual contributions for "parent1" (males   when GenderGiven, all ind when .not. GenderGiven)
               !   - Data%nPotPar2 individual contributions for "parent2" (females when GenderGiven, meaningful only when GenderGiven)
@@ -4308,7 +4235,62 @@ module AlphaMateModule
               !   - mate first  male 4 contribution with the second female 2 contribution
               ! - edit male 2
               ! - do not edit any of the females
-              !
+
+              ! Below we create a structured chromosome to simplify the evaluation code
+
+              ! Allocate
+              allocate(SChrom%ContPar1(Data%nPotPar1))
+              if (Spec%GenderGiven) then
+                allocate(SChrom%ContPar2(Data%nPotPar2))
+              end if
+              if (Spec%MateAllocation) then
+                allocate(SChrom%MateRank(Spec%nMat))
+              end if
+              if (Spec%PAGEPar) then
+                if (Spec%PAGEPar1) then
+                  allocate(SChrom%EditPar1(Data%nPotPar1))
+                end if
+                if (Spec%GenderGiven) then
+                  if (Spec%PAGEPar2) then
+                    allocate(SChrom%EditPar2(Data%nPotPar2))
+                  end if
+                end if
+              end if
+
+              ! Assign
+              Start = 1
+              End = Data%nPotPar1
+              SChrom%ContPar1 = Chrom(Start:End)
+              if (Spec%GenderGiven) then
+                Start = End + 1
+                End = Start - 1 + Data%nPotPar2
+                SChrom%ContPar2 = Chrom(Start:End)
+              end if
+              if (Spec%MateAllocation) then
+                Start = End + 1
+                End = Start - 1 + Spec%nMat
+                SChrom%MateRank = Chrom(Start:End)
+              end if
+              if (Spec%PAGEPar) then
+                if (Spec%PAGEPar1) then
+                  Start = End + 1
+                  End = Start - 1 + Data%nPotPar1
+                  SChrom%EditPar1 = Chrom(Start:End)
+                end if
+                if (Spec%GenderGiven) then
+                  if (Spec%PAGEPar2) then
+                    Start = End + 1
+                    End = Start - 1 + Data%nPotPar2
+                    SChrom%EditPar2 = Chrom(Start:End)
+                  end if
+                end if
+              end if
+
+              ! Working vectors
+              allocate(Rank(Data%nInd))         ! for ranking many things
+              allocate(nVecPar1(Data%nPotPar1)) ! for nVec
+              allocate(MatPar2(Spec%nMat))      ! for MatingPlan
+              allocate(TmpVec(Data%nInd, 1))    ! for many things
 
               ! --- Parse the mate selection driver (=Is the solution valid?) ---
 
@@ -4336,55 +4318,55 @@ module AlphaMateModule
               end if
               ! ... ranks to find contributors
               if (.not. (Spec%EqualizePar1 .and. (Spec%nPar1 .eq. Data%nPotPar1))) then
-                Rank(1:Spec%nPar1) = RapKnr(This%Chrom(1:Data%nPotPar1), Spec%nPar1)
+                Rank(1:Spec%nPar1) = RapKnr(SChrom%ContPar1, Spec%nPar1)
               end if
               if (Spec%EqualizePar1) then ! ... equal contributions
                 if (Spec%nPar1 .eq. Data%nPotPar1) then
-                  This%Chrom(1:Data%nPotPar1) = dble(Spec%nMat * g) / Spec%nPar1 ! no need for indexing here, hence the above if (.not. ...)
+                  SChrom%ContPar1 = dble(Spec%nMat * g) / Spec%nPar1 ! no need for indexing here, hence the above if (.not. ...)
                 else
-                  This%Chrom(1:Data%nPotPar1) = 0.0d0
-                  This%Chrom(Rank(1:Spec%nPar1)) = dble(Spec%nMat * g) / Spec%nPar1
+                  SChrom%ContPar1 = 0.0d0
+                  SChrom%ContPar1(Rank(1:Spec%nPar1)) = dble(Spec%nMat * g) / Spec%nPar1
                 end if
               else                        ! ... unequal contributions
-                TmpVec(1:Spec%nPar1, 1) = This%Chrom(Rank(1:Spec%nPar1)) ! save top contributions
-                This%Chrom(1:Data%nPotPar1) = 0.0d0                      ! set everyones contributions to zero
-                This%Chrom(Rank(1:Spec%nPar1)) = TmpVec(1:Spec%nPar1, 1) ! put top contributions back
+                TmpVec(1:Spec%nPar1, 1) = SChrom%ContPar1(Rank(1:Spec%nPar1)) ! save top contributions
+                SChrom%ContPar1 = 0.0d0                                       ! set everyones contributions to zero
+                SChrom%ContPar1(Rank(1:Spec%nPar1)) = TmpVec(1:Spec%nPar1, 1) ! put top contributions back
                 nCumMat = 0
                 do i = 1, Spec%nPar1
                   j = Rank(i)
                   ! .. cap minimum usage @todo could consider penalising solution instead?
-                  if (This%Chrom(j) .lt. Spec%LimitPar1Min) then
-                    This%Chrom(j) = Spec%LimitPar1Min
+                  if (SChrom%ContPar1(j) .lt. Spec%LimitPar1Min) then
+                    SChrom%ContPar1(j) = Spec%LimitPar1Min
                   end if
                   ! .. cap maximum usage @todo could consider penalising solution instead?
-                  if (This%Chrom(j) .gt. Spec%LimitPar1Max) then
-                    This%Chrom(j) = Spec%LimitPar1Max
+                  if (SChrom%ContPar1(j) .gt. Spec%LimitPar1Max) then
+                    SChrom%ContPar1(j) = Spec%LimitPar1Max
                   end if
                   ! ... accumulate
-                  nCumMat = nCumMat + nint(This%Chrom(j)) ! internally real, externally integer
+                  nCumMat = nCumMat + nint(SChrom%ContPar1(j)) ! internally real, externally integer
                   ! ... did we reach Spec%nMat
                   if (nCumMat .ge. Spec%nMat * g) then
                     ! ... there should be exactly Spec%nMat contributions
                     if (nCumMat .gt. Spec%nMat * g) then
-                      This%Chrom(j) = This%Chrom(j) - dble(nCumMat - Spec%nMat * g) ! internally real, externally integer
+                      SChrom%ContPar1(j) = SChrom%ContPar1(j) - dble(nCumMat - Spec%nMat * g) ! internally real, externally integer
                       ! ... did we go below the minimum usage limit?
-                      if (nint(This%Chrom(j)) .lt. Spec%LimitPar1Min) then
-                        TmpR = Spec%LimitPar1MinWeight * (Spec%LimitPar1Min - nint(This%Chrom(j))) ! internally real, externally integer
+                      if (nint(SChrom%ContPar1(j)) .lt. Spec%LimitPar1Min) then
+                        TmpR = Spec%LimitPar1MinWeight * (Spec%LimitPar1Min - nint(SChrom%ContPar1(j))) ! internally real, externally integer
                         This%Objective = This%Objective + TmpR
                         if (Spec%LimitPar1MinWeight .lt. 0.0d0) then
                           This%PenaltyLimitPar1 = This%PenaltyLimitPar1 + TmpR
                           This%Penalty          = This%Penalty          + TmpR
                         end if
                         ! ... make sure we do not have negative contributions
-                        if (This%Chrom(j) .lt. 0) then
-                          This%Chrom(j) = 0.0d0
+                        if (SChrom%ContPar1(j) .lt. 0) then
+                          SChrom%ContPar1(j) = 0.0d0
                         end if
                       end if
                       nCumMat = Spec%nMat * g
                     end if
                     ! ... remove contributions for the remaining contributors
                     do k = i + 1, Spec%nPar1
-                      This%Chrom(Rank(k)) = 0.0d0
+                      SChrom%ContPar1(Rank(k)) = 0.0d0
                     end do
                     exit
                   end if
@@ -4396,19 +4378,19 @@ module AlphaMateModule
                   call random_number(RanNum)
                   i = int(RanNum * Spec%nPar1) + 1
                   j = Rank(i)
-                  if (nint(This%Chrom(j) + 1.0d0) .le. Spec%LimitPar1Max) then ! make sure we do not go above max
-                    This%Chrom(j) = This%Chrom(j) + 1.0d0
+                  if (nint(SChrom%ContPar1(j) + 1.0d0) .le. Spec%LimitPar1Max) then ! make sure we do not go above max
+                    SChrom%ContPar1(j) = SChrom%ContPar1(j) + 1.0d0
                     ! ... accumulate
                     nCumMat = nCumMat + 1
                     ! ... did we reach Spec%nMat
                     if (nCumMat .ge. Spec%nMat * g) then
                       ! Internally real, externally integer
-                      TmpI = sum(nint(This%Chrom(Rank(1:Spec%nPar1))))
+                      TmpI = sum(nint(SChrom%ContPar1(Rank(1:Spec%nPar1))))
                       if (TmpI .ne. Spec%nMat * g) then
                         if (TmpI .gt. Spec%nMat * g) then
-                          This%Chrom(j) = dble(nint(This%Chrom(j)) - 1)
+                          SChrom%ContPar1(j) = dble(nint(SChrom%ContPar1(j)) - 1)
                         else
-                          This%Chrom(j) = dble(nint(This%Chrom(j)) + 1)
+                          SChrom%ContPar1(j) = dble(nint(SChrom%ContPar1(j)) + 1)
                         end if
                       end if
                       exit
@@ -4420,10 +4402,10 @@ module AlphaMateModule
 
               ! Left here for debugging
               ! do i = 1, Data%nPotPar1
-              !   if (nint(This%Chrom(i)) .gt. Spec%LimitPar1Max) then
-              !     print*, "n", i, nint(This%Chrom(i)), This%Chrom(i)
-              !     print*, i, nint(This%Chrom(1:Data%nPotPar1))
-              !     print*, i, This%Chrom(1:Data%nPotPar1)
+              !   if (nint(SChrom%ContPar1(i)) .gt. Spec%LimitPar1Max) then
+              !     print*, "n", i, nint(SChrom%ContPar1(i)), SChrom%ContPar1(i)
+              !     print*, i, nint(SChrom%ContPar1(1:Data%nPotPar1))
+              !     print*, i, SChrom%ContPar1(1:Data%nPotPar1)
               !     stop
               !   end if
               ! end do
@@ -4432,55 +4414,55 @@ module AlphaMateModule
               if (Spec%GenderGiven) then
                 ! ... ranks to find contributors
                 if (.not. (Spec%EqualizePar2 .and. (Spec%nPar2 .eq. Data%nPotPar2))) then
-                  Rank(1:Spec%nPar2) = RapKnr(This%Chrom((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)
+                  Rank(1:Spec%nPar2) = RapKnr(SChrom%ContPar2, Spec%nPar2)
                 end if
                 if (Spec%EqualizePar2) then ! ... equal contributions
                   if (Spec%nPar2 .eq. Data%nPotPar2) then
-                    This%Chrom((Data%nPotPar1 + 1):Data%nPotPar) = dble(Spec%nMat) / Spec%nPar2 ! no need for indexing here, hence the above if (.not. ...)
+                    SChrom%ContPar2 = dble(Spec%nMat) / Spec%nPar2 ! no need for indexing here, hence the above if (.not. ...)
                   else
-                    This%Chrom((Data%nPotPar1 + 1):Data%nPotPar) = 0.0d0
-                    This%Chrom(Data%nPotPar1 + Rank(1:Spec%nPar2)) = dble(Spec%nMat) / Spec%nPar2
+                    SChrom%ContPar2 = 0.0d0
+                    SChrom%ContPar2(Rank(1:Spec%nPar2)) = dble(Spec%nMat) / Spec%nPar2
                   end if
                 else                        ! ... unequal contributions
-                  TmpVec(1:Spec%nPar2, 1) = This%Chrom(Data%nPotPar1 + Rank(1:Spec%nPar2)) ! save top contributions
-                  This%Chrom((Data%nPotPar1 + 1):Data%nPotPar) = 0.0d0  ! set everyones contributions to zero
-                  This%Chrom(Data%nPotPar1 + Rank(1:Spec%nPar2)) = TmpVec(1:Spec%nPar2, 1) ! put top contributions back
+                  TmpVec(1:Spec%nPar2, 1) = SChrom%ContPar2(Rank(1:Spec%nPar2)) ! save top contributions
+                  SChrom%ContPar2 = 0.0d0                                       ! set everyones contributions to zero
+                  SChrom%ContPar2(Rank(1:Spec%nPar2)) = TmpVec(1:Spec%nPar2, 1) ! put top contributions back
                   nCumMat = 0
                   do i = 1, Spec%nPar2
-                    j = Data%nPotPar1 + Rank(i)
+                    j = Rank(i)
                     ! .. cap minimum usage @todo could consider penalising solution instead?
-                    if (This%Chrom(j) .lt. Spec%LimitPar2Min) then
-                      This%Chrom(j) = Spec%LimitPar2Min
+                    if (SChrom%ContPar2(j) .lt. Spec%LimitPar2Min) then
+                      SChrom%ContPar2(j) = Spec%LimitPar2Min
                     end if
                     ! .. cap maximum usage @todo could consider penalising solution instead?
-                    if (This%Chrom(j) .gt. Spec%LimitPar2Max) then
-                      This%Chrom(j) = Spec%LimitPar2Max
+                    if (SChrom%ContPar2(j) .gt. Spec%LimitPar2Max) then
+                      SChrom%ContPar2(j) = Spec%LimitPar2Max
                     end if
                     ! ... accumulate
-                    nCumMat = nCumMat + nint(This%Chrom(j)) ! internally real, externally integer
+                    nCumMat = nCumMat + nint(SChrom%ContPar2(j)) ! internally real, externally integer
                     ! ... did we reach Spec%nMat
                     if (nCumMat .ge. Spec%nMat) then
                       ! ... there should be exactly Spec%nMat contributions
                       if (nCumMat .gt. Spec%nMat) then
-                        This%Chrom(j) = This%Chrom(j) - dble(nCumMat - Spec%nMat)! internally real, externally integer
+                        SChrom%ContPar2(j) = SChrom%ContPar2(j) - dble(nCumMat - Spec%nMat)! internally real, externally integer
                         ! ... did we go below the minimum usage limit?
-                        if (nint(This%Chrom(j)) .lt. Spec%LimitPar2Min) then
-                          TmpR = Spec%LimitPar2MinWeight * (Spec%LimitPar2Min - nint(This%Chrom(j)))! internally real, externally integer
+                        if (nint(SChrom%ContPar2(j)) .lt. Spec%LimitPar2Min) then
+                          TmpR = Spec%LimitPar2MinWeight * (Spec%LimitPar2Min - nint(SChrom%ContPar2(j)))! internally real, externally integer
                           This%Objective = This%Objective + TmpR
                           if (Spec%LimitPar2MinWeight .lt. 0.0d0) then
                             This%PenaltyLimitPar2 = This%PenaltyLimitPar2 + TmpR
                             This%Penalty          = This%Penalty          + TmpR
                           end if
                           ! ... make sure we do not have negative contributions
-                          if (This%Chrom(j) .lt. 0) then
-                            This%Chrom(j) = 0.0d0
+                          if (SChrom%ContPar2(j) .lt. 0) then
+                            SChrom%ContPar2(j) = 0.0d0
                           end if
                         end if
                         nCumMat = Spec%nMat
                       end if
                       ! ... remove contributions for the remaining contributors
                       do k = i + 1, Spec%nPar2
-                        This%Chrom(Data%nPotPar1 + Rank(k)) = 0.0d0
+                        SChrom%ContPar2(Rank(k)) = 0.0d0
                       end do
                       exit
                     end if
@@ -4491,20 +4473,20 @@ module AlphaMateModule
                     ! ... add more contributions to randomly chosen individuals
                     call random_number(RanNum)
                     i = int(RanNum * Spec%nPar2) + 1
-                    j = Data%nPotPar1 + Rank(i)
-                    if (nint(This%Chrom(j) + 1.0d0) .le. Spec%LimitPar2Max) then ! make sure we do not go above max
-                      This%Chrom(j) = This%Chrom(j) + 1.0d0
+                    j = Rank(i)
+                    if (nint(SChrom%ContPar2(j) + 1.0d0) .le. Spec%LimitPar2Max) then ! make sure we do not go above max
+                      SChrom%ContPar2(j) = SChrom%ContPar2(j) + 1.0d0
                       ! ... accumulate
                       nCumMat = nCumMat + 1
                       ! ...did we reach Spec%nMat
                       if (nCumMat .eq. Spec%nMat) then
                         ! Internally real, externally integer
-                        TmpI = sum(nint(This%Chrom(Data%nPotPar1 + Rank(1:Spec%nPar2))))
+                        TmpI = sum(nint(SChrom%ContPar2(Rank(1:Spec%nPar2))))
                         if (TmpI .ne. Spec%nMat) then
                           if (TmpI .gt. Spec%nMat) then
-                            This%Chrom(j) = dble(nint(This%Chrom(j)) - 1)
+                            SChrom%ContPar2(j) = dble(nint(SChrom%ContPar2(j)) - 1)
                           else
-                            This%Chrom(j) = dble(nint(This%Chrom(j)) + 1)
+                            SChrom%ContPar2(j) = dble(nint(SChrom%ContPar2(j)) + 1)
                           end if
                         end if
                         exit
@@ -4519,7 +4501,7 @@ module AlphaMateModule
 
               ! "Parent1"
               ! ... get integer values
-              nVecPar1 = nint(This%Chrom(1:Data%nPotPar1))
+              nVecPar1 = nint(SChrom%ContPar1)
               ! ... map chromosome order to data order
               if (.not. Spec%GenderGiven) then
                 This%nVec = nVecPar1
@@ -4530,26 +4512,20 @@ module AlphaMateModule
               ! "Parent2"
               if (Spec%GenderGiven) then
                 ! ... get integer values and map chromosome order to data order
-                This%nVec(Data%IdPotPar2) = nint(This%Chrom((Data%nPotPar1 + 1):Data%nPotPar))
+                This%nVec(Data%IdPotPar2) = nint(SChrom%ContPar2)
               end if
 
               ! --- PAGE ---
 
               if (Spec%PAGEPar) then
                 if (.not. Spec%GenderGiven) then
-                  Rank(1:Spec%PAGEPar1Max) = RapKnr(This%Chrom((Data%nPotPar1 + Spec%nMat + 1):(Data%nPotPar1 + Spec%nMat + Data%nInd)), &
-                                                    Spec%PAGEPar1Max)
-                  This%GenomeEdit(Rank(1:Spec%PAGEPar1Max)) = 1.0d0
+                  This%GenomeEdit(RapKnr(SChrom%EditPar1, Spec%PAGEPar1Max)) = 1.0d0
                 else
                   if (Spec%PAGEPar1) then
-                    Rank(1:Spec%PAGEPar1Max) = RapKnr(This%Chrom((Data%nPotPar + Spec%nMat + 1):(Data%nPotPar + Spec%nMat + Data%nPotPar1)), &
-                                                      Spec%PAGEPar1Max)
-                    This%GenomeEdit(Data%IdPotPar1(Rank(1:Spec%PAGEPar1Max))) = 1.0d0
+                    This%GenomeEdit(Data%IdPotPar1(RapKnr(SChrom%EditPar1, Spec%PAGEPar1Max))) = 1.0d0
                   end if
                   if (Spec%PAGEPar2) then
-                    Rank(1:Spec%PAGEPar2Max) = RapKnr(This%Chrom((Data%nPotPar + Spec%nMat + Data%nPotPar1 + 1):(Data%nPotPar + Spec%nMat + Data%nPotPar)), &
-                                                      Spec%PAGEPar2Max)
-                    This%GenomeEdit(Data%IdPotPar2(Rank(1:Spec%PAGEPar2Max))) = 1.0d0
+                    This%GenomeEdit(Data%IdPotPar2(RapKnr(SChrom%EditPar2, Spec%PAGEPar2Max))) = 1.0d0
                   end if
                 end if
               end if
@@ -4570,7 +4546,7 @@ module AlphaMateModule
                   if (Spec%RandomMateAllocation) then
                     Rank(1:Spec%nMat) = RandomOrder(n=Spec%nMat)
                   else
-                    Rank(1:Spec%nMat) = MrgRnk(This%Chrom((Data%nPotPar + 1):(Data%nPotPar + Spec%nMat))) ! MrgRnk ranks small to large
+                    Rank(1:Spec%nMat) = MrgRnk(SChrom%MateRank) ! MrgRnk ranks small to large
                   end if
                   MatPar2 = MatPar2(Rank(1:Spec%nMat))
                 else
@@ -4599,7 +4575,7 @@ module AlphaMateModule
                   if (Spec%RandomMateAllocation) then
                     Rank(1:Spec%nMat) = RandomOrder(n=Spec%nMat)
                   else
-                    Rank(1:Spec%nMat) = MrgRnk(This%Chrom((Data%nPotPar1 + 1):(Data%nPotPar1 + Spec%nMat))) ! MrgRnk ranks small to large
+                    Rank(1:Spec%nMat) = MrgRnk(SChrom%MateRank) ! MrgRnk ranks small to large
                   end if
                   MatPar2 = MatPar2(Rank(1:Spec%nMat))
                 end if
@@ -4630,7 +4606,7 @@ module AlphaMateModule
                         do l = k, 1, -1
                           if (MatPar2(l) .ne. Data%IdPotPar1(i)) then
                             MatPar2([k, l]) = MatPar2([l, k])
-                            This%Chrom(Data%nPotPar1 + Rank([k, l])) = This%Chrom(Data%nPotPar1 + Rank([l, k]))
+                            SChrom%MateRank(Rank([k, l])) = SChrom%MateRank(Rank([l, k]))
                             exit
                           end if
                         end do
@@ -4988,6 +4964,37 @@ module AlphaMateModule
               end if
 
               ! @todo how should we handle costs?
+
+              ! --- Assign structured chromosome into solutions' chromosome vector ---
+
+              Start = 1
+              End = Data%nPotPar1
+              This%Chrom(Start:End) = SChrom%ContPar1
+              if (Spec%GenderGiven) then
+                Start = End + 1
+                End = Start - 1 + Data%nPotPar2
+                This%Chrom(Start:End) = SChrom%ContPar2
+              end if
+              if (Spec%MateAllocation) then
+                Start = End + 1
+                End = Start - 1 + Spec%nMat
+                This%Chrom(Start:End) = SChrom%MateRank
+              end if
+              if (Spec%PAGEPar) then
+                if (Spec%PAGEPar1) then
+                  Start = End + 1
+                  End = Start - 1 + Data%nPotPar1
+                  This%Chrom(Start:End) = SChrom%EditPar1
+                end if
+                if (Spec%GenderGiven) then
+                  if (Spec%PAGEPar2) then
+                    Start = End + 1
+                    End = Start - 1 + Data%nPotPar2
+                    This%Chrom(Start:End) = SChrom%EditPar2
+                  end if
+                end if
+              end if
+
           end select
       end select
     end subroutine
@@ -5036,14 +5043,23 @@ module AlphaMateModule
 
       ! --- Number of parameters to optimise ---
 
-      nParam = Data%nPotPar1 + Spec%nMat ! must keep Spec%nMat here even if we do not do MateAllocation,
-                                         ! because code, e.g., GenomeEdit, assumes certain Chrom "structure"
+      nParam = Data%nPotPar1
+
       if (Spec%GenderGiven) then
         nParam = nParam + Data%nPotPar2
       end if
 
+      if (Spec%MateAllocation) then
+        nParam = nParam + Spec%nMat
+      end if
+
       if (Spec%PAGEPar) then
-        nParam = nParam + Data%nInd
+        if (Spec%PAGEPar1) then
+          nParam = nParam + Data%nPotPar1
+        end if
+        if (Spec%PAGEPar2) then
+          nParam = nParam + Data%nPotPar2
+        end if
       end if
 
       allocate(InitChrom(nParam, Spec%EvolAlgNSol))
