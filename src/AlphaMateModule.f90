@@ -5258,7 +5258,7 @@ module AlphaMateModule
         if      (nParam .lt.  100) then
           Spec%EvolAlgNSol = 100
         else if (nParam .lt. 1000) then
-          Spec%EvolAlgNSol = maxval([ 100, 0.5 * nParam])
+          Spec%EvolAlgNSol = maxval([ 100, nint(0.5 * nParam)])
         else
           Spec%EvolAlgNSol = 500
         end if
