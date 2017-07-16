@@ -572,8 +572,7 @@ module AlphaMateModule
       ! Chen et al. (2014) Measuring the curse of dimensionality and its effects on particle swarm optimization
       ! and differential evolution https://link.springer.com/article/10.1007/s10489-014-0613-2; see also
       ! https://www.researchgate.net/post/What_is_the_optimal_recommended_population_size_for_differential_evolution2
-      ! @todo change this parameter depending on the number of candidates
-      This%EvolAlgNSol = 100
+      This%EvolAlgNSol = 0 ! this is set in AlphaMateSearch afer we know how many unknowns we have
 
       This%EvolAlgNIter = 100000
       This%EvolAlgNIterStop = 1000
@@ -591,14 +590,14 @@ module AlphaMateModule
       ! Montgomery and Chen (2010) An analysis of the operation of differential evolution at high and low
       ! crossover rates http://ieeexplore.ieee.org/document/5586128/
       This%DiffEvolParamCrBurnIn = 0.9d0 ! 0.4
-      This%DiffEvolParamCr1 = 0.1d0      ! 0.2
+      This%DiffEvolParamCr1 = 0.9d0      ! 0.2
       This%DiffEvolParamCr2 = 0.9d0      ! 0.2
 
       ! F should be [0 or 2/n, 1.2]
       ! Large values mean more exploration away from the base (a) vector. Should be large for large Cr.
       This%DiffEvolParamFBase  = 0.2d0   ! 0.1
-      This%DiffEvolParamFHigh1 = 1.0d0   ! 1.0
-      This%DiffEvolParamFHigh2 = 2.0d0   ! 4.0
+      This%DiffEvolParamFHigh1 = 0.2d0   ! 1.0
+      This%DiffEvolParamFHigh2 = 0.9d0   ! 4.0
 
       This%RanAlgStricter = 10
     end subroutine
@@ -5252,6 +5251,16 @@ module AlphaMateModule
         end if
         if (Spec%PAGEPar2) then
           nParam = nParam + Data%nPotPar2
+        end if
+      end if
+
+      if (Spec%EvolAlgNSol .eq. 0) then
+        if      (nParam .lt.  100) then
+          Spec%EvolAlgNSol = 100
+        else if (nParam .lt. 1000) then
+          Spec%EvolAlgNSol = maxval([ 100, 0.5 * nParam])
+        else
+          Spec%EvolAlgNSol = 500
         end if
       end if
 
