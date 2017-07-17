@@ -65,6 +65,7 @@ module AlphaMateModule
   use AlphaEvolveModule, only : AlphaEvolveSol, AlphaEvolveSpec, AlphaEvolveData, &
                                 DifferentialEvolution, RandomSearch
   use AlphaRelateModule
+  use Blas95, only : dot !, symv
 
   implicit none
 
@@ -4339,7 +4340,7 @@ module AlphaMateModule
       integer(int32), allocatable :: Rank(:), MatPar2(:), nVecPar1(:)
 
       real(real64) :: TmpR, RanNum, Diff, MaxDiff
-      real(real64), allocatable :: TmpVec(:, :)
+      real(real64), allocatable :: TmpVec(:)
 
       type(AlphaMateChrom) :: SChrom
 
@@ -4435,7 +4436,7 @@ module AlphaMateModule
               allocate(Rank(Data%nInd))         ! for ranking many things
               allocate(nVecPar1(Data%nPotPar1)) ! for nVec
               allocate(MatPar2(Spec%nMat))      ! for MatingPlan
-              allocate(TmpVec(Data%nInd, 1))    ! for many things
+              allocate(TmpVec(Data%nInd))       ! for many things
 
               ! --- Parse the mate selection driver (=Is the solution valid?) ---
 
@@ -4463,15 +4464,15 @@ module AlphaMateModule
               if (Spec%PreselectPar1) then
                 ! if (Spec%ModeSpec%ObjectiveCoancestry) then
                 !   Rank(1:Spec%PreselectPar1N) = RapKnr(-Data%AvgCoancestry(Data%IdPotPar1), Spec%PreselectPar1N) ! preselect contributors
-                !   TmpVec(1:Spec%PreselectPar1N, 1) = SChrom%ContPar1(Rank(1:Spec%PreselectPar1N))                ! save contributors
+                !   TmpVec(1:Spec%PreselectPar1N) = SChrom%ContPar1(Rank(1:Spec%PreselectPar1N))                   ! save contributors
                 !   SChrom%ContPar1 = 0.0d0                                                                        ! set everyones contributions to zero
-                !   SChrom%ContPar1(Rank(1:Spec%PreselectPar1N)) = TmpVec(1:Spec%PreselectPar1N, 1)                ! put contributors back
+                !   SChrom%ContPar1(Rank(1:Spec%PreselectPar1N)) = TmpVec(1:Spec%PreselectPar1N)                   ! put contributors back
                 ! end if
                 if (Spec%ModeSpec%ObjectiveCriterion) then
                   Rank(1:Spec%PreselectPar1N) = RapKnr( Data%SelIntensity(Data%IdPotPar1),  Spec%PreselectPar1N) ! preselect contributors
-                  TmpVec(1:Spec%PreselectPar1N, 1) = SChrom%ContPar1(Rank(1:Spec%PreselectPar1N))                ! save contributors
+                  TmpVec(1:Spec%PreselectPar1N) = SChrom%ContPar1(Rank(1:Spec%PreselectPar1N))                   ! save contributors
                   SChrom%ContPar1 = 0.0d0                                                                        ! set everyones contributions to zero
-                  SChrom%ContPar1(Rank(1:Spec%PreselectPar1N)) = TmpVec(1:Spec%PreselectPar1N, 1)                ! put contributors back
+                  SChrom%ContPar1(Rank(1:Spec%PreselectPar1N)) = TmpVec(1:Spec%PreselectPar1N)                   ! put contributors back
                 end if
               end if
               ! ... ranks to find contributors
@@ -4486,9 +4487,9 @@ module AlphaMateModule
                   SChrom%ContPar1(Rank(1:Spec%nPar1)) = dble(Spec%nMat * g) / Spec%nPar1
                 end if
               else                        ! ... unequal contributions
-                TmpVec(1:Spec%nPar1, 1) = SChrom%ContPar1(Rank(1:Spec%nPar1)) ! save top contributions
-                SChrom%ContPar1 = 0.0d0                                       ! set everyones contributions to zero
-                SChrom%ContPar1(Rank(1:Spec%nPar1)) = TmpVec(1:Spec%nPar1, 1) ! put top contributions back
+                TmpVec(1:Spec%nPar1) = SChrom%ContPar1(Rank(1:Spec%nPar1)) ! save top contributions
+                SChrom%ContPar1 = 0.0d0                                    ! set everyones contributions to zero
+                SChrom%ContPar1(Rank(1:Spec%nPar1)) = TmpVec(1:Spec%nPar1) ! put top contributions back
                 nCumMat = 0
                 do i = 1, Spec%nPar1
                   j = Rank(i)
@@ -4578,15 +4579,15 @@ module AlphaMateModule
                 if (Spec%PreselectPar2) then
                   ! if (Spec%ModeSpec%ObjectiveCoancestry) then
                   !   Rank(1:Spec%PreselectPar2N) = RapKnr(-Data%AvgCoancestry(Data%IdPotPar2), Spec%PreselectPar2N) ! preselect contributors
-                  !   TmpVec(1:Spec%PreselectPar2N, 1) = SChrom%ContPar2(Rank(1:Spec%PreselectPar2N))                ! save contributors
+                  !   TmpVec(1:Spec%PreselectPar2N) = SChrom%ContPar2(Rank(1:Spec%PreselectPar2N))                   ! save contributors
                   !   SChrom%ContPar2 = 0.0d0                                                                        ! set everyones contributions to zero
-                  !   SChrom%ContPar2(Rank(1:Spec%PreselectPar2N)) = TmpVec(1:Spec%PreselectPar2N, 1)                ! put contributors back
+                  !   SChrom%ContPar2(Rank(1:Spec%PreselectPar2N)) = TmpVec(1:Spec%PreselectPar2N)                   ! put contributors back
                   ! end if
                   if (Spec%ModeSpec%ObjectiveCriterion) then
                     Rank(1:Spec%PreselectPar2N) = RapKnr(Data%SelIntensity(Data%IdPotPar2),  Spec%PreselectPar2N)  ! preselect contributors
-                    TmpVec(1:Spec%PreselectPar2N, 1) = SChrom%ContPar2(Rank(1:Spec%PreselectPar2N))                ! save contributors
+                    TmpVec(1:Spec%PreselectPar2N) = SChrom%ContPar2(Rank(1:Spec%PreselectPar2N))                   ! save contributors
                     SChrom%ContPar2 = 0.0d0                                                                        ! set everyones contributions to zero
-                    SChrom%ContPar2(Rank(1:Spec%PreselectPar2N)) = TmpVec(1:Spec%PreselectPar2N, 1)                ! put contributors back
+                    SChrom%ContPar2(Rank(1:Spec%PreselectPar2N)) = TmpVec(1:Spec%PreselectPar2N)                   ! put contributors back
                   end if
                 end if
                 ! ... ranks to find contributors
@@ -4601,9 +4602,9 @@ module AlphaMateModule
                     SChrom%ContPar2(Rank(1:Spec%nPar2)) = dble(Spec%nMat) / Spec%nPar2
                   end if
                 else                        ! ... unequal contributions
-                  TmpVec(1:Spec%nPar2, 1) = SChrom%ContPar2(Rank(1:Spec%nPar2)) ! save top contributions
-                  SChrom%ContPar2 = 0.0d0                                       ! set everyones contributions to zero
-                  SChrom%ContPar2(Rank(1:Spec%nPar2)) = TmpVec(1:Spec%nPar2, 1) ! put top contributions back
+                  TmpVec(1:Spec%nPar2) = SChrom%ContPar2(Rank(1:Spec%nPar2)) ! save top contributions
+                  SChrom%ContPar2 = 0.0d0                                    ! set everyones contributions to zero
+                  SChrom%ContPar2(Rank(1:Spec%nPar2)) = TmpVec(1:Spec%nPar2) ! put top contributions back
                   nCumMat = 0
                   do i = 1, Spec%nPar2
                     j = Rank(i)
@@ -4876,20 +4877,24 @@ module AlphaMateModule
               !       select most performant individuals, but consider some limits
               !       on the amount of use etc without coancestry among them.
 
-              ! x'C
-              do i = 1, Data%nInd
-                TmpVec(i, 1) = dot_product(dble(This%nVec), Data%Coancestry%Value(1:, i))
-              end do
-              ! @todo consider using matmul instead of repeated dot_product?
-              ! @todo consider using BLAS/LAPACK - perhaps non-symmetric is more optimised?
-              ! Matrix multiplication with a symmetric matrix using BLAS routine
-              ! (it was ~5x slower than the above with 1.000 individuals, might be benefical with larger cases)
-              ! http://www.netlib.org/lapack/explore-html/d1/d54/group__double__blas__level3.html#ga253c8edb8b21d1b5b1783725c2a6b692
-              ! call dsymm(side="l", uplo="l", m=Data%nInd, n=1, alpha=1.0d0, A=CoaMtx, lda=Data%nInd, b=This%nVec, ldb=Data%nInd, beta=0, c=TmpVec, ldc=Data%nInd)
-              ! call dsymm(     "l",      "l",   Data%nInd,   1,       1.0d0,   CoaMtx,     Data%nInd,   This%nVec,     Data%nInd,      0,   TmpVec,     Data%nInd)
+              ! Group coancestry x'Cx
 
-              ! x'Cx
-              This%CoancestryRanMate = dot_product(TmpVec(:, 1), dble(This%nVec)) / (4 * Spec%nMat * Spec%nMat)
+              ! Via repeated use of dot(), https://software.intel.com/en-us/mkl-developer-reference-fortran-dot
+              ! ... w=x'C
+              do i = 1, Data%nInd
+                TmpVec(i) = dot(x=dble(This%nVec), y=Data%Coancestry%Value(1:, i))
+              end do
+              ! ... wx
+              This%CoancestryRanMate = dot(x=TmpVec, y=dble(This%nVec)) / (4 * Spec%nMat * Spec%nMat)
+
+              ! Via BLAS subroutine
+              ! This is slower than the above code on a test case with n=370 (34.81 sec vs. 130.36 sec).
+              ! On a large case (n=5120, but with different parameters than the small case) symv fails (44.20 sec. vs. FAIL).
+              ! ... w=Cx, symmetric matrix times a vector https://software.intel.com/en-us/mkl-developer-reference-fortran-symv
+              ! TmpVec = 0.0d0
+              ! call symv(A=Data%Coancestry%Value(1:, 1:), x=dble(This%nVec), y=TmpVec)
+              ! ... x'w
+              ! This%CoancestryRanMate = dot(x=dble(This%nVec), y=TmpVec) / (4 * Spec%nMat * Spec%nMat)
 
               ! Inlined Coancestry2CoancestryRate START
               Diff    = This%CoancestryRanMate - Data%CoancestryRanMate
@@ -5207,7 +5212,6 @@ module AlphaMateModule
       logical, intent(in), optional      :: LogStdout !< Log process on stdout (default .false.)
 
       type(AlphaMateSol) :: SolMinCoancestry, SolMinInbreeding, SolMaxCriterion, Sol !< For frontier modes and random mating (no optimisation) mode
-      type(AlphaMateSol), allocatable :: SolOpt(:) !< Optimal solutions
 
       integer(int32) :: nParam, Point, iSol, Target, Unit
 
