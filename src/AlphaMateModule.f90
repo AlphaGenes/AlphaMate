@@ -4340,8 +4340,7 @@ module AlphaMateModule
       integer(int32), allocatable :: Rank(:), MatPar2(:), nVecPar1(:)
 
       real(real64) :: TmpR, RanNum, Diff, MaxDiff
-      real(real64), allocatable :: TmpVec(:)
-      real(real64), allocatable :: tmpVec2(:,:)
+      real(real64), allocatable :: TmpVec(:) ! TmpVec2(:,:)
 
       type(AlphaMateChrom) :: SChrom
 
@@ -4882,22 +4881,21 @@ module AlphaMateModule
 
               ! Via repeated use of dot(), https://software.intel.com/en-us/mkl-developer-reference-fortran-dot
               ! ... w=x'C
-              ! do i = 1, Data%nInd
-              !   TmpVec(i) = dot(x=dble(This%nVec), y=Data%Coancestry%Value(1:, i))
-              ! end do
+              do i = 1, Data%nInd
+                TmpVec(i) = dot(x=dble(This%nVec), y=Data%Coancestry%Value(1:, i))
+              end do
               ! ... wx
-              ! This%CoancestryRanMate = dot(x=TmpVec, y=dble(This%nVec)) / (4 * Spec%nMat * Spec%nMat)
+              This%CoancestryRanMate = dot(x=TmpVec, y=dble(This%nVec)) / (4 * Spec%nMat * Spec%nMat)
 
               ! Via BLAS subroutine
-              ! This is slower than the above code on a test case with n=370 (34.81 sec vs. 130.36 sec).
-              ! On a large case (n=5120, but with different parameters than the small case) symv fails (44.20 sec. vs. FAIL).
+              ! This is slower than the above code on a test case with n=370 (~35 sec vs. ~130 sec).
+              ! On a large case (n=5120, but with different parameters than the small case) symv fails (~45 sec vs. 135 sec).
               ! ... w=Cx, symmetric matrix times a vector https://software.intel.com/en-us/mkl-developer-reference-fortran-symv
-              TmpVec = 0.0d0
-
-              tmpVec2 =Data%Coancestry%Value(1:, 1:)
-              call symv(A=tmpVec2, x=dble(This%nVec), y=TmpVec)
+              ! TmpVec = 0.0d0
+              ! TmpVec2 = Data%Coancestry%Value(1:, 1:) ! needed to avoid putting this largish matrix on the stack
+              ! call symv(A=TmpVec2, x=dble(This%nVec), y=TmpVec)
               ! ... x'w
-              This%CoancestryRanMate = dot(x=dble(This%nVec), y=TmpVec) / (4 * Spec%nMat * Spec%nMat)
+              ! This%CoancestryRanMate = dot(x=dble(This%nVec), y=TmpVec) / (4 * Spec%nMat * Spec%nMat)
 
               ! Inlined Coancestry2CoancestryRate START
               Diff    = This%CoancestryRanMate - Data%CoancestryRanMate
