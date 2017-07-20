@@ -2332,6 +2332,30 @@ module AlphaMateModule
 
       ! The nPar tests are in ReadAlphaMateData where we count number of individuals and males and females
 
+      if (This%LimitParMin .eq. This%LimitParMax) then
+        if (LogStdoutInternal) then
+          write(STDOUT, "(a)") " NOTE: Since LimitContributionsMin equals LimitContributionsMax, option EqualizeContributions is activated."
+          write(STDOUT, "(a)") " "
+        end if
+        This%EqualizePar = .true.
+      end if
+
+      if (This%LimitPar1Min .eq. This%LimitPar1Max) then
+        if (LogStdoutInternal) then
+          write(STDOUT, "(a)") " NOTE: Since LimitMaleContributionsMin equals LimitMaleContributionsMax, option EqualizeMaleContributions is activated."
+          write(STDOUT, "(a)") " "
+        end if
+        This%EqualizePar1 = .true.
+      end if
+
+      if (This%LimitPar2Min .eq. This%LimitPar2Max) then
+        if (LogStdoutInternal) then
+          write(STDOUT, "(a)") " NOTE: Since LimitFemaleContributionsMin equals LimitFemaleContributionsMax, option EqualizeFemaleContributions is activated."
+          write(STDOUT, "(a)") " "
+        end if
+        This%EqualizePar2 = .true.
+      end if
+
       if (This%LimitPar .and. This%EqualizePar) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " NOTE: The specification EqualizeContributions has priority over LimitContributions."
