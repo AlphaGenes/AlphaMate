@@ -3656,6 +3656,12 @@ module AlphaMateModule
         end if
       end if
 
+      if (This%CoancestryStat%OffDiag%Sd .eq. 0.0) then
+        write(STDERR, "(a)") " ERROR: There is no variation in coancestry between individuals!"
+        write(STDERR, "(a)") " "
+        stop 1
+      end if
+
       ! Save means to a file
       open(newunit=CoancestrySummaryUnit, file="CoancestrySummary.txt", status="unknown")
       write(CoancestrySummaryUnit, "(a, f)") "Current (random mating),                 ",   This%CoancestryRanMate
@@ -3773,14 +3779,21 @@ module AlphaMateModule
 
         allocate(This%GenericIndCritStat(Spec%nGenericIndCrit))
         do Crit = 1, Spec%nGenericIndCrit
-          write(STDOUT, "(a)") " "
-          write(STDOUT, "(a)") "  - criterion "//trim(Int2Char(Crit))
           This%GenericIndCritStat(Crit) = DescStat(This%GenericIndCrit(:, Crit))
-          write(STDOUT, "(a)") "    - n:       "//trim( Int2Char(This%GenericIndCritStat(Crit)%n,    fmt=FMTINT2CHAR))
-          write(STDOUT, "(a)") "    - average: "//trim(Real2Char(This%GenericIndCritStat(Crit)%Mean, fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(This%GenericIndCritStat(Crit)%Sd,   fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(This%GenericIndCritStat(Crit)%Min,  fmt=FMTREAL2CHAR))
-          write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(This%GenericIndCritStat(Crit)%Max,  fmt=FMTREAL2CHAR))
+          if (LogStdoutInternal) then
+            write(STDOUT, "(a)") " "
+            write(STDOUT, "(a)") "  - criterion "//trim(Int2Char(Crit))
+            write(STDOUT, "(a)") "    - n:       "//trim( Int2Char(This%GenericIndCritStat(Crit)%n,    fmt=FMTINT2CHAR))
+            write(STDOUT, "(a)") "    - average: "//trim(Real2Char(This%GenericIndCritStat(Crit)%Mean, fmt=FMTREAL2CHAR))
+            write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(This%GenericIndCritStat(Crit)%Sd,   fmt=FMTREAL2CHAR))
+            write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(This%GenericIndCritStat(Crit)%Min,  fmt=FMTREAL2CHAR))
+            write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(This%GenericIndCritStat(Crit)%Max,  fmt=FMTREAL2CHAR))
+          end if
+          if (This%GenericIndCritStat(Crit)%Sd .eq. 0.0) then
+            write(STDERR, "(a)") " ERROR: There is no variation in generic individual selection criterion "//trim(Int2Char(Crit))//"!"
+            write(STDERR, "(a)") " "
+            stop 1
+          end if
           write(GenericIndCritSummaryUnit, "(a, f)") "Mean criterion "//trim(Int2Char(Crit)), This%GenericIndCritStat(Crit)%Mean
         end do
 
@@ -3799,32 +3812,55 @@ module AlphaMateModule
 
         allocate(This%GenericMatCritStat(Spec%nGenericMatCrit))
         do Crit = 1, Spec%nGenericMatCrit
-          write(STDOUT, "(a)") " "
-          write(STDOUT, "(a)") "  - criterion "//trim(Int2Char(Crit))
+          if (LogStdoutInternal) then
+            write(STDOUT, "(a)") " "
+            write(STDOUT, "(a)") "  - criterion "//trim(Int2Char(Crit))
+          end if
           if (Spec%GenderGiven) then
             This%GenericMatCritStat(Crit) = DescStatMatrix(This%GenericMatCrit(:, :, Crit))
-            write(STDOUT, "(a)") "    - n:       "//trim( Int2Char(This%GenericMatCritStat(Crit)%All%n,    fmt=FMTINT2CHAR))
-            write(STDOUT, "(a)") "    - average: "//trim(Real2Char(This%GenericMatCritStat(Crit)%All%Mean, fmt=FMTREAL2CHAR))
-            write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(This%GenericMatCritStat(Crit)%All%Sd,   fmt=FMTREAL2CHAR))
-            write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(This%GenericMatCritStat(Crit)%All%Min,  fmt=FMTREAL2CHAR))
-            write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(This%GenericMatCritStat(Crit)%All%Max,  fmt=FMTREAL2CHAR))
-            write(GenericMatCritSummaryUnit, "(a, f)") "Mean criterion "//trim(Int2Char(Crit)), This%GenericMatCritStat(Crit)%All%Mean
-          else
-            if (Spec%SelfingAllowed) then
-              This%GenericMatCritStat(Crit) = DescStatLowTriMatrix(This%GenericMatCrit(:, :, Crit))
+            if (LogStdoutInternal) then
               write(STDOUT, "(a)") "    - n:       "//trim( Int2Char(This%GenericMatCritStat(Crit)%All%n,    fmt=FMTINT2CHAR))
               write(STDOUT, "(a)") "    - average: "//trim(Real2Char(This%GenericMatCritStat(Crit)%All%Mean, fmt=FMTREAL2CHAR))
               write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(This%GenericMatCritStat(Crit)%All%Sd,   fmt=FMTREAL2CHAR))
               write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(This%GenericMatCritStat(Crit)%All%Min,  fmt=FMTREAL2CHAR))
               write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(This%GenericMatCritStat(Crit)%All%Max,  fmt=FMTREAL2CHAR))
+            end if
+            if (This%GenericMatCritStat(Crit)%All%Sd .eq. 0.0) then
+              write(STDERR, "(a)") " ERROR: There is no variation in generic mating selection criterion "//trim(Int2Char(Crit))//"!"
+              write(STDERR, "(a)") " "
+              stop 1
+            end if
+            write(GenericMatCritSummaryUnit, "(a, f)") "Mean criterion "//trim(Int2Char(Crit)), This%GenericMatCritStat(Crit)%All%Mean
+          else
+            if (Spec%SelfingAllowed) then
+              This%GenericMatCritStat(Crit) = DescStatLowTriMatrix(This%GenericMatCrit(:, :, Crit))
+              if (LogStdoutInternal) then
+                write(STDOUT, "(a)") "    - n:       "//trim( Int2Char(This%GenericMatCritStat(Crit)%All%n,    fmt=FMTINT2CHAR))
+                write(STDOUT, "(a)") "    - average: "//trim(Real2Char(This%GenericMatCritStat(Crit)%All%Mean, fmt=FMTREAL2CHAR))
+                write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(This%GenericMatCritStat(Crit)%All%Sd,   fmt=FMTREAL2CHAR))
+                write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(This%GenericMatCritStat(Crit)%All%Min,  fmt=FMTREAL2CHAR))
+                write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(This%GenericMatCritStat(Crit)%All%Max,  fmt=FMTREAL2CHAR))
+              end if
+              if (This%GenericMatCritStat(Crit)%All%Sd .eq. 0.0) then
+                write(STDERR, "(a)") " ERROR: There is no variation in generic mating selection criterion "//trim(Int2Char(Crit))//"!"
+                write(STDERR, "(a)") " "
+                stop 1
+              end if
               write(GenericMatCritSummaryUnit, "(a, f)") "Mean criterion "//trim(Int2Char(Crit)), This%GenericMatCritStat(Crit)%All%Mean
             end if
               This%GenericMatCritStat(Crit) = DescStatLowTriMatrix(This%GenericMatCrit(:, :, Crit), Diag=.false.)
-              write(STDOUT, "(a)") "    - n:       "//trim( Int2Char(This%GenericMatCritStat(Crit)%OffDiag%n,    fmt=FMTINT2CHAR))
-              write(STDOUT, "(a)") "    - average: "//trim(Real2Char(This%GenericMatCritStat(Crit)%OffDiag%Mean, fmt=FMTREAL2CHAR))
-              write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(This%GenericMatCritStat(Crit)%OffDiag%Sd,   fmt=FMTREAL2CHAR))
-              write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(This%GenericMatCritStat(Crit)%OffDiag%Min,  fmt=FMTREAL2CHAR))
-              write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(This%GenericMatCritStat(Crit)%OffDiag%Max,  fmt=FMTREAL2CHAR))
+              if (LogStdoutInternal) then
+                write(STDOUT, "(a)") "    - n:       "//trim( Int2Char(This%GenericMatCritStat(Crit)%OffDiag%n,    fmt=FMTINT2CHAR))
+                write(STDOUT, "(a)") "    - average: "//trim(Real2Char(This%GenericMatCritStat(Crit)%OffDiag%Mean, fmt=FMTREAL2CHAR))
+                write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(This%GenericMatCritStat(Crit)%OffDiag%Sd,   fmt=FMTREAL2CHAR))
+                write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(This%GenericMatCritStat(Crit)%OffDiag%Min,  fmt=FMTREAL2CHAR))
+                write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(This%GenericMatCritStat(Crit)%OffDiag%Max,  fmt=FMTREAL2CHAR))
+              end if
+              if (This%GenericMatCritStat(Crit)%OffDiag%Sd .eq. 0.0) then
+                write(STDERR, "(a)") " ERROR: There is no variation in generic mating selection criterion "//trim(Int2Char(Crit))//"!"
+                write(STDERR, "(a)") " "
+                stop 1
+              end if
               write(GenericMatCritSummaryUnit, "(a, f)") "Mean criterion "//trim(Int2Char(Crit)), This%GenericMatCritStat(Crit)%OffDiag%Mean
           end if
         end do
