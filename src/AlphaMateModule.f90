@@ -4848,26 +4848,28 @@ module AlphaMateModule
                   ! and when selfing is not allowed we need to avoid it - slower code
                   do i = 1, Data%nPotPar1
                     do j = 1, nVecPar1(i)
-                      This%MatingPlan(1, k) = Data%IdPotPar1(i)
-                      if (MatPar2(k) .eq. Data%IdPotPar1(i)) then
-                        ! Try to avoid selfing by swapping the MatPar2 and Rank elements
-                        do l = k, 1, -1
-                          if (MatPar2(l) .ne. Data%IdPotPar1(i)) then
-                            MatPar2([k, l]) = MatPar2([l, k])
-                            SChrom%MateRank(Rank([k, l])) = SChrom%MateRank(Rank([l, k]))
-                            exit
-                          end if
-                        end do
-                        if (l .lt. 1) then ! Above loop ran out without finding a swap
-                          This%Objective = This%Objective + Spec%SelfingWeight
-                          if (Spec%SelfingWeight .lt. 0.0d0) then
-                            This%PenaltySelfing = This%PenaltySelfing + Spec%SelfingWeight
-                            This%Penalty        = This%Penalty        + Spec%SelfingWeight
+                      if (k .gt. 0) then
+                        This%MatingPlan(1, k) = Data%IdPotPar1(i)
+                        if (MatPar2(k) .eq. Data%IdPotPar1(i)) then
+                          ! Try to avoid selfing by swapping the MatPar2 and Rank elements
+                          do l = k, 1, -1
+                            if (MatPar2(l) .ne. Data%IdPotPar1(i)) then
+                              MatPar2([k, l]) = MatPar2([l, k])
+                              SChrom%MateRank(Rank([k, l])) = SChrom%MateRank(Rank([l, k]))
+                              exit
+                            end if
+                          end do
+                          if (l .lt. 1) then ! Above loop ran out without finding a swap
+                            This%Objective = This%Objective + Spec%SelfingWeight
+                            if (Spec%SelfingWeight .lt. 0.0d0) then
+                              This%PenaltySelfing = This%PenaltySelfing + Spec%SelfingWeight
+                              This%Penalty        = This%Penalty        + Spec%SelfingWeight
+                            end if
                           end if
                         end if
+                        This%MatingPlan(2, k) = MatPar2(k)
+                        k = k - 1
                       end if
-                      This%MatingPlan(2, k) = MatPar2(k)
-                      k = k - 1
                     end do
                   end do
                 end if
@@ -5091,7 +5093,7 @@ module AlphaMateModule
                 end if
               end if
 
-              ! --- Progeny inbreeding (=inbreeding of a mating) ---
+              ! --- Expected progeny inbreeding (=inbreeding of a mating) ---
 
               if (Spec%MateAllocation) then
                 TmpR = 0.0d0
