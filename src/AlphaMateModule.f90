@@ -3408,7 +3408,7 @@ module AlphaMateModule
 
       if (.not. Spec%GenderGiven) then
         This%nPotPar1 = This%nInd
-        This%nPotPar2 = This%nInd ! @todo Do we need this?
+        This%nPotPar2 = This%nInd
         This%nPotPar = This%nInd
         allocate(This%IdPotPar1(This%nPotPar1))
         do Ind = 1, This%nInd
