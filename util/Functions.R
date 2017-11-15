@@ -462,6 +462,7 @@ MateAtRandom = function(nMatings, Ind, nContributions, Gender=NULL, AllowSelfing
   # Run iterative proportional fitting to find matings
   # (could equally use a sampling approach based on nContributions as well; we sample
   #  the permissible matings later on anyhow)
+  # Ipfp function is in the mipfp R package
   Result = Ipfp(seed=Init, target.list=list(1, 2), target.data=list(nContributionsParent1, nContributionsParent2))
   if (!Result$conv) {
     stop("Ipfp did not converge!")
