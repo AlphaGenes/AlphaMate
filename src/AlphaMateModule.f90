@@ -1975,7 +1975,7 @@ module AlphaMateModule
                     write(STDOUT, "(a)") " Promotion of Alleles by Genome Editing (PAGE) - maximum number of individuals: "//trim(Int2Char(This%PAGEParMax))
                   end if
                 else
-                  write(STDERR, "(a)") " ERROR: Must specify number for for PAGEMax, i.e., PAGEMax, 10"
+                  write(STDERR, "(a)") " ERROR: Must specify number for PAGEMax, i.e., PAGEMax, 10"
                   write(STDERR, "(a)") " "
                   stop 1
                 end if
@@ -2004,7 +2004,7 @@ module AlphaMateModule
                     write(STDOUT, "(a)") " Promotion of Alleles by Genome Editing (PAGE) in males - maxium number of individuals : "//trim(Int2Char(This%PAGEPar1Max))
                   end if
                 else
-                  write(STDERR, "(a)") " ERROR: Must specify number for for PAGEMalesMax, i.e., PAGEMalesMax, 10"
+                  write(STDERR, "(a)") " ERROR: Must specify number for PAGEMalesMax, i.e., PAGEMalesMax, 10"
                   write(STDERR, "(a)") " "
                   stop 1
                 end if
@@ -2033,7 +2033,7 @@ module AlphaMateModule
                     write(STDOUT, "(a)") " Promotion of Alleles by Genome Editing (PAGE) in females - maximum number of individuals: "//trim(Int2Char(This%PAGEPar2Max))
                   end if
                 else
-                  write(STDERR, "(a)") " ERROR: Must specify number for for PAGEFemalesMax, i.e., PAGEFemalesMax, 10"
+                  write(STDERR, "(a)") " ERROR: Must specify number for PAGEFemalesMax, i.e., PAGEFemalesMax, 10"
                   write(STDERR, "(a)") " "
                   stop 1
                 end if
