@@ -2963,7 +2963,7 @@ module AlphaMateModule
     !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date   April 13, 2017
     !---------------------------------------------------------------------------
-    subroutine WriteAlphaMateModeSpec(This, Unit)
+    subroutine WriteAlphaMateModeSpec(This, Unit) ! not pure due to IO
       implicit none
       class(AlphaMateModeSpec), intent(in) :: This !< AlphaMateModeSpec holder
       integer(int32), intent(in)           :: Unit !< Unit to write to
@@ -3002,7 +3002,7 @@ module AlphaMateModule
     !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date   April 18, 2017
     !---------------------------------------------------------------------------
-    subroutine LogTargetsAlphaMateModeSpec(This, Spec, Unit)
+    subroutine LogTargetsAlphaMateModeSpec(This, Spec, Unit) ! not pure due to IO
       implicit none
       class(AlphaMateModeSpec), intent(in) :: This !< AlphaMateModeSpec holder
       type(AlphaMateSpec), intent(in)      :: Spec !< AlphaMateSpec holder
@@ -3491,7 +3491,7 @@ module AlphaMateModule
         allocate(This%GenericIndCrit(This%nInd, Spec%nGenericIndCrit))
         allocate(GenericIndCritTmp(Spec%nGenericIndCrit))
         This%GenericIndCrit = 0.0d0
-        open(newunit=GenericIndCritUnit, file=Spec%GenericIndCritFile, status="unknown")
+        open(newunit=GenericIndCritUnit, file=Spec%GenericIndCritFile, status="old")
         do Ind = 1, This%nInd
           read(GenericIndCritUnit, *) IdCTmp, GenericIndCritTmp
           IndLoc = FindLoc(IdCTmp, This%Coancestry%OriginalId(1:)) ! @todo hash-key
@@ -3522,7 +3522,7 @@ module AlphaMateModule
         allocate(This%GenericMatCrit(This%nPotPar1, This%nPotPar2, Spec%nGenericMatCrit))
         allocate(GenericMatCritTmp(Spec%nGenericMatCrit))
         This%GenericMatCrit = 0.0d0
-        open(newunit=GenericMatCritUnit, file=Spec%GenericMatCritFile, status="unknown")
+        open(newunit=GenericMatCritUnit, file=Spec%GenericMatCritFile, status="old")
         do Mat = 1, This%nPotMat
           read(GenericMatCritUnit, *) IdCTmp, IdCTmp2, GenericMatCritTmp
           IndLoc = FindLoc(IdCTmp, This%Coancestry%OriginalId(1:)) ! @todo hash-key
@@ -3584,7 +3584,7 @@ module AlphaMateModule
           close(SeedUnit)
         end if
       end if
-      open(newunit=SeedUnit, file="SeedUsed.txt", status="unknown")
+      open(newunit=SeedUnit, file=trim(Spec%OutputBasename)//"SeedUsed.txt", status="unknown")
       write(SeedUnit, *) Spec%Seed
       close(SeedUnit)
       if (LogStdoutInternal) then
@@ -3663,7 +3663,7 @@ module AlphaMateModule
       end if
 
       ! Save means to a file
-      open(newunit=CoancestrySummaryUnit, file="CoancestrySummary.txt", status="unknown")
+      open(newunit=CoancestrySummaryUnit, file=trim(Spec%OutputBasename)//"CoancestrySummary.txt", status="unknown")
       write(CoancestrySummaryUnit, "(a, f)") "Current (random mating),                 ",   This%CoancestryRanMate
       write(CoancestrySummaryUnit, "(a, f)") "Current (random mating, no selfing),     ",   This%CoancestryRanMateNoSelf
       if (Spec%GenderGiven) then
@@ -3693,7 +3693,7 @@ module AlphaMateModule
         write(STDOUT, "(a)") "  - maximum: "//trim(Real2Char(This%InbreedingStat%Max,  fmt=FMTREAL2CHAR))
       end if
 
-      open(newunit=InbreedingSummaryUnit, file="InbreedingSummary.txt", status="unknown")
+      open(newunit=InbreedingSummaryUnit, file=trim(Spec%OutputBasename)//"InbreedingSummary.txt", status="unknown")
       write(InbreedingSummaryUnit, "(a, f)") "Current, ", This%Inbreeding
       close(InbreedingSummaryUnit)
 
@@ -3731,7 +3731,7 @@ module AlphaMateModule
           stop 1
         end if
 
-        open(newunit=CriterionSummaryUnit, file="SelCriterionSummary.txt", status="unknown")
+        open(newunit=CriterionSummaryUnit, file=trim(Spec%OutputBasename)//"SelCriterionSummary.txt", status="unknown")
         write(CriterionSummaryUnit, "(a, f)") "Mean, ", This%SelCriterionStat%Mean
         close(CriterionSummaryUnit)
 
@@ -3760,7 +3760,7 @@ module AlphaMateModule
             stop 1
           end if
 
-          open(newunit=CriterionSummaryUnit, file="PAGESummary.txt", status="unknown")
+          open(newunit=CriterionSummaryUnit, file=trim(Spec%OutputBasename)//"PAGESummary.txt", status="unknown")
           write(CriterionSummaryUnit, "(a, f)") "Mean, ", This%SelCriterionPAGEStat%Mean
           close(CriterionSummaryUnit)
         end if
@@ -3775,7 +3775,7 @@ module AlphaMateModule
           write(STDOUT, "(a)") " Current generic individual selection criterion"
         end if
 
-        open(newunit=GenericIndCritSummaryUnit, file="GenericIndCritSummary.txt", status="unknown")
+        open(newunit=GenericIndCritSummaryUnit, file=trim(Spec%OutputBasename)//"GenericIndCritSummary.txt", status="unknown")
 
         allocate(This%GenericIndCritStat(Spec%nGenericIndCrit))
         do Crit = 1, Spec%nGenericIndCrit
@@ -3808,7 +3808,7 @@ module AlphaMateModule
           write(STDOUT, "(a)") " Generic mating selection criterion"
         end if
 
-        open(newunit=GenericMatCritSummaryUnit, file="GenericMatCritSummary.txt", status="unknown")
+        open(newunit=GenericMatCritSummaryUnit, file=trim(Spec%OutputBasename)//"GenericMatCritSummary.txt", status="unknown")
 
         allocate(This%GenericMatCritStat(Spec%nGenericMatCrit))
         do Crit = 1, Spec%nGenericMatCrit
@@ -5369,10 +5369,10 @@ module AlphaMateModule
         ! Setup
         call Spec%SetupMode(Mode="MinCoancestry")
 
-        LogFile     = "OptimisationLogModeMinCoancestry.txt"
-        LogPopFile  = "OptimisationLogPopModeMinCoancestry.txt"
-        ContribFile = "ContributionsModeMinCoancestry.txt"
-        MatingFile  = "MatingPlanModeMinCoancestry.txt"
+        LogFile     = trim(Spec%OutputBasename)//"OptimisationLogModeMinCoancestry.txt"
+        LogPopFile  = trim(Spec%OutputBasename)//"OptimisationLogPopModeMinCoancestry.txt"
+        ContribFile = trim(Spec%OutputBasename)//"ContributionsModeMinCoancestry.txt"
+        MatingFile  = trim(Spec%OutputBasename)//"MatingPlanModeMinCoancestry.txt"
 
         ! Initialise
         ! @todo initialise with SDP solutions?
@@ -5445,10 +5445,10 @@ module AlphaMateModule
         ! Setup
         call Spec%SetupMode(Mode="MinInbreeding")
 
-        LogFile     = "OptimisationLogModeMinInbreeding.txt"
-        LogPopFile  = "OptimisationLogPopModeMinInbreeding.txt"
-        ContribFile = "ContributionsModeMinInbreeding.txt"
-        MatingFile  = "MatingPlanModeMinInbreeding.txt"
+        LogFile     = trim(Spec%OutputBasename)//"OptimisationLogModeMinInbreeding.txt"
+        LogPopFile  = trim(Spec%OutputBasename)//"OptimisationLogPopModeMinInbreeding.txt"
+        ContribFile = trim(Spec%OutputBasename)//"ContributionsModeMinInbreeding.txt"
+        MatingFile  = trim(Spec%OutputBasename)//"MatingPlanModeMinInbreeding.txt"
 
         ! Initialise
         ! @todo initialise with SDP solutions?
@@ -5532,10 +5532,10 @@ module AlphaMateModule
         ! Setup
         call Spec%SetupMode(Mode="MaxCriterion")
 
-        LogFile     = "OptimisationLogModeMaxCriterion.txt"
-        LogPopFile  = "OptimisationLogPopModeMaxCriterion.txt"
-        ContribFile = "ContributionsModeMaxCriterion.txt"
-        MatingFile  = "MatingPlanModeMaxCriterion.txt"
+        LogFile     = trim(Spec%OutputBasename)//"OptimisationLogModeMaxCriterion.txt"
+        LogPopFile  = trim(Spec%OutputBasename)//"OptimisationLogPopModeMaxCriterion.txt"
+        ContribFile = trim(Spec%OutputBasename)//"ContributionsModeMaxCriterion.txt"
+        MatingFile  = trim(Spec%OutputBasename)//"MatingPlanModeMaxCriterion.txt"
 
         ! Initialise
         ! ... exact truncation selection solution with equal contributions
@@ -5605,7 +5605,7 @@ module AlphaMateModule
           write(STDOUT, "(a)") " Evaluate frontier ..."
         end if
 
-        open(newunit=Unit, file="Frontier.txt", status="unknown")
+        open(newunit=Unit, file=trim(Spec%OutputBasename)//"Frontier.txt", status="unknown")
 
         ! Setup
         call Spec%LogHead(LogUnit=Unit, String="ModeOrPoint", StringNum=18)
@@ -5635,10 +5635,10 @@ module AlphaMateModule
             call Spec%ModeSpec%LogTargets(Unit=STDOUT, Spec=Spec)
           end if
 
-          LogFile     = "OptimisationLogModeFrontier"//trim(Int2Char(Point))//".txt"
-          LogPopFile  = "OptimisationLogPopModeFrontier"//trim(Int2Char(Point))//".txt"
-          ContribFile = "ContributionsModeFrontier"//trim(Int2Char(Point))//".txt"
-          MatingFile  = "MatingPlanModeFrontier"//trim(Int2Char(Point))//".txt"
+          LogFile     = trim(Spec%OutputBasename)//"OptimisationLogModeFrontier"//trim(Int2Char(Point))//".txt"
+          LogPopFile  = trim(Spec%OutputBasename)//"OptimisationLogPopModeFrontier"//trim(Int2Char(Point))//".txt"
+          ContribFile = trim(Spec%OutputBasename)//"ContributionsModeFrontier"//trim(Int2Char(Point))//".txt"
+          MatingFile  = trim(Spec%OutputBasename)//"MatingPlanModeFrontier"//trim(Int2Char(Point))//".txt"
 
           ! Initialise
           ! @todo initialise with SDP solutions?
@@ -5757,7 +5757,7 @@ module AlphaMateModule
         ! Setup
         call Spec%SetupMode(Mode="Ran")
 
-        LogFile = "OptimisationLogModeRan.txt"
+        LogFile = trim(Spec%OutputBasename)//"OptimisationLogModeRan.txt"
         ! @todo other reports from here - at least the best random solution?
 
         ! Search
@@ -5778,7 +5778,7 @@ module AlphaMateModule
           write(STDOUT, "(a)") " Optimise contributions for maximum future selection criterion with constraint on coancestry (and inbreeding) ..."
         end if
 
-        open(newunit=Unit, file="Targets.txt", status="unknown")
+        open(newunit=Unit, file=trim(Spec%OutputBasename)//"Targets.txt", status="unknown")
 
         ! Setup
         call Spec%LogHead(LogUnit=Unit, String="Target", StringNum=18)
@@ -5844,10 +5844,10 @@ module AlphaMateModule
             call Spec%ModeSpec%LogTargets(Unit=STDOUT, Spec=Spec)
           end if
 
-          LogFile     = "OptimisationLogModeOptTarget"//trim(Int2Char(Target))//".txt"
-          LogPopFile  = "OptimisationLogPopModeOptTarget"//trim(Int2Char(Target))//".txt"
-          ContribFile = "ContributionsModeOptTarget"//trim(Int2Char(Target))//".txt"
-          MatingFile  = "MatingPlanModeOptTarget"//trim(Int2Char(Target))//".txt"
+          LogFile     = trim(Spec%OutputBasename)//"OptimisationLogModeOptTarget"//trim(Int2Char(Target))//".txt"
+          LogPopFile  = trim(Spec%OutputBasename)//"OptimisationLogPopModeOptTarget"//trim(Int2Char(Target))//".txt"
+          ContribFile = trim(Spec%OutputBasename)//"ContributionsModeOptTarget"//trim(Int2Char(Target))//".txt"
+          MatingFile  = trim(Spec%OutputBasename)//"MatingPlanModeOptTarget"//trim(Int2Char(Target))//".txt"
 
           ! Initialise
           ! @todo initialise with SDP solutions?
