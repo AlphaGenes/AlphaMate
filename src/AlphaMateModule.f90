@@ -5783,6 +5783,14 @@ module AlphaMateModule
         ! Setup
         call Spec%LogHead(LogUnit=Unit, String="Target", StringNum=18)
 
+        ! Add minimum coancestry solution to target output (90 degress with two objectives)
+        call SolMinCoancestry%Log(Spec=Spec, LogUnit=Unit, Iteration=-1, AcceptPct=NANREAL32, String="ModeMinCoancestry", StringNum=18)
+
+        ! Add minimum inbreeding solution to target output
+        if (Spec%ModeMinInbreeding) then
+          call SolMinInbreeding%Log(Spec=Spec, LogUnit=Unit, Iteration=-1, AcceptPct=NANREAL32, String="ModeMinInbreeding", StringNum=18)
+        end if
+
         ! Targets
         do Target = 1, Spec%nTargets
 
@@ -5932,6 +5940,9 @@ module AlphaMateModule
           end if
 
         end do
+
+        ! Add maximum criterion solution to target output (0 degress with two objectives)
+        call SolMaxCriterion%Log(Spec=Spec, LogUnit=Unit, Iteration=-1, AcceptPct=NANREAL32, String="ModeMaxCriterion", StringNum=18)
 
         close(Unit)
 
