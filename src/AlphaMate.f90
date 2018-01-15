@@ -41,12 +41,12 @@
 ! DESCRIPTION:
 !> @brief    Mate selection / Optimum contribution selection
 !
-!> @details  Optimize contributions of individuals to the next generation and
-!!           generate a mating plan
+!> @details  Optimise selection, maintenance of diversity, and mate allocation
+!!           in constrained breeding programs
 !
 !> @author   Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
 !
-!> @date     March 9, 2017
+!> @date      2018-01-15
 !
 !> @version  0.1.0 (alpha)
 !

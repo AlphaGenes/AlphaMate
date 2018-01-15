@@ -41,12 +41,12 @@
 ! DESCRIPTION:
 !> @brief    Mate selection / Optimum contribution selection
 !
-!> @details  Optimise contributions or individuals to the next generation and
-!!           generate a mating plan
+!> @details  Optimise selection, maintenance of diversity, and mate allocation
+!!           in constrained breeding programs
 !
 !> @author   Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
 !
-!> @date     March 9, 2017
+!> @date      2018-01-15
 !
 !> @version  0.1.0 (alpha)
 !
@@ -324,6 +324,7 @@ module AlphaMateModule
 
     !###########################################################################
 
+    ! @todo push this stuff into manual
     ! @todo make this clearer with objective being dG - l * dF etc.
 
     ! With two individuals there are four genome combinations, hence four coefficients
@@ -429,7 +430,8 @@ module AlphaMateModule
       write(STDOUT, "(a)") "                            *                     *                           "
       write(STDOUT, "(a)") "                            ***********************                           "
       write(STDOUT, "(a)") "                                                                              "
-      write(STDOUT, "(a)") "         Software for optimising contributions to the next generation         "
+      write(STDOUT, "(a)") "       Software for optimising selection, maintenance of diversity, and       "
+      write(STDOUT, "(a)") "               mate allocation in constrained breeding programs               "
       write(STDOUT, "(a)") "                       http://AlphaGenes.Roslin.ed.ac.uk                      "
       write(STDOUT, "(a)") "                                 No liability                                 "
       write(STDOUT, "(a)") " "
