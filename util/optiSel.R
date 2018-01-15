@@ -2,10 +2,10 @@
 # ---- Code requirements ----
 
 # install.packages(pkg=c("tidyverse", "optiSel", mipfp"))
-library(package="tidyverse") # for tidy data handling
-library(package="optiSel") # for Optimum Contribution Selection via quadratic programming
-library(package="mipfp") # for Iterative proportional fitting (used in MateAtRandom)
-source("Functions.R")
+library(package = "tidyverse") # for tidy data handling
+library(package = "optiSel") # for Optimum Contribution Selection via quadratic programming
+library(package = "mipfp") # for Iterative proportional fitting (used in MateAtRandom)
+source(file = "Functions.R")
 
 # ---- Data ----
 
