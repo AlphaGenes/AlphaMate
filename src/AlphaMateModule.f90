@@ -576,9 +576,9 @@ module AlphaMateModule
       This%EvolAlgNSol = 0 ! this is set in AlphaMateSearch afer we know how many unknowns we have
 
       This%EvolAlgNIter = 100000
-      This%EvolAlgNIterStop = 1000
+      This%EvolAlgNIterStop = 100
       This%EvolAlgNIterPrint = 100
-      This%EvolAlgStopTolCoancestry = 0.0001d0
+      This%EvolAlgStopTolCoancestry = 0.001d0
       This%EvolAlgStopTol = 0.0010d0
       This%EvolAlgLogPop = .false.
       This%EvolAlg = "DE"
