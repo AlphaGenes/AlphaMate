@@ -1220,7 +1220,7 @@ module AlphaMateModule
                     write(STDOUT, "(a)") " Targeted degree: "//trim(Real2Char(This%TargetDegree(n), fmt=FMTREAL2CHAR))
                   end if
                   if ((This%TargetDegree(n) .lt. 0.0d0) .or. (This%TargetDegree(n) .gt. 90.0d0)) then
-                    write(STDERR, "(a)") "ERROR: TargetDegree must be between 0 and 90!"
+                    write(STDERR, "(a)") " ERROR: TargetDegree must be between 0 and 90!"
                     write(STDERR, "(a)") " "
                     stop 1
                   end if
@@ -1271,7 +1271,7 @@ module AlphaMateModule
                     write(STDOUT, "(a)") " Targeted selection intensity: "//trim(Real2Char(This%TargetSelIntensity(n), fmt=FMTREAL2CHAR))
                   end if
                   if ((This%TargetSelIntensity(n) .lt. 0.0d0) .or. (This%TargetSelIntensity(n) .gt. 5.0d0)) then
-                    write(STDERR, "(a)") "ERROR: TargetSelIntensity must be above 0 and (probably) below 5!"
+                    write(STDERR, "(a)") " ERROR: TargetSelIntensity must be above 0 and (probably) below 5!"
                     write(STDERR, "(a)") " "
                     stop 1
                   end if
@@ -1299,7 +1299,7 @@ module AlphaMateModule
                     write(STDOUT, "(a)") " Targeted percentage of maximum criterion: "//trim(Real2Char(This%TargetMaxCriterionPct(n), fmt=FMTREAL2CHAR))
                   end if
                   if ((This%TargetMaxCriterionPct(n) .lt. 0.0d0) .or. (This%TargetMaxCriterionPct(n) .gt. 100.0d0)) then
-                    write(STDERR, "(a)") "ERROR: TargetMaxCriterionPct must be between 0 and 100!"
+                    write(STDERR, "(a)") " ERROR: TargetMaxCriterionPct must be between 0 and 100!"
                     write(STDERR, "(a)") " "
                     stop 1
                   end if
@@ -1327,7 +1327,7 @@ module AlphaMateModule
                     write(STDOUT, "(a)") " Targeted coancestry: "//trim(Real2Char(This%TargetCoancestry(n), fmt=FMTREAL2CHAR))
                   end if
                   if ((This%TargetCoancestry(n) .lt. -1.0d0) .or. (This%TargetCoancestry(n) .gt. 1.0d0)) then
-                    write(STDERR, "(a)") "ERROR: TargetCoancestry must be between -1 and +1!"
+                    write(STDERR, "(a)") " ERROR: TargetCoancestry must be between -1 and +1!"
                     write(STDERR, "(a)") " "
                     stop 1
                   end if
@@ -1356,7 +1356,7 @@ module AlphaMateModule
                     write(STDOUT, "(a)") " Targeted rate of coancestry: "//trim(Real2Char(This%TargetCoancestryRate(n), fmt=FMTREAL2CHAR))
                   end if
                   if ((This%TargetCoancestryRate(n) .lt. -1.0d0) .or. (This%TargetCoancestryRate(n) .gt. 1.0d0)) then
-                    write(STDERR, "(a)") "ERROR: TargetCoancestryRate must be between -1 and +1!"
+                    write(STDERR, "(a)") " ERROR: TargetCoancestryRate must be between -1 and +1!"
                     write(STDERR, "(a)") " "
                     stop 1
                   end if
@@ -1384,7 +1384,7 @@ module AlphaMateModule
                     write(STDOUT, "(a)") " Targeted percentage of minimum coancestry: "//trim(Real2Char(This%TargetMinCoancestryPct(n), fmt=FMTREAL2CHAR))
                   end if
                   if ((This%TargetMinCoancestryPct(n) .lt. 0.0d0) .or. (This%TargetMinCoancestryPct(n) .gt. 100.0d0)) then
-                    write(STDERR, "(a)") "ERROR: TargetMinCoancestryPct must be between 0 and 100!"
+                    write(STDERR, "(a)") " ERROR: TargetMinCoancestryPct must be between 0 and 100!"
                     write(STDERR, "(a)") " "
                     stop 1
                   end if
@@ -1436,7 +1436,7 @@ module AlphaMateModule
                   write(STDOUT, "(a)") " Targeted inbreding: "//trim(Real2Char(This%TargetInbreeding, fmt=FMTREAL2CHAR))
                 end if
                 if ((This%TargetInbreeding .lt. -1.0d0) .or. (This%TargetInbreeding .gt. 1.0d0)) then
-                  write(STDERR, "(a)") "ERROR: TargetInbreeding must be between -1 and +1!"
+                  write(STDERR, "(a)") " ERROR: TargetInbreeding must be between -1 and +1!"
                   write(STDERR, "(a)") " "
                   stop 1
                 end if
@@ -1459,7 +1459,7 @@ module AlphaMateModule
                   write(STDOUT, "(a)") " Targeted rate of inbreeding: "//trim(Real2Char(This%TargetInbreedingRate, fmt=FMTREAL2CHAR))
                 end if
                 if ((This%TargetInbreedingRate .lt. -1.0d0) .or. (This%TargetInbreedingRate .gt. 1.0d0)) then
-                  write(STDERR, "(a)") "ERROR: TargetInbreedingRate must be between -1 and +1!"
+                  write(STDERR, "(a)") " ERROR: TargetInbreedingRate must be between -1 and +1!"
                   write(STDERR, "(a)") " "
                   stop 1
                 end if
@@ -1481,7 +1481,7 @@ module AlphaMateModule
                   write(STDOUT, "(a)") " Targeted percentage of minimum inbreeding: "//trim(Real2Char(This%TargetMinInbreedingPct, fmt=FMTREAL2CHAR))
                 end if
                 if ((This%TargetMinInbreedingPct .lt. 0.0d0) .or. (This%TargetMinInbreedingPct .gt. 100.0d0)) then
-                  write(STDERR, "(a)") "ERROR: TargetMinInbreedingPct must be between 0 and 100!"
+                  write(STDERR, "(a)") " ERROR: TargetMinInbreedingPct must be between 0 and 100!"
                   write(STDERR, "(a)") " "
                   stop 1
                 end if
@@ -2003,7 +2003,7 @@ module AlphaMateModule
                 if (allocated(Second)) then
                   This%PAGEPar1Max = Char2Int(trim(adjustl(Second(1))))
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Promotion of Alleles by Genome Editing (PAGE) in males - maxium number of individuals : "//trim(Int2Char(This%PAGEPar1Max))
+                    write(STDOUT, "(a)") " Promotion of Alleles by Genome Editing (PAGE) in males - maxium number of individuals: "//trim(Int2Char(This%PAGEPar1Max))
                   end if
                 else
                   write(STDERR, "(a)") " ERROR: Must specify number for PAGEMalesMax, i.e., PAGEMalesMax, 10"
@@ -2509,8 +2509,8 @@ module AlphaMateModule
 
           if      (present(Degree)) then
             if (Degree .gt. 90 .or. Degree .lt. 0) then
-              write(STDERR, "(a)") "ERROR: TargetDegree must be between 0 and 90!"
-              write(STDERR, "(a)") "ERROR: Target: "//trim(Real2Char(Degree, fmt=FMTREAL2CHAR))
+              write(STDERR, "(a)") " ERROR: TargetDegree must be between 0 and 90!"
+              write(STDERR, "(a)") " ERROR: Target: "//trim(Real2Char(Degree, fmt=FMTREAL2CHAR))
               write(STDERR, "(a)") " "
               stop 1
             end if
@@ -2518,9 +2518,9 @@ module AlphaMateModule
                                              Data=Data, ModeMinCoancestrySpec=ModeMinCoancestrySpec, ModeMaxCriterionSpec=ModeMaxCriterionSpec)
           else if (present(SelCriterion)) then
             if (SelCriterion .gt. ModeMaxCriterionSpec%SelCriterion) then
-              write(STDERR, "(a)") "ERROR: TargetSelCriterion must be less than the the maximum achieved SelCriterion!"
-              write(STDERR, "(a)") "ERROR: Target:           "//trim(Real2Char(SelCriterion,                      fmt=FMTREAL2CHAR))
-              write(STDERR, "(a)") "ERROR: Maximum achieved: "//trim(Real2Char(ModeMaxCriterionSpec%SelCriterion, fmt=FMTREAL2CHAR))
+              write(STDERR, "(a)") " ERROR: TargetSelCriterion must be less than the the maximum achieved SelCriterion!"
+              write(STDERR, "(a)") " ERROR: Target:           "//trim(Real2Char(SelCriterion,                      fmt=FMTREAL2CHAR))
+              write(STDERR, "(a)") " ERROR: Maximum achieved: "//trim(Real2Char(ModeMaxCriterionSpec%SelCriterion, fmt=FMTREAL2CHAR))
               write(STDERR, "(a)") " "
               stop 1
             end if
@@ -2528,9 +2528,9 @@ module AlphaMateModule
                                              Data=Data, ModeMinCoancestrySpec=ModeMinCoancestrySpec, ModeMaxCriterionSpec=ModeMaxCriterionSpec)
           else if (present(SelIntensity)) then
             if (SelIntensity .gt. ModeMaxCriterionSpec%SelIntensity) then
-              write(STDERR, "(a)") "ERROR: TargetSelIntensity must be less than the maximum achieved SelIntensity!"
-              write(STDERR, "(a)") "ERROR: Target:           "//trim(Real2Char(SelIntensity,                      fmt=FMTREAL2CHAR))
-              write(STDERR, "(a)") "ERROR: Maximum achieved: "//trim(Real2Char(ModeMaxCriterionSpec%SelIntensity, fmt=FMTREAL2CHAR))
+              write(STDERR, "(a)") " ERROR: TargetSelIntensity must be less than the maximum achieved SelIntensity!"
+              write(STDERR, "(a)") " ERROR: Target:           "//trim(Real2Char(SelIntensity,                      fmt=FMTREAL2CHAR))
+              write(STDERR, "(a)") " ERROR: Maximum achieved: "//trim(Real2Char(ModeMaxCriterionSpec%SelIntensity, fmt=FMTREAL2CHAR))
               write(STDERR, "(a)") " "
               stop 1
             end if
@@ -2538,8 +2538,8 @@ module AlphaMateModule
                                              Data=Data, ModeMinCoancestrySpec=ModeMinCoancestrySpec, ModeMaxCriterionSpec=ModeMaxCriterionSpec)
           else if (present(MaxCriterionPct)) then
             if (MaxCriterionPct .gt. 100 .or. MaxCriterionPct .lt. 0) then
-              write(STDERR, "(a)") "ERROR: TargetMaxCriterionPct must be between 0 and 100!"
-              write(STDERR, "(a)") "ERROR: Target: "//trim(Real2Char(MaxCriterionPct, fmt=FMTREAL2CHAR))
+              write(STDERR, "(a)") " ERROR: TargetMaxCriterionPct must be between 0 and 100!"
+              write(STDERR, "(a)") " ERROR: Target: "//trim(Real2Char(MaxCriterionPct, fmt=FMTREAL2CHAR))
               write(STDERR, "(a)") " "
               stop 1
             end if
@@ -2547,9 +2547,9 @@ module AlphaMateModule
                                              Data=Data, ModeMinCoancestrySpec=ModeMinCoancestrySpec, ModeMaxCriterionSpec=ModeMaxCriterionSpec)
           else if (present(Coancestry)) then
             if (Coancestry .lt. ModeMinCoancestrySpec%Coancestry) then
-              write(STDERR, "(a)") "ERROR: TargetCoancestry must be more than the minimum achieved Coancestry!"
-              write(STDERR, "(a)") "ERROR: Target:           "//trim(Real2Char(Coancestry,                      fmt=FMTREAL2CHAR))
-              write(STDERR, "(a)") "ERROR: Minimum achieved: "//trim(Real2Char(ModeMinCoancestrySpec%Coancestry, fmt=FMTREAL2CHAR))
+              write(STDERR, "(a)") " ERROR: TargetCoancestry must be more than the minimum achieved Coancestry!"
+              write(STDERR, "(a)") " ERROR: Target:           "//trim(Real2Char(Coancestry,                      fmt=FMTREAL2CHAR))
+              write(STDERR, "(a)") " ERROR: Minimum achieved: "//trim(Real2Char(ModeMinCoancestrySpec%Coancestry, fmt=FMTREAL2CHAR))
               write(STDERR, "(a)") " "
               stop 1
             end if
@@ -2557,9 +2557,9 @@ module AlphaMateModule
                                              Data=Data, ModeMinCoancestrySpec=ModeMinCoancestrySpec, ModeMaxCriterionSpec=ModeMaxCriterionSpec)
           else if (present(CoancestryRate)) then
             if (CoancestryRate .lt. ModeMinCoancestrySpec%CoancestryRate) then
-              write(STDERR, "(a)") "ERROR: TargetCoancestryRate must be more than the minimum achieved CoancestryRate!"
-              write(STDERR, "(a)") "ERROR: Target:           "//trim(Real2Char(CoancestryRate,                      fmt=FMTREAL2CHAR))
-              write(STDERR, "(a)") "ERROR: Minimum achieved: "//trim(Real2Char(ModeMinCoancestrySpec%CoancestryRate, fmt=FMTREAL2CHAR))
+              write(STDERR, "(a)") " ERROR: TargetCoancestryRate must be more than the minimum achieved CoancestryRate!"
+              write(STDERR, "(a)") " ERROR: Target:           "//trim(Real2Char(CoancestryRate,                      fmt=FMTREAL2CHAR))
+              write(STDERR, "(a)") " ERROR: Minimum achieved: "//trim(Real2Char(ModeMinCoancestrySpec%CoancestryRate, fmt=FMTREAL2CHAR))
               write(STDERR, "(a)") " "
               stop 1
             end if
@@ -2567,8 +2567,8 @@ module AlphaMateModule
                                              Data=Data, ModeMinCoancestrySpec=ModeMinCoancestrySpec, ModeMaxCriterionSpec=ModeMaxCriterionSpec)
           else if (present(MinCoancestryPct)) then
             if (MinCoancestryPct .gt. 100 .or. MaxCriterionPct .lt. 0) then
-              write(STDERR, "(a)") "ERROR: TargetMinCoancestryPct must be between 0 and 100!"
-              write(STDERR, "(a)") "ERROR: Target: "//trim(Real2Char(MinCoancestryPct, fmt=FMTREAL2CHAR))
+              write(STDERR, "(a)") " ERROR: TargetMinCoancestryPct must be between 0 and 100!"
+              write(STDERR, "(a)") " ERROR: Target: "//trim(Real2Char(MinCoancestryPct, fmt=FMTREAL2CHAR))
               write(STDERR, "(a)") " "
               stop 1
             end if
@@ -2584,9 +2584,9 @@ module AlphaMateModule
 
           if      (This%TargetInbreedingGiven) then
             if (This%TargetInbreeding .lt. ModeMinInbreedingSpec%Inbreeding) then
-              write(STDERR, "(a)") "ERROR: TargetInbreeding must be more than the minimum achieved Inbreeding!"
-              write(STDERR, "(a)") "ERROR: Target:           "//trim(Real2Char(This%TargetInbreeding,            fmt=FMTREAL2CHAR))
-              write(STDERR, "(a)") "ERROR: Minimum achieved: "//trim(Real2Char(ModeMinInbreedingSpec%Inbreeding, fmt=FMTREAL2CHAR))
+              write(STDERR, "(a)") " ERROR: TargetInbreeding must be more than the minimum achieved Inbreeding!"
+              write(STDERR, "(a)") " ERROR: Target:           "//trim(Real2Char(This%TargetInbreeding,            fmt=FMTREAL2CHAR))
+              write(STDERR, "(a)") " ERROR: Minimum achieved: "//trim(Real2Char(ModeMinInbreedingSpec%Inbreeding, fmt=FMTREAL2CHAR))
               write(STDERR, "(a)") " "
               stop 1
             end if
@@ -2595,9 +2595,9 @@ module AlphaMateModule
                                              Data=Data, ModeMinInbreedingSpec=ModeMinInbreedingSpec)
           else if (This%TargetInbreedingRateGiven) then
             if (This%TargetInbreedingRate .lt. ModeMinInbreedingSpec%InbreedingRate) then
-              write(STDERR, "(a)") "ERROR: TargetInbreedingRate must be more than the minimum achieved InbreedingRate!"
-              write(STDERR, "(a)") "ERROR: Target:           "//trim(Real2Char(This%TargetInbreedingRate,            fmt=FMTREAL2CHAR))
-              write(STDERR, "(a)") "ERROR: Minimum achieved: "//trim(Real2Char(ModeMinInbreedingSpec%InbreedingRate, fmt=FMTREAL2CHAR))
+              write(STDERR, "(a)") " ERROR: TargetInbreedingRate must be more than the minimum achieved InbreedingRate!"
+              write(STDERR, "(a)") " ERROR: Target:           "//trim(Real2Char(This%TargetInbreedingRate,            fmt=FMTREAL2CHAR))
+              write(STDERR, "(a)") " ERROR: Minimum achieved: "//trim(Real2Char(ModeMinInbreedingSpec%InbreedingRate, fmt=FMTREAL2CHAR))
               write(STDERR, "(a)") " "
               stop 1
             end if
@@ -2606,8 +2606,8 @@ module AlphaMateModule
                                              Data=Data, ModeMinInbreedingSpec=ModeMinInbreedingSpec)
           else if (This%TargetMinInbreedingPctGiven) then
             if (This%TargetMinInbreedingPct .gt. 100 .or. This%TargetMinInbreedingPct .lt. 0) then
-              write(STDERR, "(a)") "ERROR: TargetMinInbreedingPct must be between 0 and 100!"
-              write(STDERR, "(a)") "ERROR: Target: "//trim(Real2Char(This%TargetMinInbreedingPct, fmt=FMTREAL2CHAR))
+              write(STDERR, "(a)") " ERROR: TargetMinInbreedingPct must be between 0 and 100!"
+              write(STDERR, "(a)") " ERROR: Target: "//trim(Real2Char(This%TargetMinInbreedingPct, fmt=FMTREAL2CHAR))
               write(STDERR, "(a)") " "
               stop 1
             end if
@@ -3335,9 +3335,9 @@ module AlphaMateModule
       end if
 
       if (This%nInd .lt. Spec%nPar) then
-        write(STDERR, "(a)") "ERROR: Number of individuals can not be smaller than number of parents!"
-        write(STDERR, "(a)") "ERROR: Number of individuals:               "//trim(Int2Char(This%nInd))
-        write(STDERR, "(a)") "ERROR: Number of specified/derived parents: "//trim(Int2Char(Spec%nPar))
+        write(STDERR, "(a)") " ERROR: Number of individuals can not be smaller than number of parents!"
+        write(STDERR, "(a)") " ERROR: Number of individuals:               "//trim(Int2Char(This%nInd))
+        write(STDERR, "(a)") " ERROR: Number of specified/derived parents: "//trim(Int2Char(Spec%nPar))
         write(STDERR, "(a)") " "
         stop 1
       end if

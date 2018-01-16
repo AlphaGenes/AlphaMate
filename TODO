@@ -106,6 +106,8 @@
 Pareto front calculations
 [1] Pareto, V., Manuale di Economia Politica, Societa Editrice Libraria, Milano, Italy, Translated into English by Schwier, A. S. 1971: Manual of Political Economy, Macmillan, New York, 1906.
 
+  - Evolutionary algorithm that works with Pareto-optimal solutions and optimises the whole Frontier (e.g., Deb)
+
   - Normal Boundary Intersection (NBI) method (Das and Dennis, 1998)
     Das I. and Dennis J, “Normal-Boundary Intersection: A New Method for Generating Pareto Optimal Points in Multicriteria Optimization Problems”, SIAM Journal on Optimization, Vol. 8, No.3, 1998, pp. 631-657
     (generate solutions that are well-distributed)
@@ -123,7 +125,7 @@ Pareto front calculations
 
 --- COMPUTATIONAL CONSIDERATIONS ---
 
-* FindLoc is slow on large dataset due to O(n^2). Can we get a better solution for it?
+* FindLoc is slow on large dataset due to O(n^2). Can we get a better solution for it, e.g., hashing.
 
 * Single precision to cut down CPU. Single precision should be fine for what we are doing here.
 
@@ -132,7 +134,7 @@ Pareto front calculations
   Option B) parallelise multiple optimisation runs
     - of the same problem to avoid local minima? (and then run one more run with those initial values?)
     - as above but with migration between the sub-populations?
-    - of different optimisations run (initial modes, evaluate front !!! - NBI)
+    - of different optimisations run (initial modes, evaluate frontier!!! - see above notes on ALGORITHMIC CONSIDERATIONS)
 
   - Some weblinks regarding parallel implementation
     * random_number() is slow as threads wait for each other to update RNG Seed, need separate streams!!!
@@ -147,10 +149,13 @@ Pareto front calculations
     restart from the saved state)
   - is it worth it?
 
+ * Take inputs from previous optimisation or some other optimisation
+ * In line with the above use SDP-like quadratic programming to seed initial values to speed up AlphaMate for large cases, i.e., hybrid optimisation
+   (might be worthwhile to relax biological constraints for this step to give enough space for evolutionary algorithm later, i.e., double the number of parents)
+
 * Other optimisation algorithms?
   - Evolution strategies of OpenAI stohastically estimate gradients, but this is
-    continuous optimisation (which I also do in AlphaMate through a hacked
-    solution representation!)
+    continuous optimisation (which I also do in AlphaMate through a hacked solution representation!)
     https://blog.openai.com/evolution-strategies/
 
   - Particle swarm optimisation (PSO)
