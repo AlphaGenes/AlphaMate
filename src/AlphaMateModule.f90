@@ -2394,6 +2394,22 @@ module AlphaMateModule
         This%LimitPar2MinWeight = -1000.0d0
       end if
 
+      ! Impose upper limits (when it is not given by the user) to avoid explosion in optimisation
+      if (.not. This%LimitPar .and. .not. This%EqualizePar) then
+        This%LimitPar    = .true.
+        This%LimitParMax = dble(This%nMat)
+      end if
+
+      if (.not. This%LimitPar1 .and. .not. This%EqualizePar1) then
+        This%LimitPar1    = .true.
+        This%LimitPar1Max = dble(This%nMat)
+      end if
+
+      if (.not. This%LimitPar2 .and. .not. This%EqualizePar2) then
+        This%LimitPar2    = .true.
+        This%LimitPar2Max = dble(This%nMat)
+      end if
+
       if (.not. This%GenderGiven) then
         This%EqualizePar1       = This%EqualizePar
 
@@ -4838,8 +4854,10 @@ module AlphaMateModule
                   ! unless the user adds individuals of one sex in both sets) and when SelfingAllowed
                   ! we do not need to care about it - faster code
                   do i = 1, Data%nPotPar1 ! need to loop all males as some do not contribute
+                    ! print*, i, "/", Data%nPotPar1
                     do j = 1, nVecPar1(i)
-                      ! if (k<2) print*, k, i, j, nVecPar1(i), Spec%nMat, sum(nVecPar1)
+                      ! if (k .lt. 10) print*, i, "/", Data%nPotPar1, j, "/", nVecPar1(i), sum(nVecPar1), k, "/", Spec%nMat
+                      !                print*, i, "/", Data%nPotPar1, j, "/", nVecPar1(i), sum(nVecPar1), k, "/", Spec%nMat
                       This%MatingPlan(1, k) = Data%IdPotPar1(i)
                       This%MatingPlan(2, k) = MatPar2(k)
                       k = k - 1
