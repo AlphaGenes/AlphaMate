@@ -1,5 +1,8 @@
 *.tex
 *.html
-_build
-_static
-_templates
+*.aux
+*.ilg
+*.ind
+*.log
+*.toc
+*.omm
