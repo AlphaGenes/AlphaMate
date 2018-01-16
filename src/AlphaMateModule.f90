@@ -5620,6 +5620,9 @@ module AlphaMateModule
           call SolMinInbreeding%Log(Spec=Spec, LogUnit=Unit, Iteration=-1, AcceptPct=NANREAL32, String="ModeMinInbreeding", StringNum=18)
         end if
 
+        ! Add maximum criterion solution to frontier output (0 degress with two objectives)
+        call SolMaxCriterion%Log(Spec=Spec, LogUnit=Unit, Iteration=-1, AcceptPct=NANREAL32, String="ModeMaxCriterion", StringNum=18)
+
         ! Frontier
         do Point = 1, size(TARGETDEGREEFRONTIER) ! 80, 70, ..., 10 degrees
 
@@ -5739,9 +5742,6 @@ module AlphaMateModule
 
         end do
 
-        ! Add maximum criterion solution to frontier output (0 degress with two objectives)
-        call SolMaxCriterion%Log(Spec=Spec, LogUnit=Unit, Iteration=-1, AcceptPct=NANREAL32, String="ModeMaxCriterion", StringNum=18)
-
         close(Unit)
 
       end if
@@ -5792,6 +5792,9 @@ module AlphaMateModule
         if (Spec%ModeMinInbreeding) then
           call SolMinInbreeding%Log(Spec=Spec, LogUnit=Unit, Iteration=-1, AcceptPct=NANREAL32, String="ModeMinInbreeding", StringNum=18)
         end if
+
+        ! Add maximum criterion solution to target output (0 degress with two objectives)
+        call SolMaxCriterion%Log(Spec=Spec, LogUnit=Unit, Iteration=-1, AcceptPct=NANREAL32, String="ModeMaxCriterion", StringNum=18)
 
         ! Targets
         do Target = 1, Spec%nTargets
@@ -5942,9 +5945,6 @@ module AlphaMateModule
           end if
 
         end do
-
-        ! Add maximum criterion solution to target output (0 degress with two objectives)
-        call SolMaxCriterion%Log(Spec=Spec, LogUnit=Unit, Iteration=-1, AcceptPct=NANREAL32, String="ModeMaxCriterion", StringNum=18)
 
         close(Unit)
 
