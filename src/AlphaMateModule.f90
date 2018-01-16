@@ -5629,10 +5629,9 @@ module AlphaMateModule
           ! Setup
           call Spec%SetupMode(Mode="Opt", Data=Data, &
                               Degree=TARGETDEGREEFRONTIER(Point), &
-                              ModeMinCoancestrySpec=Spec%ModeMinCoancestrySpec, CoancestryWeightBelow=.true., &
+                              ModeMinCoancestrySpec=Spec%ModeMinCoancestrySpec, &
                               ModeMinInbreedingSpec=Spec%ModeMinInbreedingSpec, &
                               ModeMaxCriterionSpec=Spec%ModeMaxCriterionSpec)
-                              ! CoancestryWeightBelow=.true. as we want to get ~exact degrees
           if (LogStdoutInternal) then
             write(STDOUT, "(a)") " "
             write(STDOUT, "(a)") "  Point "//Int2Char(Point)//" of "//Int2Char(size(TARGETDEGREEFRONTIER))
@@ -5647,6 +5646,7 @@ module AlphaMateModule
 
           ! Initialise
           ! @todo initialise with SDP solutions?
+          ! @todo implement evolutionary algorithm for multiple-objectives so that we evolve the whole frontier at once
           ! ... The MaxCriterion solution
           iSol = 1
           InitChrom(:, iSol) = SolMaxCriterion%Chrom
