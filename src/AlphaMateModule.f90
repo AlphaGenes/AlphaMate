@@ -2629,7 +2629,7 @@ module AlphaMateModule
             end if
             This%ModeOptSpec%ObjectiveInbreeding = .true.
             call This%ModeOptSpec%SetTargets(MinInbreedingPct=This%TargetMinInbreedingPct, &
-                                             Data=Data, ModeMinInbreedingSpec=ModeMinInbreedingSpec)
+                                             Data=Data, ModeMinInbreedingSpec=ModeMinInbreedingSpec, ModeMaxCriterionSpec=ModeMaxCriterionSpec)
           end if
 
           if (present(InbreedingWeightBelow)) then
@@ -2937,7 +2937,7 @@ module AlphaMateModule
         if (present(ModeMinInbreedingSpec)) then
           This%TargetMinInbreedingPct = CoancestryRate2MinCoancestryPct(CoancestryRate=This%TargetInbreedingRate, &
                                                                         MinCoancestryRate=ModeMinInbreedingSpec%InbreedingRate, &
-                                                                        MaxCoancestryRate=1.0d0)
+                                                                        MaxCoancestryRate=ModeMaxCriterionSpec%InbreedingRate)
         end if
       else if (present(InbreedingRate)) then
         This%TargetInbreedingRate = InbreedingRate
@@ -2948,14 +2948,14 @@ module AlphaMateModule
         if (present(ModeMinInbreedingSpec)) then
           This%TargetMinInbreedingPct = CoancestryRate2MinCoancestryPct(CoancestryRate=This%TargetInbreedingRate, &
                                                                         MinCoancestryRate=ModeMinInbreedingSpec%InbreedingRate, &
-                                                                        MaxCoancestryRate=1.0d0)
+                                                                        MaxCoancestryRate=ModeMaxCriterionSpec%InbreedingRate)
         end if
       else if (present(MinInbreedingPct)) then
         This%TargetMinInbreedingPct = MinInbreedingPct
         if (present(ModeMinInbreedingSpec)) then
           This%TargetInbreedingRate = MinCoancestryPct2CoancestryRate(MinCoancestryPct=This%TargetMinInbreedingPct, &
                                                                       MinCoancestryRate=ModeMinInbreedingSpec%InbreedingRate, &
-                                                                      MaxCoancestryRate=1.0d0)
+                                                                      MaxCoancestryRate=ModeMaxCriterionSpec%InbreedingRate)
           if (present(Data)) then
             This%TargetInbreeding = CoancestryRate2Coancestry(CoancestryRate=This%TargetInbreedingRate, &
                                                               CurrentCoancestry=Data%Inbreeding)
@@ -3060,7 +3060,8 @@ module AlphaMateModule
         write(Unit, "(a)") "   Inbreeding coefficient / inbreeding rate"
         write(Unit, "(a)") "     @MinInbreeding: "//trim(Real2Char(Spec%ModeMinInbreedingSpec%Inbreeding, fmt=FMTREAL2CHAR))//" /" &
                                                   //trim(Real2Char(Spec%ModeMinInbreedingSpec%Inbreedingrate, fmt=FMTREAL2CHAR))
-        write(Unit, "(a)") "     MaxInbreeding:  "//trim(Real2Char(+1.0d0, fmt=FMTREAL2CHAR))//" / ???"
+        write(Unit, "(a)") "     @MaxCriterion:  "//trim(Real2Char(Spec%ModeMaxCriterionSpec%Coancestry, fmt=FMTREAL2CHAR))//" /" &
+                                                  //trim(Real2Char(Spec%ModeMaxCriterionSpec%CoancestryRate, fmt=FMTREAL2CHAR))
         write(Unit, "(a)") "     Pct of min:     "//trim(Real2Char(This%TargetMinInbreedingPct, fmt="(f7.1)"))
         write(Unit, "(a)") "     Target:         "//trim(Real2Char(This%TargetInbreeding,     fmt=FMTREAL2CHAR))//" /" &
                                                   //trim(Real2Char(This%TargetInbreedingRate, fmt=FMTREAL2CHAR))
@@ -4908,8 +4909,10 @@ module AlphaMateModule
                 if (Spec%PAGEPar) then
                   This%SelIntensity = This%SelIntensity + dot_product(dble(This%nVec), Data%SelIntensityPAGE * This%GenomeEdit) / (2 * Spec%nMat)
                 end if
+
                 ! Inlined SelIntensity2SelCriterion
                 This%SelCriterion = This%SelIntensity * Data%SelCriterionStat%Sd + Data%SelCriterionStat%Mean
+
                 ! Inlined SelIntensity2MaxCriterionPct START
                 Diff = This%SelIntensity - Spec%ModeMinCoancestrySpec%SelIntensity
                 MaxDiff = Spec%ModeMaxCriterionSpec%SelIntensity - Spec%ModeMinCoancestrySpec%SelIntensity
@@ -4925,6 +4928,7 @@ module AlphaMateModule
                   This%MaxCriterionPct = Diff / MaxDiff * 100.0d0
                 end if
                 ! Inlined SelIntensity2MaxCriterionPct STOP
+
                 if (Spec%ModeSpec%ObjectiveCriterion) then
                   if      (trim(Spec%ModeSpec%Name) .eq. "MaxCriterion") then
                     ! This gives objective in the [0, 1] form of the max SelIntensity
@@ -5003,7 +5007,7 @@ module AlphaMateModule
               ! Inlined Coancestry2CoancestryRate STOP
 
               ! Inlined CoancestryRate2MinCoancestryPct START
-              Diff = Spec%ModeMaxCriterionSpec%CoancestryRate - This%CoancestryRateRanMate
+              Diff    = Spec%ModeMaxCriterionSpec%CoancestryRate - This%CoancestryRateRanMate
               MaxDiff = Spec%ModeMaxCriterionSpec%CoancestryRate - Spec%ModeMinCoancestrySpec%CoancestryRate
               if (MaxDiff .eq. 0) then
                 if (Diff .ge. 0) then
@@ -5017,6 +5021,7 @@ module AlphaMateModule
                 This%MinCoancestryPct = Diff / MaxDiff * 100.d0
               end if
               ! Inlined CoancestryRate2MinCoancestryPct STOP
+
               ! Handle beyond the nadir point case so that degree calculation will be meaningful
               if (This%MinCoancestryPct .lt. 0.0d0) then
                 This%MinCoancestryPct = 0.0d0
@@ -5129,6 +5134,7 @@ module AlphaMateModule
                 end do
                 ! @todo different number of progeny per mating? Might be relevant for in-vitro fertilisation
                 This%Inbreeding = TmpR / Spec%nMat
+
                 ! Inlined Coancestry2CoancestryRate START
                 Diff    = This%Inbreeding - Data%Inbreeding
                 MaxDiff =           1.0d0 - Data%Inbreeding
@@ -5147,9 +5153,10 @@ module AlphaMateModule
                   This%InbreedingRate = Diff / MaxDiff
                 end if
                 ! Inlined Coancestry2CoancestryRate STOP
+
                 ! Inlined CoancestryRate2MinCoancestryPct START
-                Diff = 1.0d0 - This%InbreedingRate
-                MaxDiff = 1.0d0 - Spec%ModeMinInbreedingSpec%InbreedingRate
+                Diff    = Spec%ModeMaxCriterionSpec%InbreedingRate - This%InbreedingRate
+                MaxDiff = Spec%ModeMaxCriterionSpec%InbreedingRate - Spec%ModeMinInbreedingSpec%InbreedingRate
                 if (MaxDiff .eq. 0) then
                   if (Diff .ge. 0) then
                     This%MinInbreedingPct = 100.0d0
