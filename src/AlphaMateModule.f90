@@ -2397,7 +2397,7 @@ module AlphaMateModule
       ! Impose upper limits (when it is not given by the user) to avoid explosion in optimisation
       if (.not. This%LimitPar .and. .not. This%EqualizePar) then
         This%LimitPar    = .true.
-        This%LimitParMax = dble(This%nMat)
+        This%LimitParMax = dble(This%nMat) * 2
       end if
 
       if (.not. This%LimitPar1 .and. .not. This%EqualizePar1) then
@@ -4413,7 +4413,7 @@ module AlphaMateModule
       class(AlphaEvolveData), intent(in), optional :: Data     !< AlphaEvolveData --> AlphaMateData holder
 
       ! Other
-      integer(int32) :: i, j, k, l, g, Start, End, nCumMat, TmpMin, TmpMax, TmpI
+      integer(int32) :: i, j, k, l, GenderMode, Start, End, nCumMat, TmpMin, TmpMax, TmpI
       integer(int32), allocatable :: Rank(:), MatPar2(:), nVecPar1(:)
 
       real(real64) :: TmpR, RanNum, Diff, MaxDiff
@@ -4533,9 +4533,9 @@ module AlphaMateModule
 
               ! "Parent1"
               if (Spec%GenderGiven) then
-                g = 1
+                GenderMode = 1
               else
-                g = 2
+                GenderMode = 2
               end if
               ! ... preselect
               if (Spec%PreselectPar1) then
@@ -4546,7 +4546,7 @@ module AlphaMateModule
                 !   SChrom%ContPar1(Rank(1:Spec%PreselectPar1N)) = TmpVec(1:Spec%PreselectPar1N)                   ! put contributors back
                 ! end if
                 if (Spec%ModeSpec%ObjectiveCriterion) then
-                  Rank(1:Spec%PreselectPar1N) = RapKnr( Data%SelIntensity(Data%IdPotPar1),  Spec%PreselectPar1N) ! preselect contributors
+                  Rank(1:Spec%PreselectPar1N) = RapKnr(Data%SelIntensity(Data%IdPotPar1),  Spec%PreselectPar1N)  ! preselect contributors
                   TmpVec(1:Spec%PreselectPar1N) = SChrom%ContPar1(Rank(1:Spec%PreselectPar1N))                   ! save contributors
                   SChrom%ContPar1 = 0.0d0                                                                        ! set everyones contributions to zero
                   SChrom%ContPar1(Rank(1:Spec%PreselectPar1N)) = TmpVec(1:Spec%PreselectPar1N)                   ! put contributors back
@@ -4558,10 +4558,10 @@ module AlphaMateModule
               end if
               if (Spec%EqualizePar1) then ! ... equal contributions
                 if (Spec%nPar1 .eq. Data%nPotPar1) then
-                  SChrom%ContPar1 = dble(Spec%nMat * g) / Spec%nPar1 ! no need for indexing here, hence the above if (.not. ...)
+                  SChrom%ContPar1 = dble(Spec%nMat * GenderMode) / Spec%nPar1 ! no need for indexing here, hence the above if (.not. ...)
                 else
                   SChrom%ContPar1 = 0.0d0
-                  SChrom%ContPar1(Rank(1:Spec%nPar1)) = dble(Spec%nMat * g) / Spec%nPar1
+                  SChrom%ContPar1(Rank(1:Spec%nPar1)) = dble(Spec%nMat * GenderMode) / Spec%nPar1
                 end if
               else                        ! ... unequal contributions
                 TmpVec(1:Spec%nPar1) = SChrom%ContPar1(Rank(1:Spec%nPar1)) ! save top contributions
@@ -4581,10 +4581,10 @@ module AlphaMateModule
                   ! ... accumulate
                   nCumMat = nCumMat + nint(SChrom%ContPar1(j)) ! internally real, externally integer
                   ! ... did we reach Spec%nMat
-                  if (nCumMat .ge. Spec%nMat * g) then
+                  if (nCumMat .ge. Spec%nMat * GenderMode) then
                     ! ... there should be exactly Spec%nMat contributions
-                    if (nCumMat .gt. Spec%nMat * g) then
-                      SChrom%ContPar1(j) = SChrom%ContPar1(j) - dble(nCumMat - Spec%nMat * g) ! internally real, externally integer
+                    if (nCumMat .gt. Spec%nMat * GenderMode) then
+                      SChrom%ContPar1(j) = SChrom%ContPar1(j) - dble(nCumMat - Spec%nMat * GenderMode) ! internally real, externally integer
                       ! ... did we go below the minimum usage limit?
                       if (nint(SChrom%ContPar1(j)) .lt. Spec%LimitPar1Min) then
                         TmpR = Spec%LimitPar1MinWeight * (Spec%LimitPar1Min - nint(SChrom%ContPar1(j))) ! internally real, externally integer
@@ -4598,7 +4598,7 @@ module AlphaMateModule
                           SChrom%ContPar1(j) = 0.0d0
                         end if
                       end if
-                      nCumMat = Spec%nMat * g
+                      nCumMat = Spec%nMat * GenderMode
                     end if
                     ! ... remove contributions for the remaining contributors
                     do k = i + 1, Spec%nPar1
@@ -4609,9 +4609,11 @@ module AlphaMateModule
                 end do
 
                 ! call SChrom%Write
+                ! print*, sum(SChrom%ContPar1(:))
+                ! pause
 
                 ! ... Spec%nMat still not reached?
-                do while (nCumMat .lt. Spec%nMat * g)
+                do while (nCumMat .lt. Spec%nMat * GenderMode)
                   ! ... add more contributions to randomly chosen individuals
                   call random_number(RanNum)
                   i = int(RanNum * Spec%nPar1) + 1
@@ -4621,11 +4623,11 @@ module AlphaMateModule
                     ! ... accumulate
                     nCumMat = nCumMat + 1
                     ! ... did we reach Spec%nMat
-                    if (nCumMat .ge. Spec%nMat * g) then
+                    if (nCumMat .ge. Spec%nMat * GenderMode) then
                       ! Internally real, externally integer
                       TmpI = sum(nint(SChrom%ContPar1(Rank(1:Spec%nPar1))))
-                      if (TmpI .ne. Spec%nMat * g) then
-                        if (TmpI .gt. Spec%nMat * g) then
+                      if (TmpI .ne. Spec%nMat * GenderMode) then
+                        if (TmpI .gt. Spec%nMat * GenderMode) then
                           SChrom%ContPar1(j) = dble(nint(SChrom%ContPar1(j)) - 1)
                         else
                           SChrom%ContPar1(j) = dble(nint(SChrom%ContPar1(j)) + 1)
@@ -4634,11 +4636,12 @@ module AlphaMateModule
                       exit
                     end if
                   end if
-                  !end do
                 end do
               end if
 
               ! call SChrom%Write
+              ! print*, sum(SChrom%ContPar1(:))
+              ! pause
 
               ! Left here for debugging
               ! do i = 1, Data%nPotPar1
@@ -4749,7 +4752,6 @@ module AlphaMateModule
                         exit
                       end if
                     end if
-                    ! end do
                   end do
                 end if
               end if
@@ -4852,20 +4854,23 @@ module AlphaMateModule
                   ! When gender matters selfing can not happen (we have two distinct sets of parents;
                   ! unless the user adds individuals of one sex in both sets) and when SelfingAllowed
                   ! we do not need to care about it - faster code
-                  do i = 1, Data%nPotPar1 ! need to loop all males as some do not contribute
+                  do i = 1, Data%nPotPar1 ! need to loop all individuals as some do not contribute
                     ! print*, i, "/", Data%nPotPar1
                     do j = 1, nVecPar1(i)
-                      ! if (k .lt. 10) print*, i, "/", Data%nPotPar1, j, "/", nVecPar1(i), sum(nVecPar1), k, "/", Spec%nMat
-                      !                print*, i, "/", Data%nPotPar1, j, "/", nVecPar1(i), sum(nVecPar1), k, "/", Spec%nMat
-                      This%MatingPlan(1, k) = Data%IdPotPar1(i)
-                      This%MatingPlan(2, k) = MatPar2(k)
-                      k = k - 1
+                      if (k .gt. 0) then
+                        ! if (k .lt. 10) write(*, '(i6,a1,i6,i6,a1,i6,i6,i6,a1,i6)') i, "/", Data%nPotPar1, j, "/", nVecPar1(i), sum(nVecPar1), k, "/", Spec%nMat
+                        !                write(*, '(i6,a1,i6,i6,a1,i6,i6,i6,a1,i6)') i, "/", Data%nPotPar1, j, "/", nVecPar1(i), sum(nVecPar1), k, "/", Spec%nMat
+                        This%MatingPlan(1, k) = Data%IdPotPar1(i)
+                        This%MatingPlan(2, k) = MatPar2(k)
+                        k = k - 1
+                      end if
                     end do
                   end do
                 else
                   ! When gender does not matter, selfing can happen (we have one set of parents)
                   ! and when selfing is not allowed we need to avoid it - slower code
                   do i = 1, Data%nPotPar1
+                    ! print*, i, "/", Data%nPotPar1
                     do j = 1, nVecPar1(i)
                       if (k .gt. 0) then
                         This%MatingPlan(1, k) = Data%IdPotPar1(i)
