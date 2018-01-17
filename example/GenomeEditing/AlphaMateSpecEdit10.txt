@@ -1,13 +1,13 @@
-GenderFile                      , Gender.txt
-NrmMatrixFile                   , Nrm.txt
-SelCriterionFile                , CriterionEdit10.txt
-OutputBasename                  , Edit10_
-NumberOfMatings                 , 500
-NumberOfMaleParents             ,  25
-EqualizeMaleContributions       , Yes
-NumberOfFemaleParents           , 500
-EqualizeFemaleContributions     , Yes
-EvaluateFrontier                , Yes
-PAGEMales                       , Yes
-PAGEMalesMax                    ,   5
+GenderFile                  , Gender.txt
+NrmMatrixFile               , Nrm.txt
+SelCriterionFile            , CriterionEdit10.txt
+OutputBasename              , Edit10_
+NumberOfMatings             , 500
+NumberOfMaleParents         ,  25
+EqualizeMaleContributions   , Yes
+NumberOfFemaleParents       , 500
+EqualizeFemaleContributions , Yes
+EvaluateFrontier            , Yes
+PAGEMales                   , Yes
+PAGEMalesMax                ,   5
 Stop

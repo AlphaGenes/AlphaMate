@@ -1,10 +1,11 @@
-GenderFile                      , Gender.txt
-NrmMatrixFile                   , Nrm.txt
-SelCriterionFile                , Criterion.txt
-NumberOfMatings                 , 500
-NumberOfMaleParents             ,  25
-EqualizeMaleContributions       , Yes
-NumberOfFemaleParents           , 500
-EqualizeFemaleContributions     , Yes
-TargetDegree                    ,  45
+GenderFile                  , Gender.txt
+NrmMatrixFile               , Nrm.txt
+SelCriterionFile            , Criterion.txt
+NumberOfMatings             , 500
+NumberOfMaleParents         ,  25
+EqualizeMaleContributions   , Yes
+NumberOfFemaleParents       , 500
+EqualizeFemaleContributions , Yes
+TargetDegree                ,  45
+TargetMinInbreedingPct      ,  75
 Stop
