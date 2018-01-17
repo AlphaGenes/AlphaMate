@@ -1,12 +1,10 @@
-GenderFile                      , GenderRole.txt
+GenderFile                      , Pools.txt
 NrmMatrixFile                   , Nrm.txt
 SelCriterionFile                , Criterion.txt
 NumberOfMatings                 , 32
-NumberOfMaleParents             , 32
 LimitMaleContributions          , Yes
 LimitMaleContributionsMax       ,  4
-NumberOfFemaleParents           , 32
 LimitFemaleContributions        , Yes
 LimitFemaleContributionsMax     ,  4
-TargetDegree                    , 30
+TargetDegree                    , 45
 Stop
