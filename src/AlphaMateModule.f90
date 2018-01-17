@@ -3177,8 +3177,7 @@ module AlphaMateModule
       if (.not. Spec%GenderGiven) then
         This%Gender = 0
         if (Spec%nPar .eq. 0) then
-          ! when number of parents is not provided all selection candidates form the parent pool,
-          !   albeit some/most will have zero contributions
+          write(STDOUT, "(a)") " NOTE: When number of parents is not provided all candidates could become parents (though other constraints apply)"
           Spec%nPar = This%nInd
         end if
         Spec%nPar1 = Spec%nPar
@@ -3252,9 +3251,8 @@ module AlphaMateModule
         write(STDOUT, "(a)") " Number of   males: "//trim(Int2Char(This%nMal))
         write(STDOUT, "(a)") " Number of females: "//trim(Int2Char(This%nFem))
 
-        ! when number of parents is not provided all selection candidates form the parent pool,
-        !   albeit some will have zero contributions
         if (Spec%nPar1 .eq. 0) then
+          write(STDOUT, "(a)") " NOTE: When number of male parents is not provided all male candidates could become parents (though other constraints apply)"
           Spec%nPar1 = This%nMal
         end if
         if (Spec%EqualizePar1) then
@@ -3287,6 +3285,7 @@ module AlphaMateModule
         end if
 
         if (Spec%nPar2 .eq. 0) then
+          write(STDOUT, "(a)") " NOTE: When number of female parents is not provided all female candidates could become parents (though other constraints apply)"
           Spec%nPar2 = This%nFem
         end if
         if (Spec%EqualizePar2) then
@@ -6209,7 +6208,7 @@ module AlphaMateModule
       character(len=*), intent(in), optional :: MatingFile !< File to write mating plan to (default STDOUT)
 
       ! Other
-      integer(int32) :: nMat, Mat, MatingUnit, n, k
+      integer(int32) :: nMat, Mat, MatingUnit, n, k, Par1
       integer(int32) :: Rank(size(This%MatingPlan, dim=2)), Pair(size(This%MatingPlan, dim=2))
 
       nMat = size(This%MatingPlan, dim=2)
@@ -6234,7 +6233,16 @@ module AlphaMateModule
       k = nMat ! MrgRnk ranks small to large
       do while (k .gt. 0)
         ! Contributions of a working parent1
-        n = This%nVec(This%MatingPlan(1, Rank(k)))
+        Par1 = This%MatingPlan(1, Rank(k))
+        n = This%nVec(Par1)
+        ! ... correct the contributions (just for sorting) when gender does not matter
+        if (.not. Spec%GenderGiven) then
+          do Mat = 1, nMat
+            if (This%MatingPlan(2, Mat) .eq. Par1) then
+              n = n - 1
+            end if
+          end do
+        end if
         ! So, we have n contributions of a parent1 and we will work with a batch of
         !   n matings of this parent with others; these matings will be accessed by
         !   MatingPlan(:, Rank([k, k-1, k-2, ..., k-(n-1)])
