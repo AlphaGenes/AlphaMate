@@ -10,11 +10,12 @@ SP$addSnpChip(nSnpPerChr = 1000)
 SP$addTraitA(nQtlPerChr = 1000, mean = 0, var = 1)
 
 nGen = 20
-Pop = newPop(rawPop = FOUNDERPOP)
+Pop = newPop(rawPop = FOUNDERPOP, isDH = TRUE)
 for (Gen in 1:nGen) {
   # Gen = 1
   Parents = selectInd(pop = Pop, nInd = 64, use = "gv")
   Pop = randCross(pop = Parents, nCrosses = 370)
+  Pop = makeDH(pop = Pop)
 }
 
 # Generate pools
@@ -56,6 +57,6 @@ cat("LimitMaleContributions      , Yes\n")
 cat("LimitMaleContributionsMax   ,  4\n")
 cat("LimitFemaleContributions    , Yes\n")
 cat("LimitFemaleContributionsMax ,  4\n")
-cat("TargetDegree                , 45\n")
+cat("TargetDegree                , 30\n")
 cat("Stop\n")
 sink()

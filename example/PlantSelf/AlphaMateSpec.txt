@@ -4,5 +4,5 @@ NumberOfMatings       , 32
 LimitContributions    , Yes
 LimitContributionsMax , 10
 AllowSelfing          , Yes
-TargetDegree          , 45
+TargetDegree          , 30
 Stop

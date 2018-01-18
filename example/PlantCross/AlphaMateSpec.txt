@@ -6,5 +6,5 @@ LimitMaleContributions      , Yes
 LimitMaleContributionsMax   ,  4
 LimitFemaleContributions    , Yes
 LimitFemaleContributionsMax ,  4
-TargetDegree                , 45
+TargetDegree                , 30
 Stop
