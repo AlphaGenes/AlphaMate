@@ -502,7 +502,7 @@ module AlphaMateModule
       ! This%TargetCoancestry ! allocatable so skip here
       This%TargetCoancestryRateGiven = .false.
       ! This%TargetCoancestryRate ! allocatable so skip here
-      This%CoancestryWeight = -1 ! -1000.0d0
+      This%CoancestryWeight = -1
       This%CoancestryWeightBelow = .false.
       This%TargetMinCoancestryPctGiven = .false.
       ! This%TargetMinCoancestryPct ! allocatable so skip here
@@ -531,7 +531,7 @@ module AlphaMateModule
       This%RandomMateAllocation = .false.
 
       This%SelfingAllowed = .false.
-      This%SelfingWeight = -1 ! -1000.0d0
+      This%SelfingWeight = -1
 
       This%EqualizePar  = .false.
       This%EqualizePar1 = .false.
@@ -546,9 +546,9 @@ module AlphaMateModule
       This%LimitParMax  = huge(This%LimitParMax)  - 1.0d0
       This%LimitPar1Max = huge(This%LimitPar1Max) - 1.0d0
       This%LimitPar2Max = huge(This%LimitPar2Max) - 1.0d0
-      This%LimitParMinWeight  = -1000.0d0
-      This%LimitPar1MinWeight = -1000.0d0
-      This%LimitPar2MinWeight = -1000.0d0
+      This%LimitParMinWeight  = -1.0d0
+      This%LimitPar1MinWeight = -1.0d0
+      This%LimitPar2MinWeight = -1.0d0
 
       This%PreselectPar      = .false.
       This%PreselectPar1     = .false.
@@ -1270,8 +1270,8 @@ module AlphaMateModule
                   if (LogStdoutInternal) then
                     write(STDOUT, "(a)") " Targeted selection intensity: "//trim(Real2Char(This%TargetSelIntensity(n), fmt=FMTREAL2CHAR))
                   end if
-                  if ((This%TargetSelIntensity(n) .lt. 0.0d0) .or. (This%TargetSelIntensity(n) .gt. 5.0d0)) then
-                    write(STDERR, "(a)") " ERROR: TargetSelIntensity must be above 0 and (probably) below 5!"
+                  if ((This%TargetSelIntensity(n) .lt. -5.0d0) .or. (This%TargetSelIntensity(n) .gt. 5.0d0)) then
+                    write(STDERR, "(a)") " ERROR: TargetSelIntensity must be above -5 and below 5!"
                     write(STDERR, "(a)") " "
                     stop 1
                   end if
@@ -1405,7 +1405,7 @@ module AlphaMateModule
                   write(STDOUT, "(a)") " NOTE: Positive weight for the targeted coancestry, i.e., encourage higher coancestry. Was this intended?"
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a value for CoancestryWeight, i.e., CoancestryWeight, -1000"
+                write(STDERR, "(a)") " ERROR: Must specify a value for CoancestryWeight, i.e., CoancestryWeight, -2"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -1501,7 +1501,7 @@ module AlphaMateModule
                   write(STDOUT, "(a)") " NOTE: Positive weight for targeted inbreeding, i.e., encourage higher inbreeding. Was this intended?"
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a value for InbreedingWeight, i.e., InbreedingWeight, -1000"
+                write(STDERR, "(a)") " ERROR: Must specify a value for InbreedingWeight, i.e., InbreedingWeight, -2"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -1626,7 +1626,7 @@ module AlphaMateModule
                     write(STDOUT, "(a)") " NOTE: Positive weight for selfing, i.e., encourage selfing. Was this intended?"
                   end if
                 else
-                  write(STDERR, "(a)") " ERROR: Must specify a value for SelfingWeight, i.e., SelfingWeight, -1000"
+                  write(STDERR, "(a)") " ERROR: Must specify a value for SelfingWeight, i.e., SelfingWeight, -2"
                   write(STDERR, "(a)") " "
                   stop 1
                 end if
@@ -1729,7 +1729,7 @@ module AlphaMateModule
                     write(STDOUT, "(a)") " NOTE: Positive weight for limit on minimum contributions, i.e., encourage smaller contributions than defined minimum. Was this intended?"
                   end if
                 else
-                  write(STDERR, "(a)") " ERROR: Must specify a value for LimitContributionsMinWeight, i.e., LimitContributionsMinWeight, -1000"
+                  write(STDERR, "(a)") " ERROR: Must specify a value for LimitContributionsMinWeight, i.e., LimitContributionsMinWeight, -2"
                   write(STDERR, "(a)") " "
                   stop 1
                 end if
@@ -1789,7 +1789,7 @@ module AlphaMateModule
                     write(STDOUT, "(a)") " NOTE: Positive weight for limit on minimum contributions, i.e., encourage smaller contributions than defined minimum. Was this intended?"
                   end if
                 else
-                  write(STDERR, "(a)") " ERROR: Must specify a value for LimitMaleContributionsMinWeight, i.e., LimitMaleContributionsMinWeight, -1000"
+                  write(STDERR, "(a)") " ERROR: Must specify a value for LimitMaleContributionsMinWeight, i.e., LimitMaleContributionsMinWeight, -2"
                   write(STDERR, "(a)") " "
                   stop 1
                 end if
@@ -1848,7 +1848,7 @@ module AlphaMateModule
                     write(STDOUT, "(a)") " NOTE: Positive weight for limit on minimum contributions, i.e., encourage smaller contributions than defined minimum. Was this intended?"
                   end if
                 else
-                  write(STDERR, "(a)") " ERROR: Must specify a value for LimitFemaleContributionsMinWeight, i.e., LimitFemaleContributionsMinWeight, -1000"
+                  write(STDERR, "(a)") " ERROR: Must specify a value for LimitFemaleContributionsMinWeight, i.e., LimitFemaleContributionsMinWeight, -2"
                   write(STDERR, "(a)") " "
                   stop 1
                 end if
@@ -2367,7 +2367,7 @@ module AlphaMateModule
         This%LimitPar          = .false.
         This%LimitParMin       = 1.0d0
         This%LimitParMax       = huge(This%LimitParMax) - 1.0d0
-        This%LimitParMinWeight = -1000.0d0
+        This%LimitParMinWeight = -1
       end if
 
       if (This%LimitPar1 .and. This%EqualizePar1) then
@@ -2379,7 +2379,7 @@ module AlphaMateModule
         This%LimitPar1          = .false.
         This%LimitPar1Min       = 1.0d0
         This%LimitPar1Max       = huge(This%LimitPar1Max) - 1.0d0
-        This%LimitPar1MinWeight = -1000.0d0
+        This%LimitPar1MinWeight = -1
       end if
 
       if (This%LimitPar2 .and. This%EqualizePar2) then
@@ -2391,7 +2391,7 @@ module AlphaMateModule
         This%LimitPar2          = .false.
         This%LimitPar2Min       = 1.0d0
         This%LimitPar2Max       = huge(This%LimitPar2Max) - 1.0d0
-        This%LimitPar2MinWeight = -1000.0d0
+        This%LimitPar2MinWeight = -1
       end if
 
       ! Impose upper limits (when it is not given by the user) to avoid explosion in optimisation
@@ -3494,6 +3494,8 @@ module AlphaMateModule
 
       ! --- Generic individual criterion ---
 
+      ! @todo standardize these input values!!!
+
       if (Spec%GenericIndCritGiven) then
         nIndTmp = CountLines(Spec%GenericIndCritFile)
         if (LogStdoutInternal) then
@@ -3524,6 +3526,8 @@ module AlphaMateModule
       end if
 
       ! --- Generic mating criterion ---
+
+      ! @todo standardize these input values!!!
 
       if (Spec%GenericMatCritGiven) then
         nMatTmp = CountLines(Spec%GenericMatCritFile)
