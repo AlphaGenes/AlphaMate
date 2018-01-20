@@ -42,7 +42,7 @@
 !> @brief    Mate selection / Optimum contribution selection
 !
 !> @details  Optimise selection, maintenance of diversity, and mate allocation
-!!           in constrained breeding programs
+!!           in breeding programs
 !
 !> @author   Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
 !

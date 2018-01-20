@@ -10,9 +10,9 @@ for (Package in RequiredPackages) {
   }
 }
 
-SelIntensity2MaxCriterionPct = function(SelIntensity, MinSelIntensity, MaxSelIntensity) {
-  Diff = SelIntensity - MinSelIntensity
-  MaxDiff = MaxSelIntensity - MinSelIntensity
+SelCriterionStd2MaxCriterionPct = function(SelCriterionStd, MinSelCriterionStd, MaxSelCriterionStd) {
+  Diff = SelCriterionStd - MinSelCriterionStd
+  MaxDiff = MaxSelCriterionStd - MinSelCriterionStd
   if (MaxDiff == 0) {
     if (Diff >= 0) {
       MaxCriterionPct = 100.0
@@ -130,8 +130,8 @@ MaxSelCriterPctLimits = c(0, 100)
 MinCoancestryPctLimits = c(0, 100)
 
 # Mapping formulae
-# plot(Frontier$SelIntensity   ~ Frontier$MaxSelCriterPct)
-fit <- coef(lm(Frontier$SelIntensity   ~ Frontier$MaxSelCriterPct))
+# plot(Frontier$SelCriterionStd ~ Frontier$MaxSelCriterPct)
+fit <- coef(lm(Frontier$SelCriterionStd ~ Frontier$MaxSelCriterPct))
 SelIntFormula <- as.formula(paste("~", fit[1], "+ . *", fit[2]))
 
 # plot(Frontier$CoancestryRate ~ Frontier$MinCoancestryPct)
@@ -145,9 +145,9 @@ for (Tmp in 2:5) {
   if (!is.null(Arguments[[Arg]])) {
     FrontierAdd[[Tmp - 1]] <- read.table(file = Arguments[[Arg]], header = TRUE)
     FrontierAdd[[Tmp - 1]] <- arrange(FrontierAdd[[Tmp - 1]], FrontierDegree)
-    FrontierAdd[[Tmp - 1]]$MaxSelCriterPct = SelIntensity2MaxCriterionPct(SelIntensity = FrontierAdd[[Tmp - 1]]$SelIntensity,
-                                                                          MinSelIntensity = filter(Frontier, ModeOrPoint == "ModeMinCoancestry")$SelIntensity,
-                                                                          MaxSelIntensity = filter(Frontier, ModeOrPoint == "ModeMaxCriterion")$SelIntensity)
+    FrontierAdd[[Tmp - 1]]$MaxSelCriterPct = SelCriterionStd2MaxCriterionPct(SelCriterionStd = FrontierAdd[[Tmp - 1]]$SelCriterionStd,
+                                                                             MinSelCriterionStd = filter(Frontier, ModeOrPoint == "ModeMinCoancestry")$SelCriterionStd,
+                                                                             MaxSelCriterionStd = filter(Frontier, ModeOrPoint == "ModeMaxCriterion")$SelCriterionStd)
     MaxSelCriterPctLimits = range(c(MaxSelCriterPctLimits, range(FrontierAdd[[Tmp - 1]]$MaxSelCriterPct)))
     FrontierAdd[[Tmp - 1]]$MinCoancestryPct = CoancestryRate2MinCoancestryPct(CoancestryRate = FrontierAdd[[Tmp - 1]]$CoancestryRate,
                                                                               MinCoancestryRate = filter(Frontier, ModeOrPoint == "ModeMinCoancestry")$CoancestryRate,
@@ -159,9 +159,9 @@ for (Tmp in 2:5) {
 # Optimisation path
 if (!is.null(Arguments$log)) {
   Path <- read.table(file = Arguments$log, header = TRUE)
-  Path$MaxSelCriterPct = SelIntensity2MaxCriterionPct(SelIntensity = Path$SelIntensity,
-                                                      MinSelIntensity = filter(Frontier, ModeOrPoint == "ModeMinCoancestry")$SelIntensity,
-                                                      MaxSelIntensity = filter(Frontier, ModeOrPoint == "ModeMaxCriterion")$SelIntensity)
+  Path$MaxSelCriterPct = SelCriterionStd2MaxCriterionPct(SelCriterionStd = Path$SelCriterionStd,
+                                                         MinSelCriterionStd = filter(Frontier, ModeOrPoint == "ModeMinCoancestry")$SelCriterionStd,
+                                                         MaxSelCriterionStd = filter(Frontier, ModeOrPoint == "ModeMaxCriterion")$SelCriterionStd)
   Path$MinCoancestryPct = CoancestryRate2MinCoancestryPct(CoancestryRate = Path$CoancestryRate,
                                                           MinCoancestryRate = filter(Frontier, ModeOrPoint == "ModeMinCoancestry")$CoancestryRate,
                                                           MaxCoancestryRate = filter(Frontier, ModeOrPoint == "ModeMaxCriterion")$CoancestryRate)
@@ -172,9 +172,9 @@ for (Tmp in 2:11) {
   Arg = paste("log", Tmp, sep = "")
   if (!is.null(Arguments[[Arg]])) {
     PathAdd[[Tmp - 1]] = read.table(file = Arguments[[Arg]], header = TRUE)
-    PathAdd[[Tmp - 1]]$MaxSelCriterPct = SelIntensity2MaxCriterionPct(SelIntensity = PathAdd[[Tmp - 1]]$SelIntensity,
-                                                                      MinSelIntensity = filter(Frontier, ModeOrPoint == "ModeMinCoancestry")$SelIntensity,
-                                                                      MaxSelIntensity = filter(Frontier, ModeOrPoint == "ModeMaxCriterion")$SelIntensity)
+    PathAdd[[Tmp - 1]]$MaxSelCriterPct = SelCriterionStd2MaxCriterionPct(SelCriterionStd = PathAdd[[Tmp - 1]]$SelCriterionStd,
+                                                                         MinSelCriterionStd = filter(Frontier, ModeOrPoint == "ModeMinCoancestry")$SelCriterionStd,
+                                                                         MaxSelCriterionStd = filter(Frontier, ModeOrPoint == "ModeMaxCriterion")$SelCriterionStd)
     PathAdd[[Tmp - 1]]$MinCoancestryPct = CoancestryRate2MinCoancestryPct(CoancestryRate = PathAdd[[Tmp - 1]]$CoancestryRate,
                                                                           MinCoancestryRate = filter(Frontier, ModeOrPoint == "ModeMinCoancestry")$CoancestryRate,
                                                                           MaxCoancestryRate = filter(Frontier, ModeOrPoint == "ModeMaxCriterion")$CoancestryRate)
@@ -209,7 +209,7 @@ p <- ggplot(data = Frontier,
                color = "grey92", linetype = 2) +
   scale_y_continuous(limits = MaxSelCriterPctLimits, name = "Maximum gain (%)",
                      sec.axis = sec_axis(trans = SelIntFormula,
-                                         name = "Selection intensity")) +
+                                         name = "Standardized selection criterion")) +
   scale_x_continuous(limits = MinCoancestryPctLimits, name = "Minimum coancestry (%)",
                      sec.axis = sec_axis(trans = RatCoaFormula,
                                          name = "Rate of coancestry")) +

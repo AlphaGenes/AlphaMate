@@ -66,26 +66,26 @@ ContributionsMinCoancestry$parent %>%
 
 CurrentCoancestry = Candidates$current["sKin", "Val"]
 
-(SelCriterionAtMaxSelCriterion   = ContributionsMaxSelCriterion$mean$Ebv1)
-(SelIntensityAtMaxSelCriterion   = ContributionsMaxSelCriterion$mean$Ebv1S)
-(CoancestryAtMaxSelCriterion     = ContributionsMaxSelCriterion$mean$sKin)
-(CoancestryRateAtMaxSelCriterion = Coancestry2CoancestryRate(CurrentCoancestry=CurrentCoancestry,
-                                                             FutureCoancestry=CoancestryAtMaxSelCriterion))
+(SelCriterionAtMaxSelCriterion     = ContributionsMaxSelCriterion$mean$Ebv1)
+(SelCriterionStdAtMaxSelCriterion = ContributionsMaxSelCriterion$mean$Ebv1S)
+(CoancestryAtMaxSelCriterion       = ContributionsMaxSelCriterion$mean$sKin)
+(CoancestryRateAtMaxSelCriterion   = Coancestry2CoancestryRate(CurrentCoancestry=CurrentCoancestry,
+                                                               FutureCoancestry=CoancestryAtMaxSelCriterion))
 
-(SelCriterionAtMinCoancestry   = ContributionsMinCoancestry$mean$Ebv1)
-(SelIntensityAtMinCoancestry   = ContributionsMinCoancestry$mean$Ebv1S)
-(CoancestryAtMinCoancestry     = ContributionsMinCoancestry$mean$sKin)
-(CoancestryRateAtMinCoancestry = Coancestry2CoancestryRate(CurrentCoancestry=CurrentCoancestry,
-                                                           FutureCoancestry=CoancestryAtMinCoancestry))
+(SelCriterionAtMinCoancestry     = ContributionsMinCoancestry$mean$Ebv1)
+(SelCriterionStdAtMinCoancestry = ContributionsMinCoancestry$mean$Ebv1S)
+(CoancestryAtMinCoancestry       = ContributionsMinCoancestry$mean$sKin)
+(CoancestryRateAtMinCoancestry   = Coancestry2CoancestryRate(CurrentCoancestry=CurrentCoancestry,
+                                                             FutureCoancestry=CoancestryAtMinCoancestry))
 
 TargetDegree = 30
 
 (MaxCriterionAtTargetDegree     = Degree2MaxCriterionPct(Degree=TargetDegree))
-(SelIntensityAtTargetDegree     = Degree2SelIntensity(Degree=TargetDegree,
-                                                      MinSelIntensity=SelIntensityAtMinCoancestry,
-                                                      MaxSelIntensity=SelIntensityAtMaxSelCriterion))
-(SelCriterionAtTargetDegree     = SelIntensity2SelCriterion(SelIntensity=SelIntensityAtTargetDegree,
-                                                            Mean=EbvMean, Sd=EbvSd))
+(SelCriterionStdAtTargetDegree = Degree2SelCriterionStd(Degree=TargetDegree,
+                                                        MinSelCriterionStd=SelCriterionStdAtMinCoancestry,
+                                                        MaxSelCriterionStd=SelCriterionStdAtMaxSelCriterion))
+(SelCriterionAtTargetDegree     = SelCriterionStd2SelCriterion(SelCriterionStd=SelCriterionStdAtTargetDegree,
+                                                               Mean=EbvMean, Sd=EbvSd))
 (MinCoancestryPctAtTargetDegree = Degree2MinCoancestryPct(Degree=TargetDegree))
 (CoancestryRateAtTargetDegree   = Degree2CoancestryRate(Degree=TargetDegree,
                                                         MinCoancestryRate=CoancestryRateAtMinCoancestry,
