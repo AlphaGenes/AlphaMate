@@ -12,7 +12,7 @@
 Introduction
 =========================================================================================
 
-|AM| is a program for optimising selection, maintenance of diversity, and mate allocation in constrained breeding programs. This optimisation finds which individuals should contribute to the next generation and potentially how should these individuals be mated / crossed to deliver desired targets. |AM| works with animal and self- and cross-pollinating plant populations.
+|AM| is a program for optimising selection, maintenance of diversity, and mate allocation in breeding programs. This optimisation finds which individuals should contribute to the next generation and potentially how should these individuals be mated / crossed to deliver desired targets. |AM| works with animal and self- and cross-pollinating plant populations.
 
 Please report bugs or suggestions on how the program / user interface / manual could be improved or made more user friendly to Gregor Gorjanc (`Gregor.Gorjanc@roslin.ed.ac.uk <Gregor.Gorjanc@roslin.ed.ac.uk>`_) or John Hickey (`John.Hickey@roslin.ed.ac.uk <John.Hickey@roslin.ed.ac.uk>`_).
 
@@ -28,7 +28,7 @@ Conditions of use
 
 Suggested Citation:
 
-Gorjanc, G, Hickey, JM (2018). *AlphaMate: a program for optimising selection, maintenance of diversity, and mate allocation in constrained breeding programs*. bioRxiv 250837; doi: `http://doi.org/10.1101/10.1101/250837 <http://doi.org/10.1101/10.1101/250837>`_.
+Gorjanc, G, Hickey, JM (2018). *AlphaMate: a program for optimising selection, maintenance of diversity, and mate allocation in breeding programs*. bioRxiv 250837; doi: `http://doi.org/10.1101/10.1101/250837 <http://doi.org/10.1101/10.1101/250837>`_.
 
 Disclaimer
 ----------
@@ -45,7 +45,7 @@ The AlphaSuite is available from `AlphaGenes website (http://www.AlphaGenes.rosl
 General overview
 =========================================================================================
 
-|AM| optimises selection, maintenance of diversity, and mate allocation in constrained breeding programs. It achieves this by jointly optimising contributions and mate allocations. Mate allocation is optional, but turned on by default. The goal of this optimisation is to find a **valid mating plan** (i.e., which individuals contribute and how they are mated / crossed) that delivers **desired targets**. This is achieved with an evolutionary optimisation of a single objective or multiple objectives simultaneously.
+|AM| optimises selection, maintenance of diversity, and mate allocation in breeding programs. It achieves this by jointly optimising contributions and mate allocations. Mate allocation is optional, but turned on by default. The goal of this optimisation is to find a **valid mating plan** (i.e., which individuals contribute and how they are mated / crossed) that delivers **desired targets**. This is achieved with an evolutionary optimisation of a single objective or multiple objectives simultaneously.
 
 A **valid mating plan** is defined by a combination of mating constraints (see `Mating constraints`_), which cover reproductive systems in animals and cross- and self-pollinating plants:
 
@@ -62,7 +62,7 @@ c) minimize `Inbreeding depression`_,
 d) maximize `Genetic gain`_ with the constrained `Loss of genetic diversity`_ or `Inbreeding depression`_, or
 e) as a) or d) but with the ability to genome edit a fixed set of contributors.
 
-Optimisation is performed with an evolutionary algorithm based on differential evolution (Storn and Price, 1997) with modifications to avoid premature convergence (Gondro and Kinghorn, 2009). For a single target (a-c optimisation objectives), |AM| optimises a single objective function accounting for matings constraints. For multiple targets, |AM| performs multiple objective optimisation in two steps; see e.g. Deb (2014) for review. First, |AM| optimises single objective functions for each target separately to find bounds of the objective space and normalize objectives. Second, |AM| uses the :math:`\epsilon`–constraint method to either: i) find a Pareto-optimal solution with targeted balance between objectives or ii) evaluate the whole frontier of Pareto-optimal solutions (the Pareto frontier). A Pareto-optimal solution is the best solution with a specific balance between objectives. The Pareto frontier is a set of Pareto-optimal solutions and is useful when a breeder does not have clearly defined targets and can explore optimal solutions with different balance between targets to reach a decision. Figure 1 below demonstrates the Pareto frontier of genetic gain and  coancestry and the optimisation path for a targeted solution. Further details about implemented objective functions are provided in description of the specifications file (see `Optimisation controls`_).
+Optimisation is performed with an evolutionary algorithm based on differential evolution (Storn and Price, 1997) with modifications to avoid premature convergence (Gondro and Kinghorn, 2009). For a single target (a-c optimisation objectives), |AM| optimises a single objective function accounting for matings constraints. For multiple targets, |AM| performs multiple objective optimisation in two steps; see e.g. Deb (2014) for review. First, |AM| optimises single objective functions for each target separately to find bounds of the objective space and normalize objectives. Second, |AM| uses the :math:`\epsilon`-constraint method to either: i) find a Pareto-optimal solution with targeted balance between objectives or ii) evaluate the whole frontier of Pareto-optimal solutions (the Pareto frontier). A Pareto-optimal solution is the best solution with a specific balance between objectives. The Pareto frontier is a set of Pareto-optimal solutions and is useful when a breeder does not have clearly defined targets and can explore optimal solutions with different balance between targets to reach a decision. Figure 1 below demonstrates the Pareto frontier of genetic gain and coancestry and the optimisation path for a targeted solution. Further details about implemented objective functions are provided in description of the specifications file (see `Optimisation controls`_).
 
 .. figure:: GainVsCoancestry.png
     :width: 300px
@@ -334,7 +334,7 @@ EqualizeContributions
   EqualizeContributions , [Yes/No]
   EqualizeContributions , Yes
 
-EqualizeContributions specifies wether parent `Contributions`_ should be equal, i.e., all chosen parents contribute the same number of matings. Default is ``No``. This specification is used when "gender" functionality is NOT used (see `GenderFile`_).
+EqualizeContributions specifies whether parent `Contributions`_ should be equal, i.e., all chosen parents contribute the same number of matings. Default is ``No``. This specification is used when "gender" functionality is NOT used (see `GenderFile`_).
 
 EqualizeMaleContributions
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -344,7 +344,7 @@ EqualizeMaleContributions
   EqualizeMaleContributions , [Yes/No]
   EqualizeMaleContributions , Yes
 
-EqualizeMaleContributions specifies wether male parent `Contributions`_ should be equal, i.e., all chosen male parents contribute the same number of matings. Default is ``No``. This specification is used when "gender" functionality is used (see `GenderFile`_).
+EqualizeMaleContributions specifies whether male parent `Contributions`_ should be equal, i.e., all chosen male parents contribute the same number of matings. Default is ``No``. This specification is used when "gender" functionality is used (see `GenderFile`_).
 
 EqualizeFemaleContributions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -354,7 +354,7 @@ EqualizeFemaleContributions
   EqualizeFemaleContributions , [Yes/No]
   EqualizeFemaleContributions , Yes
 
-EqualizeFemaleContributions specifies wether female parent `Contributions`_ should be equal, i.e., all chosen female parents contribute the same number of matings. Default is ``No``. This specification is used when "gender" functionality is used (see `GenderFile`_).
+EqualizeFemaleContributions specifies whether female parent `Contributions`_ should be equal, i.e., all chosen female parents contribute the same number of matings. Default is ``No``. This specification is used when "gender" functionality is used (see `GenderFile`_).
 
 LimitContributions
 ^^^^^^^^^^^^^^^^^^
@@ -364,7 +364,7 @@ LimitContributions
   LimitContributions , [Yes/No]
   LimitContributions , Yes
 
-LimitContributions specifies wether `Contributions`_ should be limited with `LimitContributionsMin`_ and `LimitContributionsMax`_. Default is ``No``. This specification is used when "gender" functionality is NOT used (see `GenderFile`_).
+LimitContributions specifies whether `Contributions`_ should be limited with `LimitContributionsMin`_ and `LimitContributionsMax`_. Default is ``No``. This specification is used when "gender" functionality is NOT used (see `GenderFile`_).
 
 LimitContributionsMin
 ^^^^^^^^^^^^^^^^^^^^^
@@ -374,7 +374,7 @@ LimitContributionsMin
   LimitContributionsMin , [Value]
   LimitContributionsMin , 5
 
-LimitContributionsMin specifies minimum allowed `Contributions`_ per parent. This specification is used when `LimitContributions`_ is active and "gender" functionality is NOT used (see `GenderFile`_). When the limit can not be accommodated, the objective function is penalized by `LimitContributionsMinWeight`_.
+LimitContributionsMin specifies minimum allowed `Contributions`_ per parent. This specification is used when `LimitContributions`_ is active and "gender" functionality is NOT used (see `GenderFile`_). When the limit cannot be accommodated, the objective function is penalized by `LimitContributionsMinWeight`_.
 
 LimitContributionsMax
 ^^^^^^^^^^^^^^^^^^^^^
@@ -394,7 +394,7 @@ LimitMaleContributions
   LimitMaleContributions , [Yes/No]
   LimitMaleContributions , Yes
 
-LimitMaleContributions specifies wether male parent `Contributions`_ should be limited with `LimitMaleContributionsMin`_ and `LimitMaleContributionsMax`_. Default is ``No``. This specification is used when "gender" functionality is used (see `GenderFile`_).
+LimitMaleContributions specifies whether male parent `Contributions`_ should be limited with `LimitMaleContributionsMin`_ and `LimitMaleContributionsMax`_. Default is ``No``. This specification is used when "gender" functionality is used (see `GenderFile`_).
 
 LimitMaleContributionsMin
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -404,7 +404,7 @@ LimitMaleContributionsMin
   LimitMaleContributionsMin , [Value]
   LimitMaleContributionsMin , 5
 
-LimitMaleContributionsMin specifies minimum allowed `Contributions`_ per male parent. This specification is used when `LimitMaleContributions`_ is active and "gender" functionality is used (see `GenderFile`_). When the limit can not be accommodated, the objective function is penalized by `LimitMaleContributionsMinWeight`_.
+LimitMaleContributionsMin specifies minimum allowed `Contributions`_ per male parent. This specification is used when `LimitMaleContributions`_ is active and "gender" functionality is used (see `GenderFile`_). When the limit cannot be accommodated, the objective function is penalized by `LimitMaleContributionsMinWeight`_.
 
 LimitMaleContributionsMax
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -424,7 +424,7 @@ LimitFemaleContributions
   LimitFemaleContributions , [Yes/No]
   LimitFemaleContributions , Yes
 
-LimitFemaleContributions specifies wether female parent `Contributions`_ should be limited with `LimitFemaleContributionsMin`_ and `LimitFemaleContributionsMax`_. Default is ``No``. This specification is used when "gender" functionality is used (see `GenderFile`_).
+LimitFemaleContributions specifies whether female parent `Contributions`_ should be limited with `LimitFemaleContributionsMin`_ and `LimitFemaleContributionsMax`_. Default is ``No``. This specification is used when "gender" functionality is used (see `GenderFile`_).
 
 LimitFemaleContributionsMin
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -434,7 +434,7 @@ LimitFemaleContributionsMin
   LimitFemaleContributionsMin , [Value]
   LimitFemaleContributionsMin , 5
 
-LimitFemaleContributionsMin specifies minimum allowed `Contributions`_ per female parent. This specification is used when `LimitFemaleContributions`_ is active and "gender" functionality is used (see `GenderFile`_). When the limit can not be accommodated, the objective function is penalized by `LimitFemaleContributionsMinWeight`_.
+LimitFemaleContributionsMin specifies minimum allowed `Contributions`_ per female parent. This specification is used when `LimitFemaleContributions`_ is active and "gender" functionality is used (see `GenderFile`_). When the limit cannot be accommodated, the objective function is penalized by `LimitFemaleContributionsMinWeight`_.
 
 LimitFemaleContributionsMax
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -454,7 +454,7 @@ AllowSelfing
   AllowSelfing , [Yes/No]
   AllowSelfing , Yes
 
-AllowSelfing specifies wether selfing is allowed. Default is ``No``. This specification is only relevant when "gender" functionality is NOT used (see `GenderFile`_) and when mate allocation is used (`MateAllocation`_).
+AllowSelfing specifies whether selfing is allowed. Default is ``No``. This specification is only relevant when "gender" functionality is NOT used (see `GenderFile`_) and when mate allocation is used (`MateAllocation`_).
 
 Desired targets
 -----------------------------------------------------------------------------------------
@@ -566,7 +566,7 @@ EvaluateFrontier
   EvaluateFrontier , [Yes/No]
   EvaluateFrontier , Yes
 
-EvaluateFrontier specifies wether the whole Pareto frontier of genetic gain and group coancestry should be evaluated. Default is ``No``. When actived, |AM| runs optimisations with `Trigonometric degrees`_ of 10, 20, ..., 90.
+EvaluateFrontier specifies whether the whole Pareto frontier of genetic gain and group coancestry should be evaluated. Default is ``No``. When actived, |AM| runs optimisations with `Trigonometric degrees`_ of 10, 20, ..., 90.
 
 TargetInbreeding
 ^^^^^^^^^^^^^^^^
@@ -745,7 +745,7 @@ PAGEMax
   PAGEMax , [Value]
   PAGEMax , 5
 
-PAGEMax spcifies how many individuals can be genome edited. This specification is used when `PAGE`_ is active and "gender" functionality is NOT used (see `GenderFile`_).
+PAGEMax specifies how many individuals can be genome edited. This specification is used when `PAGE`_ is active and "gender" functionality is NOT used (see `GenderFile`_).
 
 PAGEMales
 ^^^^^^^^^
@@ -765,7 +765,7 @@ PAGEMalesMax
   PAGEMalesMax , [Value]
   PAGEMalesMax , 5
 
-PAGEMalesMax spcifies how many males can be genome edited. This specification is used when `PAGEMales`_ is active and "gender" functionality is used (see `GenderFile`_).
+PAGEMalesMax specifies how many males can be genome edited. This specification is used when `PAGEMales`_ is active and "gender" functionality is used (see `GenderFile`_).
 
 PAGEFemales
 ^^^^^^^^^^^
@@ -785,7 +785,7 @@ PAGEFemalesMax
   PAGEFemalesMax , [Value]
   PAGEFemalesMax , 5
 
-PAGEFemalesMax spcifies how many females can be genome edited. This specification is used when `PAGEFemales`_ is active and "gender" functionality is used (see `GenderFile`_).
+PAGEFemalesMax specifies how many females can be genome edited. This specification is used when `PAGEFemales`_ is active and "gender" functionality is used (see `GenderFile`_).
 
 CoancestryWeight
 ^^^^^^^^^^^^^^^^
@@ -805,7 +805,7 @@ CoancestryWeightBellow
   CoancestryWeightBellow , [Yes/No]
   CoancestryWeightBellow , Yes
 
-CoancestryWeightBellow specifies wether |AM| should penalize solutions that have lower than targeted/constrained "level of coancestry". Default is *No*.
+CoancestryWeightBellow specifies whether |AM| should penalize solutions that have lower than targeted/constrained "level of coancestry". Default is *No*.
 
 InbreedingWeight
 ^^^^^^^^^^^^^^^^
@@ -928,7 +928,7 @@ EvolAlgStopToleranceCoancestry
   EvolAlgStopToleranceCoancestry , [Value]
   EvolAlgStopToleranceCoancestry , 0.01
 
-EvolAlgStopToleranceCoancestry specifies the stopping tolerance for the objective of `ModeMinCoancestry`_ and `ModeMinInbreeding`_, i.e., when objective does not change b y the tolerance value in the last `EvolAlgNumberOfIterationsStop`_ iterations, the optimisation is stopped. Default is *0.001*.
+EvolAlgStopToleranceCoancestry specifies the stopping tolerance for the objective of `ModeMinCoancestry`_ and `ModeMinInbreeding`_, i.e., when objective does not change by the tolerance value in the last `EvolAlgNumberOfIterationsStop`_ iterations, the optimisation is stopped. Default is *0.001*.
 
 EvolAlgStopTol
 ^^^^^^^^^^^^^^
@@ -948,7 +948,7 @@ EvolAlgLogAllSolutions
   EvolAlgLogAllSolutions , [Yes/No]
   EvolAlgLogAllSolutions , Yes
 
-EvolAlgLogAllSolutions specifies wether all evaluated solutions should be logged in the output. This is useful to observe the path of optimisation (see Figure 1). Default is *No*.
+EvolAlgLogAllSolutions specifies whether all evaluated solutions should be logged in the output. This is useful to observe the path of optimisation (see Figure 1). Default is *No*.
 
 EvolAlgNumberOfIterationsBurnin
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1119,7 +1119,7 @@ Optimisation log
 
 There are several optimisation log files.
 
-The files *Targets.txt* and *Frontier.txt* report different criteria as achieved by the end of each optmisation. See `Definitions`_ for the meaning of the criteria. There is one row in the files for each optimisation target.
+The files *Targets.txt* and *Frontier.txt* report different criteria as achieved by the end of each optimisation. See `Definitions`_ for the meaning of the criteria. There is one row in the files for each optimisation target.
 
 The files with basename *OptimisationLogMode* report the optimisation path. There is one file for each optimisation target/mode, e.g., *OptimisationLogModeMinCoancestry.txt*, *OptimisationLogModeOptTarget1.txt*, etc.
 
@@ -1133,7 +1133,7 @@ The used seed to initiate the random number generator stream is saved in the fil
 Utilities
 =========================================================================================
 
-A utility R script *PlotFrontier.R* is provided to plot the `Optimisation log` outputs. Specifically it plots the the Pareto frontier, the optimisation paths, and the "swarm" of all evaluated solutions during the optimisation. Figure 1 is an example output. More information about the script can be obtained by:
+A utility R script *PlotFrontier.R* is provided to plot the `Optimisation log` outputs. Specifically it plots the Pareto frontier, the optimisation paths, and the "swarm" of all evaluated solutions during the optimisation. Figure 1 is an example output. More information about the script can be obtained by:
 
 ::
 
@@ -1297,7 +1297,7 @@ See also `Rate of inbreeding`_, `Inbreeding depression`_, and `Coancestry`_ .
 Inbreeding depression
 ^^^^^^^^^^^^^^^^^^^^^
 
-Inbreeding depression is undesired reduction/increase in some traits of individuals, due to genetic "effects" that are common with inbreeding. One such "effect" is that inbreeding increases homozygosity and if an indvidual is homozygous for alleles that have undesired effect, then this leads to depression. The latter is particularly the case when such alleles are recessive.
+Inbreeding depression is undesired reduction/increase in some traits of individuals, due to genetic "effects" that are common with inbreeding. One such "effect" is that inbreeding increases homozygosity and if an individual is homozygous for alleles that have undesired effect, then this leads to depression. The latter is particularly the case when such alleles are recessive.
 
 See also `Inbreeding`_.
 
@@ -1355,12 +1355,12 @@ Note that the trigonometric degrees only describe balance of a particular soluti
 Contributions
 ^^^^^^^^^^^^^
 
-A contribution mesures how many times a particular individual (contributor) will mate. In |AM| we optimize absolute contributions :math:`n=0,1,2,...`. Contributions are sometimes also presented as proportional values: :math:`x=n/(2m)`, where :math:`m` is the total number of matings.  
+A contribution measures how many times a particular individual (contributor) will mate. In |AM| we optimize absolute contributions :math:`n=0,1,2,...`. Contributions are sometimes also presented as proportional values: :math:`x=n/(2m)`, where :math:`m` is the total number of matings.  
 
 References
 ----------
 
-* Chen, S., Montgomery, J., Bolufé-Röhler, A. (2015) Measuring the curse of dimensionality and its effects on particle swarm optimization and differential evolution. Appl. Intell., 42, 514. `http://doi.org/10.1007/s10489-014-0613-2 <http://doi.org/10.1007/s10489-014-0613-2>`_
+* Chen, S., Montgomery, J., Bolufe-Roehler, A. (2015) Measuring the curse of dimensionality and its effects on particle swarm optimization and differential evolution. Appl. Intell., 42, 514. `http://doi.org/10.1007/s10489-014-0613-2 <http://doi.org/10.1007/s10489-014-0613-2>`_
 
 * Deb, K. (2014) Multi-objective optimization. In: Search Methodologies, Springer, 403-449, `http://doi.org/10.1007/978-1-4614-6940-7_15 <http://doi.org/10.1007/978-1-4614-6940-7_15>`_.
 
@@ -1368,10 +1368,10 @@ References
 
 * Kinghorn, B.P. (2011) An algorithm for efficient constrained mate selection. Genet. Sel. Evol., 43, `http://doi.org/10.1186/1297-9686-43-4 <http://doi.org/10.1186/1297-9686-43-4>`_.
 
-* Kinghorn, B.P., Shepherd, R.K. (1999) Mate selection for the tactical implementa-tion of breeding programs. Assoc. Advmt. Anim. Breed. Genet. 13, 130-133, `http://www.aaabg.org/livestocklibrary/1999/AB99025.pdf <http://www.aaabg.org/livestocklibrary/1999/AB99025.pdf>`_.
+* Kinghorn, B.P., Shepherd, R.K. (1999) Mate selection for the tactical implementation of breeding programs. Assoc. Advmt. Anim. Breed. Genet. 13, 130-133, `http://www.aaabg.org/livestocklibrary/1999/AB99025.pdf <http://www.aaabg.org/livestocklibrary/1999/AB99025.pdf>`_.
 
-* Lampinen, J., Zelinka, I. (1999) Mixed variable non-linear optimization by differ-ential evolution. Proceedings of Nostradamus, 99, 7-8, `http://pdfs.semanticscholar.org/26e0/8a8d1371c51d7b1e4634e5b3f6a501e29d73.pdf <http://pdfs.semanticscholar.org/26e0/8a8d1371c51d7b1e4634e5b3f6a501e29d73.pdf>`_.
+* Lampinen, J., Zelinka, I. (1999) Mixed variable non-linear optimization by differential evolution. Proceedings of Nostradamus, 99, 7-8, `http://pdfs.semanticscholar.org/26e0/8a8d1371c51d7b1e4634e5b3f6a501e29d73.pdf <http://pdfs.semanticscholar.org/26e0/8a8d1371c51d7b1e4634e5b3f6a501e29d73.pdf>`_.
 
 * Montgomery, J. Chen, S. (2010) An analysis of the operation of differential evolution at high and low crossover rates. In: IEEE Congress on Evolutionary Computation, `http://doi.org/10.1109/CEC.2010.5586128 <http://doi.org/10.1109/CEC.2010.5586128>`_.
 
-* Storn, R. Price, K., (1997) Differential evolution – a simple and efficient heuristic for global optimization over continuous spaces. J. Global Optim., 11, 341-359, `http://doi.org/10.1023/A:1008202821328 <http://doi.org/10.1023/A:1008202821328>`_.
+* Storn, R. Price, K., (1997) Differential evolution - a simple and efficient heuristic for global optimization over continuous spaces. J. Global Optim., 11, 341-359, `http://doi.org/10.1023/A:1008202821328 <http://doi.org/10.1023/A:1008202821328>`_.
