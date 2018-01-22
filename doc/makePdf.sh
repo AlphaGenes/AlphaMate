@@ -1,6 +1,6 @@
 #!/bin/sh
 
-rst2latex.py --stylesheet test.sty AlphaMate.rst AlphaMate.tex
+rst2latex.py --stylesheet preamble.sty AlphaMate.txt AlphaMate.tex
 
 pdflatex AlphaMate.tex
 bibtex AlphaMate.tex
