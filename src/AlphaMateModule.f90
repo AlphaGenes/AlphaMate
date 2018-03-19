@@ -1163,7 +1163,7 @@ module AlphaMateModule
                 stop 1
               end if
 
-            case ("targetSelCriterionStd")
+            case ("targetselcriterionstd")
               if (allocated(Second)) then
                 This%ModeOpt = .true.
                 This%TargetSelCriterionStdGiven = .true.
