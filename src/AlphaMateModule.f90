@@ -1069,19 +1069,19 @@ module AlphaMateModule
                 stop 1
               end if
 
-            case ("moderan")
-              if (allocated(Second)) then
-                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
-                  This%ModeRan = .true.
-                  if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " ModeRan"
-                  end if
-                end if
-              else
-                write(STDERR, "(a)") " ERROR: Must specify Yes or No for ModeRan, i.e., ModeRan, Yes"
-                write(STDERR, "(a)") " "
-                stop 1
-              end if
+            ! case ("moderan")
+            !   if (allocated(Second)) then
+            !     if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+            !       This%ModeRan = .true.
+            !       if (LogStdoutInternal) then
+            !         write(STDOUT, "(a)") " ModeRan"
+            !       end if
+            !     end if
+            !   else
+            !     write(STDERR, "(a)") " ERROR: Must specify Yes or No for ModeRan, i.e., ModeRan, Yes"
+            !     write(STDERR, "(a)") " "
+            !     stop 1
+            !   end if
 
             case ("modeopt")
               if (allocated(Second)) then
@@ -2185,7 +2185,8 @@ module AlphaMateModule
                  This%ModeOpt           .or. &
                  This%ModeRan)) then
         write(STDERR, "(a)") " ERROR: One of the modes must be activated!"
-        write(STDERR, "(a)") " ERROR: ModeMinCoancestry, ModeMinInbreeding, ModeMaxCriterion, ModeOpt, or ModeRan"
+        ! write(STDERR, "(a)") " ERROR: ModeMinCoancestry, ModeMinInbreeding, ModeMaxCriterion, ModeOpt, or ModeRan"
+        write(STDERR, "(a)") " ERROR: ModeMinCoancestry, ModeMinInbreeding, ModeMaxCriterion, or ModeOpt"
         write(STDERR, "(a)") " "
         stop 1
       end if
