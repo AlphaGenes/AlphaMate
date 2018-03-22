@@ -1099,6 +1099,9 @@ module AlphaMateModule
 
             case ("evaluatefrontier")
               if (allocated(Second)) then
+                This%ModeOpt = .true.
+                This%ModeMaxCriterion = .true.
+                This%ModeMinCoancestry = .true.
                 if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
                   This%EvaluateFrontier = .true.
                   if (LogStdoutInternal) then
@@ -1115,6 +1118,8 @@ module AlphaMateModule
             case ("targetdegree")
               if (allocated(Second)) then
                 This%ModeOpt = .true.
+                This%ModeMaxCriterion = .true.
+                This%ModeMinCoancestry = .true.
                 This%TargetDegreeGiven = .true.
                 This%nTargets = This%nTargets + 1
                 block
@@ -1143,6 +1148,7 @@ module AlphaMateModule
             case ("targetselcriterion")
               if (allocated(Second)) then
                 This%ModeOpt = .true.
+                This%ModeMaxCriterion = .true.
                 This%TargetSelCriterionGiven = .true.
                 This%nTargets = This%nTargets + 1
                 block
@@ -1166,6 +1172,7 @@ module AlphaMateModule
             case ("targetselcriterionstd")
               if (allocated(Second)) then
                 This%ModeOpt = .true.
+                This%ModeMaxCriterion = .true.
                 This%TargetSelCriterionStdGiven = .true.
                 This%nTargets = This%nTargets + 1
                 block
@@ -1194,6 +1201,7 @@ module AlphaMateModule
             case ("targetmaxcriterionpct")
               if (allocated(Second)) then
                 This%ModeOpt = .true.
+                This%ModeMaxCriterion = .true.
                 This%TargetMaxCriterionPctGiven = .true.
                 This%nTargets = This%nTargets + 1
                 block
@@ -1222,6 +1230,7 @@ module AlphaMateModule
             case ("targetcoancestry")
               if (allocated(Second)) then
                 This%ModeOpt = .true.
+                This%ModeMinCoancestry = .true.
                 This%TargetCoancestryGiven = .true.
                 This%nTargets = This%nTargets + 1
                 block
@@ -1250,6 +1259,7 @@ module AlphaMateModule
             case ("targetcoancestryrate")
               if (allocated(Second)) then
                 This%ModeOpt = .true.
+                This%ModeMinCoancestry = .true.
                 This%TargetCoancestryRateGiven = .true.
                 This%nTargets = This%nTargets + 1
                 block
@@ -1279,6 +1289,7 @@ module AlphaMateModule
             case ("targetmincoancestrypct")
               if (allocated(Second)) then
                 This%ModeOpt = .true.
+                This%ModeMinCoancestry = .true.
                 This%TargetMinCoancestryPctGiven = .true.
                 This%nTargets = This%nTargets + 1
                 block
@@ -1336,6 +1347,7 @@ module AlphaMateModule
             case ("targetinbreeding")
               if (allocated(Second)) then
                 This%ModeOpt = .true.
+                This%ModeMinInbreeding = .true.
                 This%TargetInbreedingGiven = .true.
                 ! This%nTargets = This%nTargets + 1
                 ! block
@@ -1359,6 +1371,7 @@ module AlphaMateModule
             case ("targetinbreedingrate")
               if (allocated(Second)) then
                 This%ModeOpt = .true.
+                This%ModeMinInbreeding = .true.
                 This%TargetInbreedingRateGiven = .true.
                 ! This%nTargets = This%nTargets + 1
                 ! block
@@ -1382,6 +1395,7 @@ module AlphaMateModule
             case ("targetmininbreedingpct")
               if (allocated(Second)) then
                 This%ModeOpt = .true.
+                This%ModeMinInbreeding = .true.
                 This%TargetMinInbreedingPctGiven = .true.
                 ! This%nTargets = This%nTargets + 1
                 !   @todo
@@ -2170,26 +2184,12 @@ module AlphaMateModule
       end do ReadSpec
       close(SpecUnit)
 
-      if (This%TargetInbreedingGiven .or. This%TargetInbreedingRateGiven .or. This%TargetMinInbreedingPctGiven) then
-        This%ModeMinInbreeding = .true.
-      end if
-
-      if (This%ModeOpt) then
-        This%ModeMinCoancestry = .true.
-        This%ModeMaxCriterion  = .true.
-      end if
-
       if ((This%ModeMinCoancestry .and. This%ModeMaxCriterion) .or. &
           (This%ModeMinInbreeding .and. This%ModeMaxCriterion) .or. &
           (This%ModeMinCoancestry .and. This%ModeMinInbreeding)) then
         This%ModeOpt = .true.
       end if
 
-      if (This%EvaluateFrontier) then
-        This%ModeMinCoancestry = .true.
-        This%ModeMaxCriterion  = .true.
-        This%ModeOpt           = .true.
-      end if
 
       if (.not. (This%ModeMinCoancestry .or. &
                  This%ModeMinInbreeding .or. &
@@ -2204,12 +2204,14 @@ module AlphaMateModule
       end if
 
       if (This%ModeOpt .and. .not. (This%TargetDegreeGiven       .or. &
-                                    This%TargetSelCriterionGiven .or. This%TargetSelCriterionStdGiven .or. This%TargetMaxCriterionPctGiven .or. &
-                                    This%TargetCoancestryGiven   .or. This%TargetCoancestryRateGiven  .or. This%TargetMinCoancestryPctGiven)) then
+                                    This%TargetSelCriterionGiven .or. This%TargetSelCriterionStdGiven .or. This%TargetMaxCriterionPctGiven  .or. &
+                                    This%TargetCoancestryGiven   .or. This%TargetCoancestryRateGiven  .or. This%TargetMinCoancestryPctGiven .or. &
+                                    This%TargetInbreedingGiven   .or. This%TargetInbreedingRateGiven  .or. This%TargetMinInbreedingPctGiven)) then
         write(STDERR, "(a)") " ERROR: One of targets must be provided when ModeOpt is activated!"
         write(STDERR, "(a)") " ERROR: TargetDegree,"
         write(STDERR, "(a)") " ERROR: TargetSelCriterion, TargetSelCriterionStd,    TargetMaxCriterionPct,"
-        write(STDERR, "(a)") " ERROR: TargetCoancestry,   TargetCoancestryRate,  or TargetMinCoancestryPct"
+        write(STDERR, "(a)") " ERROR: TargetCoancestry,   TargetCoancestryRate,     TargetMinCoancestryPct"
+        write(STDERR, "(a)") " ERROR: TargetInbreeding,   TargetInbreedingRate,  or TargetMinInbreedingPct"
         write(STDERR, "(a)") " "
         stop 1
       end if
