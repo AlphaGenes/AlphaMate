@@ -1335,6 +1335,7 @@ module AlphaMateModule
 
             case ("targetinbreeding")
               if (allocated(Second)) then
+                This%ModeOpt = .true.
                 This%TargetInbreedingGiven = .true.
                 ! This%nTargets = This%nTargets + 1
                 ! block
@@ -2169,14 +2170,25 @@ module AlphaMateModule
       end do ReadSpec
       close(SpecUnit)
 
+      if (This%TargetInbreedingGiven .or. This%TargetInbreedingRateGiven .or. This%TargetMinInbreedingPctGiven) then
+        This%ModeMinInbreeding = .true.
+      end if
+
       if (This%ModeOpt) then
         This%ModeMinCoancestry = .true.
         This%ModeMaxCriterion  = .true.
       end if
 
+      if ((This%ModeMinCoancestry .and. This%ModeMaxCriterion) .or. &
+          (This%ModeMinInbreeding .and. This%ModeMaxCriterion) .or. &
+          (This%ModeMinCoancestry .and. This%ModeMinInbreeding)) then
+        This%ModeOpt = .true.
+      end if
+
       if (This%EvaluateFrontier) then
         This%ModeMinCoancestry = .true.
-        This%ModeMaxCriterion =  .true.
+        This%ModeMaxCriterion  = .true.
+        This%ModeOpt           = .true.
       end if
 
       if (.not. (This%ModeMinCoancestry .or. &
@@ -2191,38 +2203,26 @@ module AlphaMateModule
         stop 1
       end if
 
-      if (.not. This%SelCriterionGiven .and. &
-          (This%ModeMaxCriterion .or. This%ModeOpt)) then
-        write(STDERR, "(a)") " ERROR: Selection criterion is needed for modes: ModeMaxCriterion or ModeOpt!"
-        write(STDERR, "(a)") " "
-        stop 1
-      end if
-
-      if (This%TargetDegreeGiven          .or. &
-          This%TargetSelCriterionGiven    .or. &
-          This%TargetSelCriterionStdGiven .or. &
-          This%TargetMaxCriterionPctGiven .or. &
-          This%TargetMinCoancestryPctGiven) then
-        This%ModeMinCoancestry = .true.
-        This%ModeMaxCriterion  = .true.
-      end if
-
-      if (This%ModeOpt .and. .not. (This%TargetDegreeGiven          .or. This%TargetSelCriterionGiven .or. This%TargetSelCriterionStdGiven .or. &
-                                    This%TargetMaxCriterionPctGiven .or. This%TargetCoancestryGiven   .or. This%TargetCoancestryRateGiven  .or. &
-                                    This%TargetMinCoancestryPctGiven)) then
+      if (This%ModeOpt .and. .not. (This%TargetDegreeGiven       .or. &
+                                    This%TargetSelCriterionGiven .or. This%TargetSelCriterionStdGiven .or. This%TargetMaxCriterionPctGiven .or. &
+                                    This%TargetCoancestryGiven   .or. This%TargetCoancestryRateGiven  .or. This%TargetMinCoancestryPctGiven)) then
         write(STDERR, "(a)") " ERROR: One of targets must be provided when ModeOpt is activated!"
-        write(STDERR, "(a)") " ERROR: TargetDegree, TargetSelCriterion, TargetSelCriterionStd, TargetMaxCriterionPct,"
-        write(STDERR, "(a)") " ERROR: TargetCoancestry, TargetCoancestryRate, or TargetMinCoancestryPct"
+        write(STDERR, "(a)") " ERROR: TargetDegree,"
+        write(STDERR, "(a)") " ERROR: TargetSelCriterion, TargetSelCriterionStd,    TargetMaxCriterionPct,"
+        write(STDERR, "(a)") " ERROR: TargetCoancestry,   TargetCoancestryRate,  or TargetMinCoancestryPct"
         write(STDERR, "(a)") " "
         stop 1
-      end if
-
-      if (This%TargetInbreedingGiven .or. This%TargetInbreedingRateGiven .or. This%TargetMinInbreedingPctGiven) then
-        This%ModeMinInbreeding = .true.
       end if
 
       if (.not. This%RelMtxGiven) then
         write(STDERR, "(a)") " ERROR: One of CoancestryMatrixFile or NrmMatrixFile must be specified!"
+        write(STDERR, "(a)") " "
+        stop 1
+      end if
+
+      if (.not. This%SelCriterionGiven .and. &
+          (This%ModeMaxCriterion .or. This%ModeOpt)) then
+        write(STDERR, "(a)") " ERROR: Selection criterion is needed for modes: ModeMaxCriterion or ModeOpt!"
         write(STDERR, "(a)") " "
         stop 1
       end if

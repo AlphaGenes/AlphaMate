@@ -40,7 +40,7 @@ Advertisement
 
 |AM| is part of the AlphaSuite collection of programs that we have developed. The collection can perform many of the common tasks in animal breeding, plant breeding, and human genetics including phasing, imputation, estimation of genetic values, genome-wide association, optimal contributions, simulation, and various data recoding and handling tools.
 
-The AlphaSuite is available from `AlphaGenes website (http://www.AlphaGenes.roslin.ed.ac.uk) <http://www.AlphaGenes.roslin.ed.ac.uk>`_. 
+The AlphaSuite is available from `AlphaGenes website (http://www.AlphaGenes.roslin.ed.ac.uk) <http://www.AlphaGenes.roslin.ed.ac.uk>`_.
 
 General overview
 =========================================================================================
@@ -77,7 +77,7 @@ Optimisation works with mating plans, which |AM| encodes as proposed by Kinghorn
 
 A note on the reproducibility of results. |AM| uses an evolutionary algorithm, which can give different solutions in repeated runs. We find however, that the result summaries do not vary a lot, provided that convergence has been achieved (see `Optimisation controls`_). To ensure reproducibility users can fix the seed value for random number generator via `SeedFile`_ or `Seed`_ specifications.
 
-A note about the speed and scaling of |AM| with large populations. |AM| finds good solutions quickly for applications with up to a couple of thousands of individuals. When the number of individuals is larger than this, |AM| has to evaluate a very large number of combinations and optimisation takes a long time. There are several options to speed-up this optimisation. One option is to pre-select individuals, which you can do yourself or use an |AM| specification that accounts for this pre-selection in further optimisation, albeit at a higher computational cost. Another option is to tweak optimisation controls. Work on a scalable solution is in progress.  
+A note about the speed and scaling of |AM| with large populations. |AM| finds good solutions quickly for applications with up to a couple of thousands of individuals. When the number of individuals is larger than this, |AM| has to evaluate a very large number of combinations and optimisation takes a long time. There are several options to speed-up this optimisation. One option is to pre-select individuals, which you can do yourself or use an |AM| specification that accounts for this pre-selection in further optimisation, albeit at a higher computational cost. Another option is to tweak optimisation controls. Work on a scalable solution is in progress.
 
 Run command
 =========================================================================================
@@ -128,7 +128,7 @@ An example:
   ModeMinCoancestry     , Yes
   Stop
 
-There are further examples provided in the `Examples`_. 
+There are further examples provided in the `Examples`_.
 
 Input Files
 -----------------------------------------------------------------------------------------
@@ -177,7 +177,7 @@ SelCriterionFile
 ^^^^^^^^^^^^^^^^
 
 ::
-  
+
   SelCriterionFile , [String]
   SelCriterionFile , Criterion.txt
 
@@ -420,7 +420,7 @@ LimitFemaleContributions
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
-  
+
   LimitFemaleContributions , [Yes/No]
   LimitFemaleContributions , Yes
 
@@ -463,14 +463,14 @@ Desired targets quantify breeders' direction and define the optimisation objecti
 
 a) `Group coancestry`_,
 b) `Rate of coancestry`_,
-c) `Minimum percentage coancestry`_, or 
+c) `Minimum percentage coancestry`_, or
 d) `Trigonometric degrees`_ between genetic gain and group coancestry (see Figure 1).
 
 Similar flexibility of defining targets is available for selection and inbreeding.
 
 Some targets are conflicting (selection and maintenance of diversity), while others are less so (loss of diversity and inbreeding). To this end, a user can specify several targets for selection and maintenance of diversity to explore the space of possibilities within one |AM| run, while only one specification for inbreeding is allowed within one |AM| run.
 
-The most "practical" target specifications that work in many different settings are: `TargetMaxCriterionPct`_, `TargetMinCoancestryPct`_, `TargetDegree`_, and `TargetMinInbreedingPct`_. 
+The most "practical" target specifications that work in many different settings are: `TargetMaxCriterionPct`_, `TargetMinCoancestryPct`_, `TargetDegree`_, and `TargetMinInbreedingPct`_.
 
 A specification file part with targets might therefore look like this (if this was desired):
 
@@ -603,7 +603,7 @@ Optimisation controls
 
 Optimisation controls specify optimisation objectives (modes), penalties used to penalize invalid mating plans, weights used to combine multiple targets into an objective function, and parameters of evolutionary algorithm such as the number of iterations, the number of evaluated matings plans per iteration, convergence criteria, etc.
 
-Note that you do not need to specify the optimisation objectives (modes) directly. This is done automatically by defining desired targets (`Desired targets`_). However, should you wish to, you can switch different optimisations on directly. 
+Note that you do not need to specify the optimisation objectives (modes) directly. This is done automatically by defining desired targets (`Desired targets`_). However, should you wish to, you can switch different optimisations on directly.
 
 ModeMinCoancestry
 ^^^^^^^^^^^^^^^^^
@@ -643,7 +643,7 @@ ModeOpt
   ModeOpt , [Yes/No]
   ModeOpt , Yes
 
-ModeOpt maximizes standardized `Genetic gain`_ with constraint on `Group coancestry`_ and potentially other targets (e.g., `Inbreeding`_). The objective function for this optimisation is :math:`f = \triangle \overline{z}_n / \triangle \overline{z}_{n,t}`, where :math:`\triangle \overline{z}_n` is the `Maximum percentage gain`_ of an evaluated solution and :math:`\triangle \overline{z}_{n,t}` is the targeted `Maximum percentage gain`_. Constraint on `Group coancestry`_ is achieved by adding the following term to the objective function, but only when `Trigonometric degrees`_ are above the targeted value: :math:`w \times |1 - d / d_t|`, where :math:`w` is `CoancestryWeight`_, :math:`d` are `Trigonometric degrees`_ of an evaluated solution, and :math:`d_t` are targeted `Trigonometric degrees`_. Similar term is added for `Inbreeding`_ via `InbreedingWeight`_.
+ModeOpt maximizes standardized `Genetic gain`_ with constraint on `Group coancestry`_ and potentially other targets (e.g., `Inbreeding`_). The objective function for this optimisation is :math:`f = \triangle \overline{z}_n / \triangle \overline{z}_{n,t}`, where :math:`\triangle \overline{z}_n` is the `Maximum percentage gain`_ of an evaluated solution and :math:`\triangle \overline{z}_{n,t}` is the targeted `Maximum percentage gain`_. Constraint on `Group coancestry`_ is achieved by adding the following term to the objective function, but only when `Trigonometric degrees`_ are above the targeted value: :math:`w \times (1 - d / d_t)`, where :math:`w` is `CoancestryWeight`_, :math:`d` are `Trigonometric degrees`_ of an evaluated solution, and :math:`d_t` are targeted `Trigonometric degrees`_. Similar term is added for `Inbreeding`_ via `InbreedingWeight`_.
 
 MateAllocation
 ^^^^^^^^^^^^^^
@@ -874,7 +874,7 @@ GenericMatingCriterionWeight
 
 |EXPERIMENTAL|
 
-:: 
+::
 
   GenericMatingCriterionWeight , [Value]
   GenericMatingCriterionWeight , 0.5
@@ -884,7 +884,7 @@ GenericMatingCriterionWeight specifies the weight to incorporate additional mati
 EvolAlgNumberOfSolutions
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-:: 
+::
 
   EvolAlgNumberOfSolutions , [Value]
   EvolAlgNumberOfSolutions , 100
@@ -893,7 +893,7 @@ EvolAlgNumberOfSolutions specifies the number of solutions to evaluate in every 
 
 EvolAlgNumberOfIterations
 ^^^^^^^^^^^^^^^^^^^^^^^^^
-:: 
+::
 
   EvolAlgNumberOfIterations , [Value]
   EvolAlgNumberOfIterations , 10000
@@ -903,7 +903,7 @@ EvolAlgNumberOfIterations specifies the maximum number of iterations for the evo
 EvolAlgNumberOfIterationsStop
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-:: 
+::
 
   EvolAlgNumberOfIterationsStop , [Value]
   EvolAlgNumberOfIterationsStop , 1000
@@ -913,7 +913,7 @@ EvolAlgNumberOfIterationsStop specifies the number of iterations to stop the opt
 EvolAlgNumberOfIterationsPrint
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-:: 
+::
 
   EvolAlgNumberOfIterationsPrint , [Value]
   EvolAlgNumberOfIterationsPrint , 10000
@@ -923,7 +923,7 @@ EvolAlgNumberOfIterationsPrint specifies the number of iterations between printi
 EvolAlgStopToleranceCoancestry
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-:: 
+::
 
   EvolAlgStopToleranceCoancestry , [Value]
   EvolAlgStopToleranceCoancestry , 0.01
@@ -933,7 +933,7 @@ EvolAlgStopToleranceCoancestry specifies the stopping tolerance for the objectiv
 EvolAlgStopTol
 ^^^^^^^^^^^^^^
 
-:: 
+::
 
   EvolAlgStopTol , [Value]
   EvolAlgStopTol , 0.01
@@ -943,7 +943,7 @@ EvolAlgStopTol specifies the stopping tolerance for the objective of `ModeMaxCri
 EvolAlgLogAllSolutions
 ^^^^^^^^^^^^^^^^^^^^^^
 
-:: 
+::
 
   EvolAlgLogAllSolutions , [Yes/No]
   EvolAlgLogAllSolutions , Yes
@@ -953,7 +953,7 @@ EvolAlgLogAllSolutions specifies whether all evaluated solutions should be logge
 EvolAlgNumberOfIterationsBurnin
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-:: 
+::
 
   EvolAlgNumberOfIterationsBurnin , [Value]
   EvolAlgNumberOfIterationsBurnin , 1000
@@ -972,7 +972,7 @@ The F parameter [0, 1+] should be 0, 2/n, or 1.2. Note that large values mean mo
 DiffEvolParameterCrBurnin
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-:: 
+::
 
   DiffEvolParameterCrBurnin , [Value]
   DiffEvolParameterCrBurnin , 0.9
@@ -982,7 +982,7 @@ DiffEvolParameterCrBurnin specifies the cross-over parameter of evolutionary alg
 DiffEvolParameterCr1
 ^^^^^^^^^^^^^^^^^^^^
 
-:: 
+::
 
   DiffEvolParameterCr1 , [Value]
   DiffEvolParameterCr1 , 0.9
@@ -992,7 +992,7 @@ DiffEvolParameterCr1 specifies the cross-over parameter of evolutionary algorith
 DiffEvolParameterCr2
 ^^^^^^^^^^^^^^^^^^^^
 
-:: 
+::
 
   DiffEvolParameterCr2 , [Value]
   DiffEvolParameterCr2 , 0.9
@@ -1002,7 +1002,7 @@ DiffEvolParameterCr2 specifies the cross-over parameter of evolutionary algorith
 DiffEvolParameterFBase
 ^^^^^^^^^^^^^^^^^^^^^^
 
-:: 
+::
 
   DiffEvolParameterFBase , [Value]
   DiffEvolParameterFBase , 0.1
@@ -1012,7 +1012,7 @@ DiffEvolParameterFBase specifies the F parameter of evolutionary algorithm. Defa
 DiffEvolParameterFHigh1
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-:: 
+::
 
   DiffEvolParameterFHigh1 , [Value]
   DiffEvolParameterFHigh1 , 1.0
@@ -1022,7 +1022,7 @@ DiffEvolParameterFHigh1 specifies the F parameter of evolutionary algorithm - us
 DiffEvolParameterFHigh2
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-:: 
+::
 
   DiffEvolParameterFHigh2 , [Value]
   DiffEvolParameterFHigh2 , 4.0
@@ -1035,7 +1035,7 @@ Other
 OutputBasename
 ^^^^^^^^^^^^^^
 
-:: 
+::
 
   OutputBasename , [String]
   OutputBasename , AnalysisX_
@@ -1045,7 +1045,7 @@ OutputBasename specifies basename prefix of all file outputs.
 SeedFile
 ^^^^^^^^
 
-:: 
+::
 
   SeedFile , [String]
   SeedFile , Seed.txt
@@ -1055,7 +1055,7 @@ SeedFile specifies a file that contains a single value used as a seed for random
 Seed
 ^^^^
 
-:: 
+::
 
   Seed , [Value]
   Seed , 0.5
@@ -1065,7 +1065,7 @@ Seed specifies a single value used as a seed for random number generator.
 Stop
 ^^^^
 
-:: 
+::
 
   Stop
 
@@ -1137,7 +1137,7 @@ A utility R script *PlotFrontier.R* is provided to plot the `Optimisation log` o
 
 ::
 
-  ./PlotFrontier.R --help 
+  ./PlotFrontier.R --help
 
 Further R utilities will be provided in the next versions.
 
@@ -1149,7 +1149,7 @@ There are several examples shipped with |AM| that demonstrate its use. Each exam
 Animal
 ------
 
-This example demonstrates an animal population with 1000 candidates - half males and half females. The data description shows: 
+This example demonstrates an animal population with 1000 candidates - half males and half females. The data description shows:
 
   * mean selection criterion of 16.28
   * group coancestry         of 0.784
@@ -1169,7 +1169,7 @@ The aim is to select 25 males and mate them with the females. All selected males
 PlantCross
 ----------
 
-This example demonstrates two populations (pools) of cross-pollinating plants. The data description of both pools jointly shows: 
+This example demonstrates two populations (pools) of cross-pollinating plants. The data description of both pools jointly shows:
 
   * mean selection criterion of 17.40
   * group coancestry         of 0.865
@@ -1186,7 +1186,7 @@ The aim is to create 32 crosses between the pools. Each parent can contribute up
 PlantSelf
 ---------
 
-This example demonstrates one plant population of self-pollinating outbred plants. The data description shows: 
+This example demonstrates one plant population of self-pollinating outbred plants. The data description shows:
 
   * mean selection criterion of 13.31
   * group coancestry         of 0.812
@@ -1203,7 +1203,7 @@ The aim is to create 32 crosses between the pools. Each parent can contribute up
 GenomeEditing
 -------------
 
-This example is the same as the `Animal`_ example, but attempts to optimize also which five males should be genome edited, provided that we can predict in advance their selection criterion after genome editing. The data description shows: 
+This example is the same as the `Animal`_ example, but attempts to optimize also which five males should be genome edited, provided that we can predict in advance their selection criterion after genome editing. The data description shows:
 
   * mean selection criterion of 16.28
   * group coancestry         of 0.784
@@ -1348,14 +1348,14 @@ We can calculate `Maximum percentage gain`_ from trigonometric degrees as :math:
 
 We can calculate `Minimum percentage coancestry`_ from trigonometric degrees as :math:`sin(Degree \times \pi / 180) \times 100`.
 
-With the above four formulas we can convert degrees to genetic gain and group coancestry and vice versa. |AM| uses this as a general way to convert between the various forms of specifying targeted genetic gain, targeted group coancestry, and trigonometric degrees. 
+With the above four formulas we can convert degrees to genetic gain and group coancestry and vice versa. |AM| uses this as a general way to convert between the various forms of specifying targeted genetic gain, targeted group coancestry, and trigonometric degrees.
 
 Note that the trigonometric degrees only describe balance of a particular solution or set targeted balance. Evolutionary algorithm works along these targets, but can go beyond the assumed circular shape of frontier.
 
 Contributions
 ^^^^^^^^^^^^^
 
-A contribution measures how many times a particular individual (contributor) will mate. In |AM| we optimize absolute contributions :math:`n=0,1,2,...`. Contributions are sometimes also presented as proportional values: :math:`x=n/(2m)`, where :math:`m` is the total number of matings.  
+A contribution measures how many times a particular individual (contributor) will mate. In |AM| we optimize absolute contributions :math:`n=0,1,2,...`. Contributions are sometimes also presented as proportional values: :math:`x=n/(2m)`, where :math:`m` is the total number of matings.
 
 References
 ----------
