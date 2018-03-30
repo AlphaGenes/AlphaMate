@@ -1,7 +1,10 @@
 
 v0.1.1 ????-??-??
-  * ???
-  * Consolidate which optimisation modes are turned on with provided targets
+  * Improved handling of specifications LimitContributions and EqualizeContributions
+    when gender is given, i.e., when limits are used for one gender and equalizing
+    for the other gender.
+
+  * Consolidated which optimisation modes are turned on with provided targets
     (criterion, coancestry, and/or inbreeding).
 
 v0.1.0 2018-01-21

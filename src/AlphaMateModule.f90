@@ -2246,7 +2246,7 @@ module AlphaMateModule
 
       ! The nPar tests are in ReadAlphaMateData where we count number of individuals and males and females
 
-      if (This%LimitParMin .eq. This%LimitParMax) then
+      if (.not. This%GenderGiven .and. (This%LimitParMin .eq. This%LimitParMax)) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " NOTE: Since LimitContributionsMin equals LimitContributionsMax, option EqualizeContributions is activated."
           write(STDOUT, "(a)") " "
@@ -2254,7 +2254,7 @@ module AlphaMateModule
         This%EqualizePar = .true.
       end if
 
-      if (This%LimitPar1Min .eq. This%LimitPar1Max) then
+      if (This%GenderGiven .and. (This%LimitPar1Min .eq. This%LimitPar1Max)) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " NOTE: Since LimitMaleContributionsMin equals LimitMaleContributionsMax, option EqualizeMaleContributions is activated."
           write(STDOUT, "(a)") " "
@@ -2262,7 +2262,7 @@ module AlphaMateModule
         This%EqualizePar1 = .true.
       end if
 
-      if (This%LimitPar2Min .eq. This%LimitPar2Max) then
+      if (This%GenderGiven .and. (This%LimitPar2Min .eq. This%LimitPar2Max)) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " NOTE: Since LimitFemaleContributionsMin equals LimitFemaleContributionsMax, option EqualizeFemaleContributions is activated."
           write(STDOUT, "(a)") " "
@@ -2270,7 +2270,7 @@ module AlphaMateModule
         This%EqualizePar2 = .true.
       end if
 
-      if (This%LimitPar .and. This%EqualizePar) then
+      if (.not. This%GenderGiven .and. (This%LimitPar .and. This%EqualizePar)) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " NOTE: The specification EqualizeContributions has priority over LimitContributions."
           write(STDOUT, "(a)") " "
@@ -2282,7 +2282,7 @@ module AlphaMateModule
         This%LimitParMinWeight = -1
       end if
 
-      if (This%LimitPar1 .and. This%EqualizePar1) then
+      if (This%GenderGiven .and. (This%LimitPar1 .and. This%EqualizePar1)) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " NOTE: The specification EqualizeMaleContributions has priority over LimitMaleContributions."
           write(STDOUT, "(a)") " "
@@ -2294,7 +2294,7 @@ module AlphaMateModule
         This%LimitPar1MinWeight = -1
       end if
 
-      if (This%LimitPar2 .and. This%EqualizePar2) then
+      if (This%GenderGiven .and. (This%LimitPar2 .and. This%EqualizePar2)) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " NOTE: The specification EqualizeFemaleContributions has priority over LimitFemaleContributions."
           write(STDOUT, "(a)") " "
@@ -2307,17 +2307,17 @@ module AlphaMateModule
       end if
 
       ! Impose upper limits (when it is not given by the user) to avoid explosion in optimisation
-      if (.not. This%LimitPar .and. .not. This%EqualizePar) then
+      if (.not. This%GenderGiven .and. (.not. This%LimitPar .and. .not. This%EqualizePar)) then
         This%LimitPar    = .true.
         This%LimitParMax = dble(This%nMat) * 2
       end if
 
-      if (.not. This%LimitPar1 .and. .not. This%EqualizePar1) then
+      if (This%GenderGiven .and. (.not. This%LimitPar1 .and. .not. This%EqualizePar1)) then
         This%LimitPar1    = .true.
         This%LimitPar1Max = dble(This%nMat)
       end if
 
-      if (.not. This%LimitPar2 .and. .not. This%EqualizePar2) then
+      if (This%GenderGiven .and. (.not. This%LimitPar2 .and. .not. This%EqualizePar2)) then
         This%LimitPar2    = .true.
         This%LimitPar2Max = dble(This%nMat)
       end if
