@@ -48,7 +48,7 @@
 !
 !> @date      2018-01-15
 !
-!> @version  0.1.0 (alpha)
+!> @version  0.1.1 (alpha)
 !
 !-------------------------------------------------------------------------------
 module AlphaMateModule
@@ -3667,6 +3667,7 @@ module AlphaMateModule
 
         open(newunit=CriterionSummaryUnit, file=trim(Spec%OutputBasename)//"SelCriterionSummary.txt", status="unknown")
         write(CriterionSummaryUnit, "(a, f)") "Mean, ", This%SelCriterionStat%Mean
+        write(CriterionSummaryUnit, "(a, f)") "Sd, ", This%SelCriterionStat%Sd
         close(CriterionSummaryUnit)
 
         if (Spec%PAGEPar) then
@@ -3696,6 +3697,7 @@ module AlphaMateModule
 
           open(newunit=CriterionSummaryUnit, file=trim(Spec%OutputBasename)//"PAGESummary.txt", status="unknown")
           write(CriterionSummaryUnit, "(a, f)") "Mean, ", This%SelCriterionPAGEStat%Mean
+          write(CriterionSummaryUnit, "(a, f)") "Sd, ", This%SelCriterionPAGEStat%Sd
           close(CriterionSummaryUnit)
         end if
 
@@ -3728,7 +3730,8 @@ module AlphaMateModule
             write(STDERR, "(a)") " "
             stop 1
           end if
-          write(GenericIndCritSummaryUnit, "(a, f)") "Mean criterion "//trim(Int2Char(Crit)), This%GenericIndCritStat(Crit)%Mean
+          write(GenericIndCritSummaryUnit, "(a, f)") "Mean criterion "//trim(Int2Char(Crit))//",", This%GenericIndCritStat(Crit)%Mean
+          write(GenericIndCritSummaryUnit, "(a, f)") "Sd criterion "//trim(Int2Char(Crit))//",", This%GenericIndCritStat(Crit)%Sd
         end do
 
         close(GenericIndCritSummaryUnit)
@@ -3764,7 +3767,8 @@ module AlphaMateModule
               write(STDERR, "(a)") " "
               stop 1
             end if
-            write(GenericMatCritSummaryUnit, "(a, f)") "Mean criterion "//trim(Int2Char(Crit)), This%GenericMatCritStat(Crit)%All%Mean
+            write(GenericMatCritSummaryUnit, "(a, f)") "Mean criterion "//trim(Int2Char(Crit))//",", This%GenericMatCritStat(Crit)%All%Mean
+            write(GenericMatCritSummaryUnit, "(a, f)") "Sd criterion "//trim(Int2Char(Crit))//",", This%GenericMatCritStat(Crit)%All%Sd
           else
             if (Spec%SelfingAllowed) then
               This%GenericMatCritStat(Crit) = DescStatLowTriMatrix(This%GenericMatCrit(:, :, Crit))
@@ -3780,7 +3784,8 @@ module AlphaMateModule
                 write(STDERR, "(a)") " "
                 stop 1
               end if
-              write(GenericMatCritSummaryUnit, "(a, f)") "Mean criterion "//trim(Int2Char(Crit)), This%GenericMatCritStat(Crit)%All%Mean
+              write(GenericMatCritSummaryUnit, "(a, f)") "Mean criterion "//trim(Int2Char(Crit))//",", This%GenericMatCritStat(Crit)%All%Mean
+              write(GenericMatCritSummaryUnit, "(a, f)") "Sd criterion "//trim(Int2Char(Crit))//",", This%GenericMatCritStat(Crit)%All%Sd
             end if
               This%GenericMatCritStat(Crit) = DescStatLowTriMatrix(This%GenericMatCrit(:, :, Crit), Diag=.false.)
               if (LogStdoutInternal) then
@@ -3795,7 +3800,8 @@ module AlphaMateModule
                 write(STDERR, "(a)") " "
                 stop 1
               end if
-              write(GenericMatCritSummaryUnit, "(a, f)") "Mean criterion "//trim(Int2Char(Crit)), This%GenericMatCritStat(Crit)%OffDiag%Mean
+              write(GenericMatCritSummaryUnit, "(a, f)") "Mean criterion "//trim(Int2Char(Crit))//",", This%GenericMatCritStat(Crit)%OffDiag%Mean
+              write(GenericMatCritSummaryUnit, "(a, f)") "Sd criterion "//trim(Int2Char(Crit))//",", This%GenericMatCritStat(Crit)%OffDiag%Sd
           end if
         end do
 
