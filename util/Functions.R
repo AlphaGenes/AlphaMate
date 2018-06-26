@@ -1,22 +1,22 @@
 
-# ---- SelCriterion2SelIntensity --------------------------------------------------------------
+# ---- SelCriterion2SelCriterionStd --------------------------------------------------------------
 
-#' Selection criterion to selection intensity
+#' Selection criterion to stand. selection criterion
 #'
-#' `SelCriterion2SelIntensity` converts selection criterion to selection intensity
+#' `SelCriterion2SelCriterionStd` standardizes selection criterion
 #'
 #' @param SelCriterion numeric, selection criterion
 #' @param Mean numeric, mean of selection criterion; if `NULL` computed from `SelCriterion`
 #' @param Sd numeric, standard deviation of selection criterion; if `NULL` computed from `SelCriterion`
 #'
-#' @return numeric, selection intensity
+#' @return numeric, stand. selection criterion
 #'
 #' @export
 #'
 #' @examples
 #' x <- rnorm(n=10, mean=10, sd=1)
-#' SelCriterion2SelIntensity(x, Mean=10, Sd=1)
-SelCriterion2SelIntensity = function(SelCriterion, Mean=NULL, Sd=NULL) {
+#' SelCriterion2SelCriterionStd(x, Mean=10, Sd=1)
+SelCriterion2SelCriterionStd = function(SelCriterion, Mean=NULL, Sd=NULL) {
   if (is.null(Mean)) {
     Mean = mean(SelCriterion)
   }
@@ -26,13 +26,13 @@ SelCriterion2SelIntensity = function(SelCriterion, Mean=NULL, Sd=NULL) {
   (SelCriterion - Mean) / Sd
 }
 
-# ---- SelIntensity2SelCriterion --------------------------------------------------------------
+# ---- SelCriterionStd2SelCriterion --------------------------------------------------------------
 
-#' Selection intensity to selection criterion
+#' Standardized selection criterion to selection criterion
 #'
-#' `SelIntensity2SelCriterion` converts selection intensity to selection criterion
+#' `SelCriterionStd2SelCriterion` converts stand. selection criterion to selection criterion
 #'
-#' @param SelIntensity numeric, selection criterion
+#' @param SelCriterionStd numeric, stand. selection criterion
 #' @param Mean numeric, mean of selection criterion
 #' @param Sd numeric, standard deviation of selection criterion
 #'
@@ -42,9 +42,9 @@ SelCriterion2SelIntensity = function(SelCriterion, Mean=NULL, Sd=NULL) {
 #'
 #' @examples
 #' x <- rnorm(n=10, mean=10, sd=1)
-#' SelIntensity2SelCriterion(SelCriterion2SelIntensity(x, Mean=10, Sd=1))
-SelIntensity2SelCriterion = function(SelIntensity, Mean, Sd) {
-  SelIntensity * Sd + Mean
+#' SelCriterionStd2SelCriterion(SelCriterion2SelCriterionStd(x, Mean=10, Sd=1))
+SelCriterionStd2SelCriterion = function(SelCriterionStd, Mean, Sd) {
+  SelCriterionStd * Sd + Mean
 }
 
 # ---- Coancestry2CoancestryRate --------------------------------------------------------------
@@ -141,7 +141,7 @@ MinCoancestryPct2Degree = function(MinCoancestryPct) {
 #'
 #' @details Assuming unit circular selection/coancestry frontier and given the
 #' angle between the maximum selection line and the solution line we can evaluate
-#' the percentage of maximum selection intensity achieved (y-axis) by recognising
+#' the percentage of maximum selection criterion achieved (y-axis) by recognising
 #' that sin(angle) = opposite/hypothenuse, where opposite = MinCoancestryPct/100
 #' and hypothenuse = 1 (unit circle). Then MinCoancestryPct = sin(angle) * 100.
 #'
@@ -159,14 +159,14 @@ Degree2MinCoancestryPct = function(Degree) {
 #'
 #' `MaxCriterionPct2Degree` converts MaxCriterionPct to frontier degree
 #'
-#' @param MaxCriterionPct numeric, percentage of maximum criterion achieved (100 means we achieved the maximum possible selection intensity)
+#' @param MaxCriterionPct numeric, percentage of maximum criterion achieved (100 means we achieved the maximum possible selection criterion)
 #'
 #' @return numeric, frontier degree
 #'
 #' @export
 #'
 #' @details Assuming unit circular selection/coancestry frontier and given the
-#' percentage of maximum selection intensity achieved (y-axis) we can evaluate
+#' percentage of maximum selection criterion achieved (y-axis) we can evaluate
 #' the angle between the maximum selection line and the solution line recognising
 #' that cos(angle) = adjacent/hypothenuse, where adjacent = MaxCriterionPct/100
 #' and hypothenuse = 1 (unit circle). Then angle = acos(MaxCriterionPct/100).
@@ -189,13 +189,13 @@ MaxCriterionPct2Degree = function(MaxCriterionPct) {
 #'
 #' @param Degree numeric, frontier degree
 #'
-#' @return numeric, MaxCriterionPct (percentage of maximum criterion achieved (100 means we achieved the maximum possible selection intensity))
+#' @return numeric, MaxCriterionPct (percentage of maximum criterion achieved (100 means we achieved the maximum possible selection criterion))
 #'
 #' @export
 #'
 #' @details Assuming unit circular selection/coancestry frontier and given the
 #' angle between the maximum selection line and the solution line we can evaluate
-#' the percentage of maximum selection intensity achieved (y-axis) by recognising
+#' the percentage of maximum selection criterion achieved (y-axis) by recognising
 #' that cos(angle) = adjacent/hypothenuse, where adjacent = MaxCriterionPct/100
 #' and hypothenuse = 1 (unit circle). Then MaxCriterionPct = cos(angle) * 100.
 #'
@@ -266,17 +266,17 @@ CoancestryRate2MinCoancestryPct = function(CoancestryRate, MinCoancestryRate, Ma
   MinCoancestryPct
 }
 
-# ---- MaxCriterionPct2SelIntensity --------------------------------------------------------------
+# ---- MaxCriterionPct2SelCriterionStd --------------------------------------------------------------
 
-#' Selection intensity from MaxCriterionPct
+#' Stand. selection criterion from MaxCriterionPct
 #'
-#' `MaxCriterionPct2SelIntensity` convert MaxCriterionPct to selection intensity
+#' `MaxCriterionPct2SelCriterionStd` convert MaxCriterionPct to stand. selection criterion
 #'
 #' @param MaxCriterionPct numeric, MaxCriterionPct of a solution
-#' @param MinSelIntensity numeric, Minimum possible selection intensity
-#' @param MaxSelIntensity numeric, Maximum possible selection intensity
+#' @param MinSelCriterionStd numeric, Minimum possible stand. selection criterion
+#' @param MaxSelCriterionStd numeric, Maximum possible stand. selection criterion
 #'
-#' @return numeric, selection intensity
+#' @return numeric, stand. selection criterion
 #'
 #' @export
 #'
@@ -287,30 +287,30 @@ CoancestryRate2MinCoancestryPct = function(CoancestryRate, MinCoancestryRate, Ma
 #' Min coancestry
 #'
 #' @examples
-#' MaxCriterionPct2SelIntensity(MaxCriterionPct=100, MinSelIntensity=0.5, MaxSelIntensity=2.0)
-MaxCriterionPct2SelIntensity = function(MaxCriterionPct, MinSelIntensity, MaxSelIntensity) {
-  MinSelIntensity + MaxCriterionPct / 100.0 * (MaxSelIntensity - MinSelIntensity)
+#' MaxCriterionPct2SelCriterionStd(MaxCriterionPct=100, MinSelCriterionStd=0.5, MaxSelCriterionStd=2.0)
+MaxCriterionPct2SelCriterionStd = function(MaxCriterionPct, MinSelCriterionStd, MaxSelCriterionStd) {
+  MinSelCriterionStd + MaxCriterionPct / 100.0 * (MaxSelCriterionStd - MinSelCriterionStd)
 }
 
-# ---- SelIntensity2MaxCriterionPct --------------------------------------------------------------
+# ---- SelCriterionStd2MaxCriterionPct --------------------------------------------------------------
 
-#' MaxCriterionPct from selection intensity
+#' MaxCriterionPct from stand. selection criterion
 #'
-#' `SelIntensity2MaxCriterionPct` convert selection intensity to MaxCriterionPct
+#' `SelCriterionStd2MaxCriterionPct` convert stand. selection criterion to MaxCriterionPct
 #'
-#' @param SelIntensity numeric, Selection intensity of a solution
-#' @param MinSelIntensity numeric, Minimum possible selection intensity
-#' @param MaxSelIntensity numeric, Maximum possible selection intensity
+#' @param SelCriterionStd numeric, stand. selection criterion
+#' @param MinSelCriterionStd numeric, Minimum possible stand. selection criterion
+#' @param MaxSelCriterionStd numeric, Maximum possible stand. selection criterion
 #'
 #' @return numeric, MaxCriterionPct
 #'
 #' @export
 #'
 #' @examples
-#' SelIntensity2MaxCriterionPct(SelIntensity=2, MinSelIntensity=0.5, MaxSelIntensity=2)
-SelIntensity2MaxCriterionPct = function(SelIntensity, MinSelIntensity, MaxSelIntensity) {
-  Diff = SelIntensity - MinSelIntensity
-  MaxDiff = MaxSelIntensity - MinSelIntensity
+#' SelCriterionStd2MaxCriterionPct(SelCriterionStd=2, MinSelCriterionStd=0.5, MaxSelCriterionStd=2)
+SelCriterionStd2MaxCriterionPct = function(SelCriterionStd, MinSelCriterionStd, MaxSelCriterionStd) {
+  Diff = SelCriterionStd - MinSelCriterionStd
+  MaxDiff = MaxSelCriterionStd - MinSelCriterionStd
   if (MaxDiff == 0) {
     if (Diff >= 0) {
       MaxCriterionPct = 100.0
@@ -323,48 +323,48 @@ SelIntensity2MaxCriterionPct = function(SelIntensity, MinSelIntensity, MaxSelInt
   MaxCriterionPct
 }
 
-# ---- Degree2SelIntensity --------------------------------------------------------------
+# ---- Degree2SelCriterionStd --------------------------------------------------------------
 
-#' Selection intensity from frontier degree
+#' Stand. selection criterion from frontier degree
 #'
-#' `Degree2SelIntensity` convert degree to selection intensity
+#' `Degree2SelCriterionStd` convert degree to stand. selection criterion
 #'
 #' @param Degree numeric, Degree
-#' @param MinSelIntensity numeric, Minimum possible selection intensity
-#' @param MaxSelIntensity numeric, Maximum possible selection intensity
+#' @param MinSelCriterionStd numeric, Minimum possible stand. selection criterion
+#' @param MaxSelCriterionStd numeric, Maximum possible stand. selection criterion
 #'
-#' @return numeric, selection intensity
+#' @return numeric, stand. selection criterion
 #'
 #' @export
 #'
 #' @examples
-#' Degree2SelIntensity(Degree=45, MinSelIntensity=0.5, MaxSelIntensity=2)
-Degree2SelIntensity = function(Degree, MinSelIntensity, MaxSelIntensity) {
-  MaxCriterionPct2SelIntensity(MaxCriterionPct=Degree2MaxCriterionPct(Degree=Degree),
-                               MinSelIntensity=MinSelIntensity,
-                               MaxSelIntensity=MaxSelIntensity)
+#' Degree2SelCriterionStd(Degree=45, MinSelCriterionStd=0.5, MaxSelCriterionStd=2)
+Degree2SelCriterionStd = function(Degree, MinSelCriterionStd, MaxSelCriterionStd) {
+  MaxCriterionPct2SelCriterionStd(MaxCriterionPct=Degree2MaxCriterionPct(Degree=Degree),
+                                   MinSelCriterionStd=MinSelCriterionStd,
+                                   MaxSelCriterionStd=MaxSelCriterionStd)
 }
 
-# ---- SelIntensity2Degree --------------------------------------------------------------
+# ---- SelCriterionStd2Degree --------------------------------------------------------------
 
-#' Frontier degree from selection intensity
+#' Frontier degree from stand. selection criterion
 #'
-#' `SelIntensity2Degree` convert selection intensity to degree
+#' `SelCriterionStd2Degree` convert stand. selection criterion to degree
 #'
-#' @param SelIntensity numeric, selection intensity
-#' @param MinSelIntensity numeric, Minimum possible selection intensity
-#' @param MaxSelIntensity numeric, Maximum possible selection intensity
+#' @param SelCriterionStd numeric, stand. selection criterion
+#' @param MinSelCriterionStd numeric, Minimum possible stand. selection criterion
+#' @param MaxSelCriterionStd numeric, Maximum possible stand. selection criterion
 #'
 #' @return numeric, frontier degree
 #'
 #' @export
 #'
 #' @examples
-#' SelIntensity2Degree(SelIntensity=1.56, MinSelIntensity=0.5, MaxSelIntensity=2)
-SelIntensity2Degree = function(SelIntensity, MinSelIntensity, MaxSelIntensity) {
-  MaxCriterionPct2Degree(MaxCriterionPct=SelIntensity2MaxCriterionPct(SelIntensity=SelIntensity,
-                                                                      MinSelIntensity=MinSelIntensity,
-                                                                      MaxSelIntensity=MaxSelIntensity))
+#' SelCriterionStd2Degree(SelCriterionStd=1.56, MinSelCriterionStd=0.5, MaxSelCriterionStd=2)
+SelCriterionStd2Degree = function(SelCriterionStd, MinSelCriterionStd, MaxSelCriterionStd) {
+  MaxCriterionPct2Degree(MaxCriterionPct=SelCriterionStd2MaxCriterionPct(SelCriterionStd=SelCriterionStd,
+                                                                          MinSelCriterionStd=MinSelCriterionStd,
+                                                                          MaxSelCriterionStd=MaxSelCriterionStd))
 }
 
 # ---- Degree2CoancestryRate --------------------------------------------------------------

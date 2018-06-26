@@ -216,23 +216,23 @@ module TestAlphaMateModule
       !#########################################################################
 
       @test
-      subroutine TestSelCriterion2SelIntensity
+      subroutine TestSelCriterion2SelCriterionStd
         implicit none
-        @AssertEqual( 0.00d0, SelCriterion2SelIntensity( 1.0d0,  1.0d0, 1.0d0), TolR64, "SelCriterion2SelIntensity( 1.0d0,  1.0d0, 1.0d0) failed")
-        @AssertEqual( 1.00d0, SelCriterion2SelIntensity(13.0d0, 10.0d0, 3.0d0), TolR64, "SelCriterion2SelIntensity(13.0d0, 1.00d0, 3.0d0) failed")
-        @AssertEqual(-1.00d0, SelCriterion2SelIntensity( 7.0d0, 10.0d0, 3.0d0), TolR64, "SelCriterion2SelIntensity( 7.0d0, 1.00d0, 3.0d0) failed")
-        @AssertEqual([ -1.0d0, 0.0d0, 1.0d0], SelCriterion2SelIntensity([7.00d0, 10.0d0, 13.0d0], 10.0d0, 3.0d0), TolR64, "SelCriterion2SelIntensity([7.00d0, 10.0d0, 13.0d0], 10.0d0, 3.0d0) failed")
+        @AssertEqual( 0.00d0, SelCriterion2SelCriterionStd( 1.0d0,  1.0d0, 1.0d0), TolR64, "SelCriterion2SelCriterionStd( 1.0d0,  1.0d0, 1.0d0) failed")
+        @AssertEqual( 1.00d0, SelCriterion2SelCriterionStd(13.0d0, 10.0d0, 3.0d0), TolR64, "SelCriterion2SelCriterionStd(13.0d0, 1.00d0, 3.0d0) failed")
+        @AssertEqual(-1.00d0, SelCriterion2SelCriterionStd( 7.0d0, 10.0d0, 3.0d0), TolR64, "SelCriterion2SelCriterionStd( 7.0d0, 1.00d0, 3.0d0) failed")
+        @AssertEqual([ -1.0d0, 0.0d0, 1.0d0], SelCriterion2SelCriterionStd([7.00d0, 10.0d0, 13.0d0], 10.0d0, 3.0d0), TolR64, "SelCriterion2SelCriterionStd([7.00d0, 10.0d0, 13.0d0], 10.0d0, 3.0d0) failed")
       end subroutine
 
       !#########################################################################
 
       @test
-      subroutine TestSelIntensity2SelCriterion
+      subroutine TestSelCriterionStd2SelCriterion
         implicit none
-        @AssertEqual( 1.00d0, SelIntensity2SelCriterion( 0.0d0,  1.0d0, 1.0d0), TolR64, "SelIntensity2SelCriterion( 0.0d0,  1.0d0, 1.0d0) failed")
-        @AssertEqual(13.00d0, SelIntensity2SelCriterion( 1.0d0, 10.0d0, 3.0d0), TolR64, "SelIntensity2SelCriterion( 1.0d0, 1.00d0, 3.0d0) failed")
-        @AssertEqual( 7.00d0, SelIntensity2SelCriterion(-1.0d0, 10.0d0, 3.0d0), TolR64, "SelIntensity2SelCriterion(-1.0d0, 1.00d0, 3.0d0) failed")
-        @AssertEqual([7.00d0, 10.0d0, 13.0d0], SelIntensity2SelCriterion([ -1.0d0, 0.0d0, 1.0d0], 10.0d0, 3.0d0), TolR64, "SelIntensity2SelCriterion([ -1.0d0, 0.0d0, 1.0d0], 10.0d0, 3.0d0) failed")
+        @AssertEqual( 1.00d0, SelCriterionStd2SelCriterion( 0.0d0,  1.0d0, 1.0d0), TolR64, "SelCriterionStd2SelCriterion( 0.0d0,  1.0d0, 1.0d0) failed")
+        @AssertEqual(13.00d0, SelCriterionStd2SelCriterion( 1.0d0, 10.0d0, 3.0d0), TolR64, "SelCriterionStd2SelCriterion( 1.0d0, 1.00d0, 3.0d0) failed")
+        @AssertEqual( 7.00d0, SelCriterionStd2SelCriterion(-1.0d0, 10.0d0, 3.0d0), TolR64, "SelCriterionStd2SelCriterion(-1.0d0, 1.00d0, 3.0d0) failed")
+        @AssertEqual([7.00d0, 10.0d0, 13.0d0], SelCriterionStd2SelCriterion([ -1.0d0, 0.0d0, 1.0d0], 10.0d0, 3.0d0), TolR64, "SelCriterionStd2SelCriterion([ -1.0d0, 0.0d0, 1.0d0], 10.0d0, 3.0d0) failed")
       end subroutine
 
       !#########################################################################
@@ -322,43 +322,43 @@ module TestAlphaMateModule
       !#########################################################################
 
       @test
-      subroutine TestMaxCriterionPct2SelIntensity
+      subroutine TestMaxCriterionPct2SelCriterionStd
         implicit none
-        @AssertEqual(0.0d0, MaxCriterionPct2SelIntensity(  0.0d0,  0.0d0, 1.0d0), TolR64, "MaxCriterionPct2SelIntensity(  0.0d0,  0.0d0, 1.0d0) failed")
-        @AssertEqual(0.5d0, MaxCriterionPct2SelIntensity( 50.0d0,  0.0d0, 1.0d0), TolR64, "MaxCriterionPct2SelIntensity( 50.0d0,  0.0d0, 1.0d0) failed")
-        @AssertEqual(1.0d0, MaxCriterionPct2SelIntensity(100.0d0,  0.0d0, 1.0d0), TolR64, "MaxCriterionPct2SelIntensity(100.0d0,  0.0d0, 1.0d0) failed")
-        @AssertEqual(0.0d0, MaxCriterionPct2SelIntensity( 50.0d0, -1.0d0, 1.0d0), TolR64, "MaxCriterionPct2SelIntensity( 50.0d0, -1.0d0, 1.0d0) failed")
+        @AssertEqual(0.0d0, MaxCriterionPct2SelCriterionStd(  0.0d0,  0.0d0, 1.0d0), TolR64, "MaxCriterionPct2SelCriterionStd(  0.0d0,  0.0d0, 1.0d0) failed")
+        @AssertEqual(0.5d0, MaxCriterionPct2SelCriterionStd( 50.0d0,  0.0d0, 1.0d0), TolR64, "MaxCriterionPct2SelCriterionStd( 50.0d0,  0.0d0, 1.0d0) failed")
+        @AssertEqual(1.0d0, MaxCriterionPct2SelCriterionStd(100.0d0,  0.0d0, 1.0d0), TolR64, "MaxCriterionPct2SelCriterionStd(100.0d0,  0.0d0, 1.0d0) failed")
+        @AssertEqual(0.0d0, MaxCriterionPct2SelCriterionStd( 50.0d0, -1.0d0, 1.0d0), TolR64, "MaxCriterionPct2SelCriterionStd( 50.0d0, -1.0d0, 1.0d0) failed")
       end subroutine
 
       !#########################################################################
 
       @test
-      subroutine TestSelIntensity2MaxCriterionPct
+      subroutine TestSelCriterionStd2MaxCriterionPct
         implicit none
-        @AssertEqual(  0.0d0, SelIntensity2MaxCriterionPct( 0.0d0,  0.0d0, 1.0d0), TolR64, "SelIntensity2MaxCriterionPct(0.0d0,  0.0d0, 1.0d0) failed")
-        @AssertEqual( 50.0d0, SelIntensity2MaxCriterionPct( 0.5d0,  0.0d0, 1.0d0), TolR64, "SelIntensity2MaxCriterionPct(0.5d0,  0.0d0, 1.0d0) failed")
-        @AssertEqual(100.0d0, SelIntensity2MaxCriterionPct( 1.0d0,  0.0d0, 1.0d0), TolR64, "SelIntensity2MaxCriterionPct(1.0d0,  0.0d0, 1.0d0) failed")
-        @AssertEqual( 50.0d0, SelIntensity2MaxCriterionPct( 0.0d0, -1.0d0, 1.0d0), TolR64, "SelIntensity2MaxCriterionPct(0.0d0, -1.0d0, 1.0d0) failed")
+        @AssertEqual(  0.0d0, SelCriterionStd2MaxCriterionPct( 0.0d0,  0.0d0, 1.0d0), TolR64, "SelCriterionStd2MaxCriterionPct(0.0d0,  0.0d0, 1.0d0) failed")
+        @AssertEqual( 50.0d0, SelCriterionStd2MaxCriterionPct( 0.5d0,  0.0d0, 1.0d0), TolR64, "SelCriterionStd2MaxCriterionPct(0.5d0,  0.0d0, 1.0d0) failed")
+        @AssertEqual(100.0d0, SelCriterionStd2MaxCriterionPct( 1.0d0,  0.0d0, 1.0d0), TolR64, "SelCriterionStd2MaxCriterionPct(1.0d0,  0.0d0, 1.0d0) failed")
+        @AssertEqual( 50.0d0, SelCriterionStd2MaxCriterionPct( 0.0d0, -1.0d0, 1.0d0), TolR64, "SelCriterionStd2MaxCriterionPct(0.0d0, -1.0d0, 1.0d0) failed")
       end subroutine
 
       !#########################################################################
 
       @test
-      subroutine TestDegree2SelIntensity
+      subroutine TestDegree2SelCriterionStd
         implicit none
-        @AssertEqual(1.0d0, Degree2SelIntensity( 0.0d0,  0.0d0, 1.0d0), TolR64, "Degree2SelIntensity( 0.0d0,  0.0d0, 1.0d0) failed")
-        @AssertEqual(0.5d0, Degree2SelIntensity(60.0d0,  0.0d0, 1.0d0), TolR64, "Degree2SelIntensity(60.0d0,  0.0d0, 1.0d0) failed")
-        @AssertEqual(0.0d0, Degree2SelIntensity(90.0d0,  0.0d0, 1.0d0), TolR64, "Degree2SelIntensity(90.0d0,  0.0d0, 1.0d0) failed")
+        @AssertEqual(1.0d0, Degree2SelCriterionStd( 0.0d0,  0.0d0, 1.0d0), TolR64, "Degree2SelCriterionStd( 0.0d0,  0.0d0, 1.0d0) failed")
+        @AssertEqual(0.5d0, Degree2SelCriterionStd(60.0d0,  0.0d0, 1.0d0), TolR64, "Degree2SelCriterionStd(60.0d0,  0.0d0, 1.0d0) failed")
+        @AssertEqual(0.0d0, Degree2SelCriterionStd(90.0d0,  0.0d0, 1.0d0), TolR64, "Degree2SelCriterionStd(90.0d0,  0.0d0, 1.0d0) failed")
       end subroutine
 
       !#########################################################################
 
       @test
-      subroutine TestSelIntensity2Degree
+      subroutine TestSelCriterionStd2Degree
         implicit none
-        @AssertEqual( 0.0d0, SelIntensity2Degree(1.0d0,  0.0d0, 1.0d0), TolR64, "SelIntensity2Degree(1.0d0,  0.0d0, 1.0d0) failed")
-        @AssertEqual(60.0d0, SelIntensity2Degree(0.5d0,  0.0d0, 1.0d0), TolR64, "SelIntensity2Degree(0.5d0,  0.0d0, 1.0d0) failed")
-        @AssertEqual(90.0d0, SelIntensity2Degree(0.0d0,  0.0d0, 1.0d0), TolR64, "SelIntensity2Degree(0.0d0,  0.0d0, 1.0d0) failed")
+        @AssertEqual( 0.0d0, SelCriterionStd2Degree(1.0d0,  0.0d0, 1.0d0), TolR64, "SelCriterionStd2Degree(1.0d0,  0.0d0, 1.0d0) failed")
+        @AssertEqual(60.0d0, SelCriterionStd2Degree(0.5d0,  0.0d0, 1.0d0), TolR64, "SelCriterionStd2Degree(0.5d0,  0.0d0, 1.0d0) failed")
+        @AssertEqual(90.0d0, SelCriterionStd2Degree(0.0d0,  0.0d0, 1.0d0), TolR64, "SelCriterionStd2Degree(0.0d0,  0.0d0, 1.0d0) failed")
       end subroutine
 
       !#########################################################################
