@@ -4369,7 +4369,7 @@ module AlphaMateModule
               !   - Data%nPotPar2 edit indicators for "parent2" (females when GenderGiven, present only when GenderGiven)
               !
               ! Say we have Chrom=(| 0, 2, 0, 1 | 1, 2, 0 | 1.5, 2.5, 1.0 | 0, 1, 0, 0 | 0, 0, 0) then we:
-              ! - sort female contributions based on ranks from (1st, 2nd, 2nd) female to (2nd, 1st, 2nd) females
+              ! - sort female contributions based on ranks from (1st, 2nd, 2nd) female to (2nd, 1st, 2nd) female
               ! - then we
               !   - mate first  male 2 contribution with the first  female 2 contribution
               !   - mate second male 2 contribution with the first  female 1 contribution
@@ -4379,47 +4379,33 @@ module AlphaMateModule
 
               ! Below we create a structured chromosome to simplify the evaluation code
 
-              ! Allocate
+              ! Allocate & Assign
               allocate(SChrom%ContPar1(Data%nPotPar1))
-              if (Spec%GenderGiven) then
-                allocate(SChrom%ContPar2(Data%nPotPar2))
-              end if
-              if (Spec%MateAllocation) then
-                allocate(SChrom%MateRank(Spec%nMat))
-              end if
-              if (Spec%PAGEPar) then
-                if (Spec%PAGEPar1) then
-                  allocate(SChrom%EditPar1(Data%nPotPar1))
-                end if
-                if (Spec%GenderGiven) then
-                  if (Spec%PAGEPar2) then
-                    allocate(SChrom%EditPar2(Data%nPotPar2))
-                  end if
-                end if
-              end if
-
-              ! Assign
               Start = 1
               End = Data%nPotPar1
               SChrom%ContPar1 = Chrom(Start:End)
               if (Spec%GenderGiven) then
+                allocate(SChrom%ContPar2(Data%nPotPar2))
                 Start = End + 1
                 End = Start - 1 + Data%nPotPar2
                 SChrom%ContPar2 = Chrom(Start:End)
               end if
               if (Spec%MateAllocation) then
+                allocate(SChrom%MateRank(Spec%nMat))
                 Start = End + 1
                 End = Start - 1 + Spec%nMat
                 SChrom%MateRank = Chrom(Start:End)
               end if
               if (Spec%PAGEPar) then
                 if (Spec%PAGEPar1) then
+                  allocate(SChrom%EditPar1(Data%nPotPar1))
                   Start = End + 1
                   End = Start - 1 + Data%nPotPar1
                   SChrom%EditPar1 = Chrom(Start:End)
                 end if
                 if (Spec%GenderGiven) then
                   if (Spec%PAGEPar2) then
+                    allocate(SChrom%EditPar2(Data%nPotPar2))
                     Start = End + 1
                     End = Start - 1 + Data%nPotPar2
                     SChrom%EditPar2 = Chrom(Start:End)
