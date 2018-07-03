@@ -1,11 +1,16 @@
 
-v0.1.1 ????-??-??
+v0.1.1 2018-07-03
+  IMPROVEMENTS
   * Improved handling of specifications LimitContributions and EqualizeContributions
     when gender is given, i.e., when limits are used for one gender and equalizing
     for the other gender.
 
   * Consolidated which optimisation modes are turned on with provided targets
     (criterion, coancestry, and/or inbreeding).
+
+  BUGFIXES
+  * Handle cases when the number of matings/crosses is larger than the number of
+    individuals.
 
 v0.1.0 2018-01-21
   * First public version
