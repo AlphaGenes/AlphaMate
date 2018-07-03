@@ -4419,10 +4419,10 @@ module AlphaMateModule
               ! call SChrom%Write
 
               ! Working vectors
-              allocate(Rank(Data%nInd))         ! for ranking many things
-              allocate(nVecPar1(Data%nPotPar1)) ! for nVec
-              allocate(MatPar2(Spec%nMat))      ! for MatingPlan
-              allocate(TmpVec(Data%nInd))       ! for many things
+              allocate(Rank(maxval([Data%nInd,Spec%nMat]))) ! for ranking many things
+              allocate(nVecPar1(Data%nPotPar1))             ! for nVec
+              allocate(MatPar2(Spec%nMat))                  ! for MatingPlan
+              allocate(TmpVec(Data%nInd))                   ! for many things
 
               ! --- Parse the mate selection driver (=Is the solution valid?) ---
 
