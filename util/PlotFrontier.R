@@ -1,12 +1,14 @@
 #!/usr/bin/env Rscript
 
+options(width = 200)
+
 # ---- Required packages and functions ----
 
 RequiredPackages = c("optparse", "tidyverse")
 for (Package in RequiredPackages) {
   Test = require(package = Package, quietly = TRUE, character.only = TRUE)
   if (!Test) {
-    install.packages(pkgs = Package)
+    install.packages(pkgs = Package, repos = "https://cloud.r-project.org")
   }
 }
 
@@ -92,11 +94,8 @@ ArgumentsList = list(
 );
 
 ArgumentsParser = OptionParser(option_list = ArgumentsList)
-Arguments = parse_args(ArgumentsParser);
-
-# Arguments$frontier = "Editing_demo_Edit0_Frontier.txt"
-# Arguments$targets = "Editing_demo_Edit0_Targets.txt"
-# Arguments$log = "Editing_demo_Edit0_OptimisationLogModeMaxCriterion.txt"
+Arguments = parse_args(ArgumentsParser)
+# Arguments = parse_args(ArgumentsParser, args = c("-t", "Targets.txt",  "-f", "Frontier.txt", "--log", "OptimisationLogModeOptTarget1.txt",  "--log2", "OptimisationLogModeFrontier1.txt", "--log3", "OptimisationLogModeFrontier2.txt"))
 
 # ---- Read in the data & processing ----
 
@@ -253,13 +252,14 @@ for (d in Frontier$TargetDegree) {
 # ---- Optimisation path (whole population) ----
 
 if (!is.null(Arguments$logpop)) {
-p <- p + geom_point(data = PopPath, show.legend = FALSE, color = ColRoslinViolet, size = .1, alpha = .1,
-                    mapping = aes(x = MinCoancestryPct, y = MaxSelCriterPct))
+  p <- p + geom_point(data = PopPath, show.legend = FALSE, color = ColRoslinViolet, size = .1, alpha = .1,
+                      mapping = aes(x = MinCoancestryPct, y = MaxSelCriterPct))
 }
 
 # ---- Optimisation path ----
 
 if (!is.null(Arguments$log)) {
+  cat("Optimisation 1\n")
   print(Path)
   p <- p + geom_path(data = Path, show.legend = FALSE, color = ColRoslinBlue,
                      mapping = aes(x = MinCoancestryPct, y = MaxSelCriterPct))
@@ -267,6 +267,7 @@ if (!is.null(Arguments$log)) {
 for (Tmp in 2:11) {
   Arg = paste("log", Tmp, sep = "")
   if (!is.null(Arguments[[Arg]])) {
+    cat("Optimisation", Tmp, "\n")
     print(PathAdd[[Tmp - 1]])
     p <- p + geom_path(data = PathAdd[[Tmp - 1]], show.legend = FALSE, color = ColRoslinBlue,
                        mapping = aes(x = MinCoancestryPct, y = MaxSelCriterPct))
@@ -278,4 +279,3 @@ for (Tmp in 2:11) {
 ggsave(plot = p, filename = Arguments$out, width = Arguments$out_size, height = Arguments$out_size, unit = "cm")
 
 q()
-
