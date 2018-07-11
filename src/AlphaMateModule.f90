@@ -58,17 +58,16 @@ module AlphaMateModule
   use OrderPackModule, only : MrgRnk, RapKnr
   use AlphaHouseMod, only : Append, CountLines, GeneratePairing, &
                             Char2Int, Char2Double, Int2Char, Real2Char, &
-                            RandomOrder, SetSeed, ToLower, FindLoc, &
+                            RandomOrder, SetSeed, ToLower, &
                             ParseToFirstWhitespace, SplitLineIntoTwoParts
+  use HashModule
   use AlphaStatMod, only : Mean, StdDev, DescStat, DescStatReal64, &
                            DescStatMatrix, DescStatLowTriMatrix, DescStatMatrixReal64
   use AlphaEvolveModule, only : AlphaEvolveSol, AlphaEvolveSpec, AlphaEvolveData, &
                                 DifferentialEvolution, RandomSearch
   use AlphaRelateModule
   use Blas95, only : dot , symv
-  use HashModule
 
-  
   implicit none
 
   private
@@ -2997,7 +2996,7 @@ module AlphaMateModule
       type(AlphaMateSpec), intent(inout) :: Spec      !< AlphaMateSpec holder (inout because we save some info in Spec that is based on Data)
       logical, optional                  :: LogStdout !< Log process on stdout (default .false.)
 
-      integer(int32) :: Ind, IndLoc, IndLoc2, nIndTmp, Mat, nMatTmp, GenderTmp, l, m, IndPair(2), Crit
+      integer(int32) :: Ind, IndLoc, IndLoc2, nIndTmp, Mat, nMatTmp, GenderTmp, jMal, jFem, IndPair(2), Crit
       integer(int32) :: SelCriterionUnit, GenderUnit, GenericIndCritUnit, GenericMatCritUnit, SeedUnit
       integer(int32) :: CoancestrySummaryUnit, InbreedingSummaryUnit, CriterionSummaryUnit
       integer(int32) :: GenericIndCritSummaryUnit, GenericMatCritSummaryUnit
@@ -3072,8 +3071,7 @@ module AlphaMateModule
           else
             read(SelCriterionUnit, *) IdCTmp, SelCriterionTmp
           end if
-          IndLoc = This%Coancestry%OriginalIdDict%getValue(idctmp);
-          ! IndLoc = FindLoc(IdCTmp, This%Coancestry%OriginalId(1:)) ! @todo hash-key
+          IndLoc = This%Coancestry%OriginalIdDict%GetValue(key=IdCTmp);
           if (IndLoc .eq. DICT_NULL) then
             write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp)//" from the selection criterion file not present in the coancestry matrix file!"
             write(STDERR, "(a)") " "
@@ -3154,8 +3152,7 @@ module AlphaMateModule
             write(STDERR, "(a)") " "
             stop 1
           end if
-          IndLoc = This%Coancestry%OriginalIdDict%getValue(idctmp);
-          ! IndLoc = FindLoc(IdCTmp, This%Coancestry%OriginalId(1:)) ! @todo hash-key
+          IndLoc = This%Coancestry%OriginalIdDict%GetValue(key=IdCTmp);
           if (IndLoc .eq. DICT_NULL) then
             write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp)//" from the gender file not present in the coancestry matrix file!"
             write(STDERR, "(a)") " "
@@ -3340,6 +3337,10 @@ module AlphaMateModule
 
       ! --- Define potential parents ---
 
+      ! IdPotPar1   holds   male ids in the form 1:nInd
+      ! IdPotPar2   holds female ids in the form 1:nInd
+      ! IdPotParSeq holds   both ids, but males are in the form 1:nMal and females in the form 1:nFem
+
       if (.not. Spec%GenderGiven) then
         This%nPotPar1 = This%nInd
         This%nPotPar2 = This%nInd
@@ -3356,15 +3357,12 @@ module AlphaMateModule
         allocate(This%IdPotPar2(This%nPotPar2))
         allocate(This%IdPotParSeq(This%nInd))
         block
-          integer(int32) :: jMal, jFem
           jMal = 0
           jFem = 0
           do Ind = 1, This%nInd
             if (This%Gender(Ind) .eq. 1) then
               jMal = jMal + 1
               This%IdPotPar1(jMal) = Ind
-            
-
               This%IdPotParSeq(Ind) = jMal
             else
               jFem = jFem + 1
@@ -3432,9 +3430,7 @@ module AlphaMateModule
         open(newunit=GenericIndCritUnit, file=Spec%GenericIndCritFile, status="old")
         do Ind = 1, This%nInd
           read(GenericIndCritUnit, *) IdCTmp, GenericIndCritTmp
-
-          IndLoc = This%Coancestry%OriginalIdDict%getValue(idCtmp)
-          ! IndLoc = FindLoc(IdCTmp, This%Coancestry%OriginalId(1:)) ! @todo hash-key
+          IndLoc = This%Coancestry%OriginalIdDict%GetValue(key=IdCTmp)
           if (IndLoc .eq. DICT_NULL) then
             write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp)//" from the generic individual criterion file not present in the coancestry matrix file!"
             write(STDERR, "(a)") " "
@@ -3467,47 +3463,41 @@ module AlphaMateModule
         open(newunit=GenericMatCritUnit, file=Spec%GenericMatCritFile, status="old")
         do Mat = 1, This%nPotMat
           read(GenericMatCritUnit, *) IdCTmp, IdCTmp2, GenericMatCritTmp
-          ! IndLoc = FindLoc(IdCTmp, This%Coancestry%OriginalId(1:)) ! @todo hash-key
-          IndLoc = This%Coancestry%OriginalIdDict%getValue(idCtmp)
-          if (IndLoc .eq. Dict_Null) then
+          IndLoc = This%Coancestry%OriginalIdDict%GetValue(key=IdCTmp)
+          if (IndLoc .eq. DICT_NULL) then
             write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp)//" from the generic mating criterion file not present in the coancestry matrix file!"
             write(STDERR, "(a)") " "
             stop 1
           end if
-          ! IndLoc2 = FindLoc(IdCTmp2, This%Coancestry%OriginalId(1:)) ! @todo hash-key
-          IndLoc2 = This%Coancestry%OriginalIdDict%getValue(idCtmp2)
+          IndLoc2 = This%Coancestry%OriginalIdDict%GetValue(key=IdCTmp2)
           if (IndLoc2 .eq. DICT_NULL) then
             write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp2)//" from the generic mating criterion file not present in the coancestry matrix file!"
             write(STDERR, "(a)") " "
             stop 1
           end if
           if (Spec%GenderGiven) then
-            l = FindLoc(IndLoc, This%IdPotPar1) ! @todo - this search might actually just be IdPotParSeq - check!
-            if (l .eq. 0) then
+            jMal = This%IdPotParSeq(IndLoc)
+            if (This%Gender(IndLoc) .ne. 1) then
               write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp)//" from the first column in the generic mating criterion file should be a male!"
               write(STDERR, "(a)") " ERROR: Generic mating criterion file:"
               write(STDERR, "(a)") " ERROR:   - line:                  "//trim(Int2Char(Mat))
-              write(STDERR, "(a)") " ERROR:   - individual 1   (male): "//trim(IdCTmp)//" gender "//trim(Int2Char(This%Gender(IndLoc)))
+              write(STDERR, "(a)") " ERROR:   - individual 1   (male): "//trim(IdCTmp) //" gender "//trim(Int2Char(This%Gender(IndLoc)))
               write(STDERR, "(a)") " ERROR:   - individual 2 (female): "//trim(IdCTmp2)//" gender "//trim(Int2Char(This%Gender(IndLoc2)))
               write(STDERR, "(a)") " "
               stop 1
             end if
-            m = FindLoc(IndLoc2, This%IdPotPar2) ! @todo - this search might actually just be IdPotParSeq - check!
-            if (m .eq. 0) then
+            jFem = This%IdPotParSeq(IndLoc2)
+            if (This%Gender(IndLoc2) .ne. 2) then
               write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp2)//" from the second column in the generic mating criterion file should be a female!"
               write(STDERR, "(a)") " ERROR: Generic mating criterion file:"
               write(STDERR, "(a)") " ERROR:   - line:                  "//trim(Int2Char(Mat))
-              write(STDERR, "(a)") " ERROR:   - individual 1   (male): "//trim(IdCTmp)//" gender "//trim(Int2Char(This%Gender(IndLoc)))
+              write(STDERR, "(a)") " ERROR:   - individual 1   (male): "//trim(IdCTmp) //" gender "//trim(Int2Char(This%Gender(IndLoc)))
               write(STDERR, "(a)") " ERROR:   - individual 2 (female): "//trim(IdCTmp2)//" gender "//trim(Int2Char(This%Gender(IndLoc2)))
               write(STDERR, "(a)") " "
               stop 1
             end if
             ! fill full-matrix
-            ! - need to locate position in GenericMatCrit that pertains to a particular potential mating
-            ! - l and m are respectively locations within IdPotPar1 and IdPotPar2
-            ! - values in IdPotPar1 and IdPotPar2 are "joint" Id of males and females, i.e., they range from 1:n
-            ! - values in IdPotParSeq are separate Id of males and females, i.e., one ranges from 1:nMal and the other from 1:nFem
-            This%GenericMatCrit(This%IdPotParSeq(This%IdPotPar1(l)), This%IdPotParSeq(This%IdPotPar2(m)), :) = GenericMatCritTmp
+            This%GenericMatCrit(jMal, jFem, :) = GenericMatCritTmp
           else
             ! fill lower-triangle (half-diallel)
             IndPair = [IndLoc, IndLoc2]
