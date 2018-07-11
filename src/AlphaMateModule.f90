@@ -66,7 +66,9 @@ module AlphaMateModule
                                 DifferentialEvolution, RandomSearch
   use AlphaRelateModule
   use Blas95, only : dot , symv
+  use HashModule
 
+  
   implicit none
 
   private
@@ -3067,8 +3069,9 @@ module AlphaMateModule
           else
             read(SelCriterionUnit, *) IdCTmp, SelCriterionTmp
           end if
-          IndLoc = FindLoc(IdCTmp, This%Coancestry%OriginalId(1:)) ! @todo hash-key
-          if (IndLoc .eq. 0) then
+          IndLoc = This%Coancestry%OriginalIdDict%getValue(idctmp);
+          ! IndLoc = FindLoc(IdCTmp, This%Coancestry%OriginalId(1:)) ! @todo hash-key
+          if (IndLoc .eq. DICT_NULL) then
             write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp)//" from the selection criterion file not present in the coancestry matrix file!"
             write(STDERR, "(a)") " "
             stop 1
@@ -3148,8 +3151,9 @@ module AlphaMateModule
             write(STDERR, "(a)") " "
             stop 1
           end if
-          IndLoc = FindLoc(IdCTmp, This%Coancestry%OriginalId(1:)) ! @todo hash-key
-          if (IndLoc .eq. 0) then
+          IndLoc = This%Coancestry%OriginalIdDict%getValue(idctmp);
+          ! IndLoc = FindLoc(IdCTmp, This%Coancestry%OriginalId(1:)) ! @todo hash-key
+          if (IndLoc .eq. DICT_NULL) then
             write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp)//" from the gender file not present in the coancestry matrix file!"
             write(STDERR, "(a)") " "
             stop 1
@@ -3356,6 +3360,8 @@ module AlphaMateModule
             if (This%Gender(Ind) .eq. 1) then
               jMal = jMal + 1
               This%IdPotPar1(jMal) = Ind
+            
+
               This%IdPotParSeq(Ind) = jMal
             else
               jFem = jFem + 1
@@ -3423,8 +3429,10 @@ module AlphaMateModule
         open(newunit=GenericIndCritUnit, file=Spec%GenericIndCritFile, status="old")
         do Ind = 1, This%nInd
           read(GenericIndCritUnit, *) IdCTmp, GenericIndCritTmp
-          IndLoc = FindLoc(IdCTmp, This%Coancestry%OriginalId(1:)) ! @todo hash-key
-          if (IndLoc .eq. 0) then
+
+          IndLoc = This%Coancestry%OriginalIdDict%getValue(idCtmp)
+          ! IndLoc = FindLoc(IdCTmp, This%Coancestry%OriginalId(1:)) ! @todo hash-key
+          if (IndLoc .eq. DICT_NULL) then
             write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp)//" from the generic individual criterion file not present in the coancestry matrix file!"
             write(STDERR, "(a)") " "
             stop 1
@@ -3456,14 +3464,16 @@ module AlphaMateModule
         open(newunit=GenericMatCritUnit, file=Spec%GenericMatCritFile, status="old")
         do Mat = 1, This%nPotMat
           read(GenericMatCritUnit, *) IdCTmp, IdCTmp2, GenericMatCritTmp
-          IndLoc = FindLoc(IdCTmp, This%Coancestry%OriginalId(1:)) ! @todo hash-key
-          if (IndLoc .eq. 0) then
+          ! IndLoc = FindLoc(IdCTmp, This%Coancestry%OriginalId(1:)) ! @todo hash-key
+          IndLoc = This%Coancestry%OriginalIdDict%getValue(idCtmp)
+          if (IndLoc .eq. Dict_Null) then
             write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp)//" from the generic mating criterion file not present in the coancestry matrix file!"
             write(STDERR, "(a)") " "
             stop 1
           end if
-          IndLoc2 = FindLoc(IdCTmp2, This%Coancestry%OriginalId(1:)) ! @todo hash-key
-          if (IndLoc2 .eq. 0) then
+          ! IndLoc2 = FindLoc(IdCTmp2, This%Coancestry%OriginalId(1:)) ! @todo hash-key
+          IndLoc2 = This%Coancestry%OriginalIdDict%getValue(idCtmp2)
+          if (IndLoc2 .eq. DICT_NULL) then
             write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp2)//" from the generic mating criterion file not present in the coancestry matrix file!"
             write(STDERR, "(a)") " "
             stop 1
