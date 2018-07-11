@@ -208,7 +208,7 @@ GenderFile
   GenderFile , [String]
   GenderFile , Gender.txt
 
-GenderFile specifies a file that contains gender information. The file should have *2* columns and *n* rows for *n* individuals. The first column contains individual identifications. The second column contains gender codes. The codes must be either 1 or 2. An example is:
+GenderFile specifies a file that contains gender information. The file should have *2* columns and *n* rows for *n* individuals. The first column contains individual identifications. The second column contains gender codes. The codes must be either 1 for males or 2 for females. An example is:
 
 ::
 
@@ -217,7 +217,7 @@ GenderFile specifies a file that contains gender information. The file should ha
   id3 1
   ...
 
-Tip: Note that the "gender" functionality can also be used in cases where biological gender is not relevant. For example in some plant populations we might have two pools of individuals and want to make cross between these two pools.
+Tip: Note that the "gender" functionality can also be used in cases where biological gender is not relevant. For example in some plant populations we might have two pools of individuals and want to make cross between these two pools. In such cases "gender" can be used to denote the pools.
 
 GenericIndividualCriterionFile
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
