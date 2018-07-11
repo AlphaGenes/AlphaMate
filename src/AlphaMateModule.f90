@@ -3482,7 +3482,7 @@ module AlphaMateModule
             stop 1
           end if
           if (Spec%GenderGiven) then
-            l = FindLoc(IndLoc, This%IdPotPar1) ! @todo hash-key
+            l = FindLoc(IndLoc, This%IdPotPar1) ! @todo - this search might actually just be IdPotParSeq - check!
             if (l .eq. 0) then
               write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp)//" from the first column in the generic mating criterion file should be a male!"
               write(STDERR, "(a)") " ERROR: Generic mating criterion file:"
@@ -3492,7 +3492,7 @@ module AlphaMateModule
               write(STDERR, "(a)") " "
               stop 1
             end if
-            m = FindLoc(IndLoc2, This%IdPotPar2) ! @todo hash-key
+            m = FindLoc(IndLoc2, This%IdPotPar2) ! @todo - this search might actually just be IdPotParSeq - check!
             if (m .eq. 0) then
               write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp2)//" from the second column in the generic mating criterion file should be a female!"
               write(STDERR, "(a)") " ERROR: Generic mating criterion file:"
