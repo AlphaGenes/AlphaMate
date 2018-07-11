@@ -48,7 +48,7 @@
 !
 !> @date      2018-01-15
 !
-!> @version  0.1.0 (alpha)
+!> @version  0.1.1 (alpha)
 !
 !-------------------------------------------------------------------------------
 module AlphaMateModule
@@ -1071,19 +1071,19 @@ module AlphaMateModule
                 stop 1
               end if
 
-            case ("moderan")
-              if (allocated(Second)) then
-                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
-                  This%ModeRan = .true.
-                  if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " ModeRan"
-                  end if
-                end if
-              else
-                write(STDERR, "(a)") " ERROR: Must specify Yes or No for ModeRan, i.e., ModeRan, Yes"
-                write(STDERR, "(a)") " "
-                stop 1
-              end if
+            ! case ("moderan")
+            !   if (allocated(Second)) then
+            !     if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+            !       This%ModeRan = .true.
+            !       if (LogStdoutInternal) then
+            !         write(STDOUT, "(a)") " ModeRan"
+            !       end if
+            !     end if
+            !   else
+            !     write(STDERR, "(a)") " ERROR: Must specify Yes or No for ModeRan, i.e., ModeRan, Yes"
+            !     write(STDERR, "(a)") " "
+            !     stop 1
+            !   end if
 
             case ("modeopt")
               if (allocated(Second)) then
@@ -1101,6 +1101,9 @@ module AlphaMateModule
 
             case ("evaluatefrontier")
               if (allocated(Second)) then
+                This%ModeOpt = .true.
+                This%ModeMaxCriterion = .true.
+                This%ModeMinCoancestry = .true.
                 if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
                   This%EvaluateFrontier = .true.
                   if (LogStdoutInternal) then
@@ -1117,6 +1120,8 @@ module AlphaMateModule
             case ("targetdegree")
               if (allocated(Second)) then
                 This%ModeOpt = .true.
+                This%ModeMaxCriterion = .true.
+                This%ModeMinCoancestry = .true.
                 This%TargetDegreeGiven = .true.
                 This%nTargets = This%nTargets + 1
                 block
@@ -1145,6 +1150,7 @@ module AlphaMateModule
             case ("targetselcriterion")
               if (allocated(Second)) then
                 This%ModeOpt = .true.
+                This%ModeMaxCriterion = .true.
                 This%TargetSelCriterionGiven = .true.
                 This%nTargets = This%nTargets + 1
                 block
@@ -1165,9 +1171,10 @@ module AlphaMateModule
                 stop 1
               end if
 
-            case ("targetSelCriterionStd")
+            case ("targetselcriterionstd")
               if (allocated(Second)) then
                 This%ModeOpt = .true.
+                This%ModeMaxCriterion = .true.
                 This%TargetSelCriterionStdGiven = .true.
                 This%nTargets = This%nTargets + 1
                 block
@@ -1196,6 +1203,7 @@ module AlphaMateModule
             case ("targetmaxcriterionpct")
               if (allocated(Second)) then
                 This%ModeOpt = .true.
+                This%ModeMaxCriterion = .true.
                 This%TargetMaxCriterionPctGiven = .true.
                 This%nTargets = This%nTargets + 1
                 block
@@ -1224,6 +1232,7 @@ module AlphaMateModule
             case ("targetcoancestry")
               if (allocated(Second)) then
                 This%ModeOpt = .true.
+                This%ModeMinCoancestry = .true.
                 This%TargetCoancestryGiven = .true.
                 This%nTargets = This%nTargets + 1
                 block
@@ -1252,6 +1261,7 @@ module AlphaMateModule
             case ("targetcoancestryrate")
               if (allocated(Second)) then
                 This%ModeOpt = .true.
+                This%ModeMinCoancestry = .true.
                 This%TargetCoancestryRateGiven = .true.
                 This%nTargets = This%nTargets + 1
                 block
@@ -1281,6 +1291,7 @@ module AlphaMateModule
             case ("targetmincoancestrypct")
               if (allocated(Second)) then
                 This%ModeOpt = .true.
+                This%ModeMinCoancestry = .true.
                 This%TargetMinCoancestryPctGiven = .true.
                 This%nTargets = This%nTargets + 1
                 block
@@ -1337,6 +1348,8 @@ module AlphaMateModule
 
             case ("targetinbreeding")
               if (allocated(Second)) then
+                This%ModeOpt = .true.
+                This%ModeMinInbreeding = .true.
                 This%TargetInbreedingGiven = .true.
                 ! This%nTargets = This%nTargets + 1
                 ! block
@@ -1360,6 +1373,7 @@ module AlphaMateModule
             case ("targetinbreedingrate")
               if (allocated(Second)) then
                 This%ModeOpt = .true.
+                This%ModeMinInbreeding = .true.
                 This%TargetInbreedingRateGiven = .true.
                 ! This%nTargets = This%nTargets + 1
                 ! block
@@ -1383,6 +1397,7 @@ module AlphaMateModule
             case ("targetmininbreedingpct")
               if (allocated(Second)) then
                 This%ModeOpt = .true.
+                This%ModeMinInbreeding = .true.
                 This%TargetMinInbreedingPctGiven = .true.
                 ! This%nTargets = This%nTargets + 1
                 !   @todo
@@ -2171,15 +2186,12 @@ module AlphaMateModule
       end do ReadSpec
       close(SpecUnit)
 
-      if (This%ModeOpt) then
-        This%ModeMinCoancestry = .true.
-        This%ModeMaxCriterion  = .true.
+      if ((This%ModeMinCoancestry .and. This%ModeMaxCriterion) .or. &
+          (This%ModeMinInbreeding .and. This%ModeMaxCriterion) .or. &
+          (This%ModeMinCoancestry .and. This%ModeMinInbreeding)) then
+        This%ModeOpt = .true.
       end if
 
-      if (This%EvaluateFrontier) then
-        This%ModeMinCoancestry = .true.
-        This%ModeMaxCriterion =  .true.
-      end if
 
       if (.not. (This%ModeMinCoancestry .or. &
                  This%ModeMinInbreeding .or. &
@@ -2187,7 +2199,27 @@ module AlphaMateModule
                  This%ModeOpt           .or. &
                  This%ModeRan)) then
         write(STDERR, "(a)") " ERROR: One of the modes must be activated!"
-        write(STDERR, "(a)") " ERROR: ModeMinCoancestry, ModeMinInbreeding, ModeMaxCriterion, ModeOpt, or ModeRan"
+        ! write(STDERR, "(a)") " ERROR: ModeMinCoancestry, ModeMinInbreeding, ModeMaxCriterion, ModeOpt, or ModeRan"
+        write(STDERR, "(a)") " ERROR: ModeMinCoancestry, ModeMinInbreeding, ModeMaxCriterion, or ModeOpt"
+        write(STDERR, "(a)") " "
+        stop 1
+      end if
+
+      if (This%ModeOpt .and. .not. (This%TargetDegreeGiven       .or. &
+                                    This%TargetSelCriterionGiven .or. This%TargetSelCriterionStdGiven .or. This%TargetMaxCriterionPctGiven  .or. &
+                                    This%TargetCoancestryGiven   .or. This%TargetCoancestryRateGiven  .or. This%TargetMinCoancestryPctGiven .or. &
+                                    This%TargetInbreedingGiven   .or. This%TargetInbreedingRateGiven  .or. This%TargetMinInbreedingPctGiven)) then
+        write(STDERR, "(a)") " ERROR: One of targets must be provided when ModeOpt is activated!"
+        write(STDERR, "(a)") " ERROR: TargetDegree,"
+        write(STDERR, "(a)") " ERROR: TargetSelCriterion, TargetSelCriterionStd,    TargetMaxCriterionPct,"
+        write(STDERR, "(a)") " ERROR: TargetCoancestry,   TargetCoancestryRate,     TargetMinCoancestryPct"
+        write(STDERR, "(a)") " ERROR: TargetInbreeding,   TargetInbreedingRate,  or TargetMinInbreedingPct"
+        write(STDERR, "(a)") " "
+        stop 1
+      end if
+
+      if (.not. This%RelMtxGiven) then
+        write(STDERR, "(a)") " ERROR: One of CoancestryMatrixFile or NrmMatrixFile must be specified!"
         write(STDERR, "(a)") " "
         stop 1
       end if
@@ -2195,35 +2227,6 @@ module AlphaMateModule
       if (.not. This%SelCriterionGiven .and. &
           (This%ModeMaxCriterion .or. This%ModeOpt)) then
         write(STDERR, "(a)") " ERROR: Selection criterion is needed for modes: ModeMaxCriterion or ModeOpt!"
-        write(STDERR, "(a)") " "
-        stop 1
-      end if
-
-      if (This%TargetDegreeGiven          .or. &
-          This%TargetSelCriterionGiven    .or. &
-          This%TargetSelCriterionStdGiven .or. &
-          This%TargetMaxCriterionPctGiven .or. &
-          This%TargetMinCoancestryPctGiven) then
-        This%ModeMinCoancestry = .true.
-        This%ModeMaxCriterion  = .true.
-      end if
-
-      if (This%ModeOpt .and. .not. (This%TargetDegreeGiven          .or. This%TargetSelCriterionGiven .or. This%TargetSelCriterionStdGiven .or. &
-                                    This%TargetMaxCriterionPctGiven .or. This%TargetCoancestryGiven   .or. This%TargetCoancestryRateGiven  .or. &
-                                    This%TargetMinCoancestryPctGiven)) then
-        write(STDERR, "(a)") " ERROR: One of targets must be provided when ModeOpt is activated!"
-        write(STDERR, "(a)") " ERROR: TargetDegree, TargetSelCriterion, TargetSelCriterionStd, TargetMaxCriterionPct,"
-        write(STDERR, "(a)") " ERROR: TargetCoancestry, TargetCoancestryRate, or TargetMinCoancestryPct"
-        write(STDERR, "(a)") " "
-        stop 1
-      end if
-
-      if (This%TargetInbreedingGiven .or. This%TargetInbreedingRateGiven .or. This%TargetMinInbreedingPctGiven) then
-        This%ModeMinInbreeding = .true.
-      end if
-
-      if (.not. This%RelMtxGiven) then
-        write(STDERR, "(a)") " ERROR: One of CoancestryMatrixFile or NrmMatrixFile must be specified!"
         write(STDERR, "(a)") " "
         stop 1
       end if
@@ -2245,7 +2248,7 @@ module AlphaMateModule
 
       ! The nPar tests are in ReadAlphaMateData where we count number of individuals and males and females
 
-      if (This%LimitParMin .eq. This%LimitParMax) then
+      if (.not. This%GenderGiven .and. (This%LimitParMin .eq. This%LimitParMax)) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " NOTE: Since LimitContributionsMin equals LimitContributionsMax, option EqualizeContributions is activated."
           write(STDOUT, "(a)") " "
@@ -2253,7 +2256,7 @@ module AlphaMateModule
         This%EqualizePar = .true.
       end if
 
-      if (This%LimitPar1Min .eq. This%LimitPar1Max) then
+      if (This%GenderGiven .and. (This%LimitPar1Min .eq. This%LimitPar1Max)) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " NOTE: Since LimitMaleContributionsMin equals LimitMaleContributionsMax, option EqualizeMaleContributions is activated."
           write(STDOUT, "(a)") " "
@@ -2261,7 +2264,7 @@ module AlphaMateModule
         This%EqualizePar1 = .true.
       end if
 
-      if (This%LimitPar2Min .eq. This%LimitPar2Max) then
+      if (This%GenderGiven .and. (This%LimitPar2Min .eq. This%LimitPar2Max)) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " NOTE: Since LimitFemaleContributionsMin equals LimitFemaleContributionsMax, option EqualizeFemaleContributions is activated."
           write(STDOUT, "(a)") " "
@@ -2269,7 +2272,7 @@ module AlphaMateModule
         This%EqualizePar2 = .true.
       end if
 
-      if (This%LimitPar .and. This%EqualizePar) then
+      if (.not. This%GenderGiven .and. (This%LimitPar .and. This%EqualizePar)) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " NOTE: The specification EqualizeContributions has priority over LimitContributions."
           write(STDOUT, "(a)") " "
@@ -2281,7 +2284,7 @@ module AlphaMateModule
         This%LimitParMinWeight = -1
       end if
 
-      if (This%LimitPar1 .and. This%EqualizePar1) then
+      if (This%GenderGiven .and. (This%LimitPar1 .and. This%EqualizePar1)) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " NOTE: The specification EqualizeMaleContributions has priority over LimitMaleContributions."
           write(STDOUT, "(a)") " "
@@ -2293,7 +2296,7 @@ module AlphaMateModule
         This%LimitPar1MinWeight = -1
       end if
 
-      if (This%LimitPar2 .and. This%EqualizePar2) then
+      if (This%GenderGiven .and. (This%LimitPar2 .and. This%EqualizePar2)) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " NOTE: The specification EqualizeFemaleContributions has priority over LimitFemaleContributions."
           write(STDOUT, "(a)") " "
@@ -2306,17 +2309,17 @@ module AlphaMateModule
       end if
 
       ! Impose upper limits (when it is not given by the user) to avoid explosion in optimisation
-      if (.not. This%LimitPar .and. .not. This%EqualizePar) then
+      if (.not. This%GenderGiven .and. (.not. This%LimitPar .and. .not. This%EqualizePar)) then
         This%LimitPar    = .true.
         This%LimitParMax = dble(This%nMat) * 2
       end if
 
-      if (.not. This%LimitPar1 .and. .not. This%EqualizePar1) then
+      if (This%GenderGiven .and. (.not. This%LimitPar1 .and. .not. This%EqualizePar1)) then
         This%LimitPar1    = .true.
         This%LimitPar1Max = dble(This%nMat)
       end if
 
-      if (.not. This%LimitPar2 .and. .not. This%EqualizePar2) then
+      if (This%GenderGiven .and. (.not. This%LimitPar2 .and. .not. This%EqualizePar2)) then
         This%LimitPar2    = .true.
         This%LimitPar2Max = dble(This%nMat)
       end if
@@ -3674,6 +3677,7 @@ module AlphaMateModule
 
         open(newunit=CriterionSummaryUnit, file=trim(Spec%OutputBasename)//"SelCriterionSummary.txt", status="unknown")
         write(CriterionSummaryUnit, "(a, f)") "Mean, ", This%SelCriterionStat%Mean
+        write(CriterionSummaryUnit, "(a, f)") "Sd, ", This%SelCriterionStat%Sd
         close(CriterionSummaryUnit)
 
         if (Spec%PAGEPar) then
@@ -3703,6 +3707,7 @@ module AlphaMateModule
 
           open(newunit=CriterionSummaryUnit, file=trim(Spec%OutputBasename)//"PAGESummary.txt", status="unknown")
           write(CriterionSummaryUnit, "(a, f)") "Mean, ", This%SelCriterionPAGEStat%Mean
+          write(CriterionSummaryUnit, "(a, f)") "Sd, ", This%SelCriterionPAGEStat%Sd
           close(CriterionSummaryUnit)
         end if
 
@@ -3735,7 +3740,8 @@ module AlphaMateModule
             write(STDERR, "(a)") " "
             stop 1
           end if
-          write(GenericIndCritSummaryUnit, "(a, f)") "Mean criterion "//trim(Int2Char(Crit)), This%GenericIndCritStat(Crit)%Mean
+          write(GenericIndCritSummaryUnit, "(a, f)") "Mean criterion "//trim(Int2Char(Crit))//",", This%GenericIndCritStat(Crit)%Mean
+          write(GenericIndCritSummaryUnit, "(a, f)") "Sd criterion "//trim(Int2Char(Crit))//",", This%GenericIndCritStat(Crit)%Sd
         end do
 
         close(GenericIndCritSummaryUnit)
@@ -3771,7 +3777,8 @@ module AlphaMateModule
               write(STDERR, "(a)") " "
               stop 1
             end if
-            write(GenericMatCritSummaryUnit, "(a, f)") "Mean criterion "//trim(Int2Char(Crit)), This%GenericMatCritStat(Crit)%All%Mean
+            write(GenericMatCritSummaryUnit, "(a, f)") "Mean criterion "//trim(Int2Char(Crit))//",", This%GenericMatCritStat(Crit)%All%Mean
+            write(GenericMatCritSummaryUnit, "(a, f)") "Sd criterion "//trim(Int2Char(Crit))//",", This%GenericMatCritStat(Crit)%All%Sd
           else
             if (Spec%SelfingAllowed) then
               This%GenericMatCritStat(Crit) = DescStatLowTriMatrix(This%GenericMatCrit(:, :, Crit))
@@ -3787,7 +3794,8 @@ module AlphaMateModule
                 write(STDERR, "(a)") " "
                 stop 1
               end if
-              write(GenericMatCritSummaryUnit, "(a, f)") "Mean criterion "//trim(Int2Char(Crit)), This%GenericMatCritStat(Crit)%All%Mean
+              write(GenericMatCritSummaryUnit, "(a, f)") "Mean criterion "//trim(Int2Char(Crit))//",", This%GenericMatCritStat(Crit)%All%Mean
+              write(GenericMatCritSummaryUnit, "(a, f)") "Sd criterion "//trim(Int2Char(Crit))//",", This%GenericMatCritStat(Crit)%All%Sd
             end if
               This%GenericMatCritStat(Crit) = DescStatLowTriMatrix(This%GenericMatCrit(:, :, Crit), Diag=.false.)
               if (LogStdoutInternal) then
@@ -3802,7 +3810,8 @@ module AlphaMateModule
                 write(STDERR, "(a)") " "
                 stop 1
               end if
-              write(GenericMatCritSummaryUnit, "(a, f)") "Mean criterion "//trim(Int2Char(Crit)), This%GenericMatCritStat(Crit)%OffDiag%Mean
+              write(GenericMatCritSummaryUnit, "(a, f)") "Mean criterion "//trim(Int2Char(Crit))//",", This%GenericMatCritStat(Crit)%OffDiag%Mean
+              write(GenericMatCritSummaryUnit, "(a, f)") "Sd criterion "//trim(Int2Char(Crit))//",", This%GenericMatCritStat(Crit)%OffDiag%Sd
           end if
         end do
 
@@ -4370,7 +4379,7 @@ module AlphaMateModule
               !   - Data%nPotPar2 edit indicators for "parent2" (females when GenderGiven, present only when GenderGiven)
               !
               ! Say we have Chrom=(| 0, 2, 0, 1 | 1, 2, 0 | 1.5, 2.5, 1.0 | 0, 1, 0, 0 | 0, 0, 0) then we:
-              ! - sort female contributions based on ranks from (1st, 2nd, 2nd) female to (2nd, 1st, 2nd) females
+              ! - sort female contributions based on ranks from (1st, 2nd, 2nd) female to (2nd, 1st, 2nd) female
               ! - then we
               !   - mate first  male 2 contribution with the first  female 2 contribution
               !   - mate second male 2 contribution with the first  female 1 contribution
@@ -4380,47 +4389,33 @@ module AlphaMateModule
 
               ! Below we create a structured chromosome to simplify the evaluation code
 
-              ! Allocate
+              ! Allocate & Assign
               allocate(SChrom%ContPar1(Data%nPotPar1))
-              if (Spec%GenderGiven) then
-                allocate(SChrom%ContPar2(Data%nPotPar2))
-              end if
-              if (Spec%MateAllocation) then
-                allocate(SChrom%MateRank(Spec%nMat))
-              end if
-              if (Spec%PAGEPar) then
-                if (Spec%PAGEPar1) then
-                  allocate(SChrom%EditPar1(Data%nPotPar1))
-                end if
-                if (Spec%GenderGiven) then
-                  if (Spec%PAGEPar2) then
-                    allocate(SChrom%EditPar2(Data%nPotPar2))
-                  end if
-                end if
-              end if
-
-              ! Assign
               Start = 1
               End = Data%nPotPar1
               SChrom%ContPar1 = Chrom(Start:End)
               if (Spec%GenderGiven) then
+                allocate(SChrom%ContPar2(Data%nPotPar2))
                 Start = End + 1
                 End = Start - 1 + Data%nPotPar2
                 SChrom%ContPar2 = Chrom(Start:End)
               end if
               if (Spec%MateAllocation) then
+                allocate(SChrom%MateRank(Spec%nMat))
                 Start = End + 1
                 End = Start - 1 + Spec%nMat
                 SChrom%MateRank = Chrom(Start:End)
               end if
               if (Spec%PAGEPar) then
                 if (Spec%PAGEPar1) then
+                  allocate(SChrom%EditPar1(Data%nPotPar1))
                   Start = End + 1
                   End = Start - 1 + Data%nPotPar1
                   SChrom%EditPar1 = Chrom(Start:End)
                 end if
                 if (Spec%GenderGiven) then
                   if (Spec%PAGEPar2) then
+                    allocate(SChrom%EditPar2(Data%nPotPar2))
                     Start = End + 1
                     End = Start - 1 + Data%nPotPar2
                     SChrom%EditPar2 = Chrom(Start:End)
@@ -4434,10 +4429,10 @@ module AlphaMateModule
               ! call SChrom%Write
 
               ! Working vectors
-              allocate(Rank(Data%nInd))         ! for ranking many things
-              allocate(nVecPar1(Data%nPotPar1)) ! for nVec
-              allocate(MatPar2(Spec%nMat))      ! for MatingPlan
-              allocate(TmpVec(Data%nInd))       ! for many things
+              allocate(Rank(maxval([Data%nInd,Spec%nMat]))) ! for ranking many things
+              allocate(nVecPar1(Data%nPotPar1))             ! for nVec
+              allocate(MatPar2(Spec%nMat))                  ! for MatingPlan
+              allocate(TmpVec(Data%nInd))                   ! for many things
 
               ! --- Parse the mate selection driver (=Is the solution valid?) ---
 
