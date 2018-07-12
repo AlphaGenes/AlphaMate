@@ -4811,9 +4811,9 @@ module AlphaMateModule
               ! --- Selection criterion ---
 
               if (Spec%SelCriterionGiven) then
-                This%SelCriterionStd = DOT_PRODUCT(dble(This%nVec), Data%SelCriterionStd) / (2 * Spec%nMat)
+                This%SelCriterionStd = dot_product(dble(This%nVec), Data%SelCriterionStd) / (2 * Spec%nMat)
                 if (Spec%PAGEPar) then
-                  This%SelCriterionStd = This%SelCriterionStd + DOT_PRODUCT(dble(This%nVec),Data%SelCriterionStdPAGE * This%GenomeEdit) / (2 * Spec%nMat)
+                  This%SelCriterionStd = This%SelCriterionStd + dot_product(dble(This%nVec), Data%SelCriterionStdPAGE * This%GenomeEdit) / (2 * Spec%nMat)
                 end if
 
                 ! Inlined SelCriterionStd2SelCriterion
@@ -4856,7 +4856,7 @@ module AlphaMateModule
 
               if (Spec%GenericIndCritGiven) then
                 do j = 1, Spec%nGenericIndCrit
-                  TmpR = DOT_PRODUCT(dble(This%nVec), Data%GenericIndCrit(:, j)) / (2 * Spec%nMat)
+                  TmpR = dot_product(dble(This%nVec), Data%GenericIndCrit(:, j)) / (2 * Spec%nMat)
                   This%GenericIndCrit(j) = TmpR
                   TmpR = Spec%GenericIndCritWeight(j) * This%GenericIndCrit(j)
                   This%Objective = This%Objective + TmpR
@@ -4877,16 +4877,17 @@ module AlphaMateModule
               ! Group coancestry x'Cx
 
               ! Via repeated use of dot(), https://software.intel.com/en-us/mkl-developer-reference-fortran-dot
+              ! Actually, using the compilers dot_product, cut down the time by 50%!
               ! ... w=x'C
               do i = 1, Data%nInd
-                TmpVec(i) = DOT_PRODUCT(dble(This%nVec), Data%Coancestry%Value(1:, i))
+                TmpVec(i) = dot_product(dble(This%nVec), Data%Coancestry%Value(1:, i))
               end do
               ! ... wx
-              This%CoancestryRanMate = DOT_PRODUCT(TmpVec, dble(This%nVec)) / (4 * Spec%nMat * Spec%nMat)
+              This%CoancestryRanMate = dot_product(TmpVec, dble(This%nVec)) / (4 * Spec%nMat * Spec%nMat)
 
               ! Via BLAS subroutine
-              ! This is slower than the above code on a test case with n=370 (~35 sec vs. ~130 sec).
-              ! On a large case (n=5120, but with different parameters than the small case) symv fails (~45 sec vs. 135 sec).
+              ! This is slower than the above dot() code on a test case with n=370 (~35 sec vs. ~130 sec).
+              ! On a large case (n=5120, but with different parameters than the small case) symv fails? (~45 sec vs. 135 sec).
               ! ... w=Cx, symmetric matrix times a vector https://software.intel.com/en-us/mkl-developer-reference-fortran-symv
               ! TmpVec = 0.0d0
               ! TmpVec2 = Data%Coancestry%Value(1:, 1:) ! needed to avoid putting this largish matrix on the stack
