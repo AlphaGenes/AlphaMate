@@ -814,8 +814,7 @@ module AlphaMateModule
         end if
         call SplitLineIntoTwoParts(trim(adjustl(Line)), First, Second)
         DumString = ParseToFirstWhitespace(First)
-        ! @todo why (len_trim(Line) .eq. 0)? if we use (len_trim(Line) .eq. 0) above
-        if (First(1:1) .eq. "=" .or. len_trim(Line) .eq. 0) then
+        if (First(1:1) .eq. "=") then
           cycle
         else
           select case (ToLower(trim(DumString)))
@@ -2341,14 +2340,13 @@ module AlphaMateModule
 
       if ((.not. This%SelCriterionGiven) .and. This%PAGEPar) then
         write(STDERR, "(a)") " ERROR: Can not use PAGE when selection criterion file is not given!"
-        ! @todo what about using the GenericIndCrit values?
         write(STDERR, "(a)") " "
         stop 1
       end if
 
       if (This%GenderGiven .and. This%SelfingAllowed) then
-        write(STDERR, "(a)") " ERROR: When gender matters, AlphaMate can not perform selfing! See the manual for a solution."
-        ! @todo what is the solution? Provide the same individual both as male and a female?
+        write(STDERR, "(a)") " ERROR: When gender matters, AlphaMate can not perform selfing!"
+        write(STDERR, "(a)") " NOTE: If you really want to do this, you could present individuals in the data once as males and once as females"
         write(STDERR, "(a)") " "
         stop 1
       end if
@@ -2380,6 +2378,7 @@ module AlphaMateModule
                                       Coancestry,   CoancestryRate,  MinCoancestryPct, CoancestryWeightBelow, ModeMinCoancestrySpec, &
                                       Inbreeding,   InbreedingRate,  MinInbreedingPct, InbreedingWeightBelow, ModeMinInbreedingSpec)
       ! @todo not pure due to error stop in here and in SetTargets()
+      ! @todo This will work with Fortran 2015 standard (or at least with new? ifort) that allows error stop in PURE subroutines
       implicit none
       class(AlphaMateSpec), intent(inout)           :: This                  !< @return AlphaMateSpec holder
       character(len=*), intent(in)                  :: Mode                  !< Mode definition/name
@@ -2680,7 +2679,9 @@ module AlphaMateModule
                                            SelCriterion, SelCriterionStd, MaxCriterionPct, &
                                            Coancestry, CoancestryRate, MinCoancestryPct, &
                                            Inbreeding, InbreedingRate, MinInbreedingPct, &
-                                           ModeMinCoancestrySpec, ModeMinInbreedingSpec, ModeMaxCriterionSpec) ! @todo not pure due to error stop
+                                           ModeMinCoancestrySpec, ModeMinInbreedingSpec, ModeMaxCriterionSpec)
+      ! @todo not pure due to error stop
+      ! @todo This will work with Fortran 2015 standard (or at least with new? ifort) that allows error stop in PURE subroutines
       implicit none
       class(AlphaMateModeSpec), intent(inout)       :: This                  !< @return AlphaMateModeSpec holder
       type(AlphaMateData), intent(in), optional     :: Data                  !< AlphaMateData holder
@@ -3532,12 +3533,9 @@ module AlphaMateModule
         write(STDOUT, "(a)") " Current coancestry (average identity of the four genome combinations of two individuals)"
       end if
 
-      ! @todo Should we use DescStatMatrix or DescStatLowTriMatrix?
       This%CoancestryStat = DescStatMatrix(This%Coancestry%Value(1:, 1:))
       if (Spec%GenderGiven) then
-        ! @todo Should we use DescStatMatrix or DescStatLowTriMatrix?
         This%CoancestryStatGender1    = DescStatMatrix(This%Coancestry%Value(This%IdPotPar1, This%IdPotPar1))
-        ! @todo Should we use DescStatMatrix or DescStatLowTriMatrix?
         This%CoancestryStatGender2    = DescStatMatrix(This%Coancestry%Value(This%IdPotPar2, This%IdPotPar2))
         This%CoancestryStatGenderDiff = DescStatMatrix(This%Coancestry%Value(This%IdPotPar1, This%IdPotPar2))
       end if
@@ -4850,7 +4848,7 @@ module AlphaMateModule
                 if (This%MaxCriterionPct .lt. 0.0d0) then
                   This%MaxCriterionPct = 0.0d0
                 end if
-                ! @todo Should we handle also cases above 100%
+                ! @todo Should we handle also cases above 100%?
                 ! @todo Should we modify Spec%ModeMaxCriterionSpec and Spec%ModeMinCoancestrySpec on the fly?
               end if
 
@@ -4873,7 +4871,8 @@ module AlphaMateModule
 
               ! @todo Enable running AlphaMate without coancestry matrix, i.e.,
               !       select most performant individuals, but consider some limits
-              !       on the amount of use etc without coancestry among them.
+              !       on the amount of use etc. without coancestry among them.
+              !       --> A hack would be to setup identity coancetry matrix, when one is not given
 
               ! Group coancestry x'Cx
 
@@ -4934,8 +4933,8 @@ module AlphaMateModule
               if (This%MinCoancestryPct .lt. 0.0d0) then
                 This%MinCoancestryPct = 0.0d0
               end if
-              ! @todo Should we handle also cases above 100%
-              ! @todo Should we modify Spec%ModeMaxCriterionSpec and Spec%ModeMinCoancestrySpec on the fly?
+              ! @todo Should we handle also cases above 100%?
+              ! @todo Should we then modify Spec%ModeMaxCriterionSpec and Spec%ModeMinCoancestrySpec on the fly?
 
               ! Degree
               ! This calculation ASSUMES unit circular shape of selection/coancestry frontier
@@ -5159,8 +5158,6 @@ module AlphaMateModule
                 end do
               end if
 
-              ! @todo how should we handle costs?
-
               ! --- Assign structured chromosome into solutions' chromosome vector ---
 
               Start = 1
@@ -5314,7 +5311,7 @@ module AlphaMateModule
         MatingFile  = trim(Spec%OutputBasename)//"MatingPlanModeMinCoancestry.txt"
 
         ! Initialise
-        ! @todo initialise with SDP solutions?
+        ! @todo initialise with an approximate programming/exact solution?
         ! ... approximate minimum coancestry solution with equal contributions
         iSol = 1
           InitChrom(1:Data%nPotPar, iSol) = 0.0d0
@@ -5390,7 +5387,7 @@ module AlphaMateModule
         MatingFile  = trim(Spec%OutputBasename)//"MatingPlanModeMinInbreeding.txt"
 
         ! Initialise
-        ! @todo initialise with SDP solutions?
+        ! @todo initialise with an approximate programming/exact solutions?
         ! ... approximate minimum coancestry solution with equal contributions
         iSol = 1
           InitChrom(1:Data%nPotPar, iSol) = 0.0d0
@@ -5582,7 +5579,7 @@ module AlphaMateModule
           MatingFile  = trim(Spec%OutputBasename)//"MatingPlanModeFrontier"//trim(Int2Char(Point))//".txt"
 
           ! Initialise
-          ! @todo initialise with SDP solutions?
+          ! @todo initialise with an approximate programming/exact solution?
           ! @todo implement evolutionary algorithm for multiple-objectives so that we evolve the whole frontier at once
           ! ... The MaxCriterion solution
           iSol = 1
@@ -5800,7 +5797,7 @@ module AlphaMateModule
           MatingFile  = trim(Spec%OutputBasename)//"MatingPlanModeOptTarget"//trim(Int2Char(Target))//".txt"
 
           ! Initialise
-          ! @todo initialise with SDP solutions?
+          ! @todo initialise with an approximate programming/exact solution?
           ! ... The MaxCriterion solution
           iSol = 1
           InitChrom(:, iSol) = SolMaxCriterion%Chrom
