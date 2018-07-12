@@ -341,7 +341,7 @@ module AlphaMateModule
       write(STDOUT, "(a)") "                            ***********************                           "
       write(STDOUT, "(a)") "                                                                              "
       write(STDOUT, "(a)") "       Software for optimising selection, maintenance of diversity, and       "
-      write(STDOUT, "(a)") "               mate allocation in constrained breeding programs               "
+      write(STDOUT, "(a)") "                     mate allocation in breeding programs                     "
       write(STDOUT, "(a)") "                       http://AlphaGenes.Roslin.ed.ac.uk                      "
       write(STDOUT, "(a)") "                                 No liability                                 "
       write(STDOUT, "(a)") " "
@@ -4809,6 +4809,7 @@ module AlphaMateModule
               ! call This%Write
 
               ! --- Selection criterion ---
+              ! Note that dot_product() is faster than dot() when called MANY times!
 
               if (Spec%SelCriterionGiven) then
                 This%SelCriterionStd = dot_product(dble(This%nVec), Data%SelCriterionStd) / (2 * Spec%nMat)
@@ -4853,6 +4854,7 @@ module AlphaMateModule
               end if
 
               ! --- Generic individual criterion ---
+              ! Note that dot_product() is faster than dot() when called MANY times!
 
               if (Spec%GenericIndCritGiven) then
                 do j = 1, Spec%nGenericIndCrit
@@ -4877,7 +4879,7 @@ module AlphaMateModule
               ! Group coancestry x'Cx
 
               ! Via repeated use of dot(), https://software.intel.com/en-us/mkl-developer-reference-fortran-dot
-              ! Actually, using the compilers dot_product, cut down the time by 50%!
+              ! Note that dot_product() is faster than dot() when called MANY times!
               ! ... w=x'C
               do i = 1, Data%nInd
                 TmpVec(i) = dot_product(dble(This%nVec), Data%Coancestry%Value(1:, i))

@@ -1,7 +1,11 @@
 
 v0.2.0 2018-??-??
   IMPROVEMENTS
-  * Faster data input, particularly with larger datasets.
+  * Faster optimisation via paralelisation (OMP). The animal example is about 4-6x
+    faster with 8 cores.
+
+  * Faster data input/preparation. The animal example is ~3x faster. Larger cases will
+    see more gain.
 
 v0.1.1 2018-07-03
   IMPROVEMENTS
