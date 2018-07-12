@@ -217,7 +217,7 @@ GenderFile specifies a file that contains gender information. The file should ha
   id3 1
   ...
 
-Tip: Note that the "gender" functionality can also be used in cases where biological gender is not relevant. For example in some plant populations we might have two pools of individuals and want to make cross between these two pools. In such cases "gender" can be used to denote the pools.
+Tip: Note that the "gender" functionality can also be used in cases where biological gender is not relevant. For example in some plant populations we might have two pools of individuals and want to make crosses between the two pools. In such cases "gender" can be used to denote the pools.
 
 GenericIndividualCriterionFile
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -304,7 +304,7 @@ NumberOfParents
   NumberOfParents , [Value]
   NumberOfParents , 10
 
-NumberOfParents specifies the number of parents that should be maximally used. This specification is used when "gender" functionality is NOT used (see `GenderFile`_).
+NumberOfParents specifies the maximum number of parents. This specification is used when "gender" functionality is NOT used (see `GenderFile`_). To achieve an exact number, use this specification and one of `EqualizeContributions_` or `LimitContributions_`.
 
 NumberOfMaleParents
 ^^^^^^^^^^^^^^^^^^^
@@ -314,7 +314,7 @@ NumberOfMaleParents
   NumberOfMaleParents , [Value]
   NumberOfMaleParents , 10
 
-NumberOfMaleParents specifies the number of male parents that should be maximally used. This specification is used when "gender" functionality is used (see `GenderFile`_).
+NumberOfMaleParents specifies the maximum number of male parents. This specification is used when "gender" functionality is used (see `GenderFile`_). To achieve an exact number, use this specification and one of `EqualizeMaleContributions` or `LimitMaleContributions_`.
 
 NumberOfFemaleParents
 ^^^^^^^^^^^^^^^^^^^^^
@@ -324,7 +324,7 @@ NumberOfFemaleParents
   NumberOfFemaleParents , [Value]
   NumberOfFemaleParents , 10
 
-NumberOfFemaleParents specifies the number of female parents that should be maximally used. This specification is used when "gender" functionality is used (see `GenderFile`_).
+NumberOfFemaleParents specifies the maximum number of female parents. This specification is used when "gender" functionality is used (see `GenderFile`_). To achieve an exact number, use this specification and one of `EqualizeFemaleContributions` or `LimitFemaleContributions_`.
 
 EqualizeContributions
 ^^^^^^^^^^^^^^^^^^^^^
@@ -795,7 +795,7 @@ CoancestryWeight
   CoancestryWeight , [Value]
   CoancestryWeight , -2.0
 
-CoancestryWeight specifies the weight that is placed on deviation from the targeted "level of coancestry". Default is *-1.0*. Note that positive weight encourages higher coancestry.
+CoancestryWeight specifies the weight that is placed on deviation from the targeted "level of coancestry". Default is *-1.0*. Note that a positive weight encourages higher coancestry.
 
 CoancestryWeightBellow
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -815,7 +815,7 @@ InbreedingWeight
   InbreedingWeight , [Value]
   InbreedingWeight , -2.0
 
-InbreedingWeight specifies the weight that is placed on deviation from the targeted "level of inbreeding". Default is *-1.0*. Note that positive weight encourages higher inbreeding.
+InbreedingWeight specifies the weight that is placed on deviation from the targeted "level of inbreeding". Default is *-1.0*. Note that a positive weight encourages higher inbreeding.
 
 LimitContributionsMinWeight
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -825,7 +825,7 @@ LimitContributionsMinWeight
   LimitContributionsMinWeight , [Value]
   LimitContributionsMinWeight , -2.0
 
-LimitContributionsMinWeight specifies the weight to penalize solutions that could not limit the minimum number of `Contributions`_ for parents (`LimitContributionsMin`_). |AM| tries to avoid this by fixing solutions, but sometimes fixing is not effective. The value of LimitContributionsMinWeight * Diff is added to objective function to penalize every breaking instance, where Diff is the difference between the achieved and limited `Contributions`_. The default value is -1.0. Note that positive values encourage breaking the limit.
+LimitContributionsMinWeight specifies the weight to penalize solutions that could not limit the minimum number of `Contributions`_ for parents (`LimitContributionsMin`_). |AM| tries to avoid this by fixing solutions, but sometimes fixing is not effective. The value of LimitContributionsMinWeight * Diff is added to objective function to penalize every breaking instance, where Diff is the difference between the achieved and limited `Contributions`_. The default value is -1.0. Note that a positive value encourages breaking the limit.
 
 LimitMaleContributionsMinWeight
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -835,7 +835,7 @@ LimitMaleContributionsMinWeight
   LimitMaleContributionsMinWeight , [Value]
   LimitMaleContributionsMinWeight , -2.0
 
-LimitMaleContributionsMinWeight specifies the weight to penalize solutions that could not limit the minimum number of `Contributions`_ for male parents (`LimitMaleContributionsMin`_). |AM| tries to avoid this by fixing solutions, but sometimes fixing is not effective. The value of LimitMaleContributionsMinWeight * Diff is added to objective function to penalize every breaking instance, where Diff is the difference between the achieved and limited `Contributions`_. The default value is -1.0. Note that positive values encourage breaking the limit.
+LimitMaleContributionsMinWeight specifies the weight to penalize solutions that could not limit the minimum number of `Contributions`_ for male parents (`LimitMaleContributionsMin`_). |AM| tries to avoid this by fixing solutions, but sometimes fixing is not effective. The value of LimitMaleContributionsMinWeight * Diff is added to objective function to penalize every breaking instance, where Diff is the difference between the achieved and limited `Contributions`_. The default value is -1.0. Note that a positive value encourages breaking the limit.
 
 LimitFemaleContributionsMinWeight
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -845,7 +845,7 @@ LimitFemaleContributionsMinWeight
   LimitFemaleContributionsMinWeight , [Value]
   LimitFemaleContributionsMinWeight , -2.0
 
-LimitFemaleContributionsMinWeight specifies the weight to penalize solutions that could not limit the minimum number of `Contributions`_ for female parents (`LimitFemaleContributionsMin`_). |AM| tries to avoid this by fixing solutions, but sometimes fixing is not effective. The value of LimitFemaleContributionsMinWeight * Diff is added to objective function to penalize every breaking instance, where Diff is the difference between the achieved and limited `Contributions`_. The default value is -1.0. Note that positive values encourage breaking the limit.
+LimitFemaleContributionsMinWeight specifies the weight to penalize solutions that could not limit the minimum number of `Contributions`_ for female parents (`LimitFemaleContributionsMin`_). |AM| tries to avoid this by fixing solutions, but sometimes fixing is not effective. The value of LimitFemaleContributionsMinWeight * Diff is added to objective function to penalize every breaking instance, where Diff is the difference between the achieved and limited `Contributions`_. The default value is -1.0. Note that a positive value encourages breaking the limit.
 
 SelfingWeight
 ^^^^^^^^^^^^^
@@ -855,7 +855,7 @@ SelfingWeight
   SelfingWeight , [Value]
   SelfingWeight , -2.0
 
-SelfingWeight specifies the weight to penalize solutions that involve some degree of selfing, when selfing should not happen, i.e., when `AllowSelfing`_ is ``No`` and "gender" functionality is NOT used. |AM| tries to avoid this by fixing solutions, but sometimes fixing is not effective. The value of SelfingWeight is added to objective function to penalize every selfing instance. The default value is -1.0. Note that positive values encourage selfing.
+SelfingWeight specifies the weight to penalize solutions that involve some degree of selfing, when selfing should not happen, i.e., when `AllowSelfing`_ is ``No`` and "gender" functionality is NOT used. |AM| tries to avoid this by fixing solutions, but sometimes fixing is not effective. The value of SelfingWeight is added to objective function to penalize every selfing instance. The default value is -1.0. Note that a positive value encourages selfing.
 
 GenericIndividualCriterionWeight
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -965,7 +965,7 @@ Differential evolution parameters
 
 The following specifications are for the implementation of evolutionary algorithm based on differential evolution (Storn and Price, 1997) with modifications to avoid premature convergence (Gondro and Kinghorn, 2009). The differential evolution algorithm has two key parameters: the cross-over parameter and the F parameter.
 
-The cross-over parameter [0, 1] should be low (<=0.1) for separable problems and large (0.9) for non-separable (epistatic) problems. Note that large values encourage exploration (large moves away from the target vector), while low values encourage exploitation (small moves away from the target vector, more closer to the base vector (Montgomery and Chen, 2010).
+The cross-over parameter [0, 1] should be low (<=0.1) for separable problems and large (0.9) for non-separable (epistatic) problems. Note that a large value encourages exploration (large moves away from the target vector), while a low value encourages exploitation (small moves away from the target vector, more closer to the base vector (Montgomery and Chen, 2010).
 
 The F parameter [0, 1+] should be 0, 2/n, or 1.2. Note that large values mean more exploration away from the base vector. The F parameters should be large for large cross-over parameter (Storn and Price, 1997; Montgomery and Chen, 2010).
 
@@ -1281,7 +1281,7 @@ See also `Coancestry`_, `Group coancestry`_, `Rate of coancestry`_, and `Minimum
 Group coancestry
 ^^^^^^^^^^^^^^^^
 
-Group coancestry measures identity between genomes of all contributors (males vs females, males vs males, and females vs females). We can calculate this measure as :math:`c_g=\mathbf{x}^T\mathbf{C}\mathbf{x}`, where \mathbf{x} is a vector of proportional `Contributions`_ and \mathbf{C} is a matrix of `Coancestry`_ coefficients. If we set all `Contributions`_ to :math:`\mathbf{x}=1/(2m)`, then group coancestry measures coancestry between all candidates, i.e., the current group coancestry. When we use the optimised `Contributions`_, the group coancestry measures coancestry between contributors (weighted by their proportional contributions). This in turn measures group coancestry of the next generation, because genomes of the next generation will be sampled from genomes of contributors. Note that group coancestry assumes that mating of the contributors is random, including mating among males and among females, and including selfing.
+Group coancestry measures identity between genomes of all contributors (males vs females, males vs males, and females vs females). We can calculate this measure as :math:`c_g=\mathbf{x}^T\mathbf{C}\mathbf{x}`, where :math:`\mathbf{x}` is a vector of proportional `Contributions`_ and :math:`\mathbf{C}` is a matrix of `Coancestry`_ coefficients. If we set all `Contributions`_ to :math:`\mathbf{x}=1/(2m)`, then group coancestry measures coancestry between all candidates, i.e., the current group coancestry. When we use the optimised `Contributions`_, the group coancestry measures coancestry between contributors (weighted by their proportional contributions). This in turn measures group coancestry of the next generation, because genomes of the next generation will be sampled from genomes of contributors. Note that group coancestry assumes that mating of the contributors is random, including mating among males and among females, and including selfing.
 
 See also `Coancestry`_, `Numerator relationship`_, `Rate of coancestry`_, and `Minimum percentage coancestry`_.
 
@@ -1290,14 +1290,14 @@ Inbreeding
 
 Inbreeding is a result of mating related individuals. A measure of inbreeding is inbreeding coefficient, which measures identity between genomes of an individual. If parents of an individual were related, then the individual has a non-zero probability that its genomes are (partly) identical. Following the same notation as for the coefficient of `Coancestry`_, the coefficient of inbreeding is :math:`f_i=c_{i_1,i_2}`.
 
-Note that the coefficient of inbreeding of an individual is equal to the coefficient of `Coancestry`_ between its parents. To see this note that individuals' genomes are sampled from its parents, hence the probability that individuals' genomes are identical is the same as expected identity between genomes of its parents (=the coefficient of coancestry). |AM| uses this relationship to calculate the expected inbreeding of a mating form the coancestries between contributors.
+Note that the coefficient of inbreeding of an individual is equal to the coefficient of `Coancestry`_ between its parents. To see this note that individuals' genomes are sampled from its parents, hence the probability that individuals' genomes are identical is the same as expected identity between genomes of its parents (=the coefficient of coancestry). |AM| uses this relationship to calculate the expected inbreeding of a mating from the coancestries between contributors.
 
 See also `Rate of inbreeding`_, `Inbreeding depression`_, and `Coancestry`_ .
 
 Inbreeding depression
 ^^^^^^^^^^^^^^^^^^^^^
 
-Inbreeding depression is undesired reduction/increase in some traits of individuals, due to genetic "effects" that are common with inbreeding. One such "effect" is that inbreeding increases homozygosity and if an individual is homozygous for alleles that have undesired effect, then this leads to depression. The latter is particularly the case when such alleles are recessive.
+Inbreeding depression is undesired reduction/increase in some traits of individuals, due to genetic "effects" that are common with inbreeding. One such "effect" is that inbreeding increases homozygosity and if an individual is homozygous for alleles that have undesired effect, then this leads to the so called depression. The latter is particularly the case when such alleles are recessive.
 
 See also `Inbreeding`_.
 
@@ -1319,21 +1319,21 @@ See also `Inbreeding`_ and `Rate of coancestry`_.
 Minimum percentage coancestry
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Minimum percentage coancestry is a normalized measure of a range of achievable `Group coancestry`_. It ranges from 0 to 100. The value of 0 is chosen to be the group coancestry achieved with truncation selection (ignoring coancestry between individuals or inbreeding of matings). The value of 100 is chosen to be the group coancestry achieved at minimum possible group coancestry. See Figure 1 for a visual representation.
+Minimum percentage coancestry is a normalized measure of a range of achievable `Group coancestry`_. It ranges from 0 to 100. The value of 0 is chosen to be the group coancestry achieved with truncation selection (ignoring coancestry between individuals or inbreeding of matings). The value of 100 is chosen to be the group coancestry achieved with minimum possible group coancestry. See Figure 1 for a visual representation.
 
 See also `Coancestry`_, `Numerator relationship`_, `Group coancestry`_, and `Rate of coancestry`_.
 
 Minimum percentage inbreeding
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Minimum percentage inbreeding is a normalized measure of a range of achievable `Inbreeding`_. It ranges from 0 to 100. The value of 0 is chosen to be the mean inbreeding of matings with truncation selection (ignoring coancestry between individuals or inbreeding of matings). The value of 100 is chosen to be the mean inbreeding of matings achieved at minimum possible group coancestry.
+Minimum percentage inbreeding is a normalized measure of a range of achievable `Inbreeding`_. It ranges from 0 to 100. The value of 0 is chosen to be the mean inbreeding of matings with truncation selection (ignoring coancestry between individuals or inbreeding of matings). The value of 100 is chosen to be the mean inbreeding of matings achieved with minimum possible group coancestry.
 
 See also `Inbreeding`_ and `Rate of inbreeding`_.
 
 Trigonometric degrees
 ^^^^^^^^^^^^^^^^^^^^^
 
-Trigonometric degrees describe the balance between the genetic gain and loss of genetic diversity in the context of Figure 1. Specifically, they measure the angle between the truncation selection solution (the y axis) and a balanced solution, all the way to the minimum group coancestry solution (the x axis) (Kinghorn, 2011: Appendix). This formulation assumes a unit circular shape of the Pareto frontier between genetic gain and group coancestry, which seems to hold approximately (Figure 1). Trigonometric degrees are therefore a handy measure of balance between the two most important and conflicting targets in breeding programs. They also allow for simple conversion from say targeted degrees to targeted genetic gain and group coancestry and vice versa.
+Trigonometric degrees describe the balance between the genetic gain and loss of genetic diversity in the context of Figure 1. Specifically, they measure the angle between the truncation selection solution (the y axis) and a balanced solution, all the way to the minimum group coancestry solution (the x axis) (Kinghorn, 2011: Appendix). This formulation assumes a unit circular shape of the Pareto frontier between genetic gain and group coancestry, which seems to hold approximately (Figure 1). Trigonometric degrees are therefore a handy measure of balance between the two most important and conflicting targets in breeding programs. They also allow for simple conversion from say targeted degrees to a targeted genetic gain and group coancestry and vice versa.
 
 * A solution with :math:`0^{\circ}` is the truncation selection solution that gives `Maximum percentage gain`_ of 100 and `Minimum percentage coancestry`_ of 0.
 * A solution with :math:`45^{\circ}` is the solution that gives `Maximum percentage gain`_ of 70.7 and `Minimum percentage coancestry`_ of 70.7.
