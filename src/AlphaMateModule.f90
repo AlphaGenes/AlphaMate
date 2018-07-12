@@ -4813,9 +4813,9 @@ module AlphaMateModule
               ! --- Selection criterion ---
 
               if (Spec%SelCriterionGiven) then
-                This%SelCriterionStd = dot_product(dble(This%nVec), Data%SelCriterionStd) / (2 * Spec%nMat)
+                This%SelCriterionStd = DOT_PRODUCT(dble(This%nVec), Data%SelCriterionStd) / (2 * Spec%nMat)
                 if (Spec%PAGEPar) then
-                  This%SelCriterionStd = This%SelCriterionStd + dot_product(dble(This%nVec), Data%SelCriterionStdPAGE * This%GenomeEdit) / (2 * Spec%nMat)
+                  This%SelCriterionStd = This%SelCriterionStd + DOT_PRODUCT(dble(This%nVec),Data%SelCriterionStdPAGE * This%GenomeEdit) / (2 * Spec%nMat)
                 end if
 
                 ! Inlined SelCriterionStd2SelCriterion
@@ -4858,7 +4858,7 @@ module AlphaMateModule
 
               if (Spec%GenericIndCritGiven) then
                 do j = 1, Spec%nGenericIndCrit
-                  TmpR = dot_product(dble(This%nVec), Data%GenericIndCrit(:, j)) / (2 * Spec%nMat)
+                  TmpR = DOT_PRODUCT(dble(This%nVec), Data%GenericIndCrit(:, j)) / (2 * Spec%nMat)
                   This%GenericIndCrit(j) = TmpR
                   TmpR = Spec%GenericIndCritWeight(j) * This%GenericIndCrit(j)
                   This%Objective = This%Objective + TmpR
@@ -4880,10 +4880,10 @@ module AlphaMateModule
               ! Via repeated use of dot(), https://software.intel.com/en-us/mkl-developer-reference-fortran-dot
               ! ... w=x'C
               do i = 1, Data%nInd
-                TmpVec(i) = dot(x=dble(This%nVec), y=Data%Coancestry%Value(1:, i))
+                TmpVec(i) = DOT_PRODUCT(dble(This%nVec), Data%Coancestry%Value(1:, i))
               end do
               ! ... wx
-              This%CoancestryRanMate = dot(x=TmpVec, y=dble(This%nVec)) / (4 * Spec%nMat * Spec%nMat)
+              This%CoancestryRanMate = DOT_PRODUCT(TmpVec, dble(This%nVec)) / (4 * Spec%nMat * Spec%nMat)
 
               ! Via BLAS subroutine
               ! This is slower than the above code on a test case with n=370 (~35 sec vs. ~130 sec).
