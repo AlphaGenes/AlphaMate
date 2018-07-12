@@ -55,19 +55,24 @@
 program AlphaMate
   use ISO_Fortran_env, STDIN => input_unit, STDOUT => output_unit, STDERR => error_unit
   use ConstantModule, only : FILELENGTH
-  use AlphaHouseMod, only : PrintElapsedTime
+  use AlphaHouseMod, only : PrintCpuTime, PrintElapsedTime, PrintDateTime
   use AlphaMateModule
 
   implicit none
 
-  integer(int32) :: nArg
-  real(real32) :: StartTime, EndTime
+  integer(int32) :: nArg, ClockRate, ClockMax, ClockStartCount, ClockEndCount
+  real(real32) :: CpuStartTime, CpuEndTime
   character(len=FILELENGTH) :: SpecFile
   type(AlphaMateSpec) :: Spec
   type(AlphaMateData) :: Data
 
-  call cpu_time(StartTime)
+  write(STDOUT, "(a)") ""
   call AlphaMateTitle
+  write(STDOUT, "(a)") ""
+  call PrintDateTime
+  call cpu_time(CpuStartTime)
+  call system_clock(count_rate=ClockRate, count_max=ClockMax)
+  call system_clock(count=ClockStartCount)
 
   write(STDOUT, "(a)") ""
   write(STDOUT, "(a)") " --- Specifications ---"
@@ -91,9 +96,17 @@ program AlphaMate
 
   write(STDOUT, "(a)") ""
   write(STDOUT, "(a)") " --- End ---"
-  call cpu_time(EndTime)
+
+  write(STDOUT, "(a)") ""
+  call PrintDateTime
+  write(STDOUT, "(a)") ""
+  call cpu_time(CpuEndTime)
+  call PrintCpuTime(CpuStartTime, CpuEndTime)
+  call system_clock(count=ClockEndCount)
+  call PrintElapsedTime(Start=ClockStartCount, End=ClockEndCount, Rate=ClockRate, Max=ClockMax)
+  write(STDOUT, "(a)") ""
   call AlphaMateTitle
-  call PrintElapsedTime(StartTime, EndTime)
+  write(STDOUT, "(a)") ""
 end program
 
 !###############################################################################
