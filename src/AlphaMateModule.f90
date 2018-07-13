@@ -58,7 +58,7 @@ module AlphaMateModule
   use OrderPackModule, only : MrgRnk, RapKnr
   use AlphaHouseMod, only : Append, CountLines, GeneratePairing, &
                             Char2Int, Char2Double, Int2Char, Real2Char, &
-                            RandomOrder, SetSeed, ToLower, &
+                            RandomOrder, GetSeed, SetSeed, ToLower, &
                             ParseToFirstWhitespace, SplitLineIntoTwoParts
   use HashModule
   use AlphaStatMod, only : Mean, StdDev, DescStat, DescStatReal64, &
@@ -3511,13 +3511,14 @@ module AlphaMateModule
       ! --- Seed ---
 
       if (.not. (Spec%SeedGiven .or. Spec%SeedFileGiven)) then
-        call SetSeed(Out=Spec%Seed)
+        call SetSeed(Out=Spec%Seed) ! get a system value
       else
         if ((.not. Spec%SeedGiven) .and. Spec%SeedFileGiven) then
           open(newunit=SeedUnit, file=Spec%SeedFile, status="old")
           read(SeedUnit, *) Spec%Seed
           close(SeedUnit)
         end if
+        call SetSeed(Seed=Spec%Seed) ! set to a given value
       end if
       open(newunit=SeedUnit, file=trim(Spec%OutputBasename)//"SeedUsed.txt", status="unknown")
       write(SeedUnit, *) Spec%Seed
@@ -4522,7 +4523,7 @@ module AlphaMateModule
                 ! ... Spec%nMat still not reached?
                 do while (nCumMat .lt. Spec%nMat * GenderMode)
                   ! ... add more contributions to randomly chosen individuals
-                  call random_number(RanNum)
+                  call random_number(RanNum) ! @todo this locks RNG seed and slows down the paralelisation, right?
                   i = int(RanNum * Spec%nPar1) + 1
                   j = Rank(i)
                   if (nint(SChrom%ContPar1(j) + 1.0d0) .le. Spec%LimitPar1Max) then ! make sure we do not go above max
@@ -4638,7 +4639,7 @@ module AlphaMateModule
                   ! ... Spec%nMat still not reached?
                   do while (nCumMat .lt. Spec%nMat)
                     ! ... add more contributions to randomly chosen individuals
-                    call random_number(RanNum)
+                    call random_number(RanNum) ! @todo this locks RNG seed and slows down the paralelisation, right?
                     i = int(RanNum * Spec%nPar2) + 1
                     j = Rank(i)
                     if (nint(SChrom%ContPar2(j) + 1.0d0) .le. Spec%LimitPar2Max) then ! make sure we do not go above max
@@ -4728,7 +4729,7 @@ module AlphaMateModule
                     do i = 1, Data%nPotPar1 ! need to loop all individuals as some do not contribute
                       l = This%nVec(Data%IdPotPar1(i)) / 2
                       if (mod(This%nVec(Data%IdPotPar1(i)), 2) .eq. 1) then
-                        call random_number(RanNum)
+                        call random_number(RanNum) ! @todo this locks RNG seed and slows down the paralelisation, right?
                         if (RanNum .gt. 0.5) then
                           l = l + 1
                         end if
@@ -5215,7 +5216,7 @@ module AlphaMateModule
 
       type(AlphaMateSol) :: SolMinCoancestry, SolMinInbreeding, SolMaxCriterion, Sol !< For frontier modes and random mating (no optimisation) mode
 
-      integer(int32) :: nParam, Point, iSol, Target, Unit
+      integer(int32) :: nParam, Point, iSol, Target, Unit, Seed
 
       real(real32) :: RanNum, Tmp
       real(real64), allocatable :: InitChrom(:, :), AvgCoancestryStd(:), SelCriterionStd(:)
@@ -5346,12 +5347,13 @@ module AlphaMateModule
 
         ! Search
         if (trim(Spec%EvolAlg) .eq. "DE") then
+          call GetSeed(Out=Seed)
           call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, Init=InitChrom, &
             nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTolCoancestry, nIterPrint=Spec%EvolAlgNIterPrint, &
             LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
             CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate1=Spec%DiffEvolParamCr1, CRLate2=Spec%DiffEvolParamCr2, &
             FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
-            BestSol=SolMinCoancestry)!, Status=OptimOK)
+            Seed=Seed, BestSol=SolMinCoancestry)!, Status=OptimOK)
           ! if (.not. OptimOK) then
           !   write(STDERR, "(a)") " ERROR: Optimisation failed!"
           !   write(STDERR, "(a)") " "
@@ -5422,12 +5424,13 @@ module AlphaMateModule
 
         ! Search
         if (trim(Spec%EvolAlg) .eq. "DE") then
+          call GetSeed(Out=Seed)
           call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, Init=InitChrom, &
             nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTolCoancestry, nIterPrint=Spec%EvolAlgNIterPrint, &
             LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
             CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate1=Spec%DiffEvolParamCr1, CRLate2=Spec%DiffEvolParamCr2, &
             FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
-            BestSol=SolMinInbreeding)!, Status=OptimOK)
+            Seed=Seed, BestSol=SolMinInbreeding)!, Status=OptimOK)
           ! if (.not. OptimOK) then
           !   write(STDERR, "(a)") " ERROR: Optimisation failed!"
           !   write(STDERR, "(a)") " "
@@ -5508,12 +5511,13 @@ module AlphaMateModule
 
         ! Search
         if (trim(Spec%EvolAlg) .eq. "DE") then
+          call GetSeed(Out=Seed)
           call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, Init=InitChrom, &
             nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint, &
             LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
             CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate1=Spec%DiffEvolParamCr1, CRLate2=Spec%DiffEvolParamCr2, &
             FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
-            BestSol=SolMaxCriterion)!, Status=OptimOK)
+            Seed=Seed, BestSol=SolMaxCriterion)!, Status=OptimOK)
           ! if (.not. OptimOK) then
           !   write(STDERR, "(a)") " ERROR: Optimisation failed!"
           !   write(STDERR, "(a)") " "
@@ -5657,12 +5661,13 @@ module AlphaMateModule
 
           ! Search
           if (trim(Spec%EvolAlg) .eq. "DE") then
+            call GetSeed(Out=Seed)
             call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, Init=InitChrom, &
               nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint, &
               LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
               CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate1=Spec%DiffEvolParamCr1, CRLate2=Spec%DiffEvolParamCr2, &
               FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
-              BestSol=Sol)!, Status=OptimOK)
+              Seed=Seed, BestSol=Sol)!, Status=OptimOK)
             ! if (.not. OptimOK) then
             !   write(STDERR, "(a)") " ERROR: Optimisation failed!"
             !   write(STDERR, "(a)") " "
@@ -5861,12 +5866,13 @@ module AlphaMateModule
 
           ! Search
           if (trim(Spec%EvolAlg) .eq. "DE") then
+            call GetSeed(Out=Seed)
             call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, Init=InitChrom, &
               nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint, &
               LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
               CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate1=Spec%DiffEvolParamCr1, CRLate2=Spec%DiffEvolParamCr2, &
               FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
-              BestSol=Sol)!, Status=OptimOK)
+              Seed=Seed, BestSol=Sol)!, Status=OptimOK)
             ! if (.not. OptimOK) then
             !   write(STDERR, "(a)") " ERROR: Optimisation failed!"
             !   write(STDERR, "(a)") " "
