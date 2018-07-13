@@ -75,14 +75,14 @@ Optimisation is performed with an evolutionary algorithm based on differential e
 
 Optimisation works with mating plans, which |AM| encodes as proposed by Kinghorn and Shepherd (1999). |AM| ensures that mating plans are valid in two ways. First, |AM| fixes encoded representation, e.g., it trims contributions to user defined limits and round them to integer values (Lampinen and Zelinka, 1999). Second, when fixing is not sufficient, |AM| penalizes invalid mating plan so that evolutionary algorithm advances (more) valid mating plans.
 
-A note on the reproducibility of results. |AM| uses an evolutionary algorithm, which can give different solutions in repeated runs. We find however, that the result summaries do not vary a lot, provided that convergence has been achieved (see `Optimisation controls`_). To ensure reproducibility users can fix the seed value for random number generator via `SeedFile`_ or `Seed`_ specifications.
+A note on the reproducibility of results. |AM| uses an evolutionary algorithm, which can give different solutions in repeated runs. We find however, that the results do not vary a lot between runs, provided that convergence has been achieved (see `Optimisation controls`_). By default |AM| reports the used random number generator seed value - it is shown on terminal output and saved on disk (see `Used seed`_). To ensure reproducibility users can fix the seed via `SeedFile`_ or `Seed`_ specifications. Note the known `Seed bug with paralelisation`_.
 
 A note about the speed and scaling of |AM| with large populations. |AM| finds good solutions quickly for applications with up to a couple of thousands of individuals. When the number of individuals is larger than this, |AM| has to evaluate a very large number of combinations and optimisation takes a long time. There are several options to speed-up this optimisation. One option is to pre-select individuals, which you can do yourself or use an |AM| specification that accounts for this pre-selection in further optimisation, albeit at a higher computational cost. Another option is to tweak optimisation controls. Work on a scalable solution is in progress.
 
 Run command
 =========================================================================================
 
-|AM| is run from a terminal. By default it uses a `Specifications file`_ named ``AlphaMateSpec.txt``, but users can provide other specifications file.
+|AM| is run from a terminal. By default it uses a `Specifications file`_ named *AlphaMateSpec.txt*, but users can provide other specifications file.
 
 On MS Windows use one of the following options:
 
@@ -1050,7 +1050,7 @@ SeedFile
   SeedFile , [String]
   SeedFile , Seed.txt
 
-SeedFile specifies a file that contains a single value used as a seed for random number generator.
+SeedFile specifies a file that contains a single value used as a seed for random number generator. Note the known `Seed bug with paralelisation`_.
 
 Seed
 ^^^^
@@ -1060,7 +1060,7 @@ Seed
   Seed , [Value]
   Seed , 0.5
 
-Seed specifies a single value used as a seed for random number generator.
+Seed specifies a single value used as a seed for random number generator. Note the known `Seed bug with paralelisation`_.
 
 Stop
 ^^^^
@@ -1128,7 +1128,7 @@ The files with basename *OptimisationLogPopMode* report all the evaluated soluti
 Used seed
 ---------
 
-The used seed to initiate the random number generator stream is saved in the file *SeedUsed.txt*. This file can be used as input for specification `SeedFile`_ to repeat the same optimisation. Alternatively the saved seed value can be used as input for specification `Seed`_.
+The used seed to initiate the random number generator stream is saved in the file *SeedUsed.txt*. This file can be used as input for specification `SeedFile`_ to repeat the same optimisation. Alternatively the saved seed value can be used as input for specification `Seed`_. Note the `Seed bug with paralelisation`_.
 
 Utilities
 =========================================================================================
@@ -1230,7 +1230,7 @@ The example explores the whole Pareto frontier of genetic gain and group coances
   * selection criterion of 16.99 (standardized 1.05)
   * group coancestry    of 0.783 (rate of coancestry of -0.006)
 
-References and Definitions
+Definitions, References, and Known issues/bugs
 =========================================================================================
 
 Definitions
@@ -1375,3 +1375,13 @@ References
 * Montgomery, J. Chen, S. (2010) An analysis of the operation of differential evolution at high and low crossover rates. In: IEEE Congress on Evolutionary Computation, `http://doi.org/10.1109/CEC.2010.5586128 <http://doi.org/10.1109/CEC.2010.5586128>`_.
 
 * Storn, R. Price, K., (1997) Differential evolution - a simple and efficient heuristic for global optimization over continuous spaces. J. Global Optim., 11, 341-359, `http://doi.org/10.1023/A:1008202821328 <http://doi.org/10.1023/A:1008202821328>`_.
+
+Known issues/bugs
+-----------------
+
+Below is a list of known issues or bugs, that we have not (yet) found a way to solve. They might get solved eventually.
+
+Seed bug with paralelisation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Specifications `Seed`_ or `SeedFile`_ can be used to fix random number generator seed value to get reproducible results. However, results are not reproducible when paralelisation is used (see `NumberOfProcessors`_).
