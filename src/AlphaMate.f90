@@ -87,6 +87,10 @@ program AlphaMate
   call Spec%Read(SpecFile=SpecFile, LogStdout=.true.)
 
   write(STDOUT, "(a)") ""
+  write(STDOUT, "(a)") " --- System ---"
+  call AlphaMateSystem(Spec=Spec, LogStdout=.true.)
+
+  write(STDOUT, "(a)") ""
   write(STDOUT, "(a)") " --- Data ---"
   call Data%Read(Spec=Spec, LogStdout=.true.)
 

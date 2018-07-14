@@ -1062,6 +1062,25 @@ Seed
 
 Seed specifies a single value used as a seed for random number generator. Note the known `Seed bug with paralelisation`_.
 
+NumberOfThreads
+^^^^^^^^^^^^^^^
+
+::
+
+  NumberOfThreads , [Value]
+  NumberOfThreads , 4
+
+NumberOfThreads specifies how many threads should be used for paralelisation. |AM| uses the OpenMP system to paralelise some tasks. Default is to use all available resources, i.e., the number of threads equals the number of processors. Note that the environmental variable ``OMP_NUM_THREADS`` sets an upper limit on resources. You can set this variable as shown below. The NumberOfThreads specifications overrules this variable.
+
+::
+
+  # On Linux/UNIX/Mac OS
+  export OMP_NUM_THREADS=2 # Bash shell
+  setenv OMP_NUM_THREADS=2 #    C shell
+
+  # On MS Windows
+  set OMP_NUM_THREADS=2
+
 Stop
 ^^^^
 

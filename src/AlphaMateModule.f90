@@ -67,6 +67,7 @@ module AlphaMateModule
                                 DifferentialEvolution, RandomSearch
   use AlphaRelateModule
   use Blas95, only : dot , symv
+  use OMP_Lib
 
   implicit none
 
@@ -74,7 +75,7 @@ module AlphaMateModule
   ! Types
   public :: AlphaMateSpec, AlphaMateData, AlphaMateSol
   ! Functions
-  public :: AlphaMateTitle, AlphaMateSearch
+  public :: AlphaMateTitle, AlphaMateSystem, AlphaMateSearch
   public :: MinCoancestryPct2Degree, Degree2MinCoancestryPct, MaxCriterionPct2Degree, Degree2MaxCriterionPct
   public :: Degree2SelCriterionStd, SelCriterionStd2Degree
   public :: Degree2CoancestryRate, CoancestryRate2Degree
@@ -165,8 +166,9 @@ module AlphaMateModule
     ! Inputs
     character(len=FILELENGTH) :: SpecFile, RelMtxFile, SelCriterionFile, GenderFile, SeedFile, &
                                  GenericIndCritFile, GenericMatCritFile, OutputBasename
-    logical :: RelMtxGiven, NrmInsteadOfCoancestry, SelCriterionGiven, GenderGiven, SeedFileGiven, GenericIndCritGiven, GenericMatCritGiven, SeedGiven
-    integer(int32) :: Seed
+    logical :: RelMtxGiven, NrmInsteadOfCoancestry, SelCriterionGiven, GenderGiven, SeedFileGiven, &
+               GenericIndCritGiven, GenericMatCritGiven, SeedGiven, nThreadsGiven
+    integer(int32) :: Seed, nThreads
     integer(int32) :: nGenericIndCrit, nGenericMatCrit
 
     ! Search mode specifications
@@ -382,6 +384,7 @@ module AlphaMateModule
       This%GenericMatCritGiven = .false.
       This%SeedFileGiven = .false.
       This%SeedGiven = .false.
+      This%nThreadsGiven = .false.
 
       ! Search mode specifications
 
@@ -547,6 +550,7 @@ module AlphaMateModule
       write(Unit, *) "nGenericMatCrit: ",         This%nGenericMatCrit
       write(Unit, *) "SeedFile: ",           trim(This%SeedFile)
       write(Unit, *) "Seed: ",                    This%Seed
+      write(Unit, *) "nThreads: ",                This%nThreads
       write(Unit, *) "OutputBasename: ",     trim(This%OutputBasename)
 
       write(Unit, *) "RelMtxGiven: ",            This%RelMtxGiven
@@ -557,6 +561,7 @@ module AlphaMateModule
       write(Unit, *) "GenericMatCritGiven: ",    This%GenericMatCritGiven
       write(Unit, *) "SeedFileGiven: ",          This%SeedFileGiven
       write(Unit, *) "SeedGiven: ",              This%SeedGiven
+      write(Unit, *) "nThreadsGiven: ",          This%nThreadsGiven
 
       ! Search mode specifications
 
@@ -928,6 +933,19 @@ module AlphaMateModule
                 end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify a number for Seed, i.e., Seed, 19791123"
+                write(STDERR, "(a)") " "
+                stop 1
+              end if
+
+            case ("numberofthreads")
+              if (allocated(Second)) then
+                This%nThreadsGiven = .true.
+                This%nThreads = Char2Int(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " NumberOfThreads: "//trim(Int2Char(This%nThreads))
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a number for NumberOfThreads, i.e., NumberOfThreads, 8"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -3508,25 +3526,6 @@ module AlphaMateModule
         close(GenericMatCritUnit)
       end if
 
-      ! --- Seed ---
-
-      if (.not. (Spec%SeedGiven .or. Spec%SeedFileGiven)) then
-        call SetSeed(Out=Spec%Seed) ! get a system value
-      else
-        if ((.not. Spec%SeedGiven) .and. Spec%SeedFileGiven) then
-          open(newunit=SeedUnit, file=Spec%SeedFile, status="old")
-          read(SeedUnit, *) Spec%Seed
-          close(SeedUnit)
-        end if
-        call SetSeed(Seed=Spec%Seed) ! set to a given value
-      end if
-      open(newunit=SeedUnit, file=trim(Spec%OutputBasename)//"SeedUsed.txt", status="unknown")
-      write(SeedUnit, *) Spec%Seed
-      close(SeedUnit)
-      if (LogStdoutInternal) then
-        write(STDOUT, "(a)") " RNG seed: "//trim(Int2Char(Spec%Seed))
-      end if
-
       ! --- Current coancestry ---
 
       if (LogStdoutInternal) then
@@ -4044,6 +4043,78 @@ module AlphaMateModule
       if (present(File)) then
         close(Unit)
       end if
+    end subroutine
+
+    !###########################################################################
+
+    !---------------------------------------------------------------------------
+    !> @brief  Setup AlphaMate system (seed and paralelisation)
+    !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
+    !> @date   July 14, 2018
+    !> @return Seed value and paralelisation setup
+    !---------------------------------------------------------------------------
+    subroutine AlphaMateSystem(Spec, LogStdout) ! not pure due to IO
+      implicit none
+      type(AlphaMateSpec), intent(inout) :: Spec !< AlphaMateSpec holder (inout because we save some info in Spec that
+      logical, optional                  :: LogStdout !< Log process on stdout (default .false.)
+
+      integer(int32) :: Unit, nProcs, EnvVarStatus
+
+      character(len = 4) :: EnvVarOMP_NUM_THREADS
+
+      logical :: LogStdoutInternal
+      if (present(LogStdout)) then
+        LogStdoutInternal = LogStdout
+      else
+        LogStdoutInternal = .false.
+      end if
+
+      if (LogStdoutInternal) then
+        write(STDOUT, "(a)") " "
+      end if
+
+      ! --- Seed ---
+
+      if (.not. (Spec%SeedGiven .or. Spec%SeedFileGiven)) then
+        call SetSeed(Out=Spec%Seed) ! get a system value
+        write(STDOUT, "(a)") " RNG seed (system): "//trim(Int2Char(Spec%Seed))
+      else
+        if ((.not. Spec%SeedGiven) .and. Spec%SeedFileGiven) then
+          open(newunit=Unit, file=Spec%SeedFile, status="old")
+          read(Unit, *) Spec%Seed
+          close(Unit)
+        end if
+        call SetSeed(Seed=Spec%Seed) ! set to a given value
+        if (LogStdoutInternal) then
+          write(STDOUT, "(a)") " RNG seed (specified): "//trim(Int2Char(Spec%Seed))
+        end if
+      end if
+      open(newunit=Unit, file=trim(Spec%OutputBasename)//"SeedUsed.txt", status="unknown")
+      write(Unit, *) Spec%Seed
+      close(Unit)
+
+      ! --- Processors & Threads ---
+
+      nProcs = OMP_GET_NUM_PROCS()
+      if (LogStdoutInternal) then
+        write(STDOUT, "(a)") " Number of system processors: "//trim(Int2Char(nProcs))
+      end if
+      call get_environment_variable(name="OMP_NUM_THREADS", value=EnvVarOMP_NUM_THREADS, status=EnvVarStatus)
+      if (EnvVarStatus .eq. 0) then
+        write(STDOUT, "(a)") " Number of available threads (via OMP_NUM_THREADS variable): "//trim(EnvVarOMP_NUM_THREADS)
+      end if
+      if (Spec%nThreadsGiven) then
+        if (LogStdoutInternal) then
+          if (EnvVarStatus .eq. 0) then
+            write(STDOUT, "(a)") " Number of specified threads (overrules OMP_NUM_THREADS variable): "//trim(Int2Char(Spec%nThreads))
+          else
+            write(STDOUT, "(a)") " Number of specified threads: "//trim(Int2Char(Spec%nThreads))
+          end if
+        end if
+        call OMP_SET_NUM_THREADS(Spec%nThreads)
+      else
+      end if
+
     end subroutine
 
     !###########################################################################
