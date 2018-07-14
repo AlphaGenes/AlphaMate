@@ -77,7 +77,7 @@ Optimisation works with mating plans, which |AM| encodes as proposed by Kinghorn
 
 A note on the reproducibility of results. |AM| uses an evolutionary algorithm, which can give different solutions in repeated runs. We find however, that the results do not vary a lot between runs, provided that convergence has been achieved (see `Optimisation controls`_). By default |AM| reports the used random number generator seed value - it is shown on terminal output and saved on disk (see `Used seed`_). To ensure reproducibility users can fix the seed via `SeedFile`_ or `Seed`_ specifications. Note the known `Seed bug with paralelisation`_.
 
-A note about the speed and scaling of |AM| with large populations. |AM| finds good solutions quickly for applications with up to a couple of thousands of individuals. When the number of individuals is larger than this, |AM| has to evaluate a very large number of combinations and optimisation takes a long time. There are several options to speed-up this optimisation. One option is to pre-select individuals, which you can do yourself or use an |AM| specification that accounts for this pre-selection in further optimisation, albeit at a higher computational cost. Another option is to tweak optimisation controls. Work on a scalable solution is in progress.
+A note about the speed and scaling of |AM| with large populations. |AM| finds good solutions quickly for applications with up to a couple of thousands of individuals. When the number of individuals is larger than this, |AM| has to evaluate a very large number of combinations and optimisation takes a long time. There are several options to speed-up this optimisation. One option is to use multiple processors to paralelise optimisation (see `NumberOfThreads`_). Another option is to pre-select individuals (see `Preselect`_), which you can do yourself or use an |AM| specification that accounts for this pre-selection in further optimisation, albeit at a higher computational cost. Yet another option is to tweak optimisation controls (see `Optimisation controls`_). Work on a scalable solution is in progress.
 
 Run command
 =========================================================================================
@@ -1403,4 +1403,4 @@ Below is a list of known issues or bugs, that we have not (yet) found a way to s
 Seed bug with paralelisation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Specifications `Seed`_ or `SeedFile`_ can be used to fix random number generator seed value to get reproducible results. However, results are not reproducible when paralelisation is used (see `NumberOfProcessors`_).
+Specifications `Seed`_ or `SeedFile`_ can be used to fix random number generator seed value to get reproducible results. However, results are not reproducible when paralelisation is used (see `NumberOfThreads`_) - they are still valid!
