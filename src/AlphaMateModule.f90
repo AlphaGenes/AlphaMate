@@ -4397,7 +4397,7 @@ module AlphaMateModule
     !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date   March 16, 2017
     !---------------------------------------------------------------------------
-    subroutine FixSolEtcMateAndEvaluateAlphaMateSol(This, Chrom, Spec, Data) ! not pure due to RNG
+    subroutine FixSolEtcMateAndEvaluateAlphaMateSol(This, Chrom, Spec, Data, Random) ! not pure due to RNG
       implicit none
       ! Arguments
       class(AlphaMateSol), intent(inout)           :: This     !< @return AlphaMateSol holder (out because we sometimes need to fix a solution)
@@ -4405,6 +4405,7 @@ module AlphaMateModule
       class(AlphaEvolveSpec), intent(in)           :: Spec     !< AlphaEvolveSpec --> AlphaMateSpec holder
       class(AlphaEvolveData), intent(in), optional :: Data     !< AlphaEvolveData --> AlphaMateData holder
 
+      real(real64),intent(in), optional :: Random !< random number 
       ! Other
       integer(int32) :: i, j, k, l, GenderMode, Start, End, nCumMat, TmpMin, TmpMax, TmpI
       integer(int32), allocatable :: Rank(:), MatPar2(:), nVecPar1(:)
@@ -4414,6 +4415,11 @@ module AlphaMateModule
 
       type(AlphaMateChrom) :: SChrom
 
+      if (present(Random)) then 
+        RanNum = Random
+      else 
+        call RANDOM_NUMBER(RanNum)
+      endif
       select type (Spec)
         class default
           error stop " ERROR: FixSolEtcMateAndEvaluate works only with argument Spec being of type AlphaMateSpec!"
@@ -4594,7 +4600,6 @@ module AlphaMateModule
                 ! ... Spec%nMat still not reached?
                 do while (nCumMat .lt. Spec%nMat * GenderMode)
                   ! ... add more contributions to randomly chosen individuals
-                  call random_number(RanNum) ! @todo this locks RNG seed and slows down the paralelisation, right?
                   i = int(RanNum * Spec%nPar1) + 1
                   j = Rank(i)
                   if (nint(SChrom%ContPar1(j) + 1.0d0) .le. Spec%LimitPar1Max) then ! make sure we do not go above max
@@ -4710,7 +4715,6 @@ module AlphaMateModule
                   ! ... Spec%nMat still not reached?
                   do while (nCumMat .lt. Spec%nMat)
                     ! ... add more contributions to randomly chosen individuals
-                    call random_number(RanNum) ! @todo this locks RNG seed and slows down the paralelisation, right?
                     i = int(RanNum * Spec%nPar2) + 1
                     j = Rank(i)
                     if (nint(SChrom%ContPar2(j) + 1.0d0) .le. Spec%LimitPar2Max) then ! make sure we do not go above max
@@ -4800,7 +4804,6 @@ module AlphaMateModule
                     do i = 1, Data%nPotPar1 ! need to loop all individuals as some do not contribute
                       l = This%nVec(Data%IdPotPar1(i)) / 2
                       if (mod(This%nVec(Data%IdPotPar1(i)), 2) .eq. 1) then
-                        call random_number(RanNum) ! @todo this locks RNG seed and slows down the paralelisation, right?
                         if (RanNum .gt. 0.5) then
                           l = l + 1
                         end if
