@@ -3,7 +3,7 @@
 .. |EXPERIMENTAL| replace:: **This is an experimental specification in development and no yet tested! Do not use!**
 
 ********************
-|AM| (Version 0.1.0)
+|AM| (Version 0.2.0)
 ********************
 
 .. contents::
