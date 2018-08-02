@@ -52,16 +52,17 @@
 !
 !-------------------------------------------------------------------------------
 module AlphaMateModule
-  use ISO_Fortran_Env, STDOUT => output_unit, STDERR => error_unit
-  use, intrinsic :: IEEE_Arithmetic
+  use Iso_Fortran_Env, STDOUT => output_unit, STDERR => error_unit
+  use, intrinsic :: Ieee_Arithmetic
   use ConstantModule, only : FILELENGTH, SPECOPTIONLENGTH, IDLENGTH, RAD2DEG, DEG2RAD
   use OrderPackModule, only : MrgRnk, RapKnr
   use AlphaHouseMod, only : Append, CountLines, GeneratePairing, &
                             Char2Int, Char2Double, Int2Char, Real2Char, &
-                            RandomOrder, GetSeed, SetSeed, ToLower, &
-                            ParseToFirstWhitespace, SplitLineIntoTwoParts
+                            SetSeed, ToLower, ParseToFirstWhitespace, SplitLineIntoTwoParts
   use HashModule
-  use IntelRngMod, only : IntitialiseIntelRng, SampleIntelUniformD
+  use IntelRngMod, only : IntitialiseIntelRng, SampleIntelUniformD, RandomOrderIntel
+  use Mkl_Vsl_Type
+  use Mkl_Vsl
   use AlphaStatMod, only : Mean, StdDev, DescStat, DescStatReal64, &
                            DescStatMatrix, DescStatLowTriMatrix, DescStatMatrixReal64
   use AlphaEvolveModule, only : AlphaEvolveSol, AlphaEvolveSpec, AlphaEvolveData, &
@@ -73,6 +74,9 @@ module AlphaMateModule
   implicit none
 
   private
+
+  ! --- Export ---
+
   ! Types
   public :: AlphaMateSpec, AlphaMateData, AlphaMateSol
   ! Functions
@@ -85,7 +89,12 @@ module AlphaMateModule
   public :: Coancestry2CoancestryRate, CoancestryRate2Coancestry
   public :: SelCriterion2SelCriterionStd, SelCriterionStd2SelCriterion
 
-  ! Module parameters
+  ! --- Module global objects ---
+
+  type(vsl_stream_state) :: AlphaMateStream
+
+  ! --- Module parameters ---
+
   REAL(real64), PARAMETER :: TARGETDEGREEFRONTIER(8) = [80, 70, 60, 50, 40, 30, 20, 10]
 
   INTEGER,                   PARAMETER :: CHARLENGTH = 100
@@ -124,6 +133,8 @@ module AlphaMateModule
 
   CHARACTER(len=CHARLENGTH), PARAMETER :: FMTMATINGA = "(i15, 2(1x, a"
   CHARACTER(len=CHARLENGTH), PARAMETER :: FMTMATINGB = "))"
+
+  ! --- Module types ---
 
   !> @brief Optimisation mode specifications
   type :: AlphaMateModeSpec
@@ -385,6 +396,7 @@ module AlphaMateModule
       This%GenericMatCritGiven = .false.
       This%SeedFileGiven = .false.
       This%SeedGiven = .false.
+      This%nThreads = 0
       This%nThreadsGiven = .false.
 
       ! Search mode specifications
@@ -2596,7 +2608,7 @@ module AlphaMateModule
       class(AlphaMateModeSpec), intent(out) :: This !< @return AlphaMateModeSpec holder
       character(len=*), intent(in)          :: Name !< Mode name
       real(real64) :: NANREAL64
-      NANREAL64 = IEEE_Value(x=NANREAL64, class=IEEE_Quiet_NaN)
+      NANREAL64 = Ieee_Value(x=NANREAL64, class=Ieee_Quiet_NaN)
       This%Name = Name
       This%ObjectiveCriterion = .false.
       This%ObjectiveCoancestry = .false.
@@ -3017,7 +3029,7 @@ module AlphaMateModule
       logical, optional                  :: LogStdout !< Log process on stdout (default .false.)
 
       integer(int32) :: Ind, IndLoc, IndLoc2, nIndTmp, Mat, nMatTmp, GenderTmp, jMal, jFem, IndPair(2), Crit
-      integer(int32) :: SelCriterionUnit, GenderUnit, GenericIndCritUnit, GenericMatCritUnit, SeedUnit
+      integer(int32) :: SelCriterionUnit, GenderUnit, GenericIndCritUnit, GenericMatCritUnit
       integer(int32) :: CoancestrySummaryUnit, InbreedingSummaryUnit, CriterionSummaryUnit
       integer(int32) :: GenericIndCritSummaryUnit, GenericMatCritSummaryUnit
 
@@ -4100,22 +4112,22 @@ module AlphaMateModule
 
       ! --- Intel Random Number Generator ---
 
-      call IntitialiseIntelRng(Seed=Spec%Seed) ! This uses IntelRng module (internal) stream
+      call IntitialiseIntelRng(Seed=Spec%Seed, Stream=AlphaMateStream)
 
       ! --- Processors & Threads ---
 
-      nProcs = OMP_GET_NUM_PROCS()
+      nProcs = Omp_Get_Num_Procs()
       if (LogStdoutInternal) then
         write(STDOUT, "(a)") " Number of system processors: "//trim(Int2Char(nProcs))
       end if
-      call get_environment_variable(name="OMP_NUM_THREADS", value=EnvVarOmp_Num_Threads, status=EnvVarStatus)
+      call Get_Environment_Variable(name="OMP_NUM_THREADS", value=EnvVarOmp_Num_Threads, status=EnvVarStatus)
       if (EnvVarStatus .eq. 0) then
-        write(STDOUT, "(a)") " Number of available threads (via the OMP_NUM_THREADS variable): "//trim(EnvVarOmp_Num_Threads)
+        write(STDOUT, "(a)") " Number of available threads (via the OMP_NUM_THREADS environment variable): "//trim(EnvVarOmp_Num_Threads)
       end if
       if (Spec%nThreadsGiven) then
         if (LogStdoutInternal) then
           if (EnvVarStatus .eq. 0) then
-            write(STDOUT, "(a)") " Number of specified threads (overrules the OMP_NUM_THREADS variable): "//trim(Int2Char(Spec%nThreads))
+            write(STDOUT, "(a)") " Number of specified threads (overrules the OMP_NUM_THREADS environment variable): "//trim(Int2Char(Spec%nThreads))
           else
             write(STDOUT, "(a)") " Number of specified threads: "//trim(Int2Char(Spec%nThreads))
           end if
@@ -4142,7 +4154,7 @@ module AlphaMateModule
       class(AlphaEvolveSpec), intent(in), optional :: Spec     !< AlphaEvolveSpec --> AlphaMateSpec holder
 
       real(real64) :: NANREAL64
-      NANREAL64 = IEEE_Value(x=NANREAL64, class=IEEE_Quiet_NaN)
+      NANREAL64 = Ieee_Value(x=NANREAL64, class=Ieee_Quiet_NaN)
 
       ! Initialisation
       select type (Spec)
@@ -4406,30 +4418,24 @@ module AlphaMateModule
     !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date   March 16, 2017
     !---------------------------------------------------------------------------
-    subroutine FixSolEtcMateAndEvaluateAlphaMateSol(This, Chrom, Spec, Data, Random) ! not pure due to RNG
+    subroutine FixSolEtcMateAndEvaluateAlphaMateSol(This, Chrom, Spec, Data, Stream) ! not pure due to RNG
       implicit none
       ! Arguments
       class(AlphaMateSol), intent(inout)           :: This     !< @return AlphaMateSol holder (out because we sometimes need to fix a solution)
       real(real64), intent(in)                     :: Chrom(:) !< A solution
       class(AlphaEvolveSpec), intent(in)           :: Spec     !< AlphaEvolveSpec --> AlphaMateSpec holder
       class(AlphaEvolveData), intent(in), optional :: Data     !< AlphaEvolveData --> AlphaMateData holder
+      type(vsl_stream_state), intent(inout)        :: Stream   !< Intel RNG stream
 
-      real(real64),intent(in), optional :: Random !< random number
       ! Other
-      integer(int32) :: i, j, k, l, GenderMode, Start, End, nCumMat, TmpMin, TmpMax, TmpI
+      integer(int32) :: i, j, k, l, GenderMode, Start, End, nCumMat, TmpMin, TmpMax, TmpI, nRanNum, RanNumLoc
       integer(int32), allocatable :: Rank(:), MatPar2(:), nVecPar1(:)
 
-      real(real64) :: TmpR, RanNum, Diff, MaxDiff
-      real(real64), allocatable :: TmpVec(:) ! TmpVec2(:,:)
+      real(real64) :: TmpR, Diff, MaxDiff
+      real(real64), allocatable :: TmpVec(:), RanNum(:) !, TmpVec2(:,:)
 
       type(AlphaMateChrom) :: SChrom
 
-      ! @todo IntelRNG - this is a hack/bug as we need multiple random values!!!!!
-      if (present(Random)) then
-        RanNum = Random
-      else
-        call RANDOM_NUMBER(RanNum)
-      endif
       select type (Spec)
         class default
           error stop " ERROR: FixSolEtcMateAndEvaluate works only with argument Spec being of type AlphaMateSpec!"
@@ -4465,7 +4471,7 @@ module AlphaMateModule
 
               ! Below we create a structured chromosome to simplify the evaluation code
 
-              ! Allocate & Assign
+              ! Allocate, Assign, and Setup some constants
               allocate(SChrom%ContPar1(Data%nPotPar1))
               Start = 1
               End = Data%nPotPar1
@@ -4475,12 +4481,20 @@ module AlphaMateModule
                 Start = End + 1
                 End = Start - 1 + Data%nPotPar2
                 SChrom%ContPar2 = Chrom(Start:End)
+                GenderMode = 1
+                nRanNum = GenderMode * Spec%nMat ! see nCumMat
+              else
+                GenderMode = 2
+                nRanNum = GenderMode * Spec%nMat ! see nCumMat
               end if
               if (Spec%MateAllocation) then
                 allocate(SChrom%MateRank(Spec%nMat))
                 Start = End + 1
                 End = Start - 1 + Spec%nMat
                 SChrom%MateRank = Chrom(Start:End)
+                if (.not. Spec%GenderGiven) then
+                  nRanNum = nRanNum + ceiling(real(Spec%nMat) / 2) ! see "Distribute one half of contributions into matings"
+                end if
               end if
               if (Spec%PAGEPar) then
                 if (Spec%PAGEPar1) then
@@ -4509,6 +4523,9 @@ module AlphaMateModule
               allocate(nVecPar1(Data%nPotPar1))             ! for nVec
               allocate(MatPar2(Spec%nMat))                  ! for MatingPlan
               allocate(TmpVec(Data%nInd))                   ! for many things
+              allocate(RanNum(nRanNum))                     ! for stochastic decisions
+              RanNumLoc = 0
+              RanNum = SampleIntelUniformD(n=nRanNum, Stream=Stream)
 
               ! --- Parse the mate selection driver (=Is the solution valid?) ---
 
@@ -4527,11 +4544,6 @@ module AlphaMateModule
               ! order is that this gives more randomness and more solutions being explored.
 
               ! "Parent1"
-              if (Spec%GenderGiven) then
-                GenderMode = 1
-              else
-                GenderMode = 2
-              end if
               ! ... preselect
               if (Spec%PreselectPar1) then
                 ! if (Spec%ModeSpec%ObjectiveCoancestry) then
@@ -4553,7 +4565,7 @@ module AlphaMateModule
               end if
               if (Spec%EqualizePar1) then ! ... equal contributions
                 if (Spec%nPar1 .eq. Data%nPotPar1) then
-                  SChrom%ContPar1 = dble(Spec%nMat * GenderMode) / Spec%nPar1 ! no need for indexing here, hence the above if (.not. ...)
+                  SChrom%ContPar1 = dble(Spec%nMat * GenderMode) / Spec%nPar1 ! no need for indexing here, hence the above if (.not. (Spec%EqualizePar1 ...)
                 else
                   SChrom%ContPar1 = 0.0d0
                   SChrom%ContPar1(Rank(1:Spec%nPar1)) = dble(Spec%nMat * GenderMode) / Spec%nPar1
@@ -4610,7 +4622,8 @@ module AlphaMateModule
                 ! ... Spec%nMat still not reached?
                 do while (nCumMat .lt. Spec%nMat * GenderMode)
                   ! ... add more contributions to randomly chosen individuals
-                  i = int(RanNum * Spec%nPar1) + 1 ! @todo IntelRNG
+                  RanNumLoc = RanNumLoc + 1
+                  i = int(RanNum(RanNumLoc) * Spec%nPar1) + 1
                   j = Rank(i)
                   if (nint(SChrom%ContPar1(j) + 1.0d0) .le. Spec%LimitPar1Max) then ! make sure we do not go above max
                     SChrom%ContPar1(j) = SChrom%ContPar1(j) + 1.0d0
@@ -4670,7 +4683,7 @@ module AlphaMateModule
                 end if
                 if (Spec%EqualizePar2) then ! ... equal contributions
                   if (Spec%nPar2 .eq. Data%nPotPar2) then
-                    SChrom%ContPar2 = dble(Spec%nMat) / Spec%nPar2 ! no need for indexing here, hence the above if (.not. ...)
+                    SChrom%ContPar2 = dble(Spec%nMat) / Spec%nPar2 ! no need for indexing here, hence the above if (.not. (Spec%EqualizePar2 ...)
                   else
                     SChrom%ContPar2 = 0.0d0
                     SChrom%ContPar2(Rank(1:Spec%nPar2)) = dble(Spec%nMat) / Spec%nPar2
@@ -4725,7 +4738,8 @@ module AlphaMateModule
                   ! ... Spec%nMat still not reached?
                   do while (nCumMat .lt. Spec%nMat)
                     ! ... add more contributions to randomly chosen individuals
-                    i = int(RanNum * Spec%nPar2) + 1 ! @todo IntelRNG
+                    RanNumLoc = RanNumLoc + 1
+                    i = int(RanNum(RanNumLoc) * Spec%nPar2) + 1
                     j = Rank(i)
                     if (nint(SChrom%ContPar2(j) + 1.0d0) .le. Spec%LimitPar2Max) then ! make sure we do not go above max
                       SChrom%ContPar2(j) = SChrom%ContPar2(j) + 1.0d0
@@ -4802,7 +4816,7 @@ module AlphaMateModule
                   end do
                   ! Reorder parent2 contributions according to the rank of matings
                   if (Spec%RandomMateAllocation) then
-                    Rank(1:Spec%nMat) = RandomOrder(n=Spec%nMat) ! @todo IntelRNG
+                    Rank(1:Spec%nMat) = RandomOrderIntel(n=Spec%nMat, Stream=Stream)
                   else
                     Rank(1:Spec%nMat) = MrgRnk(SChrom%MateRank) ! MrgRnk ranks small to large
                   end if
@@ -4814,7 +4828,8 @@ module AlphaMateModule
                     do i = 1, Data%nPotPar1 ! need to loop all individuals as some do not contribute
                       l = This%nVec(Data%IdPotPar1(i)) / 2
                       if (mod(This%nVec(Data%IdPotPar1(i)), 2) .eq. 1) then
-                        if (RanNum .gt. 0.5) then ! @todo IntelRNG
+                        RanNumLoc = RanNumLoc + 1
+                        if (RanNum(RanNumLoc) .gt. 0.5) then
                           l = l + 1
                         end if
                       end if
@@ -4830,7 +4845,7 @@ module AlphaMateModule
                   end do
                   ! Reorder one half of contributions according to the rank of matings
                   if (Spec%RandomMateAllocation) then
-                    Rank(1:Spec%nMat) = RandomOrder(n=Spec%nMat) ! @todo IntelRNG
+                    Rank(1:Spec%nMat) = RandomOrderIntel(n=Spec%nMat, Stream=Stream)
                   else
                     Rank(1:Spec%nMat) = MrgRnk(SChrom%MateRank) ! MrgRnk ranks small to large
                   end if
@@ -4896,6 +4911,9 @@ module AlphaMateModule
               ! --- Selection criterion ---
               ! Note that dot_product() is faster than dot() when called MANY times!
 
+call Spec%Write
+call This%Write
+pause
               if (Spec%SelCriterionGiven) then
                 This%SelCriterionStd = dot_product(dble(This%nVec), Data%SelCriterionStd) / (2 * Spec%nMat)
                 if (Spec%PAGEPar) then
@@ -4931,9 +4949,15 @@ module AlphaMateModule
                   end if
                 end if
                 ! Handle beyond the nadir point case so that degree calculation will be meaningful
+print*,"Really?"
+call Spec%Write
+call This%Write
+print*,Diff,MaxDiff
+print*,This%MaxCriterionPct
                 if (This%MaxCriterionPct .lt. 0.0d0) then
                   This%MaxCriterionPct = 0.0d0
                 end if
+print*,"Really?"
                 ! @todo Should we handle also cases above 100%?
                 ! @todo Should we modify Spec%ModeMaxCriterionSpec and Spec%ModeMinCoancestrySpec on the fly?
               end if
@@ -5300,7 +5324,7 @@ module AlphaMateModule
 
       type(AlphaMateSol) :: SolMinCoancestry, SolMinInbreeding, SolMaxCriterion, Sol !< For frontier modes and random mating (no optimisation) mode
 
-      integer(int32) :: nParam, Point, iSol, Target, Unit, Seed, nRanNum, RanNumLoc ! @todo IntelRNG for seed!!!!
+      integer(int32) :: nParam, Point, iSol, Target, Unit, nRanNum, RanNumLoc
 
       real(real32) :: Tmp
       real(real64), allocatable :: RanNum(:), InitChrom(:, :), AvgCoancestryStd(:), SelCriterionStd(:)
@@ -5310,7 +5334,7 @@ module AlphaMateModule
       character(len=FILELENGTH) :: LogFile, LogPopFile, ContribFile, MatingFile
 
       real(real32) :: NANREAL32
-      NANREAL32 = IEEE_Value(x=NANREAL32, class=IEEE_Quiet_NaN)
+      NANREAL32 = Ieee_Value(x=NANREAL32, class=Ieee_Quiet_NaN)
 
       if (present(LogStdout)) then
         LogStdoutInternal = LogStdout
@@ -5358,13 +5382,13 @@ module AlphaMateModule
       ! Presample random numbers
       nRanNum = 10 * Spec%EvolAlgNSol
       allocate(RanNum(nRanNum))
-      RanNum = SampleIntelUniformD(n=nRanNum)
+      RanNum = SampleIntelUniformD(n=nRanNum, Accurate=.false., Stream=AlphaMateStream)
       RanNumLoc = 0
 
       ! Distribute contributions, ranks, ... at random (exact values not important as we use ranks to get top values in evaluate)
       allocate(InitChrom(nParam, Spec%EvolAlgNSol))
       do iSol = 1, Spec%EvolAlgNSol
-        InitChrom(:, iSol) = SampleIntelUniformD(n=nParam)
+        InitChrom(:, iSol) = SampleIntelUniformD(n=nParam, Accurate=.false., Stream=AlphaMateStream)
       end do
 
       ! --- Standardized average coancestry ---
@@ -5442,13 +5466,12 @@ module AlphaMateModule
 
         ! Search
         if (trim(Spec%EvolAlg) .eq. "DE") then
-          call GetSeed(Out=Seed)
           call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, Init=InitChrom, &
             nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTolCoancestry, nIterPrint=Spec%EvolAlgNIterPrint, &
             LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
             CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate1=Spec%DiffEvolParamCr1, CRLate2=Spec%DiffEvolParamCr2, &
             FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
-            Seed=Seed, BestSol=SolMinCoancestry)!, Status=OptimOK)
+            Stream=AlphaMateStream, BestSol=SolMinCoancestry)!, Status=OptimOK)
           ! if (.not. OptimOK) then
           !   write(STDERR, "(a)") " ERROR: Optimisation failed!"
           !   write(STDERR, "(a)") " "
@@ -5522,13 +5545,12 @@ module AlphaMateModule
 
         ! Search
         if (trim(Spec%EvolAlg) .eq. "DE") then
-          call GetSeed(Out=Seed)
           call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, Init=InitChrom, &
             nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTolCoancestry, nIterPrint=Spec%EvolAlgNIterPrint, &
             LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
             CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate1=Spec%DiffEvolParamCr1, CRLate2=Spec%DiffEvolParamCr2, &
             FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
-            Seed=Seed, BestSol=SolMinInbreeding)!, Status=OptimOK)
+            Stream=AlphaMateStream, BestSol=SolMinInbreeding)!, Status=OptimOK)
           ! if (.not. OptimOK) then
           !   write(STDERR, "(a)") " ERROR: Optimisation failed!"
           !   write(STDERR, "(a)") " "
@@ -5612,13 +5634,12 @@ module AlphaMateModule
 
         ! Search
         if (trim(Spec%EvolAlg) .eq. "DE") then
-          call GetSeed(Out=Seed)
           call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, Init=InitChrom, &
             nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint, &
             LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
             CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate1=Spec%DiffEvolParamCr1, CRLate2=Spec%DiffEvolParamCr2, &
             FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
-            Seed=Seed, BestSol=SolMaxCriterion)!, Status=OptimOK)
+            Stream=AlphaMateStream, BestSol=SolMaxCriterion)!, Status=OptimOK)
           ! if (.not. OptimOK) then
           !   write(STDERR, "(a)") " ERROR: Optimisation failed!"
           !   write(STDERR, "(a)") " "
@@ -5780,13 +5801,12 @@ module AlphaMateModule
 
           ! Search
           if (trim(Spec%EvolAlg) .eq. "DE") then
-            call GetSeed(Out=Seed)
             call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, Init=InitChrom, &
               nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint, &
               LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
               CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate1=Spec%DiffEvolParamCr1, CRLate2=Spec%DiffEvolParamCr2, &
               FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
-              Seed=Seed, BestSol=Sol)!, Status=OptimOK)
+              Stream=AlphaMateStream, BestSol=Sol)!, Status=OptimOK)
             ! if (.not. OptimOK) then
             !   write(STDERR, "(a)") " ERROR: Optimisation failed!"
             !   write(STDERR, "(a)") " "
@@ -5997,13 +6017,12 @@ module AlphaMateModule
 
           ! Search
           if (trim(Spec%EvolAlg) .eq. "DE") then
-            call GetSeed(Out=Seed)
             call DifferentialEvolution(Spec=Spec, Data=Data, nParam=nParam, nSol=Spec%EvolAlgNSol, Init=InitChrom, &
               nIter=Spec%EvolAlgNIter, nIterBurnIn=Spec%DiffEvolNIterBurnIn, nIterStop=Spec%EvolAlgNIterStop, StopTolerance=Spec%EvolAlgStopTol, nIterPrint=Spec%EvolAlgNIterPrint, &
               LogStdout=LogStdoutInternal, LogFile=LogFile, LogPop=Spec%EvolAlgLogPop, LogPopFile=LogPopFile, &
               CRBurnIn=Spec%DiffEvolParamCrBurnIn, CRLate1=Spec%DiffEvolParamCr1, CRLate2=Spec%DiffEvolParamCr2, &
               FBase=Spec%DiffEvolParamFBase, FHigh1=Spec%DiffEvolParamFHigh1, FHigh2=Spec%DiffEvolParamFHigh2, &
-              Seed=Seed, BestSol=Sol)!, Status=OptimOK)
+              Stream=AlphaMateStream, BestSol=Sol)!, Status=OptimOK)
             ! if (.not. OptimOK) then
             !   write(STDERR, "(a)") " ERROR: Optimisation failed!"
             !   write(STDERR, "(a)") " "
