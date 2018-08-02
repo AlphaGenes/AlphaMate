@@ -48,12 +48,12 @@
 !
 !> @date      2018-01-15
 !
-!> @version  0.1.0 (alpha)
+!> @version  0.2.0 (alpha)
 !
 !-------------------------------------------------------------------------------
 
 program AlphaMate
-  use ISO_Fortran_env, STDIN => input_unit, STDOUT => output_unit, STDERR => error_unit
+  use Iso_Fortran_Env, STDOUT => output_unit
   use ConstantModule, only : FILELENGTH
   use AlphaHouseMod, only : PrintCpuTime, PrintElapsedTime, PrintDateTime
   use AlphaMateModule
@@ -70,15 +70,15 @@ program AlphaMate
   call AlphaMateTitle
   write(STDOUT, "(a)") ""
   call PrintDateTime
-  call cpu_time(CpuStartTime)
-  call system_clock(count_rate=ClockRate, count_max=ClockMax)
-  call system_clock(count=ClockStartCount)
+  call Cpu_Time(CpuStartTime)
+  call System_Clock(count_rate=ClockRate, count_max=ClockMax)
+  call System_Clock(count=ClockStartCount)
 
   write(STDOUT, "(a)") ""
   write(STDOUT, "(a)") " --- Specifications ---"
   nArg = command_argument_count()
   if (nArg .gt. 0) then
-    call get_command_argument(1, SpecFile)
+    call Get_Command_Argument(1, SpecFile)
   else
     SpecFile = "AlphaMateSpec.txt"
   end if
@@ -104,9 +104,9 @@ program AlphaMate
   write(STDOUT, "(a)") ""
   call PrintDateTime
   write(STDOUT, "(a)") ""
-  call cpu_time(CpuEndTime)
+  call Cpu_Time(CpuEndTime)
   call PrintCpuTime(CpuStartTime, CpuEndTime)
-  call system_clock(count=ClockEndCount)
+  call System_Clock(count=ClockEndCount)
   call PrintElapsedTime(Start=ClockStartCount, End=ClockEndCount, Rate=ClockRate, Max=ClockMax)
   write(STDOUT, "(a)") ""
   call AlphaMateTitle
