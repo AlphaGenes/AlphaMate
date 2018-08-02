@@ -4911,9 +4911,6 @@ module AlphaMateModule
               ! --- Selection criterion ---
               ! Note that dot_product() is faster than dot() when called MANY times!
 
-call Spec%Write
-call This%Write
-pause
               if (Spec%SelCriterionGiven) then
                 This%SelCriterionStd = dot_product(dble(This%nVec), Data%SelCriterionStd) / (2 * Spec%nMat)
                 if (Spec%PAGEPar) then
@@ -4924,13 +4921,13 @@ pause
                 This%SelCriterion = This%SelCriterionStd * Data%SelCriterionStat%Sd + Data%SelCriterionStat%Mean
 
                 ! Inlined SelCriterionStd2MaxCriterionPct START
-                Diff = This%SelCriterionStd - Spec%ModeMinCoancestrySpec%SelCriterionStd
+                Diff    =                      This%SelCriterionStd - Spec%ModeMinCoancestrySpec%SelCriterionStd
                 MaxDiff = Spec%ModeMaxCriterionSpec%SelCriterionStd - Spec%ModeMinCoancestrySpec%SelCriterionStd
                 if (MaxDiff .eq. 0) then
                   if (Diff .ge. 0) then
                     This%MaxCriterionPct = 100.0d0
                   else
-                    This%MaxCriterionPct = 0.0d0
+                    This%MaxCriterionPct =   0.0d0
                   end if
                   ! Not sure about the above fix, but the logic is that if MaxDiff is zero,
                   ! then whatever positive (or negative) Diff we get, we achieve 100% (or 0%).
@@ -4949,15 +4946,9 @@ pause
                   end if
                 end if
                 ! Handle beyond the nadir point case so that degree calculation will be meaningful
-print*,"Really?"
-call Spec%Write
-call This%Write
-print*,Diff,MaxDiff
-print*,This%MaxCriterionPct
-                if (This%MaxCriterionPct .lt. 0.0d0) then
+                if (.not. IsNaN(This%MaxCriterionPct) .and. (This%MaxCriterionPct .lt. 0.0d0)) then
                   This%MaxCriterionPct = 0.0d0
                 end if
-print*,"Really?"
                 ! @todo Should we handle also cases above 100%?
                 ! @todo Should we modify Spec%ModeMaxCriterionSpec and Spec%ModeMinCoancestrySpec on the fly?
               end if
@@ -5032,7 +5023,7 @@ print*,"Really?"
                 if (Diff .ge. 0) then
                   This%MinCoancestryPct = 100.0d0
                 else
-                  This%MinCoancestryPct = 0.0d0
+                  This%MinCoancestryPct =   0.0d0
                 end if
                 ! Not sure about the above fix, but the logic is that if MaxDiff is zero,
                 ! then whatever positive (or negative) Diff we get, we achieve 100% (or 0%).
@@ -5042,7 +5033,7 @@ print*,"Really?"
               ! Inlined CoancestryRate2MinCoancestryPct STOP
 
               ! Handle beyond the nadir point case so that degree calculation will be meaningful
-              if (This%MinCoancestryPct .lt. 0.0d0) then
+              if (.not. IsNaN(This%MinCoancestryPct) .and. (This%MinCoancestryPct .lt. 0.0d0)) then
                 This%MinCoancestryPct = 0.0d0
               end if
               ! @todo Should we handle also cases above 100%?
@@ -5180,7 +5171,7 @@ print*,"Really?"
                   if (Diff .ge. 0) then
                     This%MinInbreedingPct = 100.0d0
                   else
-                    This%MinInbreedingPct = 0.0d0
+                    This%MinInbreedingPct =   0.0d0
                   end if
                   ! Not sure about the above fix, but the logic is that if MaxDiff is zero,
                   ! then whatever positive (or negative) Diff we get, we achieve 100% (or 0%).
