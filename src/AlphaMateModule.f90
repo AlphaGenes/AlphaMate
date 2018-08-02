@@ -52,7 +52,7 @@
 !
 !-------------------------------------------------------------------------------
 module AlphaMateModule
-  use ISO_Fortran_Env, STDIN => input_unit, STDOUT => output_unit, STDERR => error_unit
+  use ISO_Fortran_Env, STDOUT => output_unit, STDERR => error_unit
   use, intrinsic :: IEEE_Arithmetic
   use ConstantModule, only : FILELENGTH, SPECOPTIONLENGTH, IDLENGTH, RAD2DEG, DEG2RAD
   use OrderPackModule, only : MrgRnk, RapKnr
@@ -61,13 +61,14 @@ module AlphaMateModule
                             RandomOrder, GetSeed, SetSeed, ToLower, &
                             ParseToFirstWhitespace, SplitLineIntoTwoParts
   use HashModule
+  use IntelRngMod, only : IntitialiseIntelRng, SampleIntelUniformD
   use AlphaStatMod, only : Mean, StdDev, DescStat, DescStatReal64, &
                            DescStatMatrix, DescStatLowTriMatrix, DescStatMatrixReal64
   use AlphaEvolveModule, only : AlphaEvolveSol, AlphaEvolveSpec, AlphaEvolveData, &
                                 DifferentialEvolution, RandomSearch
   use AlphaRelateModule
   use Blas95, only : dot , symv
-  use OMP_Lib
+  use Omp_Lib
 
   implicit none
 
@@ -4048,19 +4049,19 @@ module AlphaMateModule
     !###########################################################################
 
     !---------------------------------------------------------------------------
-    !> @brief  Setup AlphaMate system (seed and paralelisation)
+    !> @brief  Setup AlphaMate system (seeed, random number generator, and paralelisation)
     !> @author Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
     !> @date   July 14, 2018
-    !> @return Seed value and paralelisation setup
+    !> @return Seed, random number generator, and paralelisation setup
     !---------------------------------------------------------------------------
-    subroutine AlphaMateSystem(Spec, LogStdout) ! not pure due to IO
+    subroutine AlphaMateSystem(Spec, LogStdout) ! not pure due to IO and RNG
       implicit none
       type(AlphaMateSpec), intent(inout) :: Spec !< AlphaMateSpec holder (inout because we save some info in Spec that
       logical, optional                  :: LogStdout !< Log process on stdout (default .false.)
 
       integer(int32) :: Unit, nProcs, EnvVarStatus
 
-      character(len = 4) :: EnvVarOMP_NUM_THREADS
+      character(len = 4) :: EnvVarOmp_Num_Threads
 
       logical :: LogStdoutInternal
       if (present(LogStdout)) then
@@ -4073,10 +4074,14 @@ module AlphaMateModule
         write(STDOUT, "(a)") " "
       end if
 
-      ! --- Seed ---
+      ! --- System/Compiler Seed and Random Number Generator ---
 
+      ! This part gets or sets seed for system/compiler random number generator. While AlphaMate
+      ! uses Intel random number generator, it is handy to get a "random" seed, when seed is not
+      ! specified by the user. Further, setting system/compiler seed enforces reproducibility in
+      ! case random_number() would be used anywhere in the code.
       if (.not. (Spec%SeedGiven .or. Spec%SeedFileGiven)) then
-        call SetSeed(Out=Spec%Seed) ! get a system value
+        call SetSeed(Out=Spec%Seed) ! get a random seed from the system/compiler
         write(STDOUT, "(a)") " RNG seed (system): "//trim(Int2Char(Spec%Seed))
       else
         if ((.not. Spec%SeedGiven) .and. Spec%SeedFileGiven) then
@@ -4084,7 +4089,7 @@ module AlphaMateModule
           read(Unit, *) Spec%Seed
           close(Unit)
         end if
-        call SetSeed(Seed=Spec%Seed) ! set to a given value
+        call SetSeed(Seed=Spec%Seed) ! set user specified seed
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " RNG seed (specified): "//trim(Int2Char(Spec%Seed))
         end if
@@ -4093,25 +4098,29 @@ module AlphaMateModule
       write(Unit, *) Spec%Seed
       close(Unit)
 
+      ! --- Intel Random Number Generator ---
+
+      call IntitialiseIntelRng(Seed=Spec%Seed) ! This uses IntelRng module (internal) stream
+
       ! --- Processors & Threads ---
 
       nProcs = OMP_GET_NUM_PROCS()
       if (LogStdoutInternal) then
         write(STDOUT, "(a)") " Number of system processors: "//trim(Int2Char(nProcs))
       end if
-      call get_environment_variable(name="OMP_NUM_THREADS", value=EnvVarOMP_NUM_THREADS, status=EnvVarStatus)
+      call get_environment_variable(name="OMP_NUM_THREADS", value=EnvVarOmp_Num_Threads, status=EnvVarStatus)
       if (EnvVarStatus .eq. 0) then
-        write(STDOUT, "(a)") " Number of available threads (via OMP_NUM_THREADS variable): "//trim(EnvVarOMP_NUM_THREADS)
+        write(STDOUT, "(a)") " Number of available threads (via the OMP_NUM_THREADS variable): "//trim(EnvVarOmp_Num_Threads)
       end if
       if (Spec%nThreadsGiven) then
         if (LogStdoutInternal) then
           if (EnvVarStatus .eq. 0) then
-            write(STDOUT, "(a)") " Number of specified threads (overrules OMP_NUM_THREADS variable): "//trim(Int2Char(Spec%nThreads))
+            write(STDOUT, "(a)") " Number of specified threads (overrules the OMP_NUM_THREADS variable): "//trim(Int2Char(Spec%nThreads))
           else
             write(STDOUT, "(a)") " Number of specified threads: "//trim(Int2Char(Spec%nThreads))
           end if
         end if
-        call OMP_SET_NUM_THREADS(Spec%nThreads)
+        call Omp_Set_Num_Threads(Spec%nThreads)
       else
       end if
 
@@ -4405,7 +4414,7 @@ module AlphaMateModule
       class(AlphaEvolveSpec), intent(in)           :: Spec     !< AlphaEvolveSpec --> AlphaMateSpec holder
       class(AlphaEvolveData), intent(in), optional :: Data     !< AlphaEvolveData --> AlphaMateData holder
 
-      real(real64),intent(in), optional :: Random !< random number 
+      real(real64),intent(in), optional :: Random !< random number
       ! Other
       integer(int32) :: i, j, k, l, GenderMode, Start, End, nCumMat, TmpMin, TmpMax, TmpI
       integer(int32), allocatable :: Rank(:), MatPar2(:), nVecPar1(:)
@@ -4415,9 +4424,10 @@ module AlphaMateModule
 
       type(AlphaMateChrom) :: SChrom
 
-      if (present(Random)) then 
+      ! @todo IntelRNG - this is a hack/bug as we need multiple random values!!!!!
+      if (present(Random)) then
         RanNum = Random
-      else 
+      else
         call RANDOM_NUMBER(RanNum)
       endif
       select type (Spec)
@@ -4600,7 +4610,7 @@ module AlphaMateModule
                 ! ... Spec%nMat still not reached?
                 do while (nCumMat .lt. Spec%nMat * GenderMode)
                   ! ... add more contributions to randomly chosen individuals
-                  i = int(RanNum * Spec%nPar1) + 1
+                  i = int(RanNum * Spec%nPar1) + 1 ! @todo IntelRNG
                   j = Rank(i)
                   if (nint(SChrom%ContPar1(j) + 1.0d0) .le. Spec%LimitPar1Max) then ! make sure we do not go above max
                     SChrom%ContPar1(j) = SChrom%ContPar1(j) + 1.0d0
@@ -4715,7 +4725,7 @@ module AlphaMateModule
                   ! ... Spec%nMat still not reached?
                   do while (nCumMat .lt. Spec%nMat)
                     ! ... add more contributions to randomly chosen individuals
-                    i = int(RanNum * Spec%nPar2) + 1
+                    i = int(RanNum * Spec%nPar2) + 1 ! @todo IntelRNG
                     j = Rank(i)
                     if (nint(SChrom%ContPar2(j) + 1.0d0) .le. Spec%LimitPar2Max) then ! make sure we do not go above max
                       SChrom%ContPar2(j) = SChrom%ContPar2(j) + 1.0d0
@@ -4792,7 +4802,7 @@ module AlphaMateModule
                   end do
                   ! Reorder parent2 contributions according to the rank of matings
                   if (Spec%RandomMateAllocation) then
-                    Rank(1:Spec%nMat) = RandomOrder(n=Spec%nMat)
+                    Rank(1:Spec%nMat) = RandomOrder(n=Spec%nMat) ! @todo IntelRNG
                   else
                     Rank(1:Spec%nMat) = MrgRnk(SChrom%MateRank) ! MrgRnk ranks small to large
                   end if
@@ -4804,7 +4814,7 @@ module AlphaMateModule
                     do i = 1, Data%nPotPar1 ! need to loop all individuals as some do not contribute
                       l = This%nVec(Data%IdPotPar1(i)) / 2
                       if (mod(This%nVec(Data%IdPotPar1(i)), 2) .eq. 1) then
-                        if (RanNum .gt. 0.5) then
+                        if (RanNum .gt. 0.5) then ! @todo IntelRNG
                           l = l + 1
                         end if
                       end if
@@ -4820,7 +4830,7 @@ module AlphaMateModule
                   end do
                   ! Reorder one half of contributions according to the rank of matings
                   if (Spec%RandomMateAllocation) then
-                    Rank(1:Spec%nMat) = RandomOrder(n=Spec%nMat)
+                    Rank(1:Spec%nMat) = RandomOrder(n=Spec%nMat) ! @todo IntelRNG
                   else
                     Rank(1:Spec%nMat) = MrgRnk(SChrom%MateRank) ! MrgRnk ranks small to large
                   end if
@@ -5290,10 +5300,10 @@ module AlphaMateModule
 
       type(AlphaMateSol) :: SolMinCoancestry, SolMinInbreeding, SolMaxCriterion, Sol !< For frontier modes and random mating (no optimisation) mode
 
-      integer(int32) :: nParam, Point, iSol, Target, Unit, Seed
+      integer(int32) :: nParam, Point, iSol, Target, Unit, Seed, nRanNum, RanNumLoc ! @todo IntelRNG for seed!!!!
 
-      real(real32) :: RanNum, Tmp
-      real(real64), allocatable :: InitChrom(:, :), AvgCoancestryStd(:), SelCriterionStd(:)
+      real(real32) :: Tmp
+      real(real64), allocatable :: RanNum(:), InitChrom(:, :), AvgCoancestryStd(:), SelCriterionStd(:)
 
       logical :: LogStdoutInternal !, OptimOK
 
@@ -5345,9 +5355,17 @@ module AlphaMateModule
         end if
       end if
 
-      allocate(InitChrom(nParam, Spec%EvolAlgNSol))
+      ! Presample random numbers
+      nRanNum = 10 * Spec%EvolAlgNSol
+      allocate(RanNum(nRanNum))
+      RanNum = SampleIntelUniformD(n=nRanNum)
+      RanNumLoc = 0
+
       ! Distribute contributions, ranks, ... at random (exact values not important as we use ranks to get top values in evaluate)
-      call random_number(InitChrom)
+      allocate(InitChrom(nParam, Spec%EvolAlgNSol))
+      do iSol = 1, Spec%EvolAlgNSol
+        InitChrom(:, iSol) = SampleIntelUniformD(n=nParam)
+      end do
 
       ! --- Standardized average coancestry ---
 
@@ -5412,8 +5430,11 @@ module AlphaMateModule
         InitChrom(1:Data%nPotPar, iSol) = AvgCoancestryStd
         ! ... noiser solutions
         do iSol = iSol + 1, Spec%EvolAlgNSol
-          call random_number(RanNum)
-          if (RanNum .lt. 0.75) then ! keep 25% of purely random solution
+          RanNumLoc = RanNumLoc + 1
+          if (RanNumLoc .gt. nRanNum) then
+            RanNumLoc = 1
+          end if
+          if (RanNum(RanNumLoc) .lt. 0.75) then ! keep 25% of purely random solution
             ! Multiply by standardized average coancestry to boost less related individuals
             InitChrom(1:Data%nPotPar, iSol) = InitChrom(1:Data%nPotPar, iSol) * AvgCoancestryStd
           end if
@@ -5489,8 +5510,11 @@ module AlphaMateModule
         InitChrom(1:Data%nPotPar, iSol) = AvgCoancestryStd
         ! ... noiser solutions
         do iSol = iSol + 1, Spec%EvolAlgNSol
-          call random_number(RanNum)
-          if (RanNum .lt. 0.75) then ! keep 25% of purely random solution
+          RanNumLoc = RanNumLoc + 1
+          if (RanNumLoc .gt. nRanNum) then
+            RanNumLoc = 1
+          end if
+          if (RanNum(RanNumLoc) .lt. 0.75) then ! keep 25% of purely random solution
             ! Multiply by standardized average coancestry to boost less related individuals
             InitChrom(1:Data%nPotPar, iSol) = InitChrom(1:Data%nPotPar, iSol) * AvgCoancestryStd
           end if
@@ -5576,8 +5600,11 @@ module AlphaMateModule
         InitChrom(1:Data%nPotPar, iSol) = SelCriterionStd
         ! ... noiser solutions
         do iSol = iSol + 1, Spec%EvolAlgNSol
-          call random_number(RanNum)
-          if (RanNum .lt. 0.75) then ! keep 25% of purely random solution
+          RanNumLoc = RanNumLoc + 1
+          if (RanNumLoc .gt. nRanNum) then
+            RanNumLoc = 1
+          end if
+          if (RanNum(RanNumLoc) .lt. 0.75) then ! keep 25% of purely random solution
             ! Multiply by standardized selection criterion to boost better individuals
             InitChrom(1:Data%nPotPar, iSol) = InitChrom(1:Data%nPotPar, iSol) * SelCriterionStd
           end if
@@ -5696,17 +5723,29 @@ module AlphaMateModule
           ! ... noiser solutions
           Tmp = (100.0 - 100.0/90.0 * TARGETDEGREEFRONTIER(Point)) / 100.0
           do iSol = iSol + 1, Spec%EvolAlgNSol
-            call random_number(RanNum)
-            if (RanNum .lt. 0.75) then ! keep 25% of purely random solution
-              call random_number(RanNum)
-              if (RanNum .lt. Tmp) then
-                call random_number(RanNum)
-                if (RanNum .lt. 0.5 .and. Point .gt. 1) then
+            RanNumLoc = RanNumLoc + 1
+            if (RanNumLoc .gt. nRanNum) then
+              RanNumLoc = 1
+            end if
+            if (RanNum(RanNumLoc) .lt. 0.75) then ! keep 25% of purely random solution
+              RanNumLoc = RanNumLoc + 1
+              if (RanNumLoc .gt. nRanNum) then
+                RanNumLoc = 1
+              end if
+              if (RanNum(RanNumLoc) .lt. Tmp) then
+                RanNumLoc = RanNumLoc + 1
+                if (RanNumLoc .gt. nRanNum) then
+                  RanNumLoc = 1
+                end if
+                if (RanNum(RanNumLoc) .lt. 0.5 .and. Point .gt. 1) then
                   ! Multiply by the previous target solution
                   InitChrom(:, iSol) =                  InitChrom(:, iSol) * Sol%Chrom
                 else
-                  call random_number(RanNum)
-                  if (RanNum .lt. 0.5) then
+                  RanNumLoc = RanNumLoc + 1
+                  if (RanNumLoc .gt. nRanNum) then
+                    RanNumLoc = 1
+                  end if
+                  if (RanNum(RanNumLoc) .lt. 0.5) then
                     ! Multiply by standardized selection criterion to boost better individuals
                     InitChrom(1:Data%nPotPar, iSol) =   InitChrom(1:Data%nPotPar, iSol) * SelCriterionStd
                   else
@@ -5715,13 +5754,19 @@ module AlphaMateModule
                   end if
                 end if
               else
-                call random_number(RanNum)
-                if (RanNum .lt. 0.5 .and. Point .gt. 1) then
+                RanNumLoc = RanNumLoc + 1
+                if (RanNumLoc .gt. nRanNum) then
+                  RanNumLoc = 1
+                end if
+                if (RanNum(RanNumLoc) .lt. 0.5 .and. Point .gt. 1) then
                   ! Multiply by the previous target solution
                   InitChrom(:, iSol) =                  InitChrom(:, iSol) * Sol%Chrom
                 else
-                  call random_number(RanNum)
-                  if (RanNum .lt. 0.5) then
+                  RanNumLoc = RanNumLoc + 1
+                  if (RanNumLoc .gt. nRanNum) then
+                    RanNumLoc = 1
+                  end if
+                  if (RanNum(RanNumLoc) .lt. 0.5) then
                     ! Multiply by product to boost better that are less individuals (note the - in front!)
                     InitChrom(1:Data%nPotPar, iSol) = - InitChrom(1:Data%nPotPar, iSol) * SelCriterionStd * AvgCoancestryStd
                   else
@@ -5913,12 +5958,21 @@ module AlphaMateModule
             Tmp = 0.5
           end if
           do iSol = iSol + 1, Spec%EvolAlgNSol
-            call random_number(RanNum)
-            if (RanNum .lt. 0.75) then ! keep 25% of purely random solution
-              call random_number(RanNum)
-              if (RanNum .lt. Tmp) then
-                call random_number(RanNum)
-                if (RanNum .lt. 0.5) then
+            RanNumLoc = RanNumLoc + 1
+            if (RanNumLoc .gt. nRanNum) then
+              RanNumLoc = 1
+            end if
+            if (RanNum(RanNumLoc) .lt. 0.75) then ! keep 25% of purely random solution
+              RanNumLoc = RanNumLoc + 1
+              if (RanNumLoc .gt. nRanNum) then
+                RanNumLoc = 1
+              end if
+              if (RanNum(RanNumLoc) .lt. Tmp) then
+                RanNumLoc = RanNumLoc + 1
+                if (RanNumLoc .gt. nRanNum) then
+                  RanNumLoc = 1
+                end if
+                if (RanNum(RanNumLoc) .lt. 0.5) then
                   ! Multiply by standardized selection criterion to boost better individuals
                   InitChrom(1:Data%nPotPar, iSol) =   InitChrom(1:Data%nPotPar, iSol) * SelCriterionStd
                 else
@@ -5926,8 +5980,11 @@ module AlphaMateModule
                   InitChrom(1:Data%nPotPar, iSol) = - InitChrom(1:Data%nPotPar, iSol) * SelCriterionStd * AvgCoancestryStd
                 end if
               else
-                call random_number(RanNum)
-                if (RanNum .lt. 0.5) then
+                RanNumLoc = RanNumLoc + 1
+                if (RanNumLoc .gt. nRanNum) then
+                  RanNumLoc = 1
+                end if
+                if (RanNum(RanNumLoc) .lt. 0.5) then
                   ! Multiply by product to boost better that are less individuals (note the - in front!)
                   InitChrom(1:Data%nPotPar, iSol) = - InitChrom(1:Data%nPotPar, iSol) * SelCriterionStd * AvgCoancestryStd
                 else
