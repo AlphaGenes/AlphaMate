@@ -75,9 +75,9 @@ Optimisation is performed with an evolutionary algorithm based on differential e
 
 Optimisation works with mating plans, which |AM| encodes as proposed by Kinghorn and Shepherd (1999). |AM| ensures that mating plans are valid in two ways. First, |AM| fixes encoded representation, e.g., it trims contributions to user defined limits and round them to integer values (Lampinen and Zelinka, 1999). Second, when fixing is not sufficient, |AM| penalizes invalid mating plan so that evolutionary algorithm advances (more) valid mating plans.
 
-A note on the reproducibility of results. |AM| uses an evolutionary algorithm, which can give different solutions in repeated runs. We find however, that the results do not vary a lot between runs, provided that convergence has been achieved (see `Optimisation controls`_). By default |AM| reports the used random number generator seed value - it is shown on terminal output and saved on disk (see `Used seed`_). To ensure reproducibility users can fix the seed via `SeedFile`_ or `Seed`_ specifications. Note the known `Seed bug with paralelisation`_.
+A note on the reproducibility of results. |AM| uses an evolutionary algorithm, which can give different solutions in repeated runs. We find however, that the results do not vary a lot between runs, provided that convergence has been achieved (see `Optimisation controls`_). By default |AM| reports the used random number generator seed value - it is shown on terminal output and saved on disk (see `Used seed`_). To ensure reproducibility users can fix the seed via `SeedFile`_ or `Seed`_ specifications.
 
-A note about the speed and scaling of |AM| with large populations. |AM| finds good solutions quickly for applications with up to a couple of thousands of individuals. When the number of individuals is larger than this, |AM| has to evaluate a very large number of combinations and optimisation takes a long time. There are several options to speed-up this optimisation. One option is to use multiple processors to paralelise optimisation (see `NumberOfThreads`_). Another option is to pre-select individuals (see `Preselect`_), which you can do yourself or use an |AM| specification that accounts for this pre-selection in further optimisation, albeit at a higher computational cost. Yet another option is to tweak optimisation controls (see `Optimisation controls`_). Work on a scalable solution is in progress.
+A note about the speed and scaling of |AM| with large populations. |AM| finds good solutions quickly for applications with up to a couple of thousands of individuals. When the number of individuals is larger than this, |AM| has to evaluate a very large number of combinations and optimisation takes a long time. There are several options to speed-up this optimisation. One option is to use multiple processors to paralelise optimisation (see `NumberOfThreads`_). Another option is to pre-select individuals (see `Preselect`_), which you can do yourself and accordingly modify input files or use an |AM| specification that accounts for this pre-selection in further optimisation, albeit at a higher computational cost. Yet another option is to tweak optimisation controls (see `Optimisation controls`_). Work on further solutions is in progress.
 
 Run command
 =========================================================================================
@@ -1050,7 +1050,7 @@ SeedFile
   SeedFile , [String]
   SeedFile , Seed.txt
 
-SeedFile specifies a file that contains a single value used as a seed for random number generator. Note the known `Seed bug with paralelisation`_.
+SeedFile specifies a file that contains a single value used as a seed for random number generator.
 
 Seed
 ^^^^
@@ -1060,7 +1060,7 @@ Seed
   Seed , [Value]
   Seed , 0.5
 
-Seed specifies a single value used as a seed for random number generator. Note the known `Seed bug with paralelisation`_.
+Seed specifies a single value used as a seed for random number generator.
 
 NumberOfThreads
 ^^^^^^^^^^^^^^^
@@ -1070,7 +1070,7 @@ NumberOfThreads
   NumberOfThreads , [Value]
   NumberOfThreads , 4
 
-NumberOfThreads specifies how many threads should be used for paralelisation. |AM| uses the OpenMP system to paralelise some tasks. Default is to use all available resources, i.e., the number of threads equals the number of processors. Note that the environmental variable ``OMP_NUM_THREADS`` sets an upper limit on resources. You can set this variable as shown below. The NumberOfThreads specifications overrules this variable.
+NumberOfThreads specifies how many threads should be used for paralelisation. |AM| uses the OpenMP system to paralelise some calculations. Default is to use all available resources, i.e., the number of threads equals the number of processors. Note that the environmental variable ``OMP_NUM_THREADS`` sets an upper limit on resources. You can set this variable in a system terminal by typing in a command shown below. The NumberOfThreads specifications overrules this variable.
 
 ::
 
@@ -1147,7 +1147,7 @@ The files with basename *OptimisationLogPopMode* report all the evaluated soluti
 Used seed
 ---------
 
-The used seed to initiate the random number generator stream is saved in the file *SeedUsed.txt*. This file can be used as input for specification `SeedFile`_ to repeat the same optimisation. Alternatively the saved seed value can be used as input for specification `Seed`_. Note the `Seed bug with paralelisation`_.
+The used seed to initiate the random number generator stream is saved in the file *SeedUsed.txt*. This file can be used as input for specification `SeedFile`_ to repeat the same optimisation. Alternatively the saved seed value can be used as input for specification `Seed`_.
 
 Utilities
 =========================================================================================
@@ -1417,9 +1417,10 @@ References
 Known issues/bugs
 -----------------
 
-Below is a list of known issues or bugs, that we have not (yet) found a way to solve. They might get solved eventually.
+There are currently no known issues and hopefully no bugs. Please report errors to the authors.
 
-Seed bug with paralelisation
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..
+  Below is a list of known issues or bugs, that we have not (yet) found a way to solve. They might get solved eventually.
 
-Specifications `Seed`_ or `SeedFile`_ can be used to fix the random number generator seed value to obtain reproducible results. However, results are not reproducible when paralelisation is used (see `NumberOfThreads`_), though they are valid!
+  IssueX
+  ^^^^^^
