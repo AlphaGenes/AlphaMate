@@ -28,7 +28,7 @@ Conditions of use
 
 Suggested Citation:
 
-Gorjanc, G, Hickey, JM (2018). *AlphaMate: a program for optimising selection, maintenance of diversity, and mate allocation in breeding programs*. bioRxiv 250837; doi: `http://doi.org/10.1101/10.1101/250837 <http://doi.org/10.1101/10.1101/250837>`_.
+Gorjanc, G, Hickey, JM (2018). *AlphaMate: a program for optimising selection, maintenance of diversity, and mate allocation in breeding programs*. Bioinformatics bty375; doi: `https://doi.org/10.1093/bioinformatics/bty375 <https://doi.org/10.1093/bioinformatics/bty375>`_.
 
 Disclaimer
 ----------
