@@ -2221,14 +2221,12 @@ module AlphaMateModule
         This%ModeOpt = .true.
       end if
 
-
       if (.not. (This%ModeMinCoancestry .or. &
                  This%ModeMinInbreeding .or. &
                  This%ModeMaxCriterion  .or. &
-                 This%ModeOpt           .or. &
-                 This%ModeRan)) then
+                 This%ModeRan           .or. &
+                 This%ModeOpt)) then
         write(STDERR, "(a)") " ERROR: One of the modes must be activated!"
-        ! write(STDERR, "(a)") " ERROR: ModeMinCoancestry, ModeMinInbreeding, ModeMaxCriterion, ModeOpt, or ModeRan"
         write(STDERR, "(a)") " ERROR: ModeMinCoancestry, ModeMinInbreeding, ModeMaxCriterion, or ModeOpt"
         write(STDERR, "(a)") " "
         stop 1
@@ -2237,7 +2235,8 @@ module AlphaMateModule
       if (This%ModeOpt .and. .not. (This%TargetDegreeGiven       .or. &
                                     This%TargetSelCriterionGiven .or. This%TargetSelCriterionStdGiven .or. This%TargetMaxCriterionPctGiven  .or. &
                                     This%TargetCoancestryGiven   .or. This%TargetCoancestryRateGiven  .or. This%TargetMinCoancestryPctGiven .or. &
-                                    This%TargetInbreedingGiven   .or. This%TargetInbreedingRateGiven  .or. This%TargetMinInbreedingPctGiven)) then
+                                    This%TargetInbreedingGiven   .or. This%TargetInbreedingRateGiven  .or. This%TargetMinInbreedingPctGiven .or. &
+                                    This%EvaluateFrontier)) then
         write(STDERR, "(a)") " ERROR: One of targets must be provided when ModeOpt is activated!"
         write(STDERR, "(a)") " ERROR: TargetDegree,"
         write(STDERR, "(a)") " ERROR: TargetSelCriterion, TargetSelCriterionStd,    TargetMaxCriterionPct,"
