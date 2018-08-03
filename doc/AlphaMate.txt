@@ -12,7 +12,7 @@
 Introduction
 =========================================================================================
 
-|AM| is a program for optimising selection, maintenance of diversity, and mate allocation in breeding programs. This optimisation finds which individuals should contribute to the next generation and potentially how should these individuals be mated / crossed to deliver desired targets. |AM| works with animal and self- and cross-pollinating plant populations.
+|AM| is a program for optimising selection, maintenance of diversity, and mate allocation in breeding programs. This optimisation finds which individuals should contribute to the next generation and potentially how should these individuals be mated / crossed to deliver desired targets. |AM| can be used for a range of breeding programs (animal, self- and cross-pollinating crops, trees, fish, ...).
 
 Please report bugs or suggestions on how the program / user interface / manual could be improved or made more user friendly to Gregor Gorjanc (`Gregor.Gorjanc@roslin.ed.ac.uk <Gregor.Gorjanc@roslin.ed.ac.uk>`_) or John Hickey (`John.Hickey@roslin.ed.ac.uk <John.Hickey@roslin.ed.ac.uk>`_).
 
@@ -47,7 +47,7 @@ General overview
 
 |AM| optimises selection, maintenance of diversity, and mate allocation in breeding programs. It achieves this by jointly optimising contributions and mate allocations. Mate allocation is optional, but turned on by default. The goal of this optimisation is to find a **valid mating plan** (i.e., which individuals contribute and how they are mated / crossed) that delivers **desired targets**. This is achieved with an evolutionary optimisation of a single objective or multiple objectives simultaneously.
 
-A **valid mating plan** is defined by a combination of mating constraints (see `Mating constraints`_), which cover reproductive systems in animals and cross- and self-pollinating plants:
+A **valid mating plan** is defined by a combination of mating constraints (see `Mating constraints`_), which cover reproductive systems in various species:
 
 i) the number of matings,
 ii) the maximal number of parents,
@@ -284,7 +284,7 @@ GenericMatingCriterionColumns specifies how many columns from the `GenericMating
 Mating constraints
 -----------------------------------------------------------------------------------------
 
-Mating constraints can be gender specific or generic to accommodate different reproductive systems in animals and cross- or self-pollinating plants (see `GenderFile`_). A user can specify all the mating constraints or a subset of them depending on the objective of optimisation and biologic or logistic reasons.
+Mating constraints can be gender specific or generic to accommodate different reproductive systems in various species (see `GenderFile`_). A user can specify all the mating constraints or a subset of them depending on the objective of optimisation and biologic or logistic reasons.
 
 NumberOfMatings
 ^^^^^^^^^^^^^^^
