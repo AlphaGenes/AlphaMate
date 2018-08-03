@@ -38,7 +38,7 @@ prepareCriterionForAlphaMate = function(pop, popEdited = NULL, file) {
 }
 
 prepareNrmForAlphaMate = function(pop, file, snpChip = 1) {
-  MASS::write.matrix(x = cbind(pop@id, calcGIbs(X = pullSnpGeno(pop = pop, snpChip = snpChip))),
+  MASS::write.matrix(x = cbind(pop@id, AlphaMME::calcGIbs(X = pullSnpGeno(pop = pop, snpChip = snpChip))),
                      file = file)
 }
 
