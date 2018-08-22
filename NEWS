@@ -1,15 +1,14 @@
 
 v0.2.0 2018-??-??
   IMPROVEMENTS
-  * Faster optimisation via paralelisation (OMP). The animal example is about 4-6x
-    faster with 8 cores.
+  * Faster optimisation via paralelisation. The animal example is about 7x faster
+    with 8 cores.
 
   * Faster data input/preparation. The animal example is ~3x faster. Larger cases
     will see more gain.
 
   BUGFIXES
-  * Now we actually do set random number generator seed value. However, it does
-    not give reproducible results with paralelisation.
+  * Now we properly set random number generator seed value.
 
 v0.1.1 2018-07-03
   IMPROVEMENTS

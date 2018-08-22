@@ -4,8 +4,6 @@
 
 * Is ModeRan any good?
 
-* Write manual
-
 --- BIOLOGICAL CONSIDERATIONS ---
 
 * Check the mate-allocation driver (all the sorting etc. is confusing)
@@ -125,24 +123,7 @@ Pareto front calculations
 
 --- COMPUTATIONAL CONSIDERATIONS ---
 
-* FindLoc is slow on large dataset due to O(n^2). Can we get a better solution for it, e.g., hashing.
-
 * Single precision to cut down CPU. Single precision should be fine for what we are doing here.
-
-* Parallelisation via OpenMP
-  Option A) parallelise differential evolution algorithm (parallel evaluation of solutions, is this needed?)
-  Option B) parallelise multiple optimisation runs
-    - of the same problem to avoid local minima? (and then run one more run with those initial values?)
-    - as above but with migration between the sub-populations?
-    - of different optimisations run (initial modes, evaluate frontier!!! - see above notes on ALGORITHMIC CONSIDERATIONS)
-
-  - Some weblinks regarding parallel implementation
-    * random_number() is slow as threads wait for each other to update RNG Seed, need separate streams!!!
-       * http://tamupostdoc.blogspot.co.uk/2009/12/random-number-generator-in-openmp.html
-       * http://www.cmiss.org/openCMISS/wiki/RandomNumberGenerationWithOpenMP
-    * Intel RNG streams
-       * https://software.intel.com/en-us/node/521846
-       * https://software.intel.com/en-us/forums/intel-math-kernel-library/topic/283349,
 
 * Stop optimisation and restart?
   - checkpointing trick (catch kill command, save current state, and stop, enable

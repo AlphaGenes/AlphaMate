@@ -10,6 +10,9 @@ SET(CLUSTER 0 CACHE STRING "cluster size")
 SET(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/./alphacmakefiles/cmake/modules")
 SET(CMAKE_MACOSX_RPATH 0)
 
+# make program single precision
+add_definitions(-DDSINGLEPRECAH)
+
 INCLUDE(${CMAKE_MODULE_PATH}/setVersion.cmake)
 
 ADD_DEFINITIONS(-DCLUSTER=${CLUSTER})
