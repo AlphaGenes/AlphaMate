@@ -1,17 +1,13 @@
-! TODO solve the RelMat32bit issue
-! TODO add pVec and get rid of real(This%nVec)
-! TODO check dot_product() and sum() for loss of precision
-
 #ifdef SINGLEPREC
 #define FLOATTYPE real32
-#define DescStatType DescStatReal32
-#define DescStatMatrixType DescStatMatrixReal32
-#define CONVERSIONFUNCTION REAL
-#else 
+#define FLOATFUN real
+#define DESCSTATFLOAT DescStatReal32
+#define DESCSTATMATRIXFLOAT DescStatMatrixReal32
+#else
 #define FLOATTYPE real64
-#define DescStatType DescStatReal64
-#define DescStatMatrixType DescStatMatrixReal64
-#define CONVERSIONFUNCTION DBLE
+#define FLOATFUN dble
+#define DESCSTATFLOAT DescStatReal64
+#define DESCSTATMATRIXFLOAT DescStatMatrixReal64
 #endif
 
 #ifdef _WIN32
@@ -158,28 +154,28 @@ module AlphaMateModule
     logical                         :: ObjectiveCriterion
     logical                         :: ObjectiveCoancestry
     logical                         :: ObjectiveInbreeding
-    real(FLOATTYPE)                    :: TargetDegree
-    real(FLOATTYPE)                    :: TargetSelCriterion
-    real(FLOATTYPE)                    :: TargetSelCriterionStd
-    real(FLOATTYPE)                    :: TargetMaxCriterionPct
-    real(FLOATTYPE)                    :: TargetCoancestry
-    real(FLOATTYPE)                    :: TargetCoancestryRate
+    real(FLOATTYPE)                 :: TargetDegree
+    real(FLOATTYPE)                 :: TargetSelCriterion
+    real(FLOATTYPE)                 :: TargetSelCriterionStd
+    real(FLOATTYPE)                 :: TargetMaxCriterionPct
+    real(FLOATTYPE)                 :: TargetCoancestry
+    real(FLOATTYPE)                 :: TargetCoancestryRate
     logical                         :: CoancestryWeightBelow
-    real(FLOATTYPE)                    :: TargetMinCoancestryPct
-    real(FLOATTYPE)                    :: TargetInbreeding
-    real(FLOATTYPE)                    :: TargetInbreedingRate
+    real(FLOATTYPE)                 :: TargetMinCoancestryPct
+    real(FLOATTYPE)                 :: TargetInbreeding
+    real(FLOATTYPE)                 :: TargetInbreedingRate
     logical                         :: InbreedingWeightBelow
-    real(FLOATTYPE)                    :: TargetMinInbreedingPct
-    real(FLOATTYPE)                    :: Degree
-    real(FLOATTYPE)                    :: SelCriterion
-    real(FLOATTYPE)                    :: SelCriterionStd
-    real(FLOATTYPE)                    :: MaxCriterionPct
-    real(FLOATTYPE)                    :: Coancestry
-    real(FLOATTYPE)                    :: CoancestryRate
-    real(FLOATTYPE)                    :: MinCoancestryPct
-    real(FLOATTYPE)                    :: Inbreeding
-    real(FLOATTYPE)                    :: InbreedingRate
-    real(FLOATTYPE)                    :: MinInbreedingPct
+    real(FLOATTYPE)                 :: TargetMinInbreedingPct
+    real(FLOATTYPE)                 :: Degree
+    real(FLOATTYPE)                 :: SelCriterion
+    real(FLOATTYPE)                 :: SelCriterionStd
+    real(FLOATTYPE)                 :: MaxCriterionPct
+    real(FLOATTYPE)                 :: Coancestry
+    real(FLOATTYPE)                 :: CoancestryRate
+    real(FLOATTYPE)                 :: MinCoancestryPct
+    real(FLOATTYPE)                 :: Inbreeding
+    real(FLOATTYPE)                 :: InbreedingRate
+    real(FLOATTYPE)                 :: MinInbreedingPct
     contains
       procedure :: Initialise       => InitialiseAlphaMateModeSpec
       procedure :: Assign           => AssignAlphaMateModeSpec
@@ -211,8 +207,8 @@ module AlphaMateModule
                TargetCoancestryGiven, TargetCoancestryRateGiven, TargetMinCoancestryPctGiven, &
                TargetInbreedingGiven, TargetInbreedingRateGiven, TargetMinInbreedingPctGiven
     real(FLOATTYPE), allocatable :: TargetDegree(:),                                                        &
-                                 TargetSelCriterion(:), TargetSelCriterionStd(:), TargetMaxCriterionPct(:), &
-                                 TargetCoancestry(:), TargetCoancestryRate(:), TargetMinCoancestryPct(:)
+                                    TargetSelCriterion(:), TargetSelCriterionStd(:), TargetMaxCriterionPct(:), &
+                                    TargetCoancestry(:), TargetCoancestryRate(:), TargetMinCoancestryPct(:)
     real(FLOATTYPE) :: TargetInbreeding, TargetInbreedingRate, TargetMinInbreedingPct
     real(FLOATTYPE) :: CoancestryWeight, InbreedingWeight, SelfingWeight
     logical :: CoancestryWeightBelow, InbreedingWeightBelow
@@ -226,9 +222,9 @@ module AlphaMateModule
                LimitPar, LimitPar1, LimitPar2,          &
                PreselectPar, PreselectPar1, PreselectPar2
     real(FLOATTYPE) :: LimitParMin,       LimitPar1Min,       LimitPar2Min, &
-                    LimitParMax,       LimitPar1Max,       LimitPar2Max, &
-                    LimitParMinWeight, LimitPar1MinWeight, LimitPar2MinWeight, &
-                    PreselectParPct,   PreselectPar1Pct,   PreselectPar2Pct
+                       LimitParMax,       LimitPar1Max,       LimitPar2Max, &
+                       LimitParMinWeight, LimitPar1MinWeight, LimitPar2MinWeight, &
+                       PreselectParPct,   PreselectPar1Pct,   PreselectPar2Pct
     logical :: PAGEPar, PAGEPar1, PAGEPar2
     integer(int32) :: PreselectParN,   PreselectPar1N,     PreselectPar2N, &
                       PAGEParMax,      PAGEPar1Max,        PAGEPar2Max
@@ -242,7 +238,7 @@ module AlphaMateModule
     ! ... differential evolution
     integer(int32) :: DiffEvolNIterBurnIn
     real(FLOATTYPE) :: DiffEvolParamCrBurnIn, DiffEvolParamCr1, DiffEvolParamCr2, &
-                    DiffEvolParamFBase, DiffEvolParamFHigh1, DiffEvolParamFHigh2
+                       DiffEvolParamFBase, DiffEvolParamFHigh1, DiffEvolParamFHigh2
     ! ... random search
     integer(int32) :: RanAlgStricter
 
@@ -280,20 +276,19 @@ module AlphaMateModule
     ! Raw data
     type(RelMat) :: Coancestry
     real(FLOATTYPE), allocatable :: SelCriterion(:),     SelCriterionStd(:),     &
-                                 SelCriterionPAGE(:), SelCriterionStdPAGE(:), &
-                                 AvgCoancestry(:),                         &
-                                 GenericIndCrit(:, :), GenericMatCrit(:, :, :)
+                                    SelCriterionPAGE(:), SelCriterionStdPAGE(:), &
+                                    AvgCoancestry(:),                         &
+                                    GenericIndCrit(:, :), GenericMatCrit(:, :, :)
     integer(int32), allocatable :: Gender(:)
     ! Data summaries
-    type(DescStatType) :: InbreedingStat, SelCriterionStat, SelCriterionStdStat, SelCriterionPAGEStat
-    type(DescStatType), allocatable :: GenericIndCritStat(:)
-    type(DescStatMatrixType) :: CoancestryStat, CoancestryStatGender1, CoancestryStatGender2, CoancestryStatGenderDiff
-    type(DescStatMatrixType), allocatable :: GenericMatCritStat(:)
+    type(DESCSTATFLOAT) :: InbreedingStat, SelCriterionStat, SelCriterionStdStat, SelCriterionPAGEStat
+    type(DESCSTATFLOAT), allocatable :: GenericIndCritStat(:)
+    type(DESCSTATMATRIXFLOAT) :: CoancestryStat, CoancestryStatGender1, CoancestryStatGender2, CoancestryStatGenderDiff
+    type(DESCSTATMATRIXFLOAT), allocatable :: GenericMatCritStat(:)
     ! Derived data
     integer(int32) :: nInd, nPotMat, nPotPar1, nPotPar2, nPotPar, nMal, nFem
     integer(int32), allocatable :: IdPotPar1(:), IdPotPar2(:), IdPotParSeq(:)
-    real(FLOATTYPE) :: CoancestryRanMate, CoancestryRanMateNoSelf, CoancestryGenderMate, &
-                    Inbreeding
+    real(FLOATTYPE) :: CoancestryRanMate, CoancestryRanMateNoSelf, CoancestryGenderMate, Inbreeding
     contains
       procedure :: Read  => ReadAlphaMateData
       procedure :: Write => WriteAlphaMateData
@@ -302,29 +297,29 @@ module AlphaMateModule
   !> @brief AlphaMate solution
   type, extends(AlphaEvolveSol) :: AlphaMateSol
     ! Solution results
-    real(FLOATTYPE)                :: Penalty
-    real(FLOATTYPE)                :: PenaltyCoancestry
-    real(FLOATTYPE)                :: PenaltyInbreeding
-    real(FLOATTYPE)                :: PenaltySelfing
-    real(FLOATTYPE)                :: PenaltyLimitPar1
-    real(FLOATTYPE)                :: PenaltyLimitPar2
-    real(FLOATTYPE)                :: PenaltyGenericIndCrit
-    real(FLOATTYPE)                :: PenaltyGenericMatCrit
-    real(FLOATTYPE)                :: Degree
-    real(FLOATTYPE)                :: SelCriterion
-    real(FLOATTYPE)                :: SelCriterionStd
-    real(FLOATTYPE)                :: MaxCriterionPct
-    real(FLOATTYPE)                :: CoancestryRanMate
-    real(FLOATTYPE)                :: CoancestryRateRanMate
-    real(FLOATTYPE)                :: MinCoancestryPct
-    real(FLOATTYPE)                :: Inbreeding
-    real(FLOATTYPE)                :: InbreedingRate
-    real(FLOATTYPE)                :: MinInbreedingPct
-    real(FLOATTYPE), allocatable   :: GenericIndCrit(:)
-    real(FLOATTYPE), allocatable   :: GenericMatCrit(:)
-    integer(int32), allocatable :: nVec(:)
-    integer(int32), allocatable :: MatingPlan(:, :)
-    real(FLOATTYPE), allocatable   :: GenomeEdit(:)
+    real(FLOATTYPE)              :: Penalty
+    real(FLOATTYPE)              :: PenaltyCoancestry
+    real(FLOATTYPE)              :: PenaltyInbreeding
+    real(FLOATTYPE)              :: PenaltySelfing
+    real(FLOATTYPE)              :: PenaltyLimitPar1
+    real(FLOATTYPE)              :: PenaltyLimitPar2
+    real(FLOATTYPE)              :: PenaltyGenericIndCrit
+    real(FLOATTYPE)              :: PenaltyGenericMatCrit
+    real(FLOATTYPE)              :: Degree
+    real(FLOATTYPE)              :: SelCriterion
+    real(FLOATTYPE)              :: SelCriterionStd
+    real(FLOATTYPE)              :: MaxCriterionPct
+    real(FLOATTYPE)              :: CoancestryRanMate
+    real(FLOATTYPE)              :: CoancestryRateRanMate
+    real(FLOATTYPE)              :: MinCoancestryPct
+    real(FLOATTYPE)              :: Inbreeding
+    real(FLOATTYPE)              :: InbreedingRate
+    real(FLOATTYPE)              :: MinInbreedingPct
+    real(FLOATTYPE), allocatable :: GenericIndCrit(:)
+    real(FLOATTYPE), allocatable :: GenericMatCrit(:)
+    integer(int32), allocatable  :: nVec(:)
+    integer(int32), allocatable  :: MatingPlan(:, :)
+    real(FLOATTYPE), allocatable :: GenomeEdit(:)
 
     contains
       procedure :: Initialise   => InitialiseAlphaMateSol
@@ -340,11 +335,11 @@ module AlphaMateModule
 
   !> @brief AlphaMate chromosome
   type :: AlphaMateChrom
-    real(FLOATTYPE), allocatable   :: ContPar1(:)
-    real(FLOATTYPE), allocatable   :: ContPar2(:)
-    real(FLOATTYPE), allocatable   :: MateRank(:)
-    real(FLOATTYPE), allocatable   :: EditPar1(:)
-    real(FLOATTYPE), allocatable   :: EditPar2(:)
+    real(FLOATTYPE), allocatable :: ContPar1(:)
+    real(FLOATTYPE), allocatable :: ContPar2(:)
+    real(FLOATTYPE), allocatable :: MateRank(:)
+    real(FLOATTYPE), allocatable :: EditPar1(:)
+    real(FLOATTYPE), allocatable :: EditPar2(:)
 
     contains
       procedure :: Write        => WriteAlphaMateChrom
@@ -2354,17 +2349,17 @@ module AlphaMateModule
       ! Impose upper limits (when it is not given by the user) to avoid explosion in optimisation
       if (.not. This%GenderGiven .and. (.not. This%LimitPar .and. .not. This%EqualizePar)) then
         This%LimitPar    = .true.
-        This%LimitParMax = real(This%nMat) * 2.0
+        This%LimitParMax = FLOATFUN(This%nMat) * 2.0
       end if
 
       if (This%GenderGiven .and. (.not. This%LimitPar1 .and. .not. This%EqualizePar1)) then
         This%LimitPar1    = .true.
-        This%LimitPar1Max = real(This%nMat)
+        This%LimitPar1Max = FLOATFUN(This%nMat)
       end if
 
       if (This%GenderGiven .and. (.not. This%LimitPar2 .and. .not. This%EqualizePar2)) then
         This%LimitPar2    = .true.
-        This%LimitPar2Max = real(This%nMat)
+        This%LimitPar2Max = FLOATFUN(This%nMat)
       end if
 
       if (.not. This%GenderGiven) then
@@ -2428,19 +2423,19 @@ module AlphaMateModule
       class(AlphaMateSpec), intent(inout)           :: This                  !< @return AlphaMateSpec holder
       character(len=*), intent(in)                  :: Mode                  !< Mode definition/name
       type(AlphaMateData), intent(in), optional     :: Data                  !< AlphaMateData holder
-      real(FLOATTYPE), intent(in), optional            :: Degree                !< Targeted degree
-      real(FLOATTYPE), intent(in), optional            :: SelCriterion          !< Targeted selection criterion
-      real(FLOATTYPE), intent(in), optional            :: SelCriterionStd       !< Targeted stand. selection criterion
-      real(FLOATTYPE), intent(in), optional            :: MaxCriterionPct       !< Targeted maximum criterion percentage
-      real(FLOATTYPE), intent(in), optional            :: Coancestry            !< Targeted coancestry
-      real(FLOATTYPE), intent(in), optional            :: CoancestryRate        !< Targeted coancestry rate
-      real(FLOATTYPE), intent(in), optional            :: MinCoancestryPct      !< Targeted minimum coancestry percentage
+      real(FLOATTYPE), intent(in), optional         :: Degree                !< Targeted degree
+      real(FLOATTYPE), intent(in), optional         :: SelCriterion          !< Targeted selection criterion
+      real(FLOATTYPE), intent(in), optional         :: SelCriterionStd       !< Targeted stand. selection criterion
+      real(FLOATTYPE), intent(in), optional         :: MaxCriterionPct       !< Targeted maximum criterion percentage
+      real(FLOATTYPE), intent(in), optional         :: Coancestry            !< Targeted coancestry
+      real(FLOATTYPE), intent(in), optional         :: CoancestryRate        !< Targeted coancestry rate
+      real(FLOATTYPE), intent(in), optional         :: MinCoancestryPct      !< Targeted minimum coancestry percentage
       type(AlphaMateModeSpec), intent(in), optional :: ModeMaxCriterionSpec  !< Maximum criterion  solution specs
       logical, intent(in), optional                 :: CoancestryWeightBelow !< Weight deviations below the targeted coancestry
       type(AlphaMateModeSpec), intent(in), optional :: ModeMinCoancestrySpec !< Minimum coancestry solution specs
-      real(FLOATTYPE), intent(in), optional            :: Inbreeding            !< Targeted inbreeding
-      real(FLOATTYPE), intent(in), optional            :: InbreedingRate        !< Targeted inbreeding rate
-      real(FLOATTYPE), intent(in), optional            :: MinInbreedingPct      !< Targeted minimum inbreeding percentage
+      real(FLOATTYPE), intent(in), optional         :: Inbreeding            !< Targeted inbreeding
+      real(FLOATTYPE), intent(in), optional         :: InbreedingRate        !< Targeted inbreeding rate
+      real(FLOATTYPE), intent(in), optional         :: MinInbreedingPct      !< Targeted minimum inbreeding percentage
       logical, intent(in), optional                 :: InbreedingWeightBelow !< Weight deviations below the targeted inbreeding
       type(AlphaMateModeSpec), intent(in), optional :: ModeMinInbreedingSpec !< Minimum inbreeding solution specs
 
@@ -2730,16 +2725,16 @@ module AlphaMateModule
       implicit none
       class(AlphaMateModeSpec), intent(inout)       :: This                  !< @return AlphaMateModeSpec holder
       type(AlphaMateData), intent(in), optional     :: Data                  !< AlphaMateData holder
-      real(FLOATTYPE), intent(in), optional            :: Degree                !< Targeted selection/Coancestry frontier degree
-      real(FLOATTYPE), intent(in), optional            :: SelCriterion          !< Targeted selection criterion
-      real(FLOATTYPE), intent(in), optional            :: SelCriterionStd       !< Targeted stand. selection criterion
-      real(FLOATTYPE), intent(in), optional            :: MaxCriterionPct       !< Targeted maximum criterion percentage (100 means the maximum possible selection criterion)
-      real(FLOATTYPE), intent(in), optional            :: Coancestry            !< Targeted coancestry
-      real(FLOATTYPE), intent(in), optional            :: CoancestryRate        !< Targeted coancestry rate
-      real(FLOATTYPE), intent(in), optional            :: MinCoancestryPct      !< Targeted minimum coancestry percentage (100 means the minimum possible coancestry)
-      real(FLOATTYPE), intent(in), optional            :: Inbreeding            !< Targeted inbreeding
-      real(FLOATTYPE), intent(in), optional            :: InbreedingRate        !< Targeted inbreeding rate
-      real(FLOATTYPE), intent(in), optional            :: MinInbreedingPct      !< Targeted minimum inbreeding percentage (100 means the minimum possible inbreeding)
+      real(FLOATTYPE), intent(in), optional         :: Degree                !< Targeted selection/Coancestry frontier degree
+      real(FLOATTYPE), intent(in), optional         :: SelCriterion          !< Targeted selection criterion
+      real(FLOATTYPE), intent(in), optional         :: SelCriterionStd       !< Targeted stand. selection criterion
+      real(FLOATTYPE), intent(in), optional         :: MaxCriterionPct       !< Targeted maximum criterion percentage (100 means the maximum possible selection criterion)
+      real(FLOATTYPE), intent(in), optional         :: Coancestry            !< Targeted coancestry
+      real(FLOATTYPE), intent(in), optional         :: CoancestryRate        !< Targeted coancestry rate
+      real(FLOATTYPE), intent(in), optional         :: MinCoancestryPct      !< Targeted minimum coancestry percentage (100 means the minimum possible coancestry)
+      real(FLOATTYPE), intent(in), optional         :: Inbreeding            !< Targeted inbreeding
+      real(FLOATTYPE), intent(in), optional         :: InbreedingRate        !< Targeted inbreeding rate
+      real(FLOATTYPE), intent(in), optional         :: MinInbreedingPct      !< Targeted minimum inbreeding percentage (100 means the minimum possible inbreeding)
       type(AlphaMateModeSpec), intent(in), optional :: ModeMinCoancestrySpec !< Minimum coancestry solution specs
       type(AlphaMateModeSpec), intent(in), optional :: ModeMinInbreedingSpec !< Minimum inbreeding solution specs
       type(AlphaMateModeSpec), intent(in), optional :: ModeMaxCriterionSpec  !< Maximum criterion  solution specs
@@ -3424,7 +3419,7 @@ module AlphaMateModule
       if (Spec%GenderGiven) then
         This%nPotMat = This%nPotPar1 * This%nPotPar2
       else
-        This%nPotMat = real(This%nPotPar1 * This%nPotPar1) / 2.0
+        This%nPotMat = FLOATFUN(This%nPotPar1 * This%nPotPar1) / 2.0
         if (Spec%SelfingAllowed) then
           This%nPotMat = nint(This%nPotMat + real(This%nPotPar1) / 2.0)
         else
@@ -3560,11 +3555,11 @@ module AlphaMateModule
         write(STDOUT, "(a)") " Current coancestry (average identity of the four genome combinations of two individuals)"
       end if
 
-      This%CoancestryStat = DescStatMatrix(CONVERSIONFUNCTION(This%Coancestry%Value(1:, 1:)))
+      This%CoancestryStat = DescStatMatrix(FLOATFUN(This%Coancestry%Value(1:, 1:)))
       if (Spec%GenderGiven) then
-        This%CoancestryStatGender1    = DescStatMatrix(CONVERSIONFUNCTION(This%Coancestry%Value(This%IdPotPar1, This%IdPotPar1)))
-        This%CoancestryStatGender2    = DescStatMatrix(CONVERSIONFUNCTION(This%Coancestry%Value(This%IdPotPar2, This%IdPotPar2)))
-        This%CoancestryStatGenderDiff = DescStatMatrix(CONVERSIONFUNCTION(This%Coancestry%Value(This%IdPotPar1, This%IdPotPar2)))
+        This%CoancestryStatGender1    = DescStatMatrix(FLOATFUN(This%Coancestry%Value(This%IdPotPar1, This%IdPotPar1)))
+        This%CoancestryStatGender2    = DescStatMatrix(FLOATFUN(This%Coancestry%Value(This%IdPotPar2, This%IdPotPar2)))
+        This%CoancestryStatGenderDiff = DescStatMatrix(FLOATFUN(This%Coancestry%Value(This%IdPotPar1, This%IdPotPar2)))
       end if
 
       This%CoancestryRanMate       = This%CoancestryStat%All%Mean
@@ -3640,7 +3635,7 @@ module AlphaMateModule
       block
         type(InbVec) :: Inbreeding
         call This%Coancestry%Inbreeding(Out=Inbreeding, Nrm=.false.)
-        This%InbreedingStat = DescStat(CONVERSIONFUNCTION(Inbreeding%Value(1:)))
+        This%InbreedingStat = DescStat(FLOATFUN(Inbreeding%Value(1:)))
         This%Inbreeding = This%InbreedingStat%Mean
       end block
 
@@ -4164,7 +4159,7 @@ module AlphaMateModule
 
       ! Argument
       class(AlphaMateSol), intent(out)             :: This     !< @return AlphaMateSol holder
-      real(FLOATTYPE), intent(in)                     :: Chrom(:) !< Provided initial solution
+      real(FLOATTYPE), intent(in)                  :: Chrom(:) !< Provided initial solution
       class(AlphaEvolveSpec), intent(in), optional :: Spec     !< AlphaEvolveSpec --> AlphaMateSpec holder
 
       real(FLOATTYPE) :: NANFLOATTYPE
@@ -4298,7 +4293,7 @@ module AlphaMateModule
       real(FLOATTYPE) :: kR
 
       ! Updates
-      kR = (CONVERSIONFUNCTION(n) - 1.0) / n
+      kR = (FLOATFUN(n) - 1.0) / n
 
       ! (Need to go via the select type stuff as all but the first arguments must
       !  be the same as in the base class/type)
@@ -4436,7 +4431,7 @@ module AlphaMateModule
       implicit none
       ! Arguments
       class(AlphaMateSol), intent(inout)           :: This     !< @return AlphaMateSol holder (out because we sometimes need to fix a solution)
-      real(FLOATTYPE), intent(in)                     :: Chrom(:) !< A solution
+      real(FLOATTYPE), intent(in)                  :: Chrom(:) !< A solution
       class(AlphaEvolveSpec), intent(in)           :: Spec     !< AlphaEvolveSpec --> AlphaMateSpec holder
       class(AlphaEvolveData), intent(in), optional :: Data     !< AlphaEvolveData --> AlphaMateData holder
       type(vsl_stream_state), intent(inout)        :: Stream   !< Intel RNG stream
@@ -4507,7 +4502,7 @@ module AlphaMateModule
                 End = Start - 1 + Spec%nMat
                 SChrom%MateRank = Chrom(Start:End)
                 if (.not. Spec%GenderGiven) then
-                  nRanNum = nRanNum + ceiling(CONVERSIONFUNCTION(Spec%nMat) / 2) ! see "Distribute one half of contributions into matings"
+                  nRanNum = nRanNum + ceiling(real(Spec%nMat) / 2) ! see "Distribute one half of contributions into matings"
                 end if
               end if
               if (Spec%PAGEPar) then
@@ -4579,10 +4574,10 @@ module AlphaMateModule
               end if
               if (Spec%EqualizePar1) then ! ... equal contributions
                 if (Spec%nPar1 .eq. Data%nPotPar1) then
-                  SChrom%ContPar1 = CONVERSIONFUNCTION(Spec%nMat * GenderMode) / Spec%nPar1 ! no need for indexing here, hence the above if (.not. ...)
+                  SChrom%ContPar1 = FLOATFUN(Spec%nMat * GenderMode) / Spec%nPar1 ! no need for indexing here, hence the above if (.not. ...)
                 else
                   SChrom%ContPar1 = 0.0
-                  SChrom%ContPar1(Rank(1:Spec%nPar1)) = CONVERSIONFUNCTION(Spec%nMat * GenderMode) / Spec%nPar1
+                  SChrom%ContPar1(Rank(1:Spec%nPar1)) = FLOATFUN(Spec%nMat * GenderMode) / Spec%nPar1
                 end if
               else                        ! ... unequal contributions
                 TmpVec(1:Spec%nPar1) = SChrom%ContPar1(Rank(1:Spec%nPar1)) ! save top contributions
@@ -4605,7 +4600,7 @@ module AlphaMateModule
                   if (nCumMat .ge. Spec%nMat * GenderMode) then
                     ! ... there should be exactly Spec%nMat contributions
                     if (nCumMat .gt. Spec%nMat * GenderMode) then
-                      SChrom%ContPar1(j) = SChrom%ContPar1(j) - CONVERSIONFUNCTION(nCumMat - Spec%nMat * GenderMode) ! internally real, externally integer
+                      SChrom%ContPar1(j) = SChrom%ContPar1(j) - FLOATFUN(nCumMat - Spec%nMat * GenderMode) ! internally real, externally integer
                       ! ... did we go below the minimum usage limit?
                       if (nint(SChrom%ContPar1(j)) .lt. Spec%LimitPar1Min) then
                         TmpR = Spec%LimitPar1MinWeight * (Spec%LimitPar1Min - nint(SChrom%ContPar1(j))) ! internally real, externally integer
@@ -4649,9 +4644,9 @@ module AlphaMateModule
                       TmpI = sum(nint(SChrom%ContPar1(Rank(1:Spec%nPar1))))
                       if (TmpI .ne. Spec%nMat * GenderMode) then
                         if (TmpI .gt. Spec%nMat * GenderMode) then
-                          SChrom%ContPar1(j) = CONVERSIONFUNCTION(nint(SChrom%ContPar1(j)) - 1)
+                          SChrom%ContPar1(j) = FLOATFUN(nint(SChrom%ContPar1(j)) - 1)
                         else
-                          SChrom%ContPar1(j) = CONVERSIONFUNCTION(nint(SChrom%ContPar1(j)) + 1)
+                          SChrom%ContPar1(j) = FLOATFUN(nint(SChrom%ContPar1(j)) + 1)
                         end if
                       end if
                       exit
@@ -4697,10 +4692,10 @@ module AlphaMateModule
                 end if
                 if (Spec%EqualizePar2) then ! ... equal contributions
                   if (Spec%nPar2 .eq. Data%nPotPar2) then
-                    SChrom%ContPar2 = CONVERSIONFUNCTION(Spec%nMat) / Spec%nPar2 ! no need for indexing here, hence the above if (.not. ...)
+                    SChrom%ContPar2 = FLOATFUN(Spec%nMat) / Spec%nPar2 ! no need for indexing here, hence the above if (.not. ...)
                   else
                     SChrom%ContPar2 = 0.0
-                    SChrom%ContPar2(Rank(1:Spec%nPar2)) = CONVERSIONFUNCTION(Spec%nMat) / Spec%nPar2
+                    SChrom%ContPar2(Rank(1:Spec%nPar2)) = FLOATFUN(Spec%nMat) / Spec%nPar2
                   end if
                 else                        ! ... unequal contributions
                   TmpVec(1:Spec%nPar2) = SChrom%ContPar2(Rank(1:Spec%nPar2)) ! save top contributions
@@ -4723,7 +4718,7 @@ module AlphaMateModule
                     if (nCumMat .ge. Spec%nMat) then
                       ! ... there should be exactly Spec%nMat contributions
                       if (nCumMat .gt. Spec%nMat) then
-                        SChrom%ContPar2(j) = SChrom%ContPar2(j) - CONVERSIONFUNCTION(nCumMat - Spec%nMat)! internally real, externally integer
+                        SChrom%ContPar2(j) = SChrom%ContPar2(j) - FLOATFUN(nCumMat - Spec%nMat)! internally real, externally integer
                         ! ... did we go below the minimum usage limit?
                         if (nint(SChrom%ContPar2(j)) .lt. Spec%LimitPar2Min) then
                           TmpR = Spec%LimitPar2MinWeight * (Spec%LimitPar2Min - nint(SChrom%ContPar2(j)))! internally real, externally integer
@@ -4765,9 +4760,9 @@ module AlphaMateModule
                         TmpI = sum(nint(SChrom%ContPar2(Rank(1:Spec%nPar2))))
                         if (TmpI .ne. Spec%nMat) then
                           if (TmpI .gt. Spec%nMat) then
-                            SChrom%ContPar2(j) = CONVERSIONFUNCTION(nint(SChrom%ContPar2(j)) - 1)
+                            SChrom%ContPar2(j) = FLOATFUN(nint(SChrom%ContPar2(j)) - 1)
                           else
-                            SChrom%ContPar2(j) = CONVERSIONFUNCTION(nint(SChrom%ContPar2(j)) + 1)
+                            SChrom%ContPar2(j) = FLOATFUN(nint(SChrom%ContPar2(j)) + 1)
                           end if
                         end if
                         exit
@@ -4926,9 +4921,9 @@ module AlphaMateModule
               ! Note that dot_product() is faster than dot() when called MANY times!
 
               if (Spec%SelCriterionGiven) then
-                This%SelCriterionStd = dot_product(CONVERSIONFUNCTION(This%nVec), Data%SelCriterionStd) / (2.0 * Spec%nMat)
+                This%SelCriterionStd = dot_product(FLOATFUN(This%nVec), Data%SelCriterionStd) / (2.0 * Spec%nMat)
                 if (Spec%PAGEPar) then
-                  This%SelCriterionStd = This%SelCriterionStd + dot_product(CONVERSIONFUNCTION(This%nVec), Data%SelCriterionStdPAGE * This%GenomeEdit) / (2.0 * Spec%nMat)
+                  This%SelCriterionStd = This%SelCriterionStd + dot_product(FLOATFUN(This%nVec), Data%SelCriterionStdPAGE * This%GenomeEdit) / (2.0 * Spec%nMat)
                 end if
 
                 ! Inlined SelCriterionStd2SelCriterion
@@ -4972,7 +4967,7 @@ module AlphaMateModule
 
               if (Spec%GenericIndCritGiven) then
                 do j = 1, Spec%nGenericIndCrit
-                  TmpR = dot_product(CONVERSIONFUNCTION(This%nVec), Data%GenericIndCrit(:, j)) / (2.0 * Spec%nMat)
+                  TmpR = dot_product(FLOATFUN(This%nVec), Data%GenericIndCrit(:, j)) / (2.0 * Spec%nMat)
                   This%GenericIndCrit(j) = TmpR
                   TmpR = Spec%GenericIndCritWeight(j) * This%GenericIndCrit(j)
                   This%Objective = This%Objective + TmpR
@@ -4996,10 +4991,10 @@ module AlphaMateModule
               ! Note that dot_product() is faster than dot() when called MANY times!
               ! ... w=x'C
               do i = 1, Data%nInd
-                TmpVec(i) = dot_product(CONVERSIONFUNCTION(This%nVec), Data%Coancestry%Value(1:, i))
+                TmpVec(i) = dot_product(FLOATFUN(This%nVec), Data%Coancestry%Value(1:, i))
               end do
               ! ... wx
-              This%CoancestryRanMate = dot_product(TmpVec, CONVERSIONFUNCTION(This%nVec)) / (4.0 * Spec%nMat * Spec%nMat)
+              This%CoancestryRanMate = dot_product(TmpVec, FLOATFUN(This%nVec)) / (4.0 * Spec%nMat * Spec%nMat)
 
               ! Via BLAS subroutine
               ! This is slower than the above dot() code on a test case with n=370 (~35 sec vs. ~130 sec).
@@ -5007,9 +5002,9 @@ module AlphaMateModule
               ! ... w=Cx, symmetric matrix times a vector https://software.intel.com/en-us/mkl-developer-reference-fortran-symv
               ! TmpVec = 0.0
               ! TmpVec2 = Data%Coancestry%Value(1:, 1:) ! needed to avoid putting this largish matrix on the stack
-              ! call symv(A=TmpVec2, x=real(This%nVec), y=TmpVec)
+              ! call symv(A=TmpVec2, x=FLOATFUN(This%nVec), y=TmpVec)
               ! ... x'w
-              ! This%CoancestryRanMate = dot(x=real(This%nVec), y=TmpVec) / (4.0 * Spec%nMat * Spec%nMat)
+              ! This%CoancestryRanMate = dot(x=FLOATFUN(This%nVec), y=TmpVec) / (4.0 * Spec%nMat * Spec%nMat)
 
               ! Inlined Coancestry2CoancestryRate START
               Diff    = This%CoancestryRanMate - Data%CoancestryRanMate
@@ -5440,16 +5435,16 @@ module AlphaMateModule
         ! ... approximate minimum coancestry solution with equal contributions
         iSol = 1
           InitChrom(1:Data%nPotPar, iSol) = 0.0
-          InitChrom(                 RapKnr(AvgCoancestryStd(1:Data%nPotPar1),                  Spec%nPar1),  iSol) = CONVERSIONFUNCTION(Spec%nMat) / Spec%nPar1
+          InitChrom(                 RapKnr(AvgCoancestryStd(1:Data%nPotPar1),                  Spec%nPar1),  iSol) = FLOATFUN(Spec%nMat) / Spec%nPar1
         if (Spec%GenderGiven) then
-          InitChrom((Data%nPotPar1 + RapKnr(AvgCoancestryStd((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), iSol) = CONVERSIONFUNCTION(Spec%nMat) / Spec%nPar2
+          InitChrom((Data%nPotPar1 + RapKnr(AvgCoancestryStd((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), iSol) = FLOATFUN(Spec%nMat) / Spec%nPar2
         end if
         ! ... another one
         iSol = iSol + 1
           InitChrom(1:Data%nPotPar, iSol) = 0.0
-          InitChrom(                 RapKnr(AvgCoancestryStd(1:Data%nPotPar1),                  Spec%nPar1),  iSol) = CONVERSIONFUNCTION(Spec%nMat) / Spec%nPar1
+          InitChrom(                 RapKnr(AvgCoancestryStd(1:Data%nPotPar1),                  Spec%nPar1),  iSol) = FLOATFUN(Spec%nMat) / Spec%nPar1
         if (Spec%GenderGiven) then
-          InitChrom((Data%nPotPar1 + RapKnr(AvgCoancestryStd((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), iSol) = CONVERSIONFUNCTION(Spec%nMat) / Spec%nPar2
+          InitChrom((Data%nPotPar1 + RapKnr(AvgCoancestryStd((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), iSol) = FLOATFUN(Spec%nMat) / Spec%nPar2
         end if
         ! ... approximate minimum coancestry solution - in a different way
         iSol = iSol + 1
@@ -5519,16 +5514,16 @@ module AlphaMateModule
         ! ... approximate minimum coancestry solution with equal contributions
         iSol = 1
           InitChrom(1:Data%nPotPar, iSol) = 0.0
-          InitChrom(                 RapKnr(AvgCoancestryStd(1:Data%nPotPar1),                  Spec%nPar1),  iSol) = CONVERSIONFUNCTION(Spec%nMat) / Spec%nPar1
+          InitChrom(                 RapKnr(AvgCoancestryStd(1:Data%nPotPar1),                  Spec%nPar1),  iSol) = FLOATFUN(Spec%nMat) / Spec%nPar1
         if (Spec%GenderGiven) then
-          InitChrom((Data%nPotPar1 + RapKnr(AvgCoancestryStd((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), iSol) = CONVERSIONFUNCTION(Spec%nMat) / Spec%nPar2
+          InitChrom((Data%nPotPar1 + RapKnr(AvgCoancestryStd((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), iSol) = FLOATFUN(Spec%nMat) / Spec%nPar2
         end if
         ! ... another one
         iSol = iSol + 1
           InitChrom(1:Data%nPotPar, iSol) = 0.0
-          InitChrom(                 RapKnr(AvgCoancestryStd(1:Data%nPotPar1),                  Spec%nPar1),  iSol) = CONVERSIONFUNCTION(Spec%nMat) / Spec%nPar1
+          InitChrom(                 RapKnr(AvgCoancestryStd(1:Data%nPotPar1),                  Spec%nPar1),  iSol) = FLOATFUN(Spec%nMat) / Spec%nPar1
         if (Spec%GenderGiven) then
-          InitChrom((Data%nPotPar1 + RapKnr(AvgCoancestryStd((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), iSol) = CONVERSIONFUNCTION(Spec%nMat) / Spec%nPar2
+          InitChrom((Data%nPotPar1 + RapKnr(AvgCoancestryStd((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), iSol) = FLOATFUN(Spec%nMat) / Spec%nPar2
         end if
         ! ... approximate minimum coancestry solution - in a different way
         iSol = iSol + 1
@@ -5608,16 +5603,16 @@ module AlphaMateModule
         ! ... exact truncation selection solution with equal contributions
         iSol = 1
           InitChrom(1:Data%nPotPar, iSol) = 0.0
-          InitChrom(                 RapKnr(SelCriterionStd(1:Data%nPotPar1),                  Spec%nPar1),  iSol) = CONVERSIONFUNCTION(Spec%nMat) / Spec%nPar1
+          InitChrom(                 RapKnr(SelCriterionStd(1:Data%nPotPar1),                  Spec%nPar1),  iSol) = FLOATFUN(Spec%nMat) / Spec%nPar1
         if (Spec%GenderGiven) then
-          InitChrom((Data%nPotPar1 + RapKnr(SelCriterionStd((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), iSol) = CONVERSIONFUNCTION(Spec%nMat) / Spec%nPar2
+          InitChrom((Data%nPotPar1 + RapKnr(SelCriterionStd((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), iSol) = FLOATFUN(Spec%nMat) / Spec%nPar2
         end if
         ! ... another one
         iSol = iSol + 1
           InitChrom(1:Data%nPotPar, iSol) = 0.0
-          InitChrom(                 RapKnr(SelCriterionStd(1:Data%nPotPar1),                  Spec%nPar1),  iSol) = CONVERSIONFUNCTION(Spec%nMat) / Spec%nPar1
+          InitChrom(                 RapKnr(SelCriterionStd(1:Data%nPotPar1),                  Spec%nPar1),  iSol) = FLOATFUN(Spec%nMat) / Spec%nPar1
         if (Spec%GenderGiven) then
-          InitChrom((Data%nPotPar1 + RapKnr(SelCriterionStd((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), iSol) = CONVERSIONFUNCTION(Spec%nMat) / Spec%nPar2
+          InitChrom((Data%nPotPar1 + RapKnr(SelCriterionStd((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), iSol) = FLOATFUN(Spec%nMat) / Spec%nPar2
         end if
         ! ... approximate truncation selection solution
         iSol = iSol + 1
@@ -5721,9 +5716,9 @@ module AlphaMateModule
           ! ... exact truncation selection solution with equal contributions
           iSol = iSol + 1
             InitChrom(1:Data%nPotPar, iSol) = 0.0
-            InitChrom(                 RapKnr(SelCriterionStd(1:Data%nPotPar1),                  Spec%nPar1),  iSol) = CONVERSIONFUNCTION(Spec%nMat) / Spec%nPar1
+            InitChrom(                 RapKnr(SelCriterionStd(1:Data%nPotPar1),                  Spec%nPar1),  iSol) = FLOATFUN(Spec%nMat) / Spec%nPar1
           if (Spec%GenderGiven) then
-            InitChrom((Data%nPotPar1 + RapKnr(SelCriterionStd((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), iSol) = CONVERSIONFUNCTION(Spec%nMat) / Spec%nPar2
+            InitChrom((Data%nPotPar1 + RapKnr(SelCriterionStd((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), iSol) = FLOATFUN(Spec%nMat) / Spec%nPar2
           end if
           ! ... approximate truncation selection solution
           iSol = iSol + 1
@@ -5736,9 +5731,9 @@ module AlphaMateModule
           ! ... approximate minimum coancestry solution with equal contributions
           iSol = iSol + 1
             InitChrom(1:Data%nPotPar, iSol) = 0.0
-            InitChrom(                 RapKnr(AvgCoancestryStd(1:Data%nPotPar1),                  Spec%nPar1),  iSol) = CONVERSIONFUNCTION(Spec%nMat) / Spec%nPar1
+            InitChrom(                 RapKnr(AvgCoancestryStd(1:Data%nPotPar1),                  Spec%nPar1),  iSol) = FLOATFUN(Spec%nMat) / Spec%nPar1
           if (Spec%GenderGiven) then
-            InitChrom((Data%nPotPar1 + RapKnr(AvgCoancestryStd((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), iSol) = CONVERSIONFUNCTION(Spec%nMat) / Spec%nPar2
+            InitChrom((Data%nPotPar1 + RapKnr(AvgCoancestryStd((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), iSol) = FLOATFUN(Spec%nMat) / Spec%nPar2
           end if
           ! ... approximate minimum coancestry solution
           iSol = iSol + 1
@@ -5956,9 +5951,9 @@ module AlphaMateModule
           ! ... exact truncation selection solution with equal contributions
           iSol = iSol + 1
             InitChrom(1:Data%nPotPar, iSol) = 0.0
-            InitChrom(                 RapKnr(SelCriterionStd(1:Data%nPotPar1),                  Spec%nPar1),  iSol) = CONVERSIONFUNCTION(Spec%nMat) / Spec%nPar1
+            InitChrom(                 RapKnr(SelCriterionStd(1:Data%nPotPar1),                  Spec%nPar1),  iSol) = FLOATFUN(Spec%nMat) / Spec%nPar1
           if (Spec%GenderGiven) then
-            InitChrom((Data%nPotPar1 + RapKnr(SelCriterionStd((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), iSol) = CONVERSIONFUNCTION(Spec%nMat) / Spec%nPar2
+            InitChrom((Data%nPotPar1 + RapKnr(SelCriterionStd((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), iSol) = FLOATFUN(Spec%nMat) / Spec%nPar2
           end if
           ! ... approximate truncation selection solution
           iSol = iSol + 1
@@ -5966,9 +5961,9 @@ module AlphaMateModule
           ! ... approximate minimum coancestry solution with equal contributions
           iSol = iSol + 1
             InitChrom(1:Data%nPotPar, iSol) = 0.0
-            InitChrom(                 RapKnr(AvgCoancestryStd(1:Data%nPotPar1),                  Spec%nPar1),  iSol) = CONVERSIONFUNCTION(Spec%nMat) / Spec%nPar1
+            InitChrom(                 RapKnr(AvgCoancestryStd(1:Data%nPotPar1),                  Spec%nPar1),  iSol) = FLOATFUN(Spec%nMat) / Spec%nPar1
           if (Spec%GenderGiven) then
-            InitChrom((Data%nPotPar1 + RapKnr(AvgCoancestryStd((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), iSol) = CONVERSIONFUNCTION(Spec%nMat) / Spec%nPar2
+            InitChrom((Data%nPotPar1 + RapKnr(AvgCoancestryStd((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), iSol) = FLOATFUN(Spec%nMat) / Spec%nPar2
           end if
           ! ... approximate minimum coancestry solution
           iSol = iSol + 1
@@ -6183,33 +6178,33 @@ module AlphaMateModule
         if (.not. Spec%GenderGiven) then
           do i = 1, nCon
             Ind = Rank(i)
-            write(ContribUnit, Spec%FmtContribution) Data%Coancestry%OriginalId(Ind),          &
-                                                     Data%Gender(Ind),                         &
-                                                     Data%SelCriterion(Ind),                   &
-                                                     Data%AvgCoancestry(Ind),                  &
-                                                     CONVERSIONFUNCTION(This%nVec(Ind)) / (2.0 * Spec%nMat), &
+            write(ContribUnit, Spec%FmtContribution) Data%Coancestry%OriginalId(Ind),              &
+                                                     Data%Gender(Ind),                             &
+                                                     Data%SelCriterion(Ind),                       &
+                                                     Data%AvgCoancestry(Ind),                      &
+                                                     FLOATFUN(This%nVec(Ind)) / (2.0 * Spec%nMat), &
                                                      This%nVec(Ind)
           end do
         else
           do i = 1, nCon
             Ind = Rank(i)
             if (Data%Gender(Ind) .eq. 1) then
-              write(ContribUnit, Spec%FmtContribution) Data%Coancestry%OriginalId(Ind),          &
-                                                       Data%Gender(Ind),                         &
-                                                       Data%SelCriterion(Ind),                   &
-                                                       Data%AvgCoancestry(Ind),                  &
-                                                       CONVERSIONFUNCTION(This%nVec(Ind)) / (2.0 * Spec%nMat), &
+              write(ContribUnit, Spec%FmtContribution) Data%Coancestry%OriginalId(Ind),              &
+                                                       Data%Gender(Ind),                             &
+                                                       Data%SelCriterion(Ind),                       &
+                                                       Data%AvgCoancestry(Ind),                      &
+                                                       FLOATFUN(This%nVec(Ind)) / (2.0 * Spec%nMat), &
                                                        This%nVec(Ind)
             end if
           end do
           do i = 1, nCon
             Ind = Rank(i)
             if (Data%Gender(Ind) .eq. 2) then
-              write(ContribUnit, Spec%FmtContribution) Data%Coancestry%OriginalId(Ind),          &
-                                                       Data%Gender(Ind),                         &
-                                                       Data%SelCriterion(Ind),                   &
-                                                       Data%AvgCoancestry(Ind),                  &
-                                                       CONVERSIONFUNCTION(This%nVec(Ind)) / (2.0 * Spec%nMat), &
+              write(ContribUnit, Spec%FmtContribution) Data%Coancestry%OriginalId(Ind),              &
+                                                       Data%Gender(Ind),                             &
+                                                       Data%SelCriterion(Ind),                       &
+                                                       Data%AvgCoancestry(Ind),                      &
+                                                       FLOATFUN(This%nVec(Ind)) / (2.0 * Spec%nMat), &
                                                        This%nVec(Ind)
             end if
           end do
@@ -6227,39 +6222,39 @@ module AlphaMateModule
         if (.not. Spec%GenderGiven) then
           do i = 1, nCon
             Ind = Rank(i)
-            write(ContribUnit, Spec%FmtContributionEdit) Data%Coancestry%OriginalId(Ind),          &
-                                                         Data%Gender(Ind),                         &
-                                                         Data%SelCriterion(Ind),                   &
-                                                         Data%AvgCoancestry(Ind),                  &
-                                                         CONVERSIONFUNCTION(This%nVec(Ind)) / (2.0 * Spec%nMat), &
-                                                         This%nVec(Ind),                           &
-                                                         nint(This%GenomeEdit(Ind)),               &
+            write(ContribUnit, Spec%FmtContributionEdit) Data%Coancestry%OriginalId(Ind),              &
+                                                         Data%Gender(Ind),                             &
+                                                         Data%SelCriterion(Ind),                       &
+                                                         Data%AvgCoancestry(Ind),                      &
+                                                         FLOATFUN(This%nVec(Ind)) / (2.0 * Spec%nMat), &
+                                                         This%nVec(Ind),                               &
+                                                         nint(This%GenomeEdit(Ind)),                   &
                                                          Data%SelCriterion(Ind) + This%GenomeEdit(Ind) * Data%SelCriterionPAGE(Ind)
           end do
         else
           do i = 1, nCon
             Ind = Rank(i)
             if (Data%Gender(Ind) .eq. 1) then
-              write(ContribUnit, Spec%FmtContributionEdit) Data%Coancestry%OriginalId(Ind),          &
-                                                           Data%Gender(Ind),                         &
-                                                           Data%SelCriterion(Ind),                   &
-                                                           Data%AvgCoancestry(Ind),                  &
-                                                           CONVERSIONFUNCTION(This%nVec(Ind)) / (2.0 * Spec%nMat), &
-                                                           This%nVec(Ind),                           &
-                                                           nint(This%GenomeEdit(Ind)),               &
+              write(ContribUnit, Spec%FmtContributionEdit) Data%Coancestry%OriginalId(Ind),              &
+                                                           Data%Gender(Ind),                             &
+                                                           Data%SelCriterion(Ind),                       &
+                                                           Data%AvgCoancestry(Ind),                      &
+                                                           FLOATFUN(This%nVec(Ind)) / (2.0 * Spec%nMat), &
+                                                           This%nVec(Ind),                               &
+                                                           nint(This%GenomeEdit(Ind)),                   &
                                                            Data%SelCriterion(Ind) + This%GenomeEdit(Ind) * Data%SelCriterionPAGE(Ind)
             end if
           end do
           do i = 1, nCon
             Ind = Rank(i)
             if (Data%Gender(Ind) .eq. 2) then
-              write(ContribUnit, Spec%FmtContributionEdit) Data%Coancestry%OriginalId(Ind),          &
-                                                           Data%Gender(Ind),                         &
-                                                           Data%SelCriterion(Ind),                   &
-                                                           Data%AvgCoancestry(Ind),                  &
-                                                           CONVERSIONFUNCTION(This%nVec(Ind)) / (2.0 * Spec%nMat), &
-                                                           This%nVec(Ind),                           &
-                                                           nint(This%GenomeEdit(Ind)),               &
+              write(ContribUnit, Spec%FmtContributionEdit) Data%Coancestry%OriginalId(Ind),              &
+                                                           Data%Gender(Ind),                             &
+                                                           Data%SelCriterion(Ind),                       &
+                                                           Data%AvgCoancestry(Ind),                      &
+                                                           FLOATFUN(This%nVec(Ind)) / (2.0 * Spec%nMat), &
+                                                           This%nVec(Ind),                               &
+                                                           nint(This%GenomeEdit(Ind)),                   &
                                                            Data%SelCriterion(Ind) + This%GenomeEdit(Ind) * Data%SelCriterionPAGE(Ind)
             end if
           end do
@@ -6701,7 +6696,7 @@ module AlphaMateModule
       real(FLOATTYPE), intent(in) :: CurrentCoancestry !< Current coancestry
       real(FLOATTYPE), intent(in) :: FutureCoancestry  !< Future coancestry
       real(FLOATTYPE)             :: CoancestryRate    !< @return CoancestryRate
-      real(FLOATTYPE) :: Diff, MaxDiff
+      real(FLOATTYPE)             :: Diff, MaxDiff
       Diff    = FutureCoancestry - CurrentCoancestry
       MaxDiff =              1.0 - CurrentCoancestry
       ! @todo What should be done, when we have coancestry estimates that are above 1 or below 1?
@@ -6852,7 +6847,7 @@ module AlphaMateModule
       real(FLOATTYPE), intent(in) :: MinCoancestryRate !< Minimum possible coancestry rate
       real(FLOATTYPE), intent(in) :: MaxCoancestryRate !< Maximum possible coancestry rate
       real(FLOATTYPE)             :: MinCoancestryPct  !< @return MinCoancestryPct of a solution
-      real(FLOATTYPE) :: Diff, MaxDiff
+      real(FLOATTYPE)             :: Diff, MaxDiff
       Diff    = MaxCoancestryRate - CoancestryRate
       MaxDiff = MaxCoancestryRate - MinCoancestryRate
       if (MaxDiff .eq. 0) then
@@ -6901,7 +6896,7 @@ module AlphaMateModule
       real(FLOATTYPE), intent(in) :: MinSelCriterionStd !< Minimum possible stand. selection criterion
       real(FLOATTYPE), intent(in) :: MaxSelCriterionStd !< Maximum possible stand. selection criterion
       real(FLOATTYPE)             :: MaxCriterionPct    !< @return MaxCriterionPct
-      real(FLOATTYPE) :: Diff, MaxDiff
+      real(FLOATTYPE)             :: Diff, MaxDiff
       Diff    =    SelCriterionStd - MinSelCriterionStd
       MaxDiff = MaxSelCriterionStd - MinSelCriterionStd
       if (MaxDiff .eq. 0) then
