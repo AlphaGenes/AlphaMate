@@ -11,7 +11,7 @@ SET(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/./alphacmakefiles/cmake/modules")
 SET(CMAKE_MACOSX_RPATH 0)
 
 # make program single precision
-add_definitions(-DSINGLEPRECAH)
+# add_definitions(-DSINGLEPRECAH)
 
 INCLUDE(${CMAKE_MODULE_PATH}/setVersion.cmake)
 

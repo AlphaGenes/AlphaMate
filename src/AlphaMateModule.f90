@@ -10,6 +10,17 @@
 #define DESCSTATMATRIXFLOAT DescStatMatrixReal64
 #endif
 
+! ADD  in alphahouse preprocessor to get ah types
+#ifdef SINGLEPRECAH
+#define FLOATTYPEAH real32
+#define FLOATFUNAH real
+#define SAMPLEINTELUNIFORMAH SampleIntelUniformS
+#else
+#define FLOATTYPEAH real64
+#define FLOATFUNAH dble
+#define SAMPLEINTELUNIFORMAH SampleIntelUniformD
+#endif
+
 #ifdef _WIN32
 
 #define STRINGIFY(x)#x
@@ -232,12 +243,12 @@ module AlphaMateModule
     ! Algorithm specifications
     ! ... generic evolutionary parameters
     integer(int32) :: EvolAlgNSol, EvolAlgNIter, EvolAlgNIterStop, EvolAlgNIterPrint
-    real(FLOATTYPE) :: EvolAlgStopTolCoancestry, EvolAlgStopTol
+    real(FLOATTYPEAH) :: EvolAlgStopTolCoancestry, EvolAlgStopTol
     logical :: EvolAlgLogPop
     character(len=SPECOPTIONLENGTH) :: EvolAlg
     ! ... differential evolution
     integer(int32) :: DiffEvolNIterBurnIn
-    real(FLOATTYPE) :: DiffEvolParamCrBurnIn, DiffEvolParamCr1, DiffEvolParamCr2, &
+    real(FLOATTYPEAH) :: DiffEvolParamCrBurnIn, DiffEvolParamCr1, DiffEvolParamCr2, &
                        DiffEvolParamFBase, DiffEvolParamFHigh1, DiffEvolParamFHigh2
     ! ... random search
     integer(int32) :: RanAlgStricter
@@ -4159,7 +4170,7 @@ module AlphaMateModule
 
       ! Argument
       class(AlphaMateSol), intent(out)             :: This     !< @return AlphaMateSol holder
-      real(FLOATTYPE), intent(in)                  :: Chrom(:) !< Provided initial solution
+      real(FLOATTYPEAH), intent(in)                  :: Chrom(:) !< Provided initial solution
       class(AlphaEvolveSpec), intent(in), optional :: Spec     !< AlphaEvolveSpec --> AlphaMateSpec holder
 
       real(FLOATTYPE) :: NANFLOATTYPE
@@ -4431,7 +4442,7 @@ module AlphaMateModule
       implicit none
       ! Arguments
       class(AlphaMateSol), intent(inout)           :: This     !< @return AlphaMateSol holder (out because we sometimes need to fix a solution)
-      real(FLOATTYPE), intent(in)                  :: Chrom(:) !< A solution
+      real(FLOATTYPEAH), intent(in)                  :: Chrom(:) !< A solution
       class(AlphaEvolveSpec), intent(in)           :: Spec     !< AlphaEvolveSpec --> AlphaMateSpec holder
       class(AlphaEvolveData), intent(in), optional :: Data     !< AlphaEvolveData --> AlphaMateData holder
       type(vsl_stream_state), intent(inout)        :: Stream   !< Intel RNG stream
@@ -5327,8 +5338,8 @@ module AlphaMateModule
       integer(int32) :: nParam, Point, iSol, Target, Unit, nRanNum, RanNumLoc
 
       real(FLOATTYPE) :: Tmp
-      real(FLOATTYPE), allocatable :: RanNum(:), InitChrom(:, :), AvgCoancestryStd(:), SelCriterionStd(:)
-
+      real(FLOATTYPE), allocatable :: RanNum(:), AvgCoancestryStd(:), SelCriterionStd(:)
+      real(FLOATTYPEAH), allocatable :: InitChrom(:, :)
       logical :: LogStdoutInternal !, OptimOK
 
       character(len=FILELENGTH) :: LogFile, LogPopFile, ContribFile, MatingFile
