@@ -10,7 +10,7 @@
 #define DESCSTATMATRIXFLOAT DescStatMatrixReal64
 #endif
 
-! ADD  in alphahouse preprocessor to get ah types
+! ADD in alphahouse preprocessor to get ah types
 #ifdef SINGLEPRECAH
 #define FLOATTYPEAH real32
 #define FLOATFUNAH real
@@ -4966,8 +4966,10 @@ module AlphaMateModule
                   end if
                 end if
                 ! Handle beyond the nadir point case so that degree calculation will be meaningful
-                if (This%MaxCriterionPct .lt. 0.0) then
-                  This%MaxCriterionPct = 0.0
+                if (.not. ieee_is_nan(This%MaxCriterionPct)) then
+                  if (This%MaxCriterionPct .lt. 0.0) then
+                    This%MaxCriterionPct = 0.0
+                  end if
                 end if
                 ! @todo Should we handle also cases above 100%?
                 ! @todo Should we modify Spec%ModeMaxCriterionSpec and Spec%ModeMinCoancestrySpec on the fly?
@@ -5053,8 +5055,10 @@ module AlphaMateModule
               ! Inlined CoancestryRate2MinCoancestryPct STOP
 
               ! Handle beyond the nadir point case so that degree calculation will be meaningful
-              if (This%MinCoancestryPct .lt. 0.0) then
-                This%MinCoancestryPct = 0.0
+              if (.not. ieee_is_nan(This%MinCoancestryPct)) then
+                if (This%MinCoancestryPct .lt. 0.0) then
+                  This%MinCoancestryPct = 0.0
+                end if
               end if
               ! @todo Should we handle also cases above 100%?
               ! @todo Should we then modify Spec%ModeMaxCriterionSpec and Spec%ModeMinCoancestrySpec on the fly?
