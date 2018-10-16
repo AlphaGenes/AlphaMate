@@ -4513,7 +4513,7 @@ module AlphaMateModule
                 End = Start - 1 + Spec%nMat
                 SChrom%MateRank = Chrom(Start:End)
                 if (.not. Spec%GenderGiven) then
-                  nRanNum = nRanNum + ceiling(real(Spec%nMat) / 2) ! see "Distribute one half of contributions into matings"
+                  nRanNum = nRanNum + Data%nPotPar1 ! see "Distribute one half of contributions into matings"
                 end if
               end if
               if (Spec%PAGEPar) then
