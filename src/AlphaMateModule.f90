@@ -69,9 +69,9 @@
 !
 !> @author   Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
 !
-!> @date      2018-01-15
+!> @date      2018-11-02
 !
-!> @version  0.1.1 (alpha)
+!> @version  0.2.0 (alpha)
 !
 !-------------------------------------------------------------------------------
 module AlphaMateModule

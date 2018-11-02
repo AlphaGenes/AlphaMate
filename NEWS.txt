@@ -1,14 +1,16 @@
 
-v0.2.0 2018-??-??
+v0.2.0 2018-11-02
   IMPROVEMENTS
-  * Faster optimisation via paralelisation. The animal example is about 7x faster
+  * Faster optimisation via parallelisation. The animal example is about 7x faster
     with 8 cores.
 
   * Faster data input/preparation. The animal example is ~3x faster. Larger cases
     will see more gain.
 
+  * Infrastructure for single or double precision mode to further speed-up large cases.
+
   BUGFIXES
-  * Now we properly set random number generator seed value.
+  * Now we properly set random number generator seed value for all run cases.
 
 v0.1.1 2018-07-03
   IMPROVEMENTS

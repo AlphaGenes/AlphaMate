@@ -123,8 +123,6 @@ Pareto front calculations
 
 --- COMPUTATIONAL CONSIDERATIONS ---
 
-* Single precision to cut down CPU. Single precision should be fine for what we are doing here.
-
 * Stop optimisation and restart?
   - checkpointing trick (catch kill command, save current state, and stop, enable
     restart from the saved state)
@@ -135,7 +133,7 @@ Pareto front calculations
    (might be worthwhile to relax biological constraints for this step to give enough space for evolutionary algorithm later, i.e., double the number of parents)
 
 * Other optimisation algorithms?
-  - Evolution strategies of OpenAI stohastically estimate gradients, but this is
+  - Evolution strategies of OpenAI stochastically estimate gradients, but this is
     continuous optimisation (which I also do in AlphaMate through a hacked solution representation!)
     https://blog.openai.com/evolution-strategies/
 
