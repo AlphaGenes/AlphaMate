@@ -1,3 +1,4 @@
+Seed                  , 15
 NrmMatrixFile         , Nrm.txt
 SelCriterionFile      , Criterion.txt
 NumberOfMatings       , 32

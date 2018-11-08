@@ -1,4 +1,4 @@
-Seed, 15
+Seed                        , 15
 GenderFile                  , Pools.txt
 NrmMatrixFile               , Nrm.txt
 SelCriterionFile            , Criterion.txt
