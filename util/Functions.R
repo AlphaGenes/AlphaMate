@@ -149,6 +149,7 @@ MinCoancestryPct2Degree = function(MinCoancestryPct) {
 #' Degree2MinCoancestryPct( 0)
 #' Degree2MinCoancestryPct(45)
 #' Degree2MinCoancestryPct(90)
+#' Degree2MinCoancestryPct(seq(from = 0, to = 90, by = 5))
 Degree2MinCoancestryPct = function(Degree) {
   sin(Degree * pi / 180.0) * 100.0
 }
@@ -203,6 +204,7 @@ MaxCriterionPct2Degree = function(MaxCriterionPct) {
 #' Degree2MaxCriterionPct( 0)
 #' Degree2MaxCriterionPct(45)
 #' Degree2MaxCriterionPct(90)
+#' Degree2MaxCriterionPct(seq(from = 0, to = 90, by = 5))
 Degree2MaxCriterionPct = function(Degree) {
   cos(Degree * pi / 180.0) * 100.0
 }
