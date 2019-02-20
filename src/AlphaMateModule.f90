@@ -221,17 +221,17 @@ module AlphaMateModule
                                     TargetSelCriterion(:), TargetSelCriterionStd(:), TargetMaxCriterionPct(:), &
                                     TargetCoancestry(:), TargetCoancestryRate(:), TargetMinCoancestryPct(:)
     real(FLOATTYPE) :: TargetInbreeding, TargetInbreedingRate, TargetMinInbreedingPct
-    real(FLOATTYPE) :: CoancestryWeight, InbreedingWeight, SelfingWeight
+    real(FLOATTYPE) :: CoancestryWeight, InbreedingWeight, MultipleMatingsWeight, SelfingWeight
     logical :: CoancestryWeightBelow, InbreedingWeightBelow
     real(FLOATTYPE), allocatable :: GenericIndCritWeight(:), GenericMatCritWeight(:)
 
     ! Biological specifications
     integer(int32) :: nInd, nMat, nPar, nPar1, nPar2 ! NOTE: nInd is here just for OO-flexibility (do not use it; the main one is in Data!!!)
-    logical :: MateAllocation, RandomMateAllocation,    &
-               SelfingAllowed,                          &
-               EqualizePar, EqualizePar1, EqualizePar2, &
-               LimitPar, LimitPar1, LimitPar2,          &
-               PreselectPar, PreselectPar1, PreselectPar2
+    logical :: PreselectPar, PreselectPar1, PreselectPar2, &
+               EqualizePar, EqualizePar1, EqualizePar2,    &
+               LimitPar, LimitPar1, LimitPar2,             &
+               MateAllocation, RandomMateAllocation,       &
+               ReciprocalMatingsAllowed, MultipleMatingsAllowed, SelfingAllowed
     real(FLOATTYPE) :: LimitParMin,       LimitPar1Min,       LimitPar2Min, &
                        LimitParMax,       LimitPar1Max,       LimitPar2Max, &
                        LimitParMinWeight, LimitPar1MinWeight, LimitPar2MinWeight, &
@@ -249,7 +249,7 @@ module AlphaMateModule
     ! ... differential evolution
     integer(int32) :: DiffEvolNIterBurnIn
     real(FLOATTYPEAH) :: DiffEvolParamCrBurnIn, DiffEvolParamCr1, DiffEvolParamCr2, &
-                       DiffEvolParamFBase, DiffEvolParamFHigh1, DiffEvolParamFHigh2
+                         DiffEvolParamFBase, DiffEvolParamFHigh1, DiffEvolParamFHigh2
     ! ... random search
     integer(int32) :: RanAlgStricter
 
@@ -311,9 +311,10 @@ module AlphaMateModule
     real(FLOATTYPE)              :: Penalty
     real(FLOATTYPE)              :: PenaltyCoancestry
     real(FLOATTYPE)              :: PenaltyInbreeding
-    real(FLOATTYPE)              :: PenaltySelfing
     real(FLOATTYPE)              :: PenaltyLimitPar1
     real(FLOATTYPE)              :: PenaltyLimitPar2
+    real(FLOATTYPE)              :: PenaltyMultipleMatings
+    real(FLOATTYPE)              :: PenaltySelfing
     real(FLOATTYPE)              :: PenaltyGenericIndCrit
     real(FLOATTYPE)              :: PenaltyGenericMatCrit
     real(FLOATTYPE)              :: Degree
@@ -474,11 +475,15 @@ module AlphaMateModule
       This%nPar1 = 0
       This%nPar2 = 0
 
-      This%MateAllocation = .true.
-      This%RandomMateAllocation = .false.
-
-      This%SelfingAllowed = .false.
-      This%SelfingWeight = -1.0
+      This%PreselectPar      = .false.
+      This%PreselectPar1     = .false.
+      This%PreselectPar2     = .false.
+      This%PreselectParPct   = 100.0
+      This%PreselectPar1Pct  = 100.0
+      This%PreselectPar2Pct  = 100.0
+      This%PreselectParN     = 0
+      This%PreselectPar1N    = 0
+      This%PreselectPar2N    = 0
 
       This%EqualizePar  = .false.
       This%EqualizePar1 = .false.
@@ -497,15 +502,16 @@ module AlphaMateModule
       This%LimitPar1MinWeight = -1.0
       This%LimitPar2MinWeight = -1.0
 
-      This%PreselectPar      = .false.
-      This%PreselectPar1     = .false.
-      This%PreselectPar2     = .false.
-      This%PreselectParPct   = 100.0
-      This%PreselectPar1Pct  = 100.0
-      This%PreselectPar2Pct  = 100.0
-      This%PreselectParN     = 0
-      This%PreselectPar1N    = 0
-      This%PreselectPar2N    = 0
+      This%MateAllocation = .true.
+      This%RandomMateAllocation = .false.
+
+      This%ReciprocalMatingsAllowed = .false.
+
+      This%MultipleMatingsAllowed = .false.
+      This%MultipleMatingsWeight = -1.0
+
+      This%SelfingAllowed = .false.
+      This%SelfingWeight = -1.0
 
       This%PAGEPar  = .false.
       This%PAGEPar1 = .false.
@@ -696,11 +702,15 @@ module AlphaMateModule
       write(Unit, *) "nPar1: ", This%nPar1
       write(Unit, *) "nPar2: ", This%nPar2
 
-      write(Unit, *) "MateAllocation:       ", This%MateAllocation
-      write(Unit, *) "RandomMateAllocation: ", This%RandomMateAllocation
-
-      write(Unit, *) "SelfingAllowed: ", This%SelfingAllowed
-      write(Unit, *) "SelfingWeight:  ", This%SelfingWeight
+      write(Unit, *) "PreselectPar:     ", This%PreselectPar
+      write(Unit, *) "PreselectPar1:    ", This%PreselectPar1
+      write(Unit, *) "PreselectPar2:    ", This%PreselectPar2
+      write(Unit, *) "PreselectParPct:  ", This%PreselectParPct
+      write(Unit, *) "PreselectPar1Pct: ", This%PreselectPar1Pct
+      write(Unit, *) "PreselectPar2Pct: ", This%PreselectPar2Pct
+      write(Unit, *) "PreselectParN:    ", This%PreselectParN
+      write(Unit, *) "PreselectPar1N:   ", This%PreselectPar1N
+      write(Unit, *) "PreselectPar2N:   ", This%PreselectPar2N
 
       write(Unit, *) "EqualizePar:  ", This%EqualizePar
       write(Unit, *) "EqualizePar1: ", This%EqualizePar1
@@ -719,15 +729,16 @@ module AlphaMateModule
       write(Unit, *) "LimitPar1MinWeight: ", This%LimitPar1MinWeight
       write(Unit, *) "LimitPar2MinWeight: ", This%LimitPar2MinWeight
 
-      write(Unit, *) "PreselectPar:     ", This%PreselectPar
-      write(Unit, *) "PreselectPar1:    ", This%PreselectPar1
-      write(Unit, *) "PreselectPar2:    ", This%PreselectPar2
-      write(Unit, *) "PreselectParPct:  ", This%PreselectParPct
-      write(Unit, *) "PreselectPar1Pct: ", This%PreselectPar1Pct
-      write(Unit, *) "PreselectPar2Pct: ", This%PreselectPar2Pct
-      write(Unit, *) "PreselectParN:    ", This%PreselectParN
-      write(Unit, *) "PreselectPar1N:   ", This%PreselectPar1N
-      write(Unit, *) "PreselectPar2N:   ", This%PreselectPar2N
+      write(Unit, *) "MateAllocation:       ", This%MateAllocation
+      write(Unit, *) "RandomMateAllocation: ", This%RandomMateAllocation
+
+      write(Unit, *) "ReciprocalMatingsAllowed: ", This%ReciprocalMatingsAllowed
+
+      write(Unit, *) "MultipleMatingsAllowed: ", This%MultipleMatingsAllowed
+      write(Unit, *) "MultipleMatingsWeight:  ", This%MultipleMatingsWeight
+
+      write(Unit, *) "SelfingAllowed: ", This%SelfingAllowed
+      write(Unit, *) "SelfingWeight:  ", This%SelfingWeight
 
       write(Unit, *) "PAGEPar:     ", This%PAGEPar
       write(Unit, *) "PAGEPar1:    ", This%PAGEPar1
@@ -868,7 +879,7 @@ module AlphaMateModule
                   end if
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a string for OutputBasename, i.e., OutputBasename, AnalysisX"
+                write(STDERR, "(a)") " ERROR: Must specify a string for OutputBasename, for example, OutputBasename, AnalysisX"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -884,7 +895,7 @@ module AlphaMateModule
                   This%RelMtxGiven = .true.
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a file for CoancestryMatrixFile, i.e., CoancestryMatrixFile, CoaMtx.txt"
+                write(STDERR, "(a)") " ERROR: Must specify a file for CoancestryMatrixFile, for example, CoancestryMatrixFile, CoaMtx.txt"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -900,12 +911,12 @@ module AlphaMateModule
                   This%RelMtxGiven = .true.
                   This%NrmInsteadOfCoancestry = .true.
                 else
-                  write(STDERR, "(a)") " ERROR: Must specify a file for NrmMatrixFile, i.e., NrmMatrixFile, NrmMtx.txt"
+                  write(STDERR, "(a)") " ERROR: Must specify a file for NrmMatrixFile, for example, NrmMatrixFile, NrmMtx.txt"
                   write(STDERR, "(a)") " "
                   stop 1
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a file for NrmMatrixFile, i.e., NrmMatrixFile, NrmMtx.txt"
+                write(STDERR, "(a)") " ERROR: Must specify a file for NrmMatrixFile, for example, NrmMatrixFile, NrmMtx.txt"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -921,7 +932,7 @@ module AlphaMateModule
                   This%SelCriterionGiven = .true.
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a file for SelCriterionFile, i.e., SelCriterionFile, SelCrit.txt"
+                write(STDERR, "(a)") " ERROR: Must specify a file for SelCriterionFile, for example, SelCriterionFile, SelCrit.txt"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -937,7 +948,7 @@ module AlphaMateModule
                   This%GenderGiven = .true.
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a file for GenderFile, i.e., GenderFile, Gender.txt"
+                write(STDERR, "(a)") " ERROR: Must specify a file for GenderFile, for example, GenderFile, Gender.txt"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -953,7 +964,7 @@ module AlphaMateModule
                   end if
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a file for SeedFile, i.e., SeedFile, Seed.txt"
+                write(STDERR, "(a)") " ERROR: Must specify a file for SeedFile, for example, SeedFile, Seed.txt"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -966,7 +977,7 @@ module AlphaMateModule
                   write(STDOUT, "(a)") " Seed: "//trim(Int2Char(This%Seed))
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a number for Seed, i.e., Seed, 19791123"
+                write(STDERR, "(a)") " ERROR: Must specify a number for Seed, for example, Seed, 19791123"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -979,7 +990,7 @@ module AlphaMateModule
                   write(STDOUT, "(a)") " NumberOfThreads: "//trim(Int2Char(This%nThreads))
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a number for NumberOfThreads, i.e., NumberOfThreads, 8"
+                write(STDERR, "(a)") " ERROR: Must specify a number for NumberOfThreads, for example, NumberOfThreads, 8"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -995,7 +1006,7 @@ module AlphaMateModule
                   This%GenericIndCritGiven = .true.
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a file for GenericIndividualCriterionFile, i.e., GenericIndividualCriterionFile, IndividualCriterion.txt"
+                write(STDERR, "(a)") " ERROR: Must specify a file for GenericIndividualCriterionFile, for example, GenericIndividualCriterionFile, IndividualCriterion.txt"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -1010,7 +1021,7 @@ module AlphaMateModule
                   allocate(This%GenericIndCritWeight(This%nGenericIndCrit))
                   nGenericIndCrit = 0
                 else
-                  write(STDERR, "(a)") " ERROR: Must specify a number for GenericIndividualCriterionColumns, i.e., GenericIndividualCriterionColumns, 2"
+                  write(STDERR, "(a)") " ERROR: Must specify a number for GenericIndividualCriterionColumns, for example, GenericIndividualCriterionColumns, 2"
                   write(STDERR, "(a)") " "
                   stop 1
                 end if
@@ -1025,7 +1036,7 @@ module AlphaMateModule
                     write(STDOUT, "(a)") " Generic individual criterion - weight ("//trim(Int2Char(nGenericIndCrit))//"): "//trim(Real2Char(This%GenericIndCritWeight(nGenericIndCrit), fmt=FMTREAL2CHAR))
                   end if
                 else
-                  write(STDERR, "(a)") " ERROR: Must specify a value for GenericIndividualCriterionWeight, i.e., GenericIndividualCriterionWeight, 2"
+                  write(STDERR, "(a)") " ERROR: Must specify a value for GenericIndividualCriterionWeight, for example, GenericIndividualCriterionWeight, 2"
                   write(STDERR, "(a)") " "
                   stop 1
                 end if
@@ -1037,12 +1048,12 @@ module AlphaMateModule
                   write(This%GenericMatCritFile, *) trim(adjustl(Second(1)))
                   This%GenericMatCritFile = adjustl(This%GenericMatCritFile)
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Generic mating criterion file: "//trim(This%GenericMatCritFile)
+                    write(STDOUT, "(a)") " Generic mating/crossing criterion file: "//trim(This%GenericMatCritFile)
                   end if
                   This%GenericMatCritGiven = .true.
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a file for GenericMatingCriterionFile, i.e., GenericMatingCriterionFile, MatingCriterion.txt"
+                write(STDERR, "(a)") " ERROR: Must specify a file for GenericMatingCriterionFile, for example, GenericMatingCriterionFile, MatingCriterion.txt"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -1052,12 +1063,12 @@ module AlphaMateModule
                 if (allocated(Second)) then
                   This%nGenericMatCrit = Char2Int(trim(adjustl(Second(1))))
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Generic mating criterion - number of columns: "//trim(Int2Char(This%nGenericMatCrit))
+                    write(STDOUT, "(a)") " Generic mating/crossing criterion - number of columns: "//trim(Int2Char(This%nGenericMatCrit))
                   end if
                   allocate(This%GenericMatCritWeight(This%nGenericMatCrit))
                   nGenericMatCrit = 0
                 else
-                  write(STDERR, "(a)") " ERROR: Must specify a number for GenericMatingCriterionColumns, i.e., GenericMatingCriterionColumns, 2"
+                  write(STDERR, "(a)") " ERROR: Must specify a number for GenericMatingCriterionColumns, for example, GenericMatingCriterionColumns, 2"
                   write(STDERR, "(a)") " "
                   stop 1
                 end if
@@ -1069,10 +1080,10 @@ module AlphaMateModule
                   nGenericMatCrit = nGenericMatCrit + 1
                   This%GenericMatCritWeight(nGenericMatCrit) = Char2Real(trim(adjustl(Second(1))))
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Generic mating criterion - weight ("//trim(Int2Char(nGenericMatCrit))//"): "//trim(Real2Char(This%GenericMatCritWeight(nGenericMatCrit), fmt=FMTREAL2CHAR))
+                    write(STDOUT, "(a)") " Generic mating/crossing criterion - weight ("//trim(Int2Char(nGenericMatCrit))//"): "//trim(Real2Char(This%GenericMatCritWeight(nGenericMatCrit), fmt=FMTREAL2CHAR))
                   end if
                 else
-                  write(STDERR, "(a)") " ERROR: Must specify a value for GenericMatingCriterionWeight, i.e., GenericMatingCriterionWeight, 2"
+                  write(STDERR, "(a)") " ERROR: Must specify a value for GenericMatingCriterionWeight, for example, GenericMatingCriterionWeight, 2"
                   write(STDERR, "(a)") " "
                   stop 1
                 end if
@@ -1088,7 +1099,7 @@ module AlphaMateModule
                   end if
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify Yes or No for ModeMinCoancestry, i.e., ModeMinCoancestry, Yes"
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for ModeMinCoancestry, for example, ModeMinCoancestry, Yes"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -1102,7 +1113,7 @@ module AlphaMateModule
                   end if
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify Yes or No for ModeMinInbreeding, i.e., ModeMinInbreeding, Yes"
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for ModeMinInbreeding, for example, ModeMinInbreeding, Yes"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -1116,7 +1127,7 @@ module AlphaMateModule
                   end if
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify Yes or No for ModeMaxCriterion, i.e., ModeMaxCriterion, Yes"
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for ModeMaxCriterion, for example, ModeMaxCriterion, Yes"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -1130,7 +1141,7 @@ module AlphaMateModule
             !       end if
             !     end if
             !   else
-            !     write(STDERR, "(a)") " ERROR: Must specify Yes or No for ModeRan, i.e., ModeRan, Yes"
+            !     write(STDERR, "(a)") " ERROR: Must specify Yes or No for ModeRan, for example, ModeRan, Yes"
             !     write(STDERR, "(a)") " "
             !     stop 1
             !   end if
@@ -1144,7 +1155,7 @@ module AlphaMateModule
                   end if
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify Yes or No for ModeOpt, i.e., ModeOpt, Yes"
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for ModeOpt, for example, ModeOpt, Yes"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -1161,7 +1172,7 @@ module AlphaMateModule
                   end if
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify Yes or No for EvaluateFrontier, i.e., EvaluateFrontier, Yes"
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for EvaluateFrontier, for example, EvaluateFrontier, Yes"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -1192,7 +1203,7 @@ module AlphaMateModule
                   end if
                 end block
               else
-                write(STDERR, "(a)") " ERROR: Must specify a value for TargetDegree, i.e., TargetDegree, 45"
+                write(STDERR, "(a)") " ERROR: Must specify a value for TargetDegree, for example, TargetDegree, 45"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -1216,7 +1227,7 @@ module AlphaMateModule
                   end if
                 end block
               else
-                write(STDERR, "(a)") " ERROR: Must specify a value for TargetSelCriterion, i.e., TargetSelCriterion, 100"
+                write(STDERR, "(a)") " ERROR: Must specify a value for TargetSelCriterion, for example, TargetSelCriterion, 100"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -1245,7 +1256,7 @@ module AlphaMateModule
                   end if
                 end block
               else
-                write(STDERR, "(a)") " ERROR: Must specify a value for TargetSelCriterionStd, i.e., TargetSelCriterionStd, 2"
+                write(STDERR, "(a)") " ERROR: Must specify a value for TargetSelCriterionStd, for example, TargetSelCriterionStd, 2"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -1274,7 +1285,7 @@ module AlphaMateModule
                   end if
                 end block
               else
-                write(STDERR, "(a)") " ERROR: Must specify a value for TargetMaxCriterionPct, i.e., TargetMaxCriterionPct, 90"
+                write(STDERR, "(a)") " ERROR: Must specify a value for TargetMaxCriterionPct, for example, TargetMaxCriterionPct, 90"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -1303,7 +1314,7 @@ module AlphaMateModule
                   end if
                 end block
               else
-                write(STDERR, "(a)") " ERROR: Must specify a value for TargetCoancestry, i.e., TargetCoancestry, 0.31"
+                write(STDERR, "(a)") " ERROR: Must specify a value for TargetCoancestry, for example, TargetCoancestry, 0.31"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -1333,7 +1344,7 @@ module AlphaMateModule
                   end if
                 end block
               else
-                write(STDERR, "(a)") " ERROR: Must specify a value for TargetCoancestryRate, i.e., TargetCoancestryRate, 0.01"
+                write(STDERR, "(a)") " ERROR: Must specify a value for TargetCoancestryRate, for example, TargetCoancestryRate, 0.01"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -1362,7 +1373,7 @@ module AlphaMateModule
                   end if
                 end block
               else
-                write(STDERR, "(a)") " ERROR: Must specify a value for TargetMinCoancestryPct, i.e., TargetMinCoancestryPct, 90"
+                write(STDERR, "(a)") " ERROR: Must specify a value for TargetMinCoancestryPct, for example, TargetMinCoancestryPct, 90"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -1374,10 +1385,10 @@ module AlphaMateModule
                   write(STDOUT, "(a)") " Targeted coancestry - weight: "//trim(Real2Char(This%CoancestryWeight, fmt=FMTREAL2CHAR))
                 end if
                 if (This%CoancestryWeight .gt. 0.0) then
-                  write(STDOUT, "(a)") " NOTE: Positive weight for the targeted coancestry, i.e., encourage higher coancestry. Was this intended?"
+                  write(STDOUT, "(a)") " NOTE: Positive weight for the targeted coancestry, that is, encourage higher coancestry. Was this intended?"
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a value for CoancestryWeight, i.e., CoancestryWeight, -2"
+                write(STDERR, "(a)") " ERROR: Must specify a value for CoancestryWeight, for example, CoancestryWeight, -2"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -1391,7 +1402,7 @@ module AlphaMateModule
                   end if
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify Yes or No for CoancestryWeightBelow, i.e., CoancestryWeightBelow, No"
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for CoancestryWeightBelow, for example, CoancestryWeightBelow, No"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -1415,7 +1426,7 @@ module AlphaMateModule
                   stop 1
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a value for TargetInbreeding, i.e., TargetInbreeding, 0.31"
+                write(STDERR, "(a)") " ERROR: Must specify a value for TargetInbreeding, for example, TargetInbreeding, 0.31"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -1439,7 +1450,7 @@ module AlphaMateModule
                   stop 1
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a value for TargetInbreedingRate, i.e., TargetInbreedingRate, 0.01"
+                write(STDERR, "(a)") " ERROR: Must specify a value for TargetInbreedingRate, for example, TargetInbreedingRate, 0.01"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -1462,7 +1473,7 @@ module AlphaMateModule
                   stop 1
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a value for TargetMinInbreedingPct, i.e., TargetMinInbreedingPct, 90"
+                write(STDERR, "(a)") " ERROR: Must specify a value for TargetMinInbreedingPct, for example, TargetMinInbreedingPct, 90"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -1474,10 +1485,10 @@ module AlphaMateModule
                   write(STDOUT, "(a)") " Targeted inbreeding - weight: "//trim(Real2Char(This%InbreedingWeight, fmt=FMTREAL2CHAR))
                 end if
                 if (This%InbreedingWeight .gt. 0.0) then
-                  write(STDOUT, "(a)") " NOTE: Positive weight for targeted inbreeding, i.e., encourage higher inbreeding. Was this intended?"
+                  write(STDOUT, "(a)") " NOTE: Positive weight for targeted inbreeding, that is, encourage higher inbreeding. Was this intended?"
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a value for InbreedingWeight, i.e., InbreedingWeight, -2"
+                write(STDERR, "(a)") " ERROR: Must specify a value for InbreedingWeight, for example, InbreedingWeight, -2"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -1491,7 +1502,7 @@ module AlphaMateModule
                   end if
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify Yes or No for InbreedingWeightBelow, i.e., InbreedingWeightBelow, No"
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for InbreedingWeightBelow, for example, InbreedingWeightBelow, No"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -1501,10 +1512,10 @@ module AlphaMateModule
               if (allocated(Second)) then
                 This%nMat = Char2Int(trim(adjustl(Second(1))))
                 if (LogStdoutInternal) then
-                  write(STDOUT, "(a)") " Number of matings: "//trim(Int2Char(This%nMat))
+                  write(STDOUT, "(a)") " Number of matings/crosses: "//trim(Int2Char(This%nMat))
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a number for NumberOfMatings, i.e., NumberOfMatings, 10"
+                write(STDERR, "(a)") " ERROR: Must specify a number for NumberOfMatings, for example, NumberOfMatings, 10"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -1516,7 +1527,7 @@ module AlphaMateModule
                   write(STDOUT, "(a)") " Number of parents: "//trim(Int2Char(This%nPar))
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a number for NumberOfParents, i.e., NumberOfParents, 20"
+                write(STDERR, "(a)") " ERROR: Must specify a number for NumberOfParents, for example, NumberOfParents, 20"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -1528,7 +1539,7 @@ module AlphaMateModule
                   write(STDOUT, "(a)") " Number of male parents: "//trim(Int2Char(This%nPar1))
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a number for NumberOfMaleParents, i.e., NumberOfMaleParents, 10"
+                write(STDERR, "(a)") " ERROR: Must specify a number for NumberOfMaleParents, for example, NumberOfMaleParents, 10"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -1540,72 +1551,104 @@ module AlphaMateModule
                   write(STDOUT, "(a)") " Number of female parents: "//trim(Int2Char(This%nPar2))
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a number for NumberOfFemaleParents, i.e., NumberOfFemaleParents, 10"
+                write(STDERR, "(a)") " ERROR: Must specify a number for NumberOfFemaleParents, for example, NumberOfFemaleParents, 10"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
 
-            case ("mateallocation")
+            case ("preselect")
               if (allocated(Second)) then
-                if (ToLower(trim(adjustl(Second(1)))) .ne. "yes") then
-                  This%MateAllocation = .false.
+                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                  This%PreselectPar = .true.
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Do not allocate matings"
+                    write(STDOUT, "(a)") " Preselect"
                   end if
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify Yes or No for MateAllocation, i.e., MateAllocation, Yes"
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for Preselect, for example, Preselect, Yes"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
 
-            case ("randommateallocation")
-              if (This%MateAllocation) then
-                if (allocated(Second)) then
-                  if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
-                    This%RandomMateAllocation = .true.
-                    if (LogStdoutInternal) then
-                      write(STDOUT, "(a)") " Randomly allocate matings"
-                    end if
-                  end if
-                else
-                  write(STDERR, "(a)") " ERROR: Must specify Yes or No for RandomMateAllocation, i.e., RandomMateAllocation, Yes"
+            case ("preselectpercentage")
+              if (allocated(Second)) then
+                This%PreselectParPct = Char2Real(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Preselect percentage: "//trim(Real2Char(This%PreselectParPct, fmt=FMTREAL2CHAR))
+                end if
+                if (This%PreselectParPct .lt. 0.0 .or. This%PreselectParPct .gt. 100.) then
+                  write(STDERR, "(a)") " ERROR: The percentage value must be between 0 and 100"
                   write(STDERR, "(a)") " "
                   stop 1
                 end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a number for PreselectPercentage, for example, PreselectPercentage, 10"
+                write(STDERR, "(a)") " "
+                stop 1
               end if
 
-            case ("allowselfing")
-              if (This%MateAllocation) then
-                if (allocated(Second)) then
-                  if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
-                    This%SelfingAllowed = .true.
-                    if (LogStdoutInternal) then
-                      write(STDOUT, "(a)") " Selfing allowed"
-                    end if
-                  end if
-                else
-                  write(STDERR, "(a)") " ERROR: Must specify Yes or No for AllowSelfing, i.e., AllowSelfing, Yes"
-                  write(STDERR, "(a)") " "
-                  stop 1
-                end if
-              end if
-
-            case ("selfingweight")
-              if (This%SelfingAllowed) then
-                if (allocated(Second)) then
-                  This%SelfingWeight = Char2Real(trim(adjustl(Second(1))))
+            case ("preselectmales")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                  This%PreselectPar  = .true.
+                  This%PreselectPar1 = .true.
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") "Selfing - weight: "//trim(Real2Char(This%SelfingWeight, fmt=FMTREAL2CHAR))
+                    write(STDOUT, "(a)") " Preselect males"
                   end if
-                  if (This%SelfingWeight .gt. 0.0) then
-                    write(STDOUT, "(a)") " NOTE: Positive weight for selfing, i.e., encourage selfing. Was this intended?"
-                  end if
-                else
-                  write(STDERR, "(a)") " ERROR: Must specify a value for SelfingWeight, i.e., SelfingWeight, -2"
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for PreselectMales, for example, PreselectMales, Yes"
+                write(STDERR, "(a)") " "
+                stop 1
+              end if
+
+            case ("preselectmalespercentage")
+              if (allocated(Second)) then
+                This%PreselectPar1Pct = Char2Real(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Preselect males percentage: "//trim(Real2Char(This%PreselectPar1Pct, fmt=FMTREAL2CHAR))
+                end if
+                if (This%PreselectPar1Pct .lt. 0.0 .or. This%PreselectPar1Pct .gt. 100.) then
+                  write(STDERR, "(a)") " ERROR: The percentage value must be between 0 and 100"
                   write(STDERR, "(a)") " "
                   stop 1
                 end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a number for PreselectMalesPercentage, for example, PreselectMalesPercentage, 10"
+                write(STDERR, "(a)") " "
+                stop 1
+              end if
+
+            case ("preselectfemales")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                  This%PreselectPar  = .true.
+                  This%PreselectPar2 = .true.
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Preselect females"
+                  end if
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for PreselectFemales, for example, PreselectFemales, Yes"
+                write(STDERR, "(a)") " "
+                stop 1
+              end if
+
+            case ("preselectfemalespercentage")
+              if (allocated(Second)) then
+                This%PreselectPar2Pct = Char2Real(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Preselect females percentage: "//trim(Real2Char(This%PreselectPar2Pct, fmt=FMTREAL2CHAR))
+                end if
+                if (This%PreselectPar2Pct .lt. 0.0 .or. This%PreselectPar2Pct .gt. 100.) then
+                  write(STDERR, "(a)") " ERROR: The percentage value must be between 0 and 100"
+                  write(STDERR, "(a)") " "
+                  stop 1
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a number for PreselectFemalesPercentage, for example, PreselectFemalesPercentage, 10"
+                write(STDERR, "(a)") " "
+                stop 1
               end if
 
             case ("equalizecontributions")
@@ -1617,7 +1660,7 @@ module AlphaMateModule
                   end if
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify Yes or No for EqualizeContributions, i.e., EqualizeContributions, Yes"
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for EqualizeContributions, for example, EqualizeContributions, Yes"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -1632,7 +1675,7 @@ module AlphaMateModule
                   end if
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify Yes or No for EqualizeMaleContributions, i.e., EqualizeMaleContributions, Yes"
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for EqualizeMaleContributions, for example, EqualizeMaleContributions, Yes"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -1647,7 +1690,7 @@ module AlphaMateModule
                   end if
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify Yes or No for EqualizeFemaleContributions, i.e., EqualizeFemaleContributions, Yes"
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for EqualizeFemaleContributions, for example, EqualizeFemaleContributions, Yes"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -1661,54 +1704,48 @@ module AlphaMateModule
                   end if
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify Yes or No for LimitContributions, i.e., LimitContributions, Yes"
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for LimitContributions, for example, LimitContributions, Yes"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
 
             case ("limitcontributionsmin")
-              if (This%LimitPar) then
-                if (allocated(Second)) then
-                  This%LimitParMin = Char2Real(trim(adjustl(Second(1)))) ! real because of continous solution representation
-                  if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Limit contributions - minimum: "//trim(Int2Char(nint(This%LimitParMin))) ! nint because of continous solution representation
-                  end if
-                else
-                  write(STDERR, "(a)") " ERROR: Must specify a number for LimitContributionsMin, i.e., LimitContributionsMin, 1"
-                  write(STDERR, "(a)") " "
-                  stop 1
+              if (allocated(Second)) then
+                This%LimitParMin = Char2Real(trim(adjustl(Second(1)))) ! real because of continous solution representation
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Limit contributions - minimum: "//trim(Int2Char(nint(This%LimitParMin))) ! nint because of continous solution representation
                 end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a number for LimitContributionsMin, for example, LimitContributionsMin, 1"
+                write(STDERR, "(a)") " "
+                stop 1
               end if
 
             case ("limitcontributionsmax")
-              if (This%LimitPar) then
-                if (allocated(Second)) then
-                  This%LimitParMax = Char2Real(trim(adjustl(Second(1)))) ! Real because of continous solution representation
-                  if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Limit contributions - maximum: "//trim(Int2Char(nint(This%LimitParMax))) ! nint because of continous solution representation
-                  end if
-                else
-                  write(STDERR, "(a)") " ERROR: Must specify a number for LimitContributionsMax, i.e., LimitContributionsMax, 10"
-                  write(STDERR, "(a)") " "
-                  stop 1
+              if (allocated(Second)) then
+                This%LimitParMax = Char2Real(trim(adjustl(Second(1)))) ! Real because of continous solution representation
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Limit contributions - maximum: "//trim(Int2Char(nint(This%LimitParMax))) ! nint because of continous solution representation
                 end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a number for LimitContributionsMax, for example, LimitContributionsMax, 10"
+                write(STDERR, "(a)") " "
+                stop 1
               end if
 
             case ("limitcontributionsminweight")
-              if (This%LimitPar) then
-                if (allocated(Second)) then
-                  This%LimitParMinWeight = Char2Real(trim(adjustl(Second(1))))
-                  if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Limit contributions - weight for contributions below minimum: "//trim(Real2Char(This%LimitParMinWeight, fmt=FMTREAL2CHAR))
-                  end if
-                  if (This%LimitParMinWeight .gt. 0.0) then
-                    write(STDOUT, "(a)") " NOTE: Positive weight for limit on minimum contributions, i.e., encourage smaller contributions than defined minimum. Was this intended?"
-                  end if
-                else
-                  write(STDERR, "(a)") " ERROR: Must specify a value for LimitContributionsMinWeight, i.e., LimitContributionsMinWeight, -2"
-                  write(STDERR, "(a)") " "
-                  stop 1
+              if (allocated(Second)) then
+                This%LimitParMinWeight = Char2Real(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Limit contributions - weight for contributions below minimum: "//trim(Real2Char(This%LimitParMinWeight, fmt=FMTREAL2CHAR))
                 end if
+                if (This%LimitParMinWeight .gt. 0.0) then
+                  write(STDOUT, "(a)") " NOTE: Positive weight for limit on minimum contributions, that is, encourage smaller contributions than defined minimum. Was this intended?"
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a value for LimitContributionsMinWeight, for example, LimitContributionsMinWeight, -2"
+                write(STDERR, "(a)") " "
+                stop 1
               end if
 
             case ("limitmalecontributions")
@@ -1721,54 +1758,48 @@ module AlphaMateModule
                   end if
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify Yes or No for LimitMaleContributions, i.e., LimitMaleContributions, Yes"
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for LimitMaleContributions, for example, LimitMaleContributions, Yes"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
 
             case ("limitmalecontributionsmin")
-              if (This%LimitPar1) then
-                if (allocated(Second)) then
-                  This%LimitPar1Min = Char2Real(trim(adjustl(Second(1)))) ! Real because of continous solution representation
-                  if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Limit contributions of males - minimum: "//trim(Int2Char(nint(This%LimitPar1Min))) ! nint because of continous solution representation
-                  end if
-                else
-                  write(STDERR, "(a)") " ERROR: Must specify a number for LimitMaleContributionsMin, i.e., LimitMaleContributionsMin, 1"
-                  write(STDERR, "(a)") " "
-                  stop 1
+              if (allocated(Second)) then
+                This%LimitPar1Min = Char2Real(trim(adjustl(Second(1)))) ! Real because of continous solution representation
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Limit contributions of males - minimum: "//trim(Int2Char(nint(This%LimitPar1Min))) ! nint because of continous solution representation
                 end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a number for LimitMaleContributionsMin, for example, LimitMaleContributionsMin, 1"
+                write(STDERR, "(a)") " "
+                stop 1
               end if
 
             case ("limitmalecontributionsmax")
-              if (This%LimitPar1) then
-                if (allocated(Second)) then
-                  This%LimitPar1Max = Char2Real(trim(adjustl(Second(1)))) ! Real because of continous solution representation
-                  if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Limit contributions of males - maximum: "//trim(Int2Char(nint(This%LimitPar1Max))) ! nint because of continous solution representation
-                  end if
-                else
-                  write(STDERR, "(a)") " ERROR: Must specify a number for LimitMaleContributionsMax, i.e., LimitMaleContributionsMax, 10"
-                  write(STDERR, "(a)") " "
-                  stop 1
+              if (allocated(Second)) then
+                This%LimitPar1Max = Char2Real(trim(adjustl(Second(1)))) ! Real because of continous solution representation
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Limit contributions of males - maximum: "//trim(Int2Char(nint(This%LimitPar1Max))) ! nint because of continous solution representation
                 end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a number for LimitMaleContributionsMax, for example, LimitMaleContributionsMax, 10"
+                write(STDERR, "(a)") " "
+                stop 1
               end if
 
             case ("limitmalecontributionsminweight")
-              if (This%LimitPar1) then
-                if (allocated(Second)) then
-                  This%LimitPar1MinWeight = Char2Real(trim(adjustl(Second(1))))
-                  if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Limit contributions of males - weight for contributions below minimum: "//trim(Real2Char(This%LimitPar1MinWeight, fmt=FMTREAL2CHAR))
-                  end if
-                  if (This%LimitPar1MinWeight .gt. 0.0) then
-                    write(STDOUT, "(a)") " NOTE: Positive weight for limit on minimum contributions, i.e., encourage smaller contributions than defined minimum. Was this intended?"
-                  end if
-                else
-                  write(STDERR, "(a)") " ERROR: Must specify a value for LimitMaleContributionsMinWeight, i.e., LimitMaleContributionsMinWeight, -2"
-                  write(STDERR, "(a)") " "
-                  stop 1
+              if (allocated(Second)) then
+                This%LimitPar1MinWeight = Char2Real(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Limit contributions of males - weight for contributions below minimum: "//trim(Real2Char(This%LimitPar1MinWeight, fmt=FMTREAL2CHAR))
                 end if
+                if (This%LimitPar1MinWeight .gt. 0.0) then
+                  write(STDOUT, "(a)") " NOTE: Positive weight for limit on minimum contributions, that is, encourage smaller contributions than defined minimum. Was this intended?"
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a value for LimitMaleContributionsMinWeight, for example, LimitMaleContributionsMinWeight, -2"
+                write(STDERR, "(a)") " "
+                stop 1
               end if
 
             case ("limitfemalecontributions")
@@ -1780,155 +1811,148 @@ module AlphaMateModule
                   end if
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify Yes or No for LimitFemaleContributions, i.e., LimitFemaleContributions, Yes"
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for LimitFemaleContributions, for example, LimitFemaleContributions, Yes"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
 
             case ("limitfemalecontributionsmin")
-              if (This%LimitPar2) then
-                if (allocated(Second)) then
-                  This%LimitPar2Min = Char2Real(trim(adjustl(Second(1)))) ! Real because of continous solution representation
-                  if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Limit contributions of females - minimum: "//trim(Int2Char(nint(This%LimitPar2Min))) ! nint because of continous solution representation
-                  end if
-                else
-                  write(STDERR, "(a)") " ERROR: Must specify a number for LimitFemaleContributionsMin, i.e., LimitFemaleContributionsMin, 1"
-                  write(STDERR, "(a)") " "
-                  stop 1
+              if (allocated(Second)) then
+                This%LimitPar2Min = Char2Real(trim(adjustl(Second(1)))) ! Real because of continous solution representation
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Limit contributions of females - minimum: "//trim(Int2Char(nint(This%LimitPar2Min))) ! nint because of continous solution representation
                 end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a number for LimitFemaleContributionsMin, for example, LimitFemaleContributionsMin, 1"
+                write(STDERR, "(a)") " "
+                stop 1
               end if
 
             case ("limitfemalecontributionsmax")
-              if (This%LimitPar2) then
-                if (allocated(Second)) then
-                  This%LimitPar2Max = Char2Real(trim(adjustl(Second(1)))) ! Real because of continous solution representation
-                  if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Limit contributions of females - maximum: "//trim(Int2Char(nint(This%LimitPar2Max))) ! nint because of continous solution representation
-                  end if
-                else
-                  write(STDERR, "(a)") " ERROR: Must specify a number for LimitFemaleContributionsMax, i.e., LimitFemaleContributionsMax, 10"
-                  write(STDERR, "(a)") " "
-                  stop 1
+              if (allocated(Second)) then
+                This%LimitPar2Max = Char2Real(trim(adjustl(Second(1)))) ! Real because of continous solution representation
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Limit contributions of females - maximum: "//trim(Int2Char(nint(This%LimitPar2Max))) ! nint because of continous solution representation
                 end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a number for LimitFemaleContributionsMax, for example, LimitFemaleContributionsMax, 10"
+                write(STDERR, "(a)") " "
+                stop 1
               end if
 
             case ("limitfemalecontributionsminweight")
-              if (This%LimitPar2) then
-                if (allocated(Second)) then
-                  This%LimitPar2MinWeight = Char2Real(trim(adjustl(Second(1))))
-                  if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Limit contributions of females - weight for contributions below minimum: "//trim(Real2Char(This%LimitPar2MinWeight, fmt=FMTREAL2CHAR))
-                  end if
-                  if (This%LimitPar2MinWeight .gt. 0.0) then
-                    write(STDOUT, "(a)") " NOTE: Positive weight for limit on minimum contributions, i.e., encourage smaller contributions than defined minimum. Was this intended?"
-                  end if
-                else
-                  write(STDERR, "(a)") " ERROR: Must specify a value for LimitFemaleContributionsMinWeight, i.e., LimitFemaleContributionsMinWeight, -2"
-                  write(STDERR, "(a)") " "
-                  stop 1
-                end if
-              end if
-
-            case ("preselect")
               if (allocated(Second)) then
-                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
-                  This%PreselectPar = .true.
-                  if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Preselect"
-                  end if
+                This%LimitPar2MinWeight = Char2Real(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Limit contributions of females - weight for contributions below minimum: "//trim(Real2Char(This%LimitPar2MinWeight, fmt=FMTREAL2CHAR))
+                end if
+                if (This%LimitPar2MinWeight .gt. 0.0) then
+                  write(STDOUT, "(a)") " NOTE: Positive weight for limit on minimum contributions, that is, encourage smaller contributions than defined minimum. Was this intended?"
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify Yes or No for Preselect, i.e., Preselect, Yes"
+                write(STDERR, "(a)") " ERROR: Must specify a value for LimitFemaleContributionsMinWeight, for example, LimitFemaleContributionsMinWeight, -2"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
 
-            case ("preselectpercentage")
-              if (This%PreselectPar) then
-                if (allocated(Second)) then
-                  This%PreselectParPct = Char2Real(trim(adjustl(Second(1))))
-                  if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Preselect percentage: "//trim(Real2Char(This%PreselectParPct, fmt=FMTREAL2CHAR))
-                  end if
-                  if (This%PreselectParPct .lt. 0.0 .or. This%PreselectParPct .gt. 100.) then
-                    write(STDERR, "(a)") " ERROR: The percentage value must be between 0 and 100"
-                    write(STDERR, "(a)") " "
-                    stop 1
-                  end if
-                else
-                  write(STDERR, "(a)") " ERROR: Must specify a number for PreselectPercentage, i.e., PreselectPercentage, 10"
-                  write(STDERR, "(a)") " "
-                  stop 1
-                end if
-              end if
-
-            case ("preselectmales")
+            case ("mateallocation")
               if (allocated(Second)) then
-                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
-                  This%PreselectPar  = .true.
-                  This%PreselectPar1 = .true.
+                if (ToLower(trim(adjustl(Second(1)))) .ne. "yes") then
+                  This%MateAllocation = .false.
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Preselect males"
+                    write(STDOUT, "(a)") " Do not allocate matings/crosses"
                   end if
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify Yes or No for PreselectMales, i.e., PreselectMales, Yes"
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for MateAllocation, for example, MateAllocation, Yes"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
 
-            case ("preselectmalespercentage")
-              if (This%PreselectPar1) then
-                if (allocated(Second)) then
-                  This%PreselectPar1Pct = Char2Real(trim(adjustl(Second(1))))
-                  if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Preselect males percentage: "//trim(Real2Char(This%PreselectPar1Pct, fmt=FMTREAL2CHAR))
-                  end if
-                  if (This%PreselectPar1Pct .lt. 0.0 .or. This%PreselectPar1Pct .gt. 100.) then
-                    write(STDERR, "(a)") " ERROR: The percentage value must be between 0 and 100"
-                    write(STDERR, "(a)") " "
-                    stop 1
-                  end if
-                else
-                  write(STDERR, "(a)") " ERROR: Must specify a number for PreselectMalesPercentage, i.e., PreselectMalesPercentage, 10"
-                  write(STDERR, "(a)") " "
-                  stop 1
-                end if
-              end if
-
-            case ("preselectfemales")
+            case ("randommateallocation")
               if (allocated(Second)) then
                 if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
-                  This%PreselectPar  = .true.
-                  This%PreselectPar2 = .true.
+                  This%RandomMateAllocation = .true.
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Preselect females"
+                    write(STDOUT, "(a)") " Randomly allocate matings/crosses"
                   end if
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify Yes or No for PreselectFemales, i.e., PreselectFemales, Yes"
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for RandomMateAllocation, for example, RandomMateAllocation, Yes"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
 
-            case ("preselectfemalespercentage")
-              if (This%PreselectPar2) then
-                if (allocated(Second)) then
-                  This%PreselectPar2Pct = Char2Real(trim(adjustl(Second(1))))
+            case ("allowreciprocalmatings")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                  This%ReciprocalMatingsAllowed = .true.
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Preselect females percentage: "//trim(Real2Char(This%PreselectPar2Pct, fmt=FMTREAL2CHAR))
+                    write(STDOUT, "(a)") " Reciprocal matings/crosses allowed"
                   end if
-                  if (This%PreselectPar2Pct .lt. 0.0 .or. This%PreselectPar2Pct .gt. 100.) then
-                    write(STDERR, "(a)") " ERROR: The percentage value must be between 0 and 100"
-                    write(STDERR, "(a)") " "
-                    stop 1
-                  end if
-                else
-                  write(STDERR, "(a)") " ERROR: Must specify a number for PreselectFemalesPercentage, i.e., PreselectFemalesPercentage, 10"
-                  write(STDERR, "(a)") " "
-                  stop 1
                 end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for AllowReciprocalMatings, for example, AllowReciprocalMatings, Yes"
+                write(STDERR, "(a)") " "
+                stop 1
+              end if
+
+            case ("allowmultiplematings")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                  This%MultipleMatingsAllowed = .true.
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Multiple matings/crosses allowed"
+                  end if
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for AllowMultipleMatings, for example, AllowMultipleMatings, Yes"
+                write(STDERR, "(a)") " "
+                stop 1
+              end if
+
+            case ("multiplematingsweight")
+              if (allocated(Second)) then
+                This%MultipleMatingsWeight = Char2Real(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") "Multiple matings/crosses - weight: "//trim(Real2Char(This%MultipleMatingsWeight, fmt=FMTREAL2CHAR))
+                end if
+                if (This%MultipleMatingsWeight .gt. 0.0) then
+                  write(STDOUT, "(a)") " NOTE: Positive weight for multiple matings/crosses, that is, encourage multiple matings/crosses. Was this intended?"
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a value for MultipleMatingsWeight, for example, MultipleMatingsWeight, -2"
+                write(STDERR, "(a)") " "
+                stop 1
+              end if
+
+            case ("allowselfing")
+              if (allocated(Second)) then
+                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
+                  This%SelfingAllowed = .true.
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Selfing allowed"
+                  end if
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for AllowSelfing, for example, AllowSelfing, Yes"
+                write(STDERR, "(a)") " "
+                stop 1
+              end if
+
+            case ("selfingweight")
+              if (allocated(Second)) then
+                This%SelfingWeight = Char2Real(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") "Selfing - weight: "//trim(Real2Char(This%SelfingWeight, fmt=FMTREAL2CHAR))
+                end if
+                if (This%SelfingWeight .gt. 0.0) then
+                  write(STDOUT, "(a)") " NOTE: Positive weight for selfing, that is, encourage selfing. Was this intended?"
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a value for SelfingWeight, for example, SelfingWeight, -2"
+                write(STDERR, "(a)") " "
+                stop 1
               end if
 
             case ("page")
@@ -1940,23 +1964,21 @@ module AlphaMateModule
                   end if
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify Yes or No for PAGE, i.e., PAGE, Yes"
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for PAGE, for example, PAGE, Yes"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
 
             case ("pagemax")
-              if (This%PAGEPar) then
-                if (allocated(Second)) then
-                  This%PAGEParMax = Char2Int(trim(adjustl(Second(1))))
-                  if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Promotion of Alleles by Genome Editing (PAGE) - maximum number of individuals: "//trim(Int2Char(This%PAGEParMax))
-                  end if
-                else
-                  write(STDERR, "(a)") " ERROR: Must specify number for PAGEMax, i.e., PAGEMax, 10"
-                  write(STDERR, "(a)") " "
-                  stop 1
+              if (allocated(Second)) then
+                This%PAGEParMax = Char2Int(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Promotion of Alleles by Genome Editing (PAGE) - maximum number of individuals: "//trim(Int2Char(This%PAGEParMax))
                 end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify number for PAGEMax, for example, PAGEMax, 10"
+                write(STDERR, "(a)") " "
+                stop 1
               end if
 
             case ("pagemales")
@@ -1969,23 +1991,21 @@ module AlphaMateModule
                   end if
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify Yes or No for PAGEMales, i.e., PAGEMales, Yes"
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for PAGEMales, for example, PAGEMales, Yes"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
 
             case ("pagemalesmax")
-              if (This%PAGEPar1) then
-                if (allocated(Second)) then
-                  This%PAGEPar1Max = Char2Int(trim(adjustl(Second(1))))
-                  if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Promotion of Alleles by Genome Editing (PAGE) in males - maxium number of individuals: "//trim(Int2Char(This%PAGEPar1Max))
-                  end if
-                else
-                  write(STDERR, "(a)") " ERROR: Must specify number for PAGEMalesMax, i.e., PAGEMalesMax, 10"
-                  write(STDERR, "(a)") " "
-                  stop 1
+              if (allocated(Second)) then
+                This%PAGEPar1Max = Char2Int(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Promotion of Alleles by Genome Editing (PAGE) in males - maxium number of individuals: "//trim(Int2Char(This%PAGEPar1Max))
                 end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify number for PAGEMalesMax, for example, PAGEMalesMax, 10"
+                write(STDERR, "(a)") " "
+                stop 1
               end if
 
             case ("pagefemales")
@@ -1998,23 +2018,21 @@ module AlphaMateModule
                   end if
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify Yes or No for PAGEFemales, i.e., PAGEFemales, Yes"
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for PAGEFemales, for example, PAGEFemales, Yes"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
 
             case ("pagefemalesmax")
-              if (This%PAGEPar2) then
-                if (allocated(Second)) then
-                  This%PAGEPar2Max = Char2Int(trim(adjustl(Second(1))))
-                  if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Promotion of Alleles by Genome Editing (PAGE) in females - maximum number of individuals: "//trim(Int2Char(This%PAGEPar2Max))
-                  end if
-                else
-                  write(STDERR, "(a)") " ERROR: Must specify number for PAGEFemalesMax, i.e., PAGEFemalesMax, 10"
-                  write(STDERR, "(a)") " "
-                  stop 1
+              if (allocated(Second)) then
+                This%PAGEPar2Max = Char2Int(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Promotion of Alleles by Genome Editing (PAGE) in females - maximum number of individuals: "//trim(Int2Char(This%PAGEPar2Max))
                 end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify number for PAGEFemalesMax, for example, PAGEFemalesMax, 10"
+                write(STDERR, "(a)") " "
+                stop 1
               end if
 
             ! Algorithm specifications
@@ -2025,7 +2043,7 @@ module AlphaMateModule
                   write(STDOUT, "(a)") " Evolutionary algorithm - number of solutions: "//trim(Int2Char(This%EvolAlgNSol))
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a number for EvolAlgNumberOfSolutions, i.e., EvolAlgNumberOfSolutions, 100"
+                write(STDERR, "(a)") " ERROR: Must specify a number for EvolAlgNumberOfSolutions, for example, EvolAlgNumberOfSolutions, 100"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -2037,7 +2055,7 @@ module AlphaMateModule
                   write(STDOUT, "(a)") " Evolutionary algorithm - number of iterations: "//trim(Int2Char(This%EvolAlgNIter))
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a number for EvolAlgNumberOfIterations, i.e., EvolAlgNumberOfIterations, 10000"
+                write(STDERR, "(a)") " ERROR: Must specify a number for EvolAlgNumberOfIterations, for example, EvolAlgNumberOfIterations, 10000"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -2049,7 +2067,7 @@ module AlphaMateModule
                   write(STDOUT, "(a)") " Evolutionary algorithm - number of iterations to print optimisation status: "//trim(Int2Char(This%EvolAlgNIterPrint))
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a number for EvolAlgNumberOfIterationsPrint, i.e., EvolAlgNumberOfIterationsPrint, 100"
+                write(STDERR, "(a)") " ERROR: Must specify a number for EvolAlgNumberOfIterationsPrint, for example, EvolAlgNumberOfIterationsPrint, 100"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -2061,7 +2079,7 @@ module AlphaMateModule
                   write(STDOUT, "(a)") " Evolutionary algorithm - number of iterations to stop upon no improvement of objective: "//trim(Int2Char(This%EvolAlgNIterStop))
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a number for EvolAlgNumberOfIterationsStop, i.e., EvolAlgNumberOfIterationsStop, 100"
+                write(STDERR, "(a)") " ERROR: Must specify a number for EvolAlgNumberOfIterationsStop, for example, EvolAlgNumberOfIterationsStop, 100"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -2073,7 +2091,7 @@ module AlphaMateModule
                   write(STDOUT, "(a)") " Evolutionary algorithm - stopping tolerance for minimum coancestry or minimum inbreeding optimisations: "//trim(Real2Char(This%EvolAlgStopTolCoancestry, fmt=FMTREAL2CHAR))
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a value for EvolAlgStopToleranceCoancestry, i.e., EvolAlgStopToleranceCoancestry, 0.01"
+                write(STDERR, "(a)") " ERROR: Must specify a value for EvolAlgStopToleranceCoancestry, for example, EvolAlgStopToleranceCoancestry, 0.01"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -2085,7 +2103,7 @@ module AlphaMateModule
                   write(STDOUT, "(a)") " Evolutionary algorithm - stopping tolerance for maximum criterion or optimum/balance optimisations: "//trim(Real2Char(This%EvolAlgStopTol, fmt=FMTREAL2CHAR))
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a value for EvolAlgStopTol, i.e., EvolAlgStopTol, 0.01"
+                write(STDERR, "(a)") " ERROR: Must specify a value for EvolAlgStopTol, for example, EvolAlgStopTol, 0.01"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -2099,7 +2117,7 @@ module AlphaMateModule
                   end if
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify Yes or No for EvolAlgLogAllSolutions, i.e., EvolAlgLogAllSolutions, Yes"
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for EvolAlgLogAllSolutions, for example, EvolAlgLogAllSolutions, Yes"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -2110,7 +2128,7 @@ module AlphaMateModule
                   write(This%EvolAlg, *) trim(adjustl(Second(1)))
                   This%EvolAlg = adjustl(This%EvolAlg)
                   if (.not. (This%EvolAlg .eq. "DE")) then
-                    write(STDERR, "(a)") " ERROR: Must specify a valid algorithm [DE/???] for EvolAlg, i.e., EvolAlg, DE"
+                    write(STDERR, "(a)") " ERROR: Must specify a valid algorithm [DE/???] for EvolAlg, for example, EvolAlg, DE"
                     write(STDERR, "(a)") " "
                     stop 1
                   end if
@@ -2119,7 +2137,7 @@ module AlphaMateModule
                   end if
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a algorithm for EvolAlg, i.e., EvolAlg, DE"
+                write(STDERR, "(a)") " ERROR: Must specify a algorithm for EvolAlg, for example, EvolAlg, DE"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -2131,7 +2149,7 @@ module AlphaMateModule
                   write(STDOUT, "(a)") " Differential evolution algorithm - number of warming iterations (burn-in): "//trim(Int2Char(This%DiffEvolNIterBurnIn))
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a number for EvolAlgNumberOfIterationsBurnin, i.e., EvolAlgNumberOfIterationsBurnin, 1000"
+                write(STDERR, "(a)") " ERROR: Must specify a number for EvolAlgNumberOfIterationsBurnin, for example, EvolAlgNumberOfIterationsBurnin, 1000"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -2143,7 +2161,7 @@ module AlphaMateModule
                   write(STDOUT, "(a)") " Differential evolution algorithm - cross-over parameter for warmup (burn-in): "//trim(Real2Char(This%DiffEvolParamCrBurnIn, fmt=FMTREAL2CHAR))
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a value for DiffEvolParameterCrBurnin, i.e., DiffEvolParameterCrBurnin, 0.4"
+                write(STDERR, "(a)") " ERROR: Must specify a value for DiffEvolParameterCrBurnin, for example, DiffEvolParameterCrBurnin, 0.4"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -2155,7 +2173,7 @@ module AlphaMateModule
                   write(STDOUT, "(a)") " Differential evolution algorithm - cross-over parameter 1 (common): "//trim(Real2Char(This%DiffEvolParamCr1, fmt=FMTREAL2CHAR))
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a value for DiffEvolParameterCr1, i.e., DiffEvolParameterCr1, 0.2"
+                write(STDERR, "(a)") " ERROR: Must specify a value for DiffEvolParameterCr1, for example, DiffEvolParameterCr1, 0.2"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -2167,7 +2185,7 @@ module AlphaMateModule
                   write(STDOUT, "(a)") " Differential evolution algorithm - cross-over parameter 2 (rare): "//trim(Real2Char(This%DiffEvolParamCr2, fmt=FMTREAL2CHAR))
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a value for DiffEvolParameterCr2, i.e., DiffEvolParameterCr2, 0.2"
+                write(STDERR, "(a)") " ERROR: Must specify a value for DiffEvolParameterCr2, for example, DiffEvolParameterCr2, 0.2"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -2179,7 +2197,7 @@ module AlphaMateModule
                   write(STDOUT, "(a)") " Differential evolution algorithm - parameter F (base value): "//trim(Real2Char(This%DiffEvolParamFBase, fmt=FMTREAL2CHAR))
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a value for DiffEvolParameterFBase, i.e., DiffEvolParameterFBase, 0.1"
+                write(STDERR, "(a)") " ERROR: Must specify a value for DiffEvolParameterFBase, for example, DiffEvolParameterFBase, 0.1"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -2191,7 +2209,7 @@ module AlphaMateModule
                   write(STDOUT, "(a)") " Differential evolution algorithm - parameter F (high value 1): "//trim(Real2Char(This%DiffEvolParamFHigh1, fmt=FMTREAL2CHAR))
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a value for DiffEvolParameterFHigh1, i.e., DiffEvolParameterFHigh1, 1.0"
+                write(STDERR, "(a)") " ERROR: Must specify a value for DiffEvolParameterFHigh1, for example, DiffEvolParameterFHigh1, 1.0"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -2203,7 +2221,7 @@ module AlphaMateModule
                   write(STDOUT, "(a)") " Differential evolution algorithm - parameter F (high value 2): "//trim(Real2Char(This%DiffEvolParamFHigh2, fmt=FMTREAL2CHAR))
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a value for DiffEvolParameterFHigh2, i.e., DiffEvolParameterFHigh2, 4.0"
+                write(STDERR, "(a)") " ERROR: Must specify a value for DiffEvolParameterFHigh2, for example, DiffEvolParameterFHigh2, 4.0"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -2215,7 +2233,7 @@ module AlphaMateModule
                   write(STDOUT, "(a)") " Random search algorithm - perform k times more iterations than with the evolutionary algorithm: k="//trim(Int2Char(This%RanAlgStricter))
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a number for RandomSearchStricter, i.e., RandomSearchStricter, 10"
+                write(STDERR, "(a)") " ERROR: Must specify a number for RandomSearchStricter, for example, RandomSearchStricter, 10"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -2290,7 +2308,7 @@ module AlphaMateModule
       end if
 
       if (This%nMat .le. 0) then
-        write(STDERR, "(a)") " ERROR: Number of matings must be larger than zero!"
+        write(STDERR, "(a)") " ERROR: Number of matings/crosses must be larger than zero!"
         write(STDERR, "(a)") " "
         stop 1
       end if
@@ -3149,28 +3167,28 @@ module AlphaMateModule
         Spec%nPar1 = Spec%nPar
         if (Spec%EqualizePar) then
           if (Spec%nMat .lt. Spec%nPar) then
-            write(STDERR, "(a)") " ERROR: Number of parents must be smaller or equal to the number of matings when EqualizeContributions is active!"
-            write(STDERR, "(a)") " ERROR: The number of parents: "//trim(Int2Char(Spec%nPar))
-            write(STDERR, "(a)") " ERROR: The number of matings: "//trim(Int2Char(Spec%nMat))
+            write(STDERR, "(a)") " ERROR: Number of parents must be smaller or equal to the number of matings/crosses when EqualizeContributions is active!"
+            write(STDERR, "(a)") " ERROR: The number of parents:         "//trim(Int2Char(Spec%nPar))
+            write(STDERR, "(a)") " ERROR: The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
             write(STDERR, "(a)") " "
             stop 1
           end if
           if (mod(Spec%nMat, Spec%nPar) .gt. 0) then
-            write(STDERR, "(a)") " ERROR: The number of parents and the number of matings must divide without remainder when EqualizeContributions is active!"
-            write(STDERR, "(a)") " ERROR: The number of parents: "//trim(Int2Char(Spec%nPar))
-            write(STDERR, "(a)") " ERROR: The number of matings: "//trim(Int2Char(Spec%nMat))
-            write(STDERR, "(a)") " ERROR: The remainder:         "//trim(Int2Char(mod(Spec%nMat, Spec%nPar)))
+            write(STDERR, "(a)") " ERROR: The number of parents and the number of matings/crosses must divide without remainder when EqualizeContributions is active!"
+            write(STDERR, "(a)") " ERROR: The number of parents:         "//trim(Int2Char(Spec%nPar))
+            write(STDERR, "(a)") " ERROR: The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
+            write(STDERR, "(a)") " ERROR: The remainder:                 "//trim(Int2Char(mod(Spec%nMat, Spec%nPar)))
             write(STDERR, "(a)") " "
             stop 1
           end if
         end if
         if (Spec%LimitPar) then
           if ((Spec%nPar * Spec%LimitParMax) .lt. Spec%nMat) then
-            write(STDERR, "(a)") " ERROR: The number of parents * LimitContributionsMax is to small to achieve specified number of matings!"
-            write(STDERR, "(a)") " ERROR: The number of parents: "//trim(Int2Char(Spec%nPar))
-            write(STDERR, "(a)") " ERROR: LimitContributionsMax: "//trim(Int2Char(nint(Spec%LimitParMax)))
-            write(STDERR, "(a)") " ERROR:         their product: "//trim(Int2Char(Spec%nPar * nint(Spec%LimitParMax)))
-            write(STDERR, "(a)") " ERROR: The number of matings: "//trim(Int2Char(Spec%nMat))
+            write(STDERR, "(a)") " ERROR: The number of parents * LimitContributionsMax is to small to achieve specified number of matings/crosses!"
+            write(STDERR, "(a)") " ERROR: The number of parents:         "//trim(Int2Char(Spec%nPar))
+            write(STDERR, "(a)") " ERROR: LimitContributionsMax:         "//trim(Int2Char(nint(Spec%LimitParMax)))
+            write(STDERR, "(a)") " ERROR:         their product:         "//trim(Int2Char(Spec%nPar * nint(Spec%LimitParMax)))
+            write(STDERR, "(a)") " ERROR: The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
             write(STDERR, "(a)") " "
             stop 1
           end if
@@ -3223,28 +3241,28 @@ module AlphaMateModule
         end if
         if (Spec%EqualizePar1) then
           if (Spec%nMat .lt. Spec%nPar1) then
-            write(STDERR, "(a)") " ERROR: The number of male parents must be smaller or equal to the number of matings when EqualizeMaleContributions is active!"
-            write(STDERR, "(a)") " ERROR: The number of male parents: "//trim(Int2Char(Spec%nPar1))
-            write(STDERR, "(a)") " ERROR: The number of matings:      "//trim(Int2Char(Spec%nMat))
+            write(STDERR, "(a)") " ERROR: The number of male parents must be smaller or equal to the number of matings/crosses when EqualizeMaleContributions is active!"
+            write(STDERR, "(a)") " ERROR: The number of male parents:    "//trim(Int2Char(Spec%nPar1))
+            write(STDERR, "(a)") " ERROR: The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
             write(STDERR, "(a)") " "
             stop 1
           end if
           if (mod(Spec%nMat, Spec%nPar1) .gt. 0) then
-            write(STDERR, "(a)") " ERROR: The number of male parents and the number of matings must divide without remainder when EqualizeMaleContributions is active!"
-            write(STDERR, "(a)") " ERROR: The number of male parents: "//trim(Int2Char(Spec%nPar1))
-            write(STDERR, "(a)") " ERROR: The number of matings:      "//trim(Int2Char(Spec%nMat))
-            write(STDERR, "(a)") " ERROR: The remainder:              "//trim(Int2Char(mod(Spec%nMat, Spec%nPar1)))
+            write(STDERR, "(a)") " ERROR: The number of male parents and the number of matings/crosses must divide without remainder when EqualizeMaleContributions is active!"
+            write(STDERR, "(a)") " ERROR: The number of male parents:    "//trim(Int2Char(Spec%nPar1))
+            write(STDERR, "(a)") " ERROR: The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
+            write(STDERR, "(a)") " ERROR: The remainder:                 "//trim(Int2Char(mod(Spec%nMat, Spec%nPar1)))
             write(STDERR, "(a)") " "
             stop 1
           end if
         end if
         if (Spec%LimitPar1) then
           if ((Spec%nPar1 * Spec%LimitPar1Max) .lt. Spec%nMat) then
-            write(STDERR, "(a)") " ERROR: The number of male parents * LimitMaleContributionsMax is to small to achieve specified number of matings!"
-            write(STDERR, "(a)") " ERROR: The number of male parents: "//trim(Int2Char(Spec%nPar1))
-            write(STDERR, "(a)") " ERROR: LimitMaleContributionsMax:  "//trim(Int2Char(nint(Spec%LimitPar1Max)))
-            write(STDERR, "(a)") " ERROR:             their product:  "//trim(Int2Char(Spec%nPar1 * nint(Spec%LimitPar1Max)))
-            write(STDERR, "(a)") " ERROR: The number of matings:      "//trim(Int2Char(Spec%nMat))
+            write(STDERR, "(a)") " ERROR: The number of male parents * LimitMaleContributionsMax is to small to achieve specified number of matings/crosses!"
+            write(STDERR, "(a)") " ERROR: The number of male parents:    "//trim(Int2Char(Spec%nPar1))
+            write(STDERR, "(a)") " ERROR: LimitMaleContributionsMax:     "//trim(Int2Char(nint(Spec%LimitPar1Max)))
+            write(STDERR, "(a)") " ERROR:             their product:     "//trim(Int2Char(Spec%nPar1 * nint(Spec%LimitPar1Max)))
+            write(STDERR, "(a)") " ERROR: The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
             write(STDERR, "(a)") " "
             stop 1
           end if
@@ -3256,28 +3274,28 @@ module AlphaMateModule
         end if
         if (Spec%EqualizePar2) then
           if (Spec%nMat .lt. Spec%nPar2) then
-            write(STDERR, "(a)") " ERROR: Number of female parents must be smaller or equal to the number of matings when EqualizeFemaleContributions is active!"
-            write(STDERR, "(a)") " ERROR: The number of female parents: "//trim(Int2Char(Spec%nPar2))
-            write(STDERR, "(a)") " ERROR: The number of matings:        "//trim(Int2Char(Spec%nMat))
+            write(STDERR, "(a)") " ERROR: Number of female parents must be smaller or equal to the number of matings/crosses when EqualizeFemaleContributions is active!"
+            write(STDERR, "(a)") " ERROR: The number of female parents:  "//trim(Int2Char(Spec%nPar2))
+            write(STDERR, "(a)") " ERROR: The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
             write(STDERR, "(a)") " "
             stop 1
           end if
           if (mod(Spec%nMat, Spec%nPar2) .gt. 0) then
-            write(STDERR, "(a)") " ERROR: The number of female parents and the number of matings must divide without remainder when EqualizeFemaleContributions is active!"
-            write(STDERR, "(a)") " ERROR: The number of female parents: "//trim(Int2Char(Spec%nPar2))
-            write(STDERR, "(a)") " ERROR: The number of matings:        "//trim(Int2Char(Spec%nMat))
-            write(STDERR, "(a)") " ERROR: The remainder:                "//trim(Int2Char(mod(Spec%nMat, Spec%nPar2)))
+            write(STDERR, "(a)") " ERROR: The number of female parents and the number of matings/crosses must divide without remainder when EqualizeFemaleContributions is active!"
+            write(STDERR, "(a)") " ERROR: The number of female parents:  "//trim(Int2Char(Spec%nPar2))
+            write(STDERR, "(a)") " ERROR: The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
+            write(STDERR, "(a)") " ERROR: The remainder:                 "//trim(Int2Char(mod(Spec%nMat, Spec%nPar2)))
             write(STDERR, "(a)") " "
             stop 1
           end if
         end if
         if (Spec%LimitPar2) then
           if ((Spec%nPar2 * Spec%LimitPar2Max) .lt. Spec%nMat) then
-            write(STDERR, "(a)") " ERROR: The number of female parents * LimitFemaleContributionsMax is to small to achieve specified number of matings!"
-            write(STDERR, "(a)") " ERROR: The number of female parents: "//trim(Int2Char(Spec%nPar2))
-            write(STDERR, "(a)") " ERROR: LimitFemaleContributionsMax:  "//trim(Int2Char(nint(Spec%LimitPar2Max)))
-            write(STDERR, "(a)") " ERROR:               their product:  "//trim(Int2Char(Spec%nPar2 * nint(Spec%LimitPar2Max)))
-            write(STDERR, "(a)") " ERROR: The number of matings:        "//trim(Int2Char(Spec%nMat))
+            write(STDERR, "(a)") " ERROR: The number of female parents * LimitFemaleContributionsMax is to small to achieve specified number of matings/crosses!"
+            write(STDERR, "(a)") " ERROR: The number of female parents:  "//trim(Int2Char(Spec%nPar2))
+            write(STDERR, "(a)") " ERROR: LimitFemaleContributionsMax:   "//trim(Int2Char(nint(Spec%LimitPar2Max)))
+            write(STDERR, "(a)") " ERROR:               their product:   "//trim(Int2Char(Spec%nPar2 * nint(Spec%LimitPar2Max)))
+            write(STDERR, "(a)") " ERROR: The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
             write(STDERR, "(a)") " "
             stop 1
           end if
@@ -3408,21 +3426,19 @@ module AlphaMateModule
         allocate(This%IdPotPar1(This%nPotPar1))
         allocate(This%IdPotPar2(This%nPotPar2))
         allocate(This%IdPotParSeq(This%nInd))
-        block
-          jMal = 0
-          jFem = 0
-          do Ind = 1, This%nInd
-            if (This%Gender(Ind) .eq. 1) then
-              jMal = jMal + 1
-              This%IdPotPar1(jMal) = Ind
-              This%IdPotParSeq(Ind) = jMal
-            else
-              jFem = jFem + 1
-              This%IdPotPar2(jFem) = Ind
-              This%IdPotParSeq(Ind) = jFem
-            end if
-          end do
-        end block
+        jMal = 0
+        jFem = 0
+        do Ind = 1, This%nInd
+          if (This%Gender(Ind) .eq. 1) then
+            jMal = jMal + 1
+            This%IdPotPar1(jMal) = Ind
+            This%IdPotParSeq(Ind) = jMal
+          else
+            jFem = jFem + 1
+            This%IdPotPar2(jFem) = Ind
+            This%IdPotParSeq(Ind) = jFem
+          end if
+        end do
       end if
 
       ! --- Number of all potential matings ---
@@ -3440,9 +3456,9 @@ module AlphaMateModule
 
       if (Spec%nMat .gt. This%nPotMat) then
         ! @todo Might need to change this if we would do in-vitro fertilisation
-        write(STDERR, "(a)") " ERROR: Number of specified matings is larger than the number of all potential matings!"
-        write(STDERR, "(a)") " ERROR: Number of     specified matings: "//trim(Int2Char(Spec%nMat))
-        write(STDERR, "(a)") " ERROR: Number of all potential matings: "//trim(Int2Char(This%nPotMat))
+        write(STDERR, "(a)") " ERROR: Number of specified matings/crosses is larger than the number of all potential matings/crosses!"
+        write(STDERR, "(a)") " ERROR: Number of     specified matings/crosses: "//trim(Int2Char(Spec%nMat))
+        write(STDERR, "(a)") " ERROR: Number of all potential matings/crosses: "//trim(Int2Char(This%nPotMat))
         if (Spec%GenderGiven) then
           write(STDERR, "(a)") " ERROR: = no. of males * no. of females"
           write(STDERR, "(a)") " ERROR: = (no. of males = "//trim(Int2Char(This%nPotPar1))//", no. of females = "//trim(Int2Char(This%nPotPar2))
@@ -3500,12 +3516,12 @@ module AlphaMateModule
       if (Spec%GenericMatCritGiven) then
         nMatTmp = CountLines(Spec%GenericMatCritFile)
         if (LogStdoutInternal) then
-          write(STDOUT, "(a)") " Number of matings in the generic mating criterion file: "//trim(Int2Char(nMatTmp))
+          write(STDOUT, "(a)") " Number of matings/crosses in the generic mating/crossing criterion file: "//trim(Int2Char(nMatTmp))
         end if
         if (nMatTmp .ne. This%nPotMat) then
-          write(STDERR, "(a)") " ERROR: Number of matings in the generic mating criterion file and the number of all potential matings is not the same!"
-          write(STDERR, "(a)") " ERROR: Number of matings in the generic mating criterion file: "//trim(Int2Char(nMatTmp))
-          write(STDERR, "(a)") " ERROR: Number of all potential matings:                        "//trim(Int2Char(This%nPotMat))
+          write(STDERR, "(a)") " ERROR: Number of matings/crosses in the generic mating/crossing criterion file and the number of all potential matings/crosses is not the same!"
+          write(STDERR, "(a)") " ERROR: Number of matings/crosses in the generic mating/crossing criterion file: "//trim(Int2Char(nMatTmp))
+          write(STDERR, "(a)") " ERROR: Number of all potential matings/crosses:                                 "//trim(Int2Char(This%nPotMat))
           write(STDERR, "(a)") " "
           stop 1
         end if
@@ -3517,21 +3533,21 @@ module AlphaMateModule
           read(GenericMatCritUnit, *) IdCTmp, IdCTmp2, GenericMatCritTmp
           IndLoc = This%Coancestry%OriginalIdDict%GetValue(key=IdCTmp)
           if (IndLoc .eq. DICT_NULL) then
-            write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp)//" from the generic mating criterion file not present in the coancestry matrix file!"
+            write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp)//" from the generic mating/crossing criterion file not present in the coancestry matrix file!"
             write(STDERR, "(a)") " "
             stop 1
           end if
           IndLoc2 = This%Coancestry%OriginalIdDict%GetValue(key=IdCTmp2)
           if (IndLoc2 .eq. DICT_NULL) then
-            write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp2)//" from the generic mating criterion file not present in the coancestry matrix file!"
+            write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp2)//" from the generic mating/crossing criterion file not present in the coancestry matrix file!"
             write(STDERR, "(a)") " "
             stop 1
           end if
           if (Spec%GenderGiven) then
             jMal = This%IdPotParSeq(IndLoc)
             if (This%Gender(IndLoc) .ne. 1) then
-              write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp)//" from the first column in the generic mating criterion file should be a male!"
-              write(STDERR, "(a)") " ERROR: Generic mating criterion file:"
+              write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp)//" from the first column in the generic mating/crossing criterion file should be a male!"
+              write(STDERR, "(a)") " ERROR: Generic mating/crossing criterion file:"
               write(STDERR, "(a)") " ERROR:   - line:                  "//trim(Int2Char(Mat))
               write(STDERR, "(a)") " ERROR:   - individual 1   (male): "//trim(IdCTmp) //" gender "//trim(Int2Char(This%Gender(IndLoc)))
               write(STDERR, "(a)") " ERROR:   - individual 2 (female): "//trim(IdCTmp2)//" gender "//trim(Int2Char(This%Gender(IndLoc2)))
@@ -3540,8 +3556,8 @@ module AlphaMateModule
             end if
             jFem = This%IdPotParSeq(IndLoc2)
             if (This%Gender(IndLoc2) .ne. 2) then
-              write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp2)//" from the second column in the generic mating criterion file should be a female!"
-              write(STDERR, "(a)") " ERROR: Generic mating criterion file:"
+              write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp2)//" from the second column in the generic mating/crossing criterion file should be a female!"
+              write(STDERR, "(a)") " ERROR: Generic mating/crossing criterion file:"
               write(STDERR, "(a)") " ERROR:   - line:                  "//trim(Int2Char(Mat))
               write(STDERR, "(a)") " ERROR:   - individual 1   (male): "//trim(IdCTmp) //" gender "//trim(Int2Char(This%Gender(IndLoc)))
               write(STDERR, "(a)") " ERROR:   - individual 2 (female): "//trim(IdCTmp2)//" gender "//trim(Int2Char(This%Gender(IndLoc2)))
@@ -3588,13 +3604,13 @@ module AlphaMateModule
         write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(This%CoancestryStat%All%Sd,   fmt=FMTREAL2CHAR))//" "//trim(Real2Char(This%CoancestryStat%OffDiag%Sd,     fmt=FMTREAL2CHAR))
         write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(This%CoancestryStat%All%Min,  fmt=FMTREAL2CHAR))//" "//trim(Real2Char(This%CoancestryStat%OffDiag%Min,    fmt=FMTREAL2CHAR))
         write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(This%CoancestryStat%All%Max,  fmt=FMTREAL2CHAR))//" "//trim(Real2Char(This%CoancestryStat%OffDiag%Max,    fmt=FMTREAL2CHAR))
-        write(STDOUT, "(a)") "    Among   = coancestry among   individuals (including self-coancestry) = expected inbreeding in their progeny under random mating, including selfing"
-        write(STDOUT, "(a)") "    Between = coancestry between individuals (excluding self-coancestry) = expected inbreeding in their progeny under random mating, excluding selfing"
+        write(STDOUT, "(a)") "    Among   = coancestry among   individuals (including self-coancestry) = expected inbreeding in their progeny under random mating/crossing, including selfing"
+        write(STDOUT, "(a)") "    Between = coancestry between individuals (excluding self-coancestry) = expected inbreeding in their progeny under random mating/crossing, excluding selfing"
 
         if (Spec%GenderGiven) then
           write(STDOUT, "(a)") " "
           write(STDOUT, "(a)") "  - coancestry between males and females"
-          write(STDOUT, "(a)") "    (=expected inbreeding in their progeny under random mating between genders)"
+          write(STDOUT, "(a)") "    (=expected inbreeding in their progeny under random mating/crossing between genders)"
           write(STDOUT, "(a)") "    - n:       "//trim( Int2Char(This%CoancestryStatGenderDiff%All%n,    fmt=FMTINT2CHAR))
           write(STDOUT, "(a)") "    - average: "//trim(Real2Char(This%CoancestryStatGenderDiff%All%Mean, fmt=FMTREAL2CHAR))
           write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(This%CoancestryStatGenderDiff%All%Sd,   fmt=FMTREAL2CHAR))
@@ -3629,10 +3645,10 @@ module AlphaMateModule
 
       ! Save means to a file
       open(newunit=CoancestrySummaryUnit, file=trim(Spec%OutputBasename)//"CoancestrySummary.txt", status="unknown")
-      write(CoancestrySummaryUnit, "(a, f)") "Current (random mating),                 ",   This%CoancestryRanMate
-      write(CoancestrySummaryUnit, "(a, f)") "Current (random mating, no selfing),     ",   This%CoancestryRanMateNoSelf
+      write(CoancestrySummaryUnit, "(a, f)") "Current (random mating/crossing),                 ",   This%CoancestryRanMate
+      write(CoancestrySummaryUnit, "(a, f)") "Current (random mating/crossing, no selfing),     ",   This%CoancestryRanMateNoSelf
       if (Spec%GenderGiven) then
-        write(CoancestrySummaryUnit, "(a, f)") "Current (random mating between genders), ", This%CoancestryGenderMate
+        write(CoancestrySummaryUnit, "(a, f)") "Current (random mating/crossing between genders), ", This%CoancestryGenderMate
       end if
       close(CoancestrySummaryUnit)
 
@@ -3773,7 +3789,7 @@ module AlphaMateModule
       if (Spec%GenericMatCritGiven) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " "
-          write(STDOUT, "(a)") " Generic mating selection criterion"
+          write(STDOUT, "(a)") " Generic mating/crossing selection criterion"
         end if
 
         open(newunit=GenericMatCritSummaryUnit, file=trim(Spec%OutputBasename)//"GenericMatCritSummary.txt", status="unknown")
@@ -3794,7 +3810,7 @@ module AlphaMateModule
               write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(This%GenericMatCritStat(Crit)%All%Max,  fmt=FMTREAL2CHAR))
             end if
             if (This%GenericMatCritStat(Crit)%All%Sd .eq. 0.0) then
-              write(STDERR, "(a)") " ERROR: There is no variation in generic mating selection criterion "//trim(Int2Char(Crit))//"!"
+              write(STDERR, "(a)") " ERROR: There is no variation in generic mating/crossing selection criterion "//trim(Int2Char(Crit))//"!"
               write(STDERR, "(a)") " "
               stop 1
             end if
@@ -3811,7 +3827,7 @@ module AlphaMateModule
                 write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(This%GenericMatCritStat(Crit)%All%Max,  fmt=FMTREAL2CHAR))
               end if
               if (This%GenericMatCritStat(Crit)%All%Sd .eq. 0.0) then
-                write(STDERR, "(a)") " ERROR: There is no variation in generic mating selection criterion "//trim(Int2Char(Crit))//"!"
+                write(STDERR, "(a)") " ERROR: There is no variation in generic mating/crossing selection criterion "//trim(Int2Char(Crit))//"!"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -3827,7 +3843,7 @@ module AlphaMateModule
                 write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(This%GenericMatCritStat(Crit)%OffDiag%Max,  fmt=FMTREAL2CHAR))
               end if
               if (This%GenericMatCritStat(Crit)%OffDiag%Sd .eq. 0.0) then
-                write(STDERR, "(a)") " ERROR: There is no variation in generic mating selection criterion "//trim(Int2Char(Crit))//"!"
+                write(STDERR, "(a)") " ERROR: There is no variation in generic mating/crossing selection criterion "//trim(Int2Char(Crit))//"!"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -4170,7 +4186,7 @@ module AlphaMateModule
 
       ! Argument
       class(AlphaMateSol), intent(out)             :: This     !< @return AlphaMateSol holder
-      real(FLOATTYPEAH), intent(in)                  :: Chrom(:) !< Provided initial solution
+      real(FLOATTYPEAH), intent(in)                :: Chrom(:) !< Provided initial solution
       class(AlphaEvolveSpec), intent(in), optional :: Spec     !< AlphaEvolveSpec --> AlphaMateSpec holder
 
       real(FLOATTYPE) :: NANFLOATTYPE
@@ -4189,9 +4205,10 @@ module AlphaMateModule
           This%Penalty = 0.0
           This%PenaltyCoancestry = 0.0
           This%PenaltyInbreeding = 0.0
-          This%PenaltySelfing = 0.0
           This%PenaltyLimitPar1 = 0.0
           This%PenaltyLimitPar2 = 0.0
+          This%PenaltyMultipleMatings = 0.0
+          This%PenaltySelfing = 0.0
           This%PenaltyGenericIndCrit = 0.0
           This%PenaltyGenericMatCrit = 0.0
           This%Degree = NANFLOATTYPE
@@ -4250,9 +4267,10 @@ module AlphaMateModule
           Out%Penalty = In%Penalty
           Out%PenaltyCoancestry = In%PenaltyCoancestry
           Out%PenaltyInbreeding = In%PenaltyInbreeding
-          Out%PenaltySelfing = In%PenaltySelfing
           Out%PenaltyLimitPar1 = In%PenaltyLimitPar1
           Out%PenaltyLimitPar2 = In%PenaltyLimitPar2
+          Out%PenaltyMultipleMatings = In%PenaltyMultipleMatings
+          Out%PenaltySelfing = In%PenaltySelfing
           Out%PenaltyGenericIndCrit = In%PenaltyGenericIndCrit
           Out%PenaltyGenericMatCrit = In%PenaltyGenericMatCrit
           Out%Degree = In%Degree
@@ -4319,9 +4337,10 @@ module AlphaMateModule
           This%Penalty                   = This%Penalty                   * kR + Add%Penalty                   / n
           This%PenaltyCoancestry         = This%PenaltyCoancestry         * kR + Add%PenaltyCoancestry         / n
           This%PenaltyInbreeding         = This%PenaltyInbreeding         * kR + Add%PenaltyInbreeding         / n
-          This%PenaltySelfing            = This%PenaltySelfing            * kR + Add%PenaltySelfing            / n
           This%PenaltyLimitPar1          = This%PenaltyLimitPar1          * kR + Add%PenaltyLimitPar1          / n
           This%PenaltyLimitPar2          = This%PenaltyLimitPar2          * kR + Add%PenaltyLimitPar2          / n
+          This%PenaltyMultipleMatings    = This%PenaltyMultipleMatings    * kR + Add%PenaltyMultipleMatings    / n
+          This%PenaltySelfing            = This%PenaltySelfing            * kR + Add%PenaltySelfing            / n
           This%PenaltyGenericIndCrit     = This%PenaltyGenericIndCrit     * kR + Add%PenaltyGenericIndCrit     / n
           This%PenaltyGenericMatCrit     = This%PenaltyGenericMatCrit     * kR + Add%PenaltyGenericMatCrit     / n
           This%Degree                    = This%Degree                    * kR + Add%Degree                    / n
@@ -4442,7 +4461,7 @@ module AlphaMateModule
       implicit none
       ! Arguments
       class(AlphaMateSol), intent(inout)           :: This     !< @return AlphaMateSol holder (out because we sometimes need to fix a solution)
-      real(FLOATTYPEAH), intent(in)                  :: Chrom(:) !< A solution
+      real(FLOATTYPEAH), intent(in)                :: Chrom(:) !< A solution
       class(AlphaEvolveSpec), intent(in)           :: Spec     !< AlphaEvolveSpec --> AlphaMateSpec holder
       class(AlphaEvolveData), intent(in), optional :: Data     !< AlphaEvolveData --> AlphaMateData holder
       type(vsl_stream_state), intent(inout)        :: Stream   !< Intel RNG stream
@@ -4879,8 +4898,8 @@ module AlphaMateModule
                 ! We use nVecPar1 below instead of This%nVec because when .not. GenderGiven we modify nVecPar1 above, while can not modify This%nVec
                 if (Spec%GenderGiven .or. Spec%SelfingAllowed) then
                   ! When gender matters selfing can not happen (we have two distinct sets of parents;
-                  ! unless the user adds individuals of one sex in both sets) and when SelfingAllowed
-                  ! we do not need to care about it - faster code
+                  ! unless the user adds individuals of one sex in both sets) and when gender does not matter,
+                  ! but selfing is allowed we do not need to care about it - faster code
                   do i = 1, Data%nPotPar1 ! need to loop all individuals as some do not contribute
                     ! print*, i, "/", Data%nPotPar1
                     do j = 1, nVecPar1(i)
@@ -4924,6 +4943,31 @@ module AlphaMateModule
                     end do
                   end do
                 end if
+
+                ! Avoid multiple matings between the same male and female
+                if (.not. Spec%MultipleMatingsAllowed) then
+                  block
+                    integer(int32) :: Pair(Spec%nMat)
+                    do i = 1, Spec%nMat
+                      Pair(i) = GeneratePairing(xin=This%MatingPlan(1, i),
+                                                yin=This%MatingPlan(2, i))
+                    end do
+
+                    ! @todo 2) tally them up; HOW?
+
+                    ! @todo 3) try to fix the multiples by swapping
+
+                    ! @todo 4) penalise if not possible
+                    if (.false.) then ! Above loop ran out without finding a swap
+                      This%Objective = This%Objective + Spec%MultipleMatingsWeight
+                      if (Spec%MultipleMatingsWeight .lt. 0.0) then
+                        This%PenaltyMultipleMatings = This%PenaltyMultipleMatings + Spec%MultipleMatingsWeight
+                        This%Penalty                = This%Penalty                + Spec%MultipleMatingsWeight
+                      end if
+                    end if
+                   end block
+                end if
+
               end if
 
               ! call This%Write
@@ -4993,7 +5037,7 @@ module AlphaMateModule
 
               ! --- Coancestry ---
 
-              ! @todo Enable running AlphaMate without coancestry matrix, i.e.,
+              ! @todo Enable running AlphaMate without coancestry matrix, that is,
               !       select most performant individuals, but consider some limits
               !       on the amount of use etc. without coancestry among them.
               !       --> A hack would be to setup identity coancetry matrix, when one is not given
@@ -5066,7 +5110,7 @@ module AlphaMateModule
               ! Degree
               ! This calculation ASSUMES unit circular shape of selection/coancestry frontier
               ! - given results from ModeMinCoancestry and ModeMaxCriterion we can map the solution on the unit circle,
-              !   i.e., the circle center is at (MaxCoancestryRate, MinSelCriterionStd) and solution is
+              !   that is, the circle center is at (MaxCoancestryRate, MinSelCriterionStd) and solution is
               !   at (SolCoancestryRate, SolSelCriterionStd), which is mapped to (MinCoancestryPct, 1 - MaxCriterionPct)
               !   on unit circle with center at (1, 0) (MinCoancestryMode is at (0, 0) and MaxCriterionMode is at (1, 1))
               ! - then we can calculate degrees of the angle between the max-line (MaxCoancestryRate, MinSelCriterionStd)-(MaxCoancestryRate, MaxSelCriterionStd)
@@ -5848,7 +5892,7 @@ module AlphaMateModule
       if (Spec%ModeRan) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " "
-          write(STDOUT, "(a)") " Evaluate random mating (ModeRan) ..."
+          write(STDOUT, "(a)") " Evaluate random mating/crossing (ModeRan) ..."
           write(STDOUT, "(a)") " "
         end if
 
@@ -6092,9 +6136,10 @@ module AlphaMateModule
       write(Unit, *) "Penalty: ", This%Penalty
       write(Unit, *) "PenaltyCoancestry: ", This%PenaltyCoancestry
       write(Unit, *) "PenaltyInbreeding: ", This%PenaltyInbreeding
-      write(Unit, *) "PenaltySelfing: ", This%PenaltySelfing
       write(Unit, *) "PenaltyLimitPar1: ", This%PenaltyLimitPar1
       write(Unit, *) "PenaltyLimitPar2: ", This%PenaltyLimitPar2
+      write(Unit, *) "PenaltyMultipleMatings: ", This%PenaltyMultipleMatings
+      write(Unit, *) "PenaltySelfing: ", This%PenaltySelfing
       write(Unit, *) "PenaltyGenericIndCrit: ", This%PenaltyGenericIndCrit
       write(Unit, *) "PenaltyGenericMatCrit: ", This%PenaltyGenericMatCrit
       write(Unit, *) "Degree: ", This%Degree
@@ -6119,7 +6164,7 @@ module AlphaMateModule
       end if
       ! write(Unit, *) "Cost: ", This%Cost
       write(Unit, *) "nVec: ", This%nVec
-      write(Unit, *) "Mating plan:"
+      write(Unit, *) "Mating/crossing plan:"
       do Mat = 1, size(This%MatingPlan, dim=2)
         write(Unit, *) Mat, This%MatingPlan(:, Mat)
       end do
@@ -6337,7 +6382,7 @@ module AlphaMateModule
         ! So, we have n contributions of a parent1 and we will work with a batch of
         !   n matings of this parent with others; these matings will be accessed by
         !   MatingPlan(:, Rank([k, k-1, k-2, ..., k-(n-1)])
-        ! Generate mating pairs to be able to rank matings, i.e., to be able to put duplicates+ together
+        ! Generate mating pairs to be able to rank matings, that is, to be able to put multiples together
         do Mat = 0, n - 1
           Pair(Mat + 1) = GeneratePairing(xin=This%MatingPlan(1, Rank(k - Mat)), & ! MrgRnk ranks small to large
                                           yin=This%MatingPlan(2, Rank(k - Mat)))   ! MrgRnk ranks small to large
