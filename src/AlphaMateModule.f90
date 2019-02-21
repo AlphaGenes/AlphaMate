@@ -78,7 +78,7 @@ module AlphaMateModule
   use Iso_Fortran_Env, STDOUT => output_unit, STDERR => error_unit
   use, intrinsic :: Ieee_Arithmetic
   use ConstantModule, only : FILELENGTH, SPECOPTIONLENGTH, IDLENGTH, RAD2DEG, DEG2RAD
-  use OrderPackModule, only : MrgRnk, RapKnr
+  use OrderPackModule, only : MrgRnk, RapKnr, MulCnt
   use AlphaHouseMod, only : Append, CountLines, GeneratePairing, &
                             Char2Int,Char2Real, Char2Double, Int2Char, Real2Char, &
                             SetSeed, ToLower, ParseToFirstWhitespace, SplitLineIntoTwoParts
@@ -4467,8 +4467,9 @@ module AlphaMateModule
       type(vsl_stream_state), intent(inout)        :: Stream   !< Intel RNG stream
 
       ! Other
-      integer(int32) :: i, j, k, l, GenderMode, Start, End, nCumMat, TmpMin, TmpMax, TmpI, nRanNum, RanNumLoc
-      integer(int32), allocatable :: Rank(:), MatPar2(:), nVecPar1(:)
+      integer(int32) :: i, j, k, l, GenderMode, Start, End, nCumMat, TmpMin, TmpMax, &
+                        TmpI, nRanNum, RanNumLoc, Par1, Par2, TmpMate(2)
+      integer(int32), allocatable :: Rank(:), MatPar2(:), nVecPar1(:), Pair(:, :)
 
       real(FLOATTYPE) :: TmpR, Diff, MaxDiff
       real(FLOATTYPE), allocatable :: TmpVec(:), RanNum(:) !, TmpVec2(:,:)
@@ -4906,8 +4907,17 @@ module AlphaMateModule
                       if (k .gt. 0) then
                         ! if (k .lt. 10) write(*, '(i6,a1,i6,i6,a1,i6,i6,i6,a1,i6)') i, "/", Data%nPotPar1, j, "/", nVecPar1(i), sum(nVecPar1), k, "/", Spec%nMat
                         !                write(*, '(i6,a1,i6,i6,a1,i6,i6,i6,a1,i6)') i, "/", Data%nPotPar1, j, "/", nVecPar1(i), sum(nVecPar1), k, "/", Spec%nMat
-                        This%MatingPlan(1, k) = Data%IdPotPar1(i)
-                        This%MatingPlan(2, k) = MatPar2(k)
+                        Par1 = Data%IdPotPar1(i)
+                        Par2 = MatPar2(k)
+                        if (Spec%SelfingAllowed) then ! .not. GenderGiven
+                          if (.not. Spec%ReciprocalMatingsAllowed) then
+                            TmpMate = [Par1, Par2]
+                            Par1 = maxval(TmpMate)
+                            Par2 = minval(TmpMate)
+                          end if
+                        end if
+                        This%MatingPlan(1, k) = Par1
+                        This%MatingPlan(2, k) = Par2
                         k = k - 1
                       end if
                     end do
@@ -4919,7 +4929,6 @@ module AlphaMateModule
                     ! print*, i, "/", Data%nPotPar1
                     do j = 1, nVecPar1(i)
                       if (k .gt. 0) then
-                        This%MatingPlan(1, k) = Data%IdPotPar1(i)
                         if (MatPar2(k) .eq. Data%IdPotPar1(i)) then
                           ! Try to avoid selfing by swapping the MatPar2 and Rank elements
                           do l = k, 1, -1
@@ -4937,7 +4946,16 @@ module AlphaMateModule
                             end if
                           end if
                         end if
-                        This%MatingPlan(2, k) = MatPar2(k)
+                        Par1 = Data%IdPotPar1(i)
+                        Par2 = MatPar2(k)
+                        if (.not. Spec%ReciprocalMatingsAllowed) then
+                          TmpMate = [Par1, Par2]
+                          Par1 = maxval(TmpMate)
+                          Par2 = minval(TmpMate)
+                        end if
+                        This%MatingPlan(1, k) = Par1
+                        This%MatingPlan(2, k) = Par2
+                        ! print*, k, This%MatingPlan(:, k)
                         k = k - 1
                       end if
                     end do
@@ -4946,28 +4964,66 @@ module AlphaMateModule
 
                 ! Avoid multiple matings between the same male and female
                 if (.not. Spec%MultipleMatingsAllowed) then
-                  block
-                    integer(int32) :: Pair(Spec%nMat)
-                    do i = 1, Spec%nMat
-                      Pair(i) = GeneratePairing(xin=This%MatingPlan(1, i),
-                                                yin=This%MatingPlan(2, i))
-                    end do
+                  allocate(Pair(Spec%nMat, 2))
+                  do i = 1, Spec%nMat
+                    Pair(i, 1) = GeneratePairing(xin=This%MatingPlan(1, i), &
+                                                 yin=This%MatingPlan(2, i))
+                    ! print*, "i", i, "Spec%nMat", Spec%nMat, "Pair(i)", Pair(i), This%MatingPlan(1:2, i)
+                  end do
 
-                    ! @todo 2) tally them up; HOW?
+                  ! Count multiple matings
+                  Pair(:, 2) = MulCnt(Pair(:, 1))
+                  ! print*,"Start 0"
+                  ! do i = 1, Spec%nMat
+                  !   print*, This%MatingPlan(:, i), Pair(i, 2)
+                  ! end do
+                  print*,"Stop 0",sum(Pair(:, 2)),Spec%nMat,sum(Pair(:, 2)) - Spec%nMat
 
-                    ! @todo 3) try to fix the multiples by swapping
-
-                    ! @todo 4) penalise if not possible
-                    if (.false.) then ! Above loop ran out without finding a swap
-                      This%Objective = This%Objective + Spec%MultipleMatingsWeight
-                      if (Spec%MultipleMatingsWeight .lt. 0.0) then
-                        This%PenaltyMultipleMatings = This%PenaltyMultipleMatings + Spec%MultipleMatingsWeight
-                        This%Penalty                = This%Penalty                + Spec%MultipleMatingsWeight
+                  ! Fix multiples by swapping
+                  TmpI = 0
+                  if ((sum(Pair(:, 2)) - Spec%nMat) .gt. 0) then
+                    do j = 1, 10 ! @todo
+                      do i = 1, (Spec%nMat - 1)
+                        if (Pair(i, 2) .gt. 1) then
+                          This%MatingPlan(2, [i, i + 1]) = This%MatingPlan(2, [i + 1, i])
+                          Pair(i,     1) = GeneratePairing(xin=This%MatingPlan(1, i), &
+                                                          yin=This%MatingPlan(2, i))
+                          Pair(i + 1, 1) = GeneratePairing(xin=This%MatingPlan(1, i + 1), &
+                                                          yin=This%MatingPlan(2, i + 1))
+                          SChrom%MateRank([i, i + 1]) = SChrom%MateRank([i + 1, i])
+                          Pair(:, 2) = MulCnt(Pair(:, 1)) ! recalculate (this might get expensive!)
+                        end if
+                      end do
+                      print*,"Start ", j
+                      k = 0
+                      TmpI = 0
+                      do i = 1, Spec%nMat
+                        ! print*, This%MatingPlan(:, i), Pair(i, 2)
+                        if (Pair(i, 2) .gt. 1) then
+                          k = k + 1
+                          TmpI = TmpI + Pair(i, 2) - 1
+                        end if
+                      end do
+                      print*,"Stop ", j,sum(Pair(:, 2)),Spec%nMat,sum(Pair(:, 2)) - Spec%nMat
+                      if (k .gt. 0) then
+                        TmpI = TmpI / k
                       end if
-                    end if
-                   end block
-                end if
+                      if (TmpI .eq. 0 .or. Pair(Spec%nMat, 2) .gt. 1) then
+                        exit
+                      end if
+                    end do
+                  end if
 
+                  ! Penalise
+                  if (TmpI .gt. 0) then ! Above attempts were not (fully) successful
+                    TmpR = TmpI * Spec%MultipleMatingsWeight
+                    This%Objective = This%Objective + TmpR
+                    if (Spec%MultipleMatingsWeight .lt. 0.0) then
+                      This%PenaltyMultipleMatings = This%PenaltyMultipleMatings + TmpR
+                      This%Penalty                = This%Penalty                + TmpR
+                    end if
+                  end if
+                end if
               end if
 
               ! call This%Write
