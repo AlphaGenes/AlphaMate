@@ -6344,10 +6344,8 @@ module AlphaMateModule
       character(len=*), intent(in), optional :: MatingFile !< File to write mating plan to (default STDOUT)
 
       ! Other
-      integer(int32) :: nMat, MatingUnit, n, k, i, Par1, Mat, &
-                        Rank1(size(This%MatingPlan, dim=2)), &
-                        Rank2(size(This%MatingPlan, dim=2)), &
-                        Rank1Sel(size(This%MatingPlan, dim=2))
+      integer(int32) :: nMat, MatingUnit, k, &
+                        Pair(size(This%MatingPlan, dim=2))
 
       nMat = size(This%MatingPlan, dim=2)
 
@@ -6364,32 +6362,16 @@ module AlphaMateModule
                                             "                         Parent1", &
                                             "                         Parent2"
 
-      ! Ranks of first parent contributions
-      Rank1 = MrgRnk(This%nVec(This%MatingPlan(1, :))) ! MrgRnk ranks small to large
+      ! Sort such that repeated matings would appear together, but otherwise in no particular order
+      Pair = MrgRnk(This%MatingPlan(1, :) * Data%nInd + This%MatingPlan(2, :))
 
-      ! Write out by the above ranks, but sort also within each parent1 by contributions of parent2, which will also cluster repeated matings
+      ! Write out
       k = nMat ! MrgRnk ranks small to large
       do while (k .gt. 0)
-        ! Contributions of a working parent1
-        Par1 = This%MatingPlan(1, Rank1(k))
-        n = This%nVec(Par1)
-        ! ... corrected (just for sorting) when gender does not matter
-        if (.not. Spec%GenderGiven) then
-          do Mat = 1, nMat
-            if (This%MatingPlan(2, Mat) .eq. Par1) then
-              n = n - 1
-            end if
-          end do
-        end if
-        ! ... contribution locations
-        Rank1Sel(1:n) = Rank1((k - n + 1):k) ! MrgRnk ranks small to large
-        ! Ranks of paired second parent contributions
-        Rank2(1:n) = MrgRnk(This%nVec(This%MatingPlan(2, Rank1Sel(1:n)))) ! MrgRnk ranks small to large
-        do i = n, 1, -1 ! MrgRnk ranks small to large
-          write(MatingUnit, Spec%FmtMating) nMat - k + 1, &
-                                            Data%Coancestry%OriginalId(This%MatingPlan(1:2, Rank1Sel(Rank2(i)))) ! sort by par1 and par2 contributions
-          k = k - 1 ! MrgRnk ranks small to large
-        end do
+        print*, "x", nMat - k + 1, This%MatingPlan(1:2, Pair(k))
+        write(MatingUnit, Spec%FmtMating) nMat - k + 1, &
+                                          Data%Coancestry%OriginalId(This%MatingPlan(1:2, Pair(k)))
+        k = k - 1 ! MrgRnk ranks small to large
       end do
 
       if (present(MatingFile)) then
