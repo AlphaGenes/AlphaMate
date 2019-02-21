@@ -6344,8 +6344,10 @@ module AlphaMateModule
       character(len=*), intent(in), optional :: MatingFile !< File to write mating plan to (default STDOUT)
 
       ! Other
-      integer(int32) :: nMat, Mat, MatingUnit, n, k, Par1
-      integer(int32) :: Rank(size(This%MatingPlan, dim=2)), Pair(size(This%MatingPlan, dim=2))
+      integer(int32) :: nMat, MatingUnit, n, k, i, Par1, Mat, &
+                        Rank1(size(This%MatingPlan, dim=2)), &
+                        Rank2(size(This%MatingPlan, dim=2)), &
+                        Rank1Sel(size(This%MatingPlan, dim=2))
 
       nMat = size(This%MatingPlan, dim=2)
 
@@ -6363,15 +6365,15 @@ module AlphaMateModule
                                             "                         Parent2"
 
       ! Ranks of first parent contributions
-      Rank = MrgRnk(This%nVec(This%MatingPlan(1, :))) ! MrgRnk ranks small to large
+      Rank1 = MrgRnk(This%nVec(This%MatingPlan(1, :))) ! MrgRnk ranks small to large
 
-      ! Write out by the above ranks, but sort within each parent1 so that any repeated matings will appear together
+      ! Write out by the above ranks, but sort also within each parent1 by contributions of parent2, which will also cluster repeated matings
       k = nMat ! MrgRnk ranks small to large
       do while (k .gt. 0)
         ! Contributions of a working parent1
-        Par1 = This%MatingPlan(1, Rank(k))
+        Par1 = This%MatingPlan(1, Rank1(k))
         n = This%nVec(Par1)
-        ! ... correct the contributions (just for sorting) when gender does not matter
+        ! ... corrected (just for sorting) when gender does not matter
         if (.not. Spec%GenderGiven) then
           do Mat = 1, nMat
             if (This%MatingPlan(2, Mat) .eq. Par1) then
@@ -6379,20 +6381,13 @@ module AlphaMateModule
             end if
           end do
         end if
-        ! So, we have n contributions of a parent1 and we will work with a batch of
-        !   n matings of this parent with others; these matings will be accessed by
-        !   MatingPlan(:, Rank([k, k-1, k-2, ..., k-(n-1)])
-        ! Generate mating pairs to be able to rank matings, that is, to be able to put multiples together
-        do Mat = 0, n - 1
-          Pair(Mat + 1) = GeneratePairing(xin=This%MatingPlan(1, Rank(k - Mat)), & ! MrgRnk ranks small to large
-                                          yin=This%MatingPlan(2, Rank(k - Mat)))   ! MrgRnk ranks small to large
-        end do
-        ! Say n=4 then Pair could be [3, 2, 1, 4], which tells us to output Rank([k - ([3, 2, 1, 4] - 1)])
-        Pair(1:n) = Rank([k - (MrgRnk(Pair(1:n)) - 1)])
-        ! Finally, output
-        do Mat = 1, n
+        ! ... contribution locations
+        Rank1Sel(1:n) = Rank1((k - n + 1):k) ! MrgRnk ranks small to large
+        ! Ranks of paired second parent contributions
+        Rank2(1:n) = MrgRnk(This%nVec(This%MatingPlan(2, Rank1Sel(1:n)))) ! MrgRnk ranks small to large
+        do i = n, 1, -1 ! MrgRnk ranks small to large
           write(MatingUnit, Spec%FmtMating) nMat - k + 1, &
-                                            Data%Coancestry%OriginalId(This%MatingPlan(1:2, Pair(Mat)))
+                                            Data%Coancestry%OriginalId(This%MatingPlan(1:2, Rank1Sel(Rank2(i)))) ! sort by par1 and par2 contributions
           k = k - 1 ! MrgRnk ranks small to large
         end do
       end do
