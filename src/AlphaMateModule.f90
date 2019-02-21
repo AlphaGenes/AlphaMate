@@ -4558,11 +4558,11 @@ module AlphaMateModule
               ! call SChrom%Write
 
               ! Working vectors
-              allocate(Rank(maxval([Data%nInd,Spec%nMat]))) ! for ranking many things
-              allocate(nVecPar1(Data%nPotPar1))             ! for nVec
-              allocate(MatPar2(Spec%nMat))                  ! for MatingPlan
-              allocate(TmpVec(Data%nInd))                   ! for many things
-              allocate(RanNum(nRanNum))                     ! for stochastic decisions
+              allocate(Rank(maxval([Data%nInd, Spec%nMat]))) ! for ranking many things
+              allocate(nVecPar1(Data%nPotPar1))              ! for nVec
+              allocate(MatPar2(Spec%nMat))                   ! for MatingPlan
+              allocate(TmpVec(Data%nInd))                    ! for many things
+              allocate(RanNum(nRanNum))                      ! for stochastic decisions
               RanNumLoc = 0
               RanNum = SampleIntelUniformD(n=nRanNum, Stream=Stream)
 
@@ -5432,7 +5432,7 @@ module AlphaMateModule
         if      (nParam .lt.  100) then
           Spec%EvolAlgNSol = 100
         else if (nParam .lt. 1000) then
-          Spec%EvolAlgNSol = maxval([ 100, nint(0.5 * nParam)])
+          Spec%EvolAlgNSol = maxval([100, nint(0.5 * nParam)])
         else
           Spec%EvolAlgNSol = 500
         end if
@@ -6221,10 +6221,10 @@ module AlphaMateModule
       ! Rank them by number of contributions
       Rank(1:nCon) = RapKnr(float(This%nVec), nCon) ! @todo float(This%nVec) due to RapKnr bug with integers
       ! call This%Write
-      ! print*,This%nVec
-      ! print*,Rank(1:nCon)
-      ! print*,Rank
-      ! print*,This%nVec(Rank(1:nCon))
+      ! print*, This%nVec
+      ! print*, Rank(1:nCon)
+      ! print*, Rank
+      ! print*, This%nVec(Rank(1:nCon))
 
       ! Write them out
       if (.not. allocated(This%GenomeEdit)) then
