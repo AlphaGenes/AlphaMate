@@ -221,7 +221,7 @@ module AlphaMateModule
                                     TargetSelCriterion(:), TargetSelCriterionStd(:), TargetMaxCriterionPct(:), &
                                     TargetCoancestry(:), TargetCoancestryRate(:), TargetMinCoancestryPct(:)
     real(FLOATTYPE) :: TargetInbreeding, TargetInbreedingRate, TargetMinInbreedingPct
-    real(FLOATTYPE) :: CoancestryWeight, InbreedingWeight, MultipleMatingsWeight, SelfingWeight
+    real(FLOATTYPE) :: CoancestryWeight, InbreedingWeight, RepeatedMatingsWeight, SelfingWeight
     logical :: CoancestryWeightBelow, InbreedingWeightBelow
     real(FLOATTYPE), allocatable :: GenericIndCritWeight(:), GenericMatCritWeight(:)
 
@@ -231,7 +231,7 @@ module AlphaMateModule
                EqualizePar, EqualizePar1, EqualizePar2,    &
                LimitPar, LimitPar1, LimitPar2,             &
                MateAllocation, RandomMateAllocation,       &
-               ReciprocalMatingsAllowed, MultipleMatingsAllowed, SelfingAllowed
+               ReciprocalMatingsAllowed, RepeatedMatingsAllowed, SelfingAllowed
     real(FLOATTYPE) :: LimitParMin,       LimitPar1Min,       LimitPar2Min, &
                        LimitParMax,       LimitPar1Max,       LimitPar2Max, &
                        LimitParMinWeight, LimitPar1MinWeight, LimitPar2MinWeight, &
@@ -313,7 +313,7 @@ module AlphaMateModule
     real(FLOATTYPE)              :: PenaltyInbreeding
     real(FLOATTYPE)              :: PenaltyLimitPar1
     real(FLOATTYPE)              :: PenaltyLimitPar2
-    real(FLOATTYPE)              :: PenaltyMultipleMatings
+    real(FLOATTYPE)              :: PenaltyRepeatedMatings
     real(FLOATTYPE)              :: PenaltySelfing
     real(FLOATTYPE)              :: PenaltyGenericIndCrit
     real(FLOATTYPE)              :: PenaltyGenericMatCrit
@@ -507,8 +507,8 @@ module AlphaMateModule
 
       This%ReciprocalMatingsAllowed = .false.
 
-      This%MultipleMatingsAllowed = .false.
-      This%MultipleMatingsWeight = -1.0
+      This%RepeatedMatingsAllowed = .false.
+      This%RepeatedMatingsWeight = -1.0
 
       This%SelfingAllowed = .false.
       This%SelfingWeight = -1.0
@@ -734,8 +734,8 @@ module AlphaMateModule
 
       write(Unit, *) "ReciprocalMatingsAllowed: ", This%ReciprocalMatingsAllowed
 
-      write(Unit, *) "MultipleMatingsAllowed: ", This%MultipleMatingsAllowed
-      write(Unit, *) "MultipleMatingsWeight:  ", This%MultipleMatingsWeight
+      write(Unit, *) "RepeatedMatingsAllowed: ", This%RepeatedMatingsAllowed
+      write(Unit, *) "RepeatedMatingsWeight:  ", This%RepeatedMatingsWeight
 
       write(Unit, *) "SelfingAllowed: ", This%SelfingAllowed
       write(Unit, *) "SelfingWeight:  ", This%SelfingWeight
@@ -1932,31 +1932,31 @@ module AlphaMateModule
                 stop 1
               end if
 
-            case ("allowmultiplematings")
+            case ("allowrepeatedmatings")
               if (allocated(Second)) then
                 if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
-                  This%MultipleMatingsAllowed = .true.
+                  This%RepeatedMatingsAllowed = .true.
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Multiple (repeated) matings/crosses allowed"
+                    write(STDOUT, "(a)") " Repeated matings/crosses allowed"
                   end if
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify Yes or No for AllowMultipleMatings, for example, AllowMultipleMatings, Yes"
+                write(STDERR, "(a)") " ERROR: Must specify Yes or No for AllowRepeatedMatings, for example, AllowRepeatedMatings, Yes"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
 
-            case ("multiplematingsweight")
+            case ("repeatedmatingsweight")
               if (allocated(Second)) then
-                This%MultipleMatingsWeight = Char2Real(trim(adjustl(Second(1))))
+                This%RepeatedMatingsWeight = Char2Real(trim(adjustl(Second(1))))
                 if (LogStdoutInternal) then
-                  write(STDOUT, "(a)") "Multiple (repeated) matings/crosses - weight: "//trim(Real2Char(This%MultipleMatingsWeight, fmt=FMTREAL2CHAR))
+                  write(STDOUT, "(a)") " Repeated matings/crosses - weight: "//trim(Real2Char(This%RepeatedMatingsWeight, fmt=FMTREAL2CHAR))
                 end if
-                if (This%MultipleMatingsWeight .gt. 0.0) then
-                  write(STDOUT, "(a)") " NOTE: Positive weight for multiple (repeated) matings/crosses, that is, encourage multiple matings/crosses. Was this intended?"
+                if (This%RepeatedMatingsWeight .gt. 0.0) then
+                  write(STDOUT, "(a)") " NOTE: Positive weight for repeated matings/crosses, that is, encourage repeated matings/crosses. Was this intended?"
                 end if
               else
-                write(STDERR, "(a)") " ERROR: Must specify a value for MultipleMatingsWeight, for example, MultipleMatingsWeight, -2"
+                write(STDERR, "(a)") " ERROR: Must specify a value for RepeatedMatingsWeight, for example, RepeatedMatingsWeight, -2"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -4302,7 +4302,7 @@ module AlphaMateModule
           This%PenaltyInbreeding = 0.0
           This%PenaltyLimitPar1 = 0.0
           This%PenaltyLimitPar2 = 0.0
-          This%PenaltyMultipleMatings = 0.0
+          This%PenaltyRepeatedMatings = 0.0
           This%PenaltySelfing = 0.0
           This%PenaltyGenericIndCrit = 0.0
           This%PenaltyGenericMatCrit = 0.0
@@ -4364,7 +4364,7 @@ module AlphaMateModule
           Out%PenaltyInbreeding = In%PenaltyInbreeding
           Out%PenaltyLimitPar1 = In%PenaltyLimitPar1
           Out%PenaltyLimitPar2 = In%PenaltyLimitPar2
-          Out%PenaltyMultipleMatings = In%PenaltyMultipleMatings
+          Out%PenaltyRepeatedMatings = In%PenaltyRepeatedMatings
           Out%PenaltySelfing = In%PenaltySelfing
           Out%PenaltyGenericIndCrit = In%PenaltyGenericIndCrit
           Out%PenaltyGenericMatCrit = In%PenaltyGenericMatCrit
@@ -4434,7 +4434,7 @@ module AlphaMateModule
           This%PenaltyInbreeding         = This%PenaltyInbreeding         * kR + Add%PenaltyInbreeding         / n
           This%PenaltyLimitPar1          = This%PenaltyLimitPar1          * kR + Add%PenaltyLimitPar1          / n
           This%PenaltyLimitPar2          = This%PenaltyLimitPar2          * kR + Add%PenaltyLimitPar2          / n
-          This%PenaltyMultipleMatings    = This%PenaltyMultipleMatings    * kR + Add%PenaltyMultipleMatings    / n
+          This%PenaltyRepeatedMatings    = This%PenaltyRepeatedMatings    * kR + Add%PenaltyRepeatedMatings    / n
           This%PenaltySelfing            = This%PenaltySelfing            * kR + Add%PenaltySelfing            / n
           This%PenaltyGenericIndCrit     = This%PenaltyGenericIndCrit     * kR + Add%PenaltyGenericIndCrit     / n
           This%PenaltyGenericMatCrit     = This%PenaltyGenericMatCrit     * kR + Add%PenaltyGenericMatCrit     / n
@@ -5057,8 +5057,8 @@ module AlphaMateModule
                   end do
                 end if
 
-                ! Avoid multiple matings between the same male and female
-                if (.not. Spec%MultipleMatingsAllowed) then
+                ! Avoid repeated matings between the same male and female
+                if (.not. Spec%RepeatedMatingsAllowed) then
                   allocate(Pair(Spec%nMat, 2))
                   do i = 1, Spec%nMat
                     Pair(i, 1) = GeneratePairing(xin=This%MatingPlan(1, i), &
@@ -5066,7 +5066,7 @@ module AlphaMateModule
                     ! print*, "i", i, "Spec%nMat", Spec%nMat, "Pair(i)", Pair(i), This%MatingPlan(1:2, i)
                   end do
 
-                  ! Count multiple matings
+                  ! Count repeated matings
                   Pair(:, 2) = MulCnt(Pair(:, 1))
                   ! print*,"Start 0"
                   ! do i = 1, Spec%nMat
@@ -5074,9 +5074,10 @@ module AlphaMateModule
                   ! end do
                   print*,"Stop 0",sum(Pair(:, 2)),Spec%nMat,sum(Pair(:, 2)) - Spec%nMat
 
-                  ! Fix multiples by swapping
+                  ! Fix repeats by swapping
                   TmpI = 0
                   if ((sum(Pair(:, 2)) - Spec%nMat) .gt. 0) then
+print*,"Add sensible default"
                     do j = 1, 10 ! @todo
                       do i = 1, (Spec%nMat - 1)
                         if (Pair(i, 2) .gt. 1) then
@@ -5111,10 +5112,10 @@ module AlphaMateModule
 
                   ! Penalise
                   if (TmpI .gt. 0) then ! Above attempts were not (fully) successful
-                    TmpR = TmpI * Spec%MultipleMatingsWeight
+                    TmpR = TmpI * Spec%RepeatedMatingsWeight
                     This%Objective = This%Objective + TmpR
-                    if (Spec%MultipleMatingsWeight .lt. 0.0) then
-                      This%PenaltyMultipleMatings = This%PenaltyMultipleMatings + TmpR
+                    if (Spec%RepeatedMatingsWeight .lt. 0.0) then
+                      This%PenaltyRepeatedMatings = This%PenaltyRepeatedMatings + TmpR
                       This%Penalty                = This%Penalty                + TmpR
                     end if
                   end if
@@ -6289,7 +6290,7 @@ module AlphaMateModule
       write(Unit, *) "PenaltyInbreeding: ", This%PenaltyInbreeding
       write(Unit, *) "PenaltyLimitPar1: ", This%PenaltyLimitPar1
       write(Unit, *) "PenaltyLimitPar2: ", This%PenaltyLimitPar2
-      write(Unit, *) "PenaltyMultipleMatings: ", This%PenaltyMultipleMatings
+      write(Unit, *) "PenaltyRepeatedMatings: ", This%PenaltyRepeatedMatings
       write(Unit, *) "PenaltySelfing: ", This%PenaltySelfing
       write(Unit, *) "PenaltyGenericIndCrit: ", This%PenaltyGenericIndCrit
       write(Unit, *) "PenaltyGenericMatCrit: ", This%PenaltyGenericMatCrit
