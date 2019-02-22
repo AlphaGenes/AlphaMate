@@ -1514,6 +1514,11 @@ module AlphaMateModule
                 if (LogStdoutInternal) then
                   write(STDOUT, "(a)") " Number of matings/crosses: "//trim(Int2Char(This%nMat))
                 end if
+                if (This%nMat .lt. 1) then
+                  write(STDERR, "(a)") " ERROR: NumberOfMatings must be at least 1"
+                  write(STDERR, "(a)") " "
+                  stop 1
+                end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify a number for NumberOfMatings, for example, NumberOfMatings, 10"
                 write(STDERR, "(a)") " "
@@ -1525,6 +1530,11 @@ module AlphaMateModule
                 This%nPar = Char2Int(trim(adjustl(Second(1))))
                 if (LogStdoutInternal) then
                   write(STDOUT, "(a)") " Number of parents: "//trim(Int2Char(This%nPar))
+                end if
+                if (This%nPar .lt. 1) then
+                  write(STDERR, "(a)") " ERROR: NumberOfParents must be at least 1"
+                  write(STDERR, "(a)") " "
+                  stop 1
                 end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify a number for NumberOfParents, for example, NumberOfParents, 20"
@@ -1538,6 +1548,11 @@ module AlphaMateModule
                 if (LogStdoutInternal) then
                   write(STDOUT, "(a)") " Number of male parents: "//trim(Int2Char(This%nPar1))
                 end if
+                if (This%nPar1 .lt. 1) then
+                  write(STDERR, "(a)") " ERROR: NumberOfMaleParents must be at least 1"
+                  write(STDERR, "(a)") " "
+                  stop 1
+                end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify a number for NumberOfMaleParents, for example, NumberOfMaleParents, 10"
                 write(STDERR, "(a)") " "
@@ -1549,6 +1564,11 @@ module AlphaMateModule
                 This%nPar2 = Char2Int(trim(adjustl(Second(1))))
                 if (LogStdoutInternal) then
                   write(STDOUT, "(a)") " Number of female parents: "//trim(Int2Char(This%nPar2))
+                end if
+                if (This%nPar2 .lt. 1) then
+                  write(STDERR, "(a)") " ERROR: NumberOfFemaleParents must be at least 1"
+                  write(STDERR, "(a)") " "
+                  stop 1
                 end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify a number for NumberOfFemaleParents, for example, NumberOfFemaleParents, 10"
@@ -1716,7 +1736,7 @@ module AlphaMateModule
                   write(STDOUT, "(a)") " Limit contributions - minimum: "//trim(Int2Char(nint(This%LimitParMin))) ! nint because of continous solution representation
                 end if
                 if (This%LimitParMin .lt. 1.0) then
-                  write(STDERR, "(a)") " ERROR: LimitContributionsMin must be at least 1!"
+                  write(STDERR, "(a)") " ERROR: LimitContributionsMin must be at least 1"
                   write(STDERR, "(a)") " "
                   stop 1
                 end if
@@ -1775,7 +1795,7 @@ module AlphaMateModule
                   write(STDOUT, "(a)") " Limit contributions of males - minimum: "//trim(Int2Char(nint(This%LimitPar1Min))) ! nint because of continous solution representation
                 end if
                 if (This%LimitPar1Min .lt. 1.0) then
-                  write(STDERR, "(a)") " ERROR: LimitMaleContributionsMin must be at least 1!"
+                  write(STDERR, "(a)") " ERROR: LimitMaleContributionsMin must be at least 1"
                   write(STDERR, "(a)") " "
                   stop 1
                 end if
@@ -1833,7 +1853,7 @@ module AlphaMateModule
                   write(STDOUT, "(a)") " Limit contributions of females - minimum: "//trim(Int2Char(nint(This%LimitPar2Min))) ! nint because of continous solution representation
                 end if
                 if (This%LimitPar2Min .lt. 1.0) then
-                  write(STDERR, "(a)") " ERROR: LimitFemaleContributionsMin must be at least 1!"
+                  write(STDERR, "(a)") " ERROR: LimitFemaleContributionsMin must be at least 1"
                   write(STDERR, "(a)") " "
                   stop 1
                 end if
@@ -1917,7 +1937,7 @@ module AlphaMateModule
                 if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
                   This%MultipleMatingsAllowed = .true.
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Multiple matings/crosses allowed"
+                    write(STDOUT, "(a)") " Multiple (repeated) matings/crosses allowed"
                   end if
                 end if
               else
@@ -1930,10 +1950,10 @@ module AlphaMateModule
               if (allocated(Second)) then
                 This%MultipleMatingsWeight = Char2Real(trim(adjustl(Second(1))))
                 if (LogStdoutInternal) then
-                  write(STDOUT, "(a)") "Multiple matings/crosses - weight: "//trim(Real2Char(This%MultipleMatingsWeight, fmt=FMTREAL2CHAR))
+                  write(STDOUT, "(a)") "Multiple (repeated) matings/crosses - weight: "//trim(Real2Char(This%MultipleMatingsWeight, fmt=FMTREAL2CHAR))
                 end if
                 if (This%MultipleMatingsWeight .gt. 0.0) then
-                  write(STDOUT, "(a)") " NOTE: Positive weight for multiple matings/crosses, that is, encourage multiple matings/crosses. Was this intended?"
+                  write(STDOUT, "(a)") " NOTE: Positive weight for multiple (repeated) matings/crosses, that is, encourage multiple matings/crosses. Was this intended?"
                 end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify a value for MultipleMatingsWeight, for example, MultipleMatingsWeight, -2"
@@ -2057,6 +2077,11 @@ module AlphaMateModule
                 if (LogStdoutInternal) then
                   write(STDOUT, "(a)") " Evolutionary algorithm - number of solutions: "//trim(Int2Char(This%EvolAlgNSol))
                 end if
+                if (This%EvolAlgNSol .lt. 3) then
+                  write(STDERR, "(a)") " ERROR: EvolAlgNumberOfSolutions must be at least 3 (preferably more)"
+                  write(STDERR, "(a)") " "
+                  stop 1
+                end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify a number for EvolAlgNumberOfSolutions, for example, EvolAlgNumberOfSolutions, 100"
                 write(STDERR, "(a)") " "
@@ -2068,6 +2093,11 @@ module AlphaMateModule
                 This%EvolAlgNIter = Char2Int(trim(adjustl(Second(1))))
                 if (LogStdoutInternal) then
                   write(STDOUT, "(a)") " Evolutionary algorithm - number of iterations: "//trim(Int2Char(This%EvolAlgNIter))
+                end if
+                if (This%EvolAlgNIter .lt. 1) then
+                  write(STDERR, "(a)") " ERROR: EvolAlgNumberOfIterations must be at least 1 (preferably more)"
+                  write(STDERR, "(a)") " "
+                  stop 1
                 end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify a number for EvolAlgNumberOfIterations, for example, EvolAlgNumberOfIterations, 10000"
@@ -2081,6 +2111,11 @@ module AlphaMateModule
                 if (LogStdoutInternal) then
                   write(STDOUT, "(a)") " Evolutionary algorithm - number of iterations to print optimisation status: "//trim(Int2Char(This%EvolAlgNIterPrint))
                 end if
+                if (This%EvolAlgNIterPrint .lt. 1) then
+                  write(STDERR, "(a)") " ERROR: EvolAlgNumberOfIterationsPrint must be at least 1 (preferably more)"
+                  write(STDERR, "(a)") " "
+                  stop 1
+                end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify a number for EvolAlgNumberOfIterationsPrint, for example, EvolAlgNumberOfIterationsPrint, 100"
                 write(STDERR, "(a)") " "
@@ -2092,6 +2127,11 @@ module AlphaMateModule
                 This%EvolAlgNIterStop = Char2Int(trim(adjustl(Second(1))))
                 if (LogStdoutInternal) then
                   write(STDOUT, "(a)") " Evolutionary algorithm - number of iterations to stop upon no improvement of objective: "//trim(Int2Char(This%EvolAlgNIterStop))
+                end if
+                if (This%EvolAlgNIterStop .lt. 1) then
+                  write(STDERR, "(a)") " ERROR: EvolAlgNumberOfIterationsStop must be at least 1 (preferably more)"
+                  write(STDERR, "(a)") " "
+                  stop 1
                 end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify a number for EvolAlgNumberOfIterationsStop, for example, EvolAlgNumberOfIterationsStop, 100"
@@ -2163,6 +2203,11 @@ module AlphaMateModule
                 if (LogStdoutInternal) then
                   write(STDOUT, "(a)") " Differential evolution algorithm - number of warming iterations (burn-in): "//trim(Int2Char(This%DiffEvolNIterBurnIn))
                 end if
+                if (This%DiffEvolNIterBurnIn .lt. 1) then
+                  write(STDERR, "(a)") " ERROR: EvolAlgNumberOfIterationsBurnin must be at least 1 (preferably more)"
+                  write(STDERR, "(a)") " "
+                  stop 1
+                end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify a number for EvolAlgNumberOfIterationsBurnin, for example, EvolAlgNumberOfIterationsBurnin, 1000"
                 write(STDERR, "(a)") " "
@@ -2174,6 +2219,11 @@ module AlphaMateModule
                 This%DiffEvolParamCrBurnIn = Char2Real(trim(adjustl(Second(1))))
                 if (LogStdoutInternal) then
                   write(STDOUT, "(a)") " Differential evolution algorithm - cross-over parameter for warmup (burn-in): "//trim(Real2Char(This%DiffEvolParamCrBurnIn, fmt=FMTREAL2CHAR))
+                end if
+                if (This%DiffEvolParamCrBurnIn .lt. 0) then
+                  write(STDERR, "(a)") " ERROR: DiffEvolParameterCrBurnin must be at least 0 (preferably more)"
+                  write(STDERR, "(a)") " "
+                  stop 1
                 end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify a value for DiffEvolParameterCrBurnin, for example, DiffEvolParameterCrBurnin, 0.4"
@@ -2187,6 +2237,11 @@ module AlphaMateModule
                 if (LogStdoutInternal) then
                   write(STDOUT, "(a)") " Differential evolution algorithm - cross-over parameter 1 (common): "//trim(Real2Char(This%DiffEvolParamCr1, fmt=FMTREAL2CHAR))
                 end if
+                if (This%DiffEvolParamCr1 .lt. 0) then
+                  write(STDERR, "(a)") " ERROR: DiffEvolParameterCr1 must be at least 0 (preferably more)"
+                  write(STDERR, "(a)") " "
+                  stop 1
+                end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify a value for DiffEvolParameterCr1, for example, DiffEvolParameterCr1, 0.2"
                 write(STDERR, "(a)") " "
@@ -2198,6 +2253,11 @@ module AlphaMateModule
                 This%DiffEvolParamCr2 = Char2Real(trim(adjustl(Second(1))))
                 if (LogStdoutInternal) then
                   write(STDOUT, "(a)") " Differential evolution algorithm - cross-over parameter 2 (rare): "//trim(Real2Char(This%DiffEvolParamCr2, fmt=FMTREAL2CHAR))
+                end if
+                if (This%DiffEvolParamCr2 .lt. 0) then
+                  write(STDERR, "(a)") " ERROR: DiffEvolParameterCr2 must be at least 0 (preferably more)"
+                  write(STDERR, "(a)") " "
+                  stop 1
                 end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify a value for DiffEvolParameterCr2, for example, DiffEvolParameterCr2, 0.2"
@@ -2211,6 +2271,11 @@ module AlphaMateModule
                 if (LogStdoutInternal) then
                   write(STDOUT, "(a)") " Differential evolution algorithm - parameter F (base value): "//trim(Real2Char(This%DiffEvolParamFBase, fmt=FMTREAL2CHAR))
                 end if
+                if (This%DiffEvolParamFBase .lt. 0) then
+                  write(STDERR, "(a)") " ERROR: DiffEvolParameterFBase must be at least 0 (preferably more)"
+                  write(STDERR, "(a)") " "
+                  stop 1
+                end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify a value for DiffEvolParameterFBase, for example, DiffEvolParameterFBase, 0.1"
                 write(STDERR, "(a)") " "
@@ -2222,6 +2287,11 @@ module AlphaMateModule
                 This%DiffEvolParamFHigh1 = Char2Real(trim(adjustl(Second(1))))
                 if (LogStdoutInternal) then
                   write(STDOUT, "(a)") " Differential evolution algorithm - parameter F (high value 1): "//trim(Real2Char(This%DiffEvolParamFHigh1, fmt=FMTREAL2CHAR))
+                end if
+                if (This%DiffEvolParamFHigh1 .lt. 0) then
+                  write(STDERR, "(a)") " ERROR: DiffEvolParameterFHigh1 must be at least 0 (preferably more)"
+                  write(STDERR, "(a)") " "
+                  stop 1
                 end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify a value for DiffEvolParameterFHigh1, for example, DiffEvolParameterFHigh1, 1.0"
@@ -2235,6 +2305,11 @@ module AlphaMateModule
                 if (LogStdoutInternal) then
                   write(STDOUT, "(a)") " Differential evolution algorithm - parameter F (high value 2): "//trim(Real2Char(This%DiffEvolParamFHigh2, fmt=FMTREAL2CHAR))
                 end if
+                if (This%DiffEvolParamFHigh2 .lt. 0) then
+                  write(STDERR, "(a)") " ERROR: DiffEvolParameterFHigh2 must be at least 0 (preferably more)"
+                  write(STDERR, "(a)") " "
+                  stop 1
+                end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify a value for DiffEvolParameterFHigh2, for example, DiffEvolParameterFHigh2, 4.0"
                 write(STDERR, "(a)") " "
@@ -2246,6 +2321,11 @@ module AlphaMateModule
                 This%RanAlgStricter = Char2Real(trim(adjustl(Second(1))))
                 if (LogStdoutInternal) then
                   write(STDOUT, "(a)") " Random search algorithm - perform k times more iterations than with the evolutionary algorithm: k="//trim(Int2Char(This%RanAlgStricter))
+                end if
+                if (This%RanAlgStricter .lt. 1) then
+                  write(STDERR, "(a)") " ERROR: RandomSearchStricter must be at least 1"
+                  write(STDERR, "(a)") " "
+                  stop 1
                 end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify a number for RandomSearchStricter, for example, RandomSearchStricter, 10"
