@@ -1715,6 +1715,11 @@ module AlphaMateModule
                 if (LogStdoutInternal) then
                   write(STDOUT, "(a)") " Limit contributions - minimum: "//trim(Int2Char(nint(This%LimitParMin))) ! nint because of continous solution representation
                 end if
+                if (This%LimitParMin .lt. 1.0) then
+                  write(STDERR, "(a)") " ERROR: LimitContributionsMin must be at least 1!"
+                  write(STDERR, "(a)") " "
+                  stop 1
+                end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify a number for LimitContributionsMin, for example, LimitContributionsMin, 1"
                 write(STDERR, "(a)") " "
@@ -1769,6 +1774,11 @@ module AlphaMateModule
                 if (LogStdoutInternal) then
                   write(STDOUT, "(a)") " Limit contributions of males - minimum: "//trim(Int2Char(nint(This%LimitPar1Min))) ! nint because of continous solution representation
                 end if
+                if (This%LimitPar1Min .lt. 1.0) then
+                  write(STDERR, "(a)") " ERROR: LimitMaleContributionsMin must be at least 1!"
+                  write(STDERR, "(a)") " "
+                  stop 1
+                end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify a number for LimitMaleContributionsMin, for example, LimitMaleContributionsMin, 1"
                 write(STDERR, "(a)") " "
@@ -1821,6 +1831,11 @@ module AlphaMateModule
                 This%LimitPar2Min = Char2Real(trim(adjustl(Second(1)))) ! Real because of continous solution representation
                 if (LogStdoutInternal) then
                   write(STDOUT, "(a)") " Limit contributions of females - minimum: "//trim(Int2Char(nint(This%LimitPar2Min))) ! nint because of continous solution representation
+                end if
+                if (This%LimitPar2Min .lt. 1.0) then
+                  write(STDERR, "(a)") " ERROR: LimitFemaleContributionsMin must be at least 1!"
+                  write(STDERR, "(a)") " "
+                  stop 1
                 end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify a number for LimitFemaleContributionsMin, for example, LimitFemaleContributionsMin, 1"
