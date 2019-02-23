@@ -1,0 +1,10 @@
+Seed                  , 15
+NrmMatrixFile         , ../Animal/Nrm.txt
+ModeMinCoancestry     , Yes
+NumberOfParents       ,  50
+LimitContributions    , Yes
+LimitContributionsMax ,   1
+MateAllocation        , No
+Stop
+
+

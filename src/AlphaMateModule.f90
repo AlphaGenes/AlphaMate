@@ -221,6 +221,8 @@ module AlphaMateModule
                                     TargetSelCriterion(:), TargetSelCriterionStd(:), TargetMaxCriterionPct(:), &
                                     TargetCoancestry(:), TargetCoancestryRate(:), TargetMinCoancestryPct(:)
     real(FLOATTYPE) :: TargetInbreeding, TargetInbreedingRate, TargetMinInbreedingPct
+
+    ! Penalty weights
     real(FLOATTYPE) :: CoancestryWeight, InbreedingWeight, RepeatedMatingsWeight, SelfingWeight
     logical :: CoancestryWeightBelow, InbreedingWeightBelow
     real(FLOATTYPE), allocatable :: GenericIndCritWeight(:), GenericMatCritWeight(:)
@@ -241,6 +243,8 @@ module AlphaMateModule
                       PAGEParMax,      PAGEPar1Max,        PAGEPar2Max
 
     ! Algorithm specifications
+    ! ... fix parameters
+    integer(int32) :: RepeatedMatingsNIterFix
     ! ... generic evolutionary parameters
     integer(int32) :: EvolAlgNSol, EvolAlgNIter, EvolAlgNIterStop, EvolAlgNIterPrint
     real(FLOATTYPEAH) :: EvolAlgStopTolCoancestry, EvolAlgStopTol
@@ -509,6 +513,7 @@ module AlphaMateModule
 
       This%RepeatedMatingsAllowed = .false.
       This%RepeatedMatingsWeight = -1.0
+      This%RepeatedMatingsNIterFix = 1
 
       This%SelfingAllowed = .false.
       This%SelfingWeight = -1.0
@@ -734,8 +739,9 @@ module AlphaMateModule
 
       write(Unit, *) "ReciprocalMatingsAllowed: ", This%ReciprocalMatingsAllowed
 
-      write(Unit, *) "RepeatedMatingsAllowed: ", This%RepeatedMatingsAllowed
-      write(Unit, *) "RepeatedMatingsWeight:  ", This%RepeatedMatingsWeight
+      write(Unit, *) "RepeatedMatingsAllowed:   ", This%RepeatedMatingsAllowed
+      write(Unit, *) "RepeatedMatingsWeight:    ", This%RepeatedMatingsWeight
+      write(Unit, *) "RepeatedMatingsNIterFix:  ", This%RepeatedMatingsNIterFix
 
       write(Unit, *) "SelfingAllowed: ", This%SelfingAllowed
       write(Unit, *) "SelfingWeight:  ", This%SelfingWeight
@@ -1961,6 +1967,18 @@ module AlphaMateModule
                 stop 1
               end if
 
+            case ("repeatedmatingsniterfix")
+              if (allocated(Second)) then
+                This%RepeatedMatingsNIterFix = Char2int(trim(adjustl(Second(1))))
+                if (LogStdoutInternal) then
+                  write(STDOUT, "(a)") " Number of iterations to fix repeated matings: "//trim(Int2Char(This%RepeatedMatingsNIterFix))
+                end if
+              else
+                write(STDERR, "(a)") " ERROR: Must specify a number for RepeatedMatingsNIterFix, for example, RepeatedMatingsNIterFix, 5"
+                write(STDERR, "(a)") " "
+                stop 1
+              end if
+
             case ("allowselfing")
               if (allocated(Second)) then
                 if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
@@ -2462,22 +2480,6 @@ module AlphaMateModule
         This%LimitPar2Min       = 1.0
         This%LimitPar2Max       = huge(This%LimitPar2Max) - 1.0
         This%LimitPar2MinWeight = -1.0
-      end if
-
-      ! Impose upper limits (when it is not given by the user) to avoid explosion in optimisation
-      if (.not. This%GenderGiven .and. (.not. This%LimitPar .and. .not. This%EqualizePar)) then
-        This%LimitPar    = .true.
-        This%LimitParMax = FLOATFUN(This%nMat) * 2.0
-      end if
-
-      if (This%GenderGiven .and. (.not. This%LimitPar1 .and. .not. This%EqualizePar1)) then
-        This%LimitPar1    = .true.
-        This%LimitPar1Max = FLOATFUN(This%nMat)
-      end if
-
-      if (This%GenderGiven .and. (.not. This%LimitPar2 .and. .not. This%EqualizePar2)) then
-        This%LimitPar2    = .true.
-        This%LimitPar2Max = FLOATFUN(This%nMat)
       end if
 
       if (.not. This%GenderGiven) then
@@ -3185,7 +3187,7 @@ module AlphaMateModule
       end if
       This%nInd = This%Coancestry%nInd
        ! Would not normally put data into spec, but need to do it for OO-flexibility (InitialiseAlphaMateSol)
-      Spec%nInd = This%Coancestry%nInd
+      Spec%nInd = This%Coancestry%nInd ! Otherwise use Data%nInd!!!
       allocate(This%AvgCoancestry(This%nInd))
       do Ind = 1, This%nInd
         This%AvgCoancestry(Ind) = Mean(This%Coancestry%Value(1:, Ind))
@@ -3252,42 +3254,72 @@ module AlphaMateModule
       allocate(This%Gender(This%nInd))
       if (.not. Spec%GenderGiven) then
         This%Gender = 0
-        if (Spec%nPar .eq. 0) then
-          write(STDOUT, "(a)") " NOTE: When the number of parents is not provided all candidates could be parents (though other constraints apply)"
+        if (Spec%nPar .eq. 0 .and. Spec%nMat .gt. 0) then
+          write(STDOUT, "(a)") " NOTE: When the number of parents is not provided and the number of matings/crosses is"
+          write(STDOUT, "(a)") "         it is set to the minimum of the number of individuals and the number of matings/crosses"
+          Spec%nPar = minval([This%nInd, Spec%nMat])
+          write(STDOUT, "(a)") "       The number of parents: "//trim(Int2Char(Spec%nPar))
+          write(STDOUT, "(a)") " "
+        end if
+        if (Spec%nPar .gt. 0 .and. Spec%nMat .eq. 0) then
+          write(STDOUT, "(a)") " NOTE: When the number of matings/crosses is not provided and the number of parents is"
+          write(STDOUT, "(a)") "          it is set to the half of the number of individuals"
+          Spec%nMat = Spec%nPar / 2
+          write(STDERR, "(a)") "       The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
+          write(STDOUT, "(a)") " "
+        end if
+        if (Spec%nPar .eq. 0 .and. Spec%nMat .eq. 0) then
+          write(STDOUT, "(a)") " NOTE: When the number of parents and the number of matings/crosses are not provided"
+          write(STDOUT, "(a)") "         the number of parents is set to the number of individuals and"
+          write(STDOUT, "(a)") "         the number of matings/crosses is set to the half of the number of individuals"
           Spec%nPar = This%nInd
+          Spec%nMat = Spec%nPar / 2
+          write(STDERR, "(a)") "       The number of parents:         "//trim(Int2Char(Spec%nPar))
+          write(STDERR, "(a)") "       The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
+          write(STDERR, "(a)") " "
         end if
         Spec%nPar1 = Spec%nPar
-        if (Spec%EqualizePar) then
-          if (Spec%nMat .lt. Spec%nPar) then
-            write(STDERR, "(a)") " ERROR: The number of parents must be smaller or equal to"
-            write(STDERR, "(a)") "          the number of matings/crosses when EqualizeContributions is active!"
-            write(STDERR, "(a)") "        The number of parents:         "//trim(Int2Char(Spec%nPar))
-            write(STDERR, "(a)") "        The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
-            write(STDERR, "(a)") " "
-            stop 1
-          end if
-          if (mod(Spec%nMat, Spec%nPar) .gt. 0) then
-            write(STDERR, "(a)") " ERROR: The number of parents and the number of matings/crosses"
-            write(STDERR, "(a)") "          must divide without remainder when EqualizeContributions is active!"
-            write(STDERR, "(a)") "        The number of parents:         "//trim(Int2Char(Spec%nPar))
-            write(STDERR, "(a)") "        The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
-            write(STDERR, "(a)") "        The remainder:                 "//trim(Int2Char(mod(Spec%nMat, Spec%nPar)))
-            write(STDERR, "(a)") " "
-            stop 1
-          end if
+
+        ! Impose limits on contributions to avoid explosion in optimisation
+        if (.not. Spec%LimitPar .and. .not. Spec%EqualizePar) then
+          Spec%LimitPar    = .true.
+          Spec%LimitParMax = FLOATFUN(Spec%nMat) * 2.0
         end if
-        if (Spec%LimitPar) then
-          if ((Spec%nPar * Spec%LimitParMax) .lt. Spec%nMat) then
-            write(STDERR, "(a)") " ERROR: The number of parents * LimitContributionsMax is too small"
-            write(STDERR, "(a)") "          to achieve specified number of matings/crosses!"
-            write(STDERR, "(a)") "        The number of parents:         "//trim(Int2Char(Spec%nPar))
-            write(STDERR, "(a)") "        LimitContributionsMax:         "//trim(Int2Char(nint(Spec%LimitParMax)))
-            write(STDERR, "(a)") "                their product:         "//trim(Int2Char(Spec%nPar * nint(Spec%LimitParMax)))
-            write(STDERR, "(a)") "        The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
-            write(STDERR, "(a)") " "
-            stop 1
-          end if
-        end if
+
+        ! @todo do we need this check (utterly confused)?
+        ! if (Spec%EqualizePar) then
+        !   if (Spec%nMat .lt. Spec%nPar / 2) then
+        !     write(STDERR, "(a)") " ERROR: The number of parents must be at least twice the number of matings/crosses "
+        !     write(STDERR, "(a)") "          when EqualizeContributions is active!"
+        !     write(STDERR, "(a)") "        The number of parents:         "//trim(Int2Char(Spec%nPar))
+        !     write(STDERR, "(a)") "        The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
+        !     write(STDERR, "(a)") " "
+        !     stop 1
+        !   end if
+        ! @todo do we need this check (utterly confused)?
+        !   if (mod(Spec%nPar, Spec%nMat) .gt. 0) then
+        !     write(STDERR, "(a)") " ERROR: The number of parents and the number of matings/crosses"
+        !     write(STDERR, "(a)") "          must divide without remainder when EqualizeContributions is active!"
+        !     write(STDERR, "(a)") "        The number of parents:         "//trim(Int2Char(Spec%nPar))
+        !     write(STDERR, "(a)") "        The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
+        !     write(STDERR, "(a)") "        The remainder:                 "//trim(Int2Char(mod(Spec%nPar, Spec%nMat)))
+        !     write(STDERR, "(a)") " "
+        !     stop 1
+        !   end if
+        ! end if
+        ! @todo do we need this check (utterly confused)?
+        ! if (Spec%LimitPar) then
+        !   if ((Spec%nPar / 2 * Spec%LimitParMax) .lt. Spec%nMat) then
+        !     write(STDERR, "(a)") " ERROR: The number of parents / 2 * LimitContributionsMax is too small"
+        !     write(STDERR, "(a)") "          to achieve specified number of matings/crosses!"
+        !     write(STDERR, "(a)") "        The number of parents / 2:     "//trim(Int2Char(Spec%nPar))
+        !     write(STDERR, "(a)") "        LimitContributionsMax:         "//trim(Int2Char(nint(Spec%LimitParMax)))
+        !     write(STDERR, "(a)") "                their product:         "//trim(Int2Char(Spec%nPar / 2 * nint(Spec%LimitParMax)))
+        !     write(STDERR, "(a)") "        The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
+        !     write(STDERR, "(a)") " "
+        !     stop 1
+        !   end if
+        ! end if
       else
         nIndTmp = CountLines(Spec%GenderFile)
         if (LogStdoutInternal) then
@@ -3332,29 +3364,74 @@ module AlphaMateModule
         write(STDOUT, "(a)") " Number of   males: "//trim(Int2Char(This%nMal))
         write(STDOUT, "(a)") " Number of females: "//trim(Int2Char(This%nFem))
 
-        if (Spec%nPar1 .eq. 0) then
-          write(STDOUT, "(a)") " NOTE: When the number of male parents is not provided it is set to"
-          write(STDOUT, "(a)") "         the minimum of the number of males and the number of matings/crosses"
+        if (Spec%nPar1 .eq. 0 .and. Spec%nMat .gt. 0) then
+          write(STDOUT, "(a)") " NOTE: When the number of male parents is not provided and the number of matings/crosses is"
+          write(STDOUT, "(a)") "          it is set to the minimum of the number of males and the number of matings/crosses"
           Spec%nPar1 = minval([This%nMal, Spec%nMat])
+          write(STDOUT, "(a)") "       The number of male parents: "//trim(Int2Char(Spec%nPar1))
+          write(STDOUT, "(a)") " "
         end if
+        if (Spec%nPar1 .eq. 0 .and. Spec%nMat .eq. 0) then
+          write(STDOUT, "(a)") " NOTE: When the number of male parents and the number of matings/crosses are not provided"
+          write(STDOUT, "(a)") "         the number of male parents is set to the number of males"
+          Spec%nPar1 = This%nMal
+          write(STDERR, "(a)") "       The number of male parents: "//trim(Int2Char(Spec%nPar1))
+          write(STDERR, "(a)") " "
+        end if
+
+        if (Spec%nPar2 .eq. 0 .and. Spec%nMat .gt. 0) then
+          write(STDOUT, "(a)") " NOTE: When the number of female parents is not provided and the number of matings/crosses is"
+          write(STDOUT, "(a)") "          it is set to the minimum of the number of female and the number of matings/crosses"
+          Spec%nPar2 = minval([This%nFem, Spec%nMat])
+          write(STDOUT, "(a)") "       The number of female parents: "//trim(Int2Char(Spec%nPar2))
+          write(STDOUT, "(a)") " "
+        end if
+        if (Spec%nPar2 .eq. 0 .and. Spec%nMat .eq. 0) then
+          write(STDOUT, "(a)") " NOTE: When the number of female parents and the number of matings/crosses are not provided"
+          write(STDOUT, "(a)") "         the number of female parents is set to the number of female"
+          Spec%nPar2 = This%nFem
+          write(STDERR, "(a)") "        The number of female parents: "//trim(Int2Char(Spec%nPar))
+          write(STDERR, "(a)") " "
+        end if
+
+        if (Spec%nMat .eq. 0) then
+          write(STDOUT, "(a)") " NOTE: When the number of matings/crosses is not provided"
+          write(STDOUT, "(a)") "         it is set to the number of females"
+          Spec%nMat = Spec%nPar2
+          write(STDERR, "(a)") "       The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
+          write(STDOUT, "(a)") " "
+        end if
+
+        ! Impose limits on contributions to avoid explosion in optimisation
+        if (.not. Spec%LimitPar1 .and. .not. Spec%EqualizePar1) then
+          Spec%LimitPar1    = .true.
+          Spec%LimitPar1Max = FLOATFUN(Spec%nMat)
+        end if
+        if (.not. Spec%LimitPar2 .and. .not. Spec%EqualizePar2) then
+          Spec%LimitPar2    = .true.
+          Spec%LimitPar2Max = FLOATFUN(Spec%nMat)
+        end if
+
         if (Spec%EqualizePar1) then
-          if (Spec%nMat .lt. Spec%nPar1) then
-            write(STDERR, "(a)") " ERROR: The number of male parents must be smaller or equal to the"
-            write(STDERR, "(a)") "          number of matings/crosses when EqualizeMaleContributions is active!"
-            write(STDERR, "(a)") "        The number of male parents:    "//trim(Int2Char(Spec%nPar1))
-            write(STDERR, "(a)") "        The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
-            write(STDERR, "(a)") " "
-            stop 1
-          end if
-          if (mod(Spec%nMat, Spec%nPar1) .gt. 0) then
-            write(STDERR, "(a)") " ERROR: The number of male parents and the number of matings/crosses"
-            write(STDERR, "(a)") "          must divide without remainder when EqualizeMaleContributions is active!"
-            write(STDERR, "(a)") "        The number of male parents:    "//trim(Int2Char(Spec%nPar1))
-            write(STDERR, "(a)") "        The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
-            write(STDERR, "(a)") "        The remainder:                 "//trim(Int2Char(mod(Spec%nMat, Spec%nPar1)))
-            write(STDERR, "(a)") " "
-            stop 1
-          end if
+          ! @todo do we need this check (utterly confused)?
+          !   if (Spec%nMat .lt. Spec%nPar1) then
+          !     write(STDERR, "(a)") " ERROR: The number of male parents must be smaller or equal to the"
+          !     write(STDERR, "(a)") "          number of matings/crosses when EqualizeMaleContributions is active!"
+          !     write(STDERR, "(a)") "        The number of male parents:    "//trim(Int2Char(Spec%nPar1))
+          !     write(STDERR, "(a)") "        The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
+          !     write(STDERR, "(a)") " "
+          !     stop 1
+          !   end if
+          ! @todo do we need this check (utterly confused)?
+          !   if (mod(Spec%nPar1, Spec%nMat) .gt. 0) then
+          !     write(STDERR, "(a)") " ERROR: The number of male parents and the number of matings/crosses"
+          !     write(STDERR, "(a)") "          must divide without remainder when EqualizeMaleContributions is active!"
+          !     write(STDERR, "(a)") "        The number of male parents:    "//trim(Int2Char(Spec%nPar1))
+          !     write(STDERR, "(a)") "        The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
+          !     write(STDERR, "(a)") "        The remainder:                 "//trim(Int2Char(mod(Spec%nMat, Spec%nPar1)))
+          !     write(STDERR, "(a)") " "
+          !     stop 1
+          !   end if
         end if
         if (Spec%LimitPar1) then
           if ((Spec%nPar1 * Spec%LimitPar1Max) .lt. Spec%nMat) then
@@ -3369,29 +3446,26 @@ module AlphaMateModule
           end if
         end if
 
-        if (Spec%nPar2 .eq. 0) then
-          write(STDOUT, "(a)") " NOTE: When the number of female parents is not provided it is set to"
-          write(STDOUT, "(a)") "         the minimum of the number of males and the number of matings/crosses"
-          Spec%nPar2 = minval([This%nFem, Spec%nMat])
-        end if
         if (Spec%EqualizePar2) then
-          if (Spec%nMat .lt. Spec%nPar2) then
-            write(STDERR, "(a)") " ERROR: The number of female parents must be smaller or equal to the"
-            write(STDERR, "(a)") "          number of matings/crosses when EqualizeFemaleContributions is active!"
-            write(STDERR, "(a)") "        The number of female parents:  "//trim(Int2Char(Spec%nPar2))
-            write(STDERR, "(a)") "        The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
-            write(STDERR, "(a)") " "
-            stop 1
-          end if
-          if (mod(Spec%nMat, Spec%nPar2) .gt. 0) then
-            write(STDERR, "(a)") " ERROR: The number of female parents and the number of matings/crosses"
-            write(STDERR, "(a)") "          must divide without remainder when EqualizeFemaleContributions is active!"
-            write(STDERR, "(a)") "        The number of female parents:  "//trim(Int2Char(Spec%nPar2))
-            write(STDERR, "(a)") "        The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
-            write(STDERR, "(a)") "        The remainder:                 "//trim(Int2Char(mod(Spec%nMat, Spec%nPar2)))
-            write(STDERR, "(a)") " "
-            stop 1
-          end if
+          ! @todo do we need this check (utterly confused)?
+          ! if (Spec%nMat .lt. Spec%nPar2) then
+          !   write(STDERR, "(a)") " ERROR: The number of female parents must be smaller or equal to the"
+          !   write(STDERR, "(a)") "          number of matings/crosses when EqualizeFemaleContributions is active!"
+          !   write(STDERR, "(a)") "        The number of female parents:  "//trim(Int2Char(Spec%nPar2))
+          !   write(STDERR, "(a)") "        The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
+          !   write(STDERR, "(a)") " "
+          !   stop 1
+          ! end if
+          ! @todo do we need this check (utterly confused)?
+          ! if (mod(Spec%nPar2, Spec%nMat) .gt. 0) then
+          !   write(STDERR, "(a)") " ERROR: The number of female parents and the number of matings/crosses"
+          !   write(STDERR, "(a)") "          must divide without remainder when EqualizeFemaleContributions is active!"
+          !   write(STDERR, "(a)") "        The number of female parents:  "//trim(Int2Char(Spec%nPar2))
+          !   write(STDERR, "(a)") "        The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
+          !   write(STDERR, "(a)") "        The remainder:                 "//trim(Int2Char(mod(Spec%nMat, Spec%nPar2)))
+          !   write(STDERR, "(a)") " "
+          !   stop 1
+          ! end if
         end if
         if (Spec%LimitPar2) then
           if ((Spec%nPar2 * Spec%LimitPar2Max) .lt. Spec%nMat) then
@@ -3696,6 +3770,14 @@ module AlphaMateModule
       end if
 
       This%CoancestryStat = DescStatMatrix(FLOATFUN(This%Coancestry%Value(1:, 1:)))
+
+      if (This%CoancestryStat%OffDiag%Sd .eq. 0.0) then
+        write(STDOUT, "(a)") " NOTE: There is no variation in coancestry between individuals!"
+        write(STDOUT, "(a)") "       Standard deviation set to 1.0!"
+        This%CoancestryStat%OffDiag%Sd = 1.0
+        write(STDOUT, "(a)") " "
+      end if
+
       if (Spec%GenderGiven) then
         This%CoancestryStatGender1    = DescStatMatrix(FLOATFUN(This%Coancestry%Value(This%IdPotPar1, This%IdPotPar1)))
         This%CoancestryStatGender2    = DescStatMatrix(FLOATFUN(This%Coancestry%Value(This%IdPotPar2, This%IdPotPar2)))
@@ -3750,12 +3832,6 @@ module AlphaMateModule
         end if
       end if
 
-      if (This%CoancestryStat%OffDiag%Sd .eq. 0.0) then
-        write(STDERR, "(a)") " ERROR: There is no variation in coancestry between individuals!"
-        write(STDERR, "(a)") " "
-        stop 1
-      end if
-
       ! Save means to a file
       open(newunit=CoancestrySummaryUnit, file=trim(Spec%OutputBasename)//"CoancestrySummary.txt", status="unknown")
       write(CoancestrySummaryUnit, "(a, f)") "Current (random mating/crossing),                 ",   This%CoancestryRanMate
@@ -3801,6 +3877,12 @@ module AlphaMateModule
         end if
 
         This%SelCriterionStat = DescStat(This%SelCriterion)
+        if (This%SelCriterionStat%Sd .eq. 0.0) then
+          write(STDOUT, "(a)") " NOTE: There is no variation in selection criterion!"
+          write(STDOUT, "(a)") "       Standard deviation set to 1.0!"
+          This%SelCriterionStat%Sd = 1.0
+          write(STDOUT, "(a)") " "
+        end if
         This%SelCriterionStd = SelCriterion2SelCriterionStd(SelCriterion=This%SelCriterion, &
                                                             Mean=This%SelCriterionStat%Mean, &
                                                             Sd=This%SelCriterionStat%Sd)
@@ -3817,12 +3899,6 @@ module AlphaMateModule
                                               //trim(Real2Char(This%SelCriterionStdStat%Min,  fmt=FMTREAL2CHAR))
           write(STDOUT, "(a)") "  - maximum: "//trim(Real2Char(This%SelCriterionStat%Max,     fmt=FMTREAL2CHAR))//" /"&
                                               //trim(Real2Char(This%SelCriterionStdStat%Max,  fmt=FMTREAL2CHAR))
-        end if
-
-        if (This%SelCriterionStat%Sd .eq. 0.0) then
-          write(STDERR, "(a)") " ERROR: There is no variation in selection criterion!"
-          write(STDERR, "(a)") " "
-          stop 1
         end if
 
         open(newunit=CriterionSummaryUnit, file=trim(Spec%OutputBasename)//"SelCriterionSummary.txt", status="unknown")
@@ -3850,9 +3926,8 @@ module AlphaMateModule
           end if
 
           if (This%SelCriterionPAGEStat%Sd .eq. 0.0) then
-            write(STDERR, "(a)") " ERROR: There is no variation in selection criterion increments with PAGE!"
-            write(STDERR, "(a)") " "
-            stop 1
+            write(STDOUT, "(a)") " NOTE: There is no variation in selection criterion increments with PAGE!"
+            write(STDOUT, "(a)") " "
           end if
 
           open(newunit=CriterionSummaryUnit, file=trim(Spec%OutputBasename)//"PAGESummary.txt", status="unknown")
@@ -3876,6 +3951,12 @@ module AlphaMateModule
         allocate(This%GenericIndCritStat(Spec%nGenericIndCrit))
         do Crit = 1, Spec%nGenericIndCrit
           This%GenericIndCritStat(Crit) = DescStat(This%GenericIndCrit(:, Crit))
+          if (This%GenericIndCritStat(Crit)%Sd .eq. 0.0) then
+            write(STDOUT, "(a)") " NOTE: There is no variation in generic individual selection criterion "//trim(Int2Char(Crit))//"!"
+            write(STDOUT, "(a)") "       Standard deviation set to 1.0!"
+            This%GenericIndCritStat(Crit)%Sd = 1.0
+            write(STDOUT, "(a)") " "
+          end if
           if (LogStdoutInternal) then
             write(STDOUT, "(a)") " "
             write(STDOUT, "(a)") "  - criterion "//trim(Int2Char(Crit))
@@ -3885,11 +3966,7 @@ module AlphaMateModule
             write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(This%GenericIndCritStat(Crit)%Min,  fmt=FMTREAL2CHAR))
             write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(This%GenericIndCritStat(Crit)%Max,  fmt=FMTREAL2CHAR))
           end if
-          if (This%GenericIndCritStat(Crit)%Sd .eq. 0.0) then
-            write(STDERR, "(a)") " ERROR: There is no variation in generic individual selection criterion "//trim(Int2Char(Crit))//"!"
-            write(STDERR, "(a)") " "
-            stop 1
-          end if
+
           write(GenericIndCritSummaryUnit, "(a, f)") "Mean criterion "//trim(Int2Char(Crit))//",", This%GenericIndCritStat(Crit)%Mean
           write(GenericIndCritSummaryUnit, "(a, f)") "Sd criterion "//trim(Int2Char(Crit))//",", This%GenericIndCritStat(Crit)%Sd
         end do
@@ -3915,6 +3992,12 @@ module AlphaMateModule
           end if
           if (Spec%GenderGiven) then
             This%GenericMatCritStat(Crit) = DescStatMatrix(This%GenericMatCrit(:, :, Crit))
+            if (This%GenericMatCritStat(Crit)%All%Sd .eq. 0.0) then
+              write(STDOUT, "(a)") " NOTE: There is no variation in generic mating/crossing selection criterion "//trim(Int2Char(Crit))//"!"
+              write(STDOUT, "(a)") "       Standard deviation set to 1.0!"
+              This%GenericMatCritStat(Crit)%All%Sd = 1.0
+              write(STDOUT, "(a)") " "
+            end if
             if (LogStdoutInternal) then
               write(STDOUT, "(a)") "    - n:       "//trim( Int2Char(This%GenericMatCritStat(Crit)%All%n,    fmt=FMTINT2CHAR))
               write(STDOUT, "(a)") "    - average: "//trim(Real2Char(This%GenericMatCritStat(Crit)%All%Mean, fmt=FMTREAL2CHAR))
@@ -3922,16 +4005,17 @@ module AlphaMateModule
               write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(This%GenericMatCritStat(Crit)%All%Min,  fmt=FMTREAL2CHAR))
               write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(This%GenericMatCritStat(Crit)%All%Max,  fmt=FMTREAL2CHAR))
             end if
-            if (This%GenericMatCritStat(Crit)%All%Sd .eq. 0.0) then
-              write(STDERR, "(a)") " ERROR: There is no variation in generic mating/crossing selection criterion "//trim(Int2Char(Crit))//"!"
-              write(STDERR, "(a)") " "
-              stop 1
-            end if
             write(GenericMatCritSummaryUnit, "(a, f)") "Mean criterion "//trim(Int2Char(Crit))//",", This%GenericMatCritStat(Crit)%All%Mean
             write(GenericMatCritSummaryUnit, "(a, f)") "Sd criterion "//trim(Int2Char(Crit))//",", This%GenericMatCritStat(Crit)%All%Sd
           else
             if (Spec%SelfingAllowed) then
               This%GenericMatCritStat(Crit) = DescStatLowTriMatrix(This%GenericMatCrit(:, :, Crit))
+              if (This%GenericMatCritStat(Crit)%All%Sd .eq. 0.0) then
+                write(STDOUT, "(a)") " NOTE: There is no variation in generic mating/crossing selection criterion "//trim(Int2Char(Crit))//"!"
+                write(STDOUT, "(a)") "       Standard deviation set to 1.0!"
+                This%GenericMatCritStat(Crit)%All%Sd = 1.0
+                write(STDOUT, "(a)") " "
+              end if
               if (LogStdoutInternal) then
                 write(STDOUT, "(a)") "    - n:       "//trim( Int2Char(This%GenericMatCritStat(Crit)%All%n,    fmt=FMTINT2CHAR))
                 write(STDOUT, "(a)") "    - average: "//trim(Real2Char(This%GenericMatCritStat(Crit)%All%Mean, fmt=FMTREAL2CHAR))
@@ -3939,26 +4023,22 @@ module AlphaMateModule
                 write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(This%GenericMatCritStat(Crit)%All%Min,  fmt=FMTREAL2CHAR))
                 write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(This%GenericMatCritStat(Crit)%All%Max,  fmt=FMTREAL2CHAR))
               end if
-              if (This%GenericMatCritStat(Crit)%All%Sd .eq. 0.0) then
-                write(STDERR, "(a)") " ERROR: There is no variation in generic mating/crossing selection criterion "//trim(Int2Char(Crit))//"!"
-                write(STDERR, "(a)") " "
-                stop 1
-              end if
               write(GenericMatCritSummaryUnit, "(a, f)") "Mean criterion "//trim(Int2Char(Crit))//",", This%GenericMatCritStat(Crit)%All%Mean
               write(GenericMatCritSummaryUnit, "(a, f)") "Sd criterion "//trim(Int2Char(Crit))//",", This%GenericMatCritStat(Crit)%All%Sd
             end if
               This%GenericMatCritStat(Crit) = DescStatLowTriMatrix(This%GenericMatCrit(:, :, Crit), Diag=.false.)
+              if (This%GenericMatCritStat(Crit)%OffDiag%Sd .eq. 0.0) then
+                write(STDOUT, "(a)") " NOTE: There is no variation in generic mating/crossing selection criterion "//trim(Int2Char(Crit))//"!"
+                write(STDOUT, "(a)") "       Standard deviation set to 1.0!"
+                This%GenericMatCritStat(Crit)%OffDiag%Sd = 1.0
+                write(STDOUT, "(a)") " "
+              end if
               if (LogStdoutInternal) then
                 write(STDOUT, "(a)") "    - n:       "//trim( Int2Char(This%GenericMatCritStat(Crit)%OffDiag%n,    fmt=FMTINT2CHAR))
                 write(STDOUT, "(a)") "    - average: "//trim(Real2Char(This%GenericMatCritStat(Crit)%OffDiag%Mean, fmt=FMTREAL2CHAR))
                 write(STDOUT, "(a)") "    - st.dev.: "//trim(Real2Char(This%GenericMatCritStat(Crit)%OffDiag%Sd,   fmt=FMTREAL2CHAR))
                 write(STDOUT, "(a)") "    - minimum: "//trim(Real2Char(This%GenericMatCritStat(Crit)%OffDiag%Min,  fmt=FMTREAL2CHAR))
                 write(STDOUT, "(a)") "    - maximum: "//trim(Real2Char(This%GenericMatCritStat(Crit)%OffDiag%Max,  fmt=FMTREAL2CHAR))
-              end if
-              if (This%GenericMatCritStat(Crit)%OffDiag%Sd .eq. 0.0) then
-                write(STDERR, "(a)") " ERROR: There is no variation in generic mating/crossing selection criterion "//trim(Int2Char(Crit))//"!"
-                write(STDERR, "(a)") " "
-                stop 1
               end if
               write(GenericMatCritSummaryUnit, "(a, f)") "Mean criterion "//trim(Int2Char(Crit))//",", This%GenericMatCritStat(Crit)%OffDiag%Mean
               write(GenericMatCritSummaryUnit, "(a, f)") "Sd criterion "//trim(Int2Char(Crit))//",", This%GenericMatCritStat(Crit)%OffDiag%Sd
@@ -4343,12 +4423,12 @@ module AlphaMateModule
             This%GenericMatCrit = 0.0
           end if
           ! This%Cost = 0.0
-          allocate(This%nVec(Spec%nInd))
+          allocate(This%nVec(Spec%nInd))         ! Otherwise use Data%nInd!!!
           This%nVec = 0
           allocate(This%MatingPlan(2, Spec%nMat))
           This%MatingPlan = 0
           if (Spec%PAGEPar) then
-            allocate(This%GenomeEdit(Spec%nInd))
+            allocate(This%GenomeEdit(Spec%nInd)) ! Otherwise use Data%nInd!!!
             This%GenomeEdit = 0.0
           end if
       end select
@@ -4730,11 +4810,11 @@ module AlphaMateModule
                 nCumMat = 0
                 do i = 1, Spec%nPar1
                   j = Rank(i)
-                  ! .. cap minimum usage @todo could consider penalising solution instead?
+                  ! .. cap minimum usage (could consider penalising solution instead, but that slows convergence)
                   if (SChrom%ContPar1(j) .lt. Spec%LimitPar1Min) then
                     SChrom%ContPar1(j) = Spec%LimitPar1Min
                   end if
-                  ! .. cap maximum usage @todo could consider penalising solution instead?
+                  ! .. cap maximum usage (could consider penalising solution instead, but that slows convergence)
                   if (SChrom%ContPar1(j) .gt. Spec%LimitPar1Max) then
                     SChrom%ContPar1(j) = Spec%LimitPar1Max
                   end if
@@ -4848,11 +4928,11 @@ module AlphaMateModule
                   nCumMat = 0
                   do i = 1, Spec%nPar2
                     j = Rank(i)
-                    ! .. cap minimum usage @todo could consider penalising solution instead?
+                    ! .. cap minimum usage (could consider penalising solution instead, but that slows convergence)
                     if (SChrom%ContPar2(j) .lt. Spec%LimitPar2Min) then
                       SChrom%ContPar2(j) = Spec%LimitPar2Min
                     end if
-                    ! .. cap maximum usage @todo could consider penalising solution instead?
+                    ! .. cap maximum usage (could consider penalising solution instead, but that slows convergence)
                     if (SChrom%ContPar2(j) .gt. Spec%LimitPar2Max) then
                       SChrom%ContPar2(j) = Spec%LimitPar2Max
                     end if
@@ -5081,7 +5161,6 @@ module AlphaMateModule
                   do i = 1, Spec%nMat
                     Pair(i, 1) = GeneratePairing(xin=This%MatingPlan(1, i), &
                                                  yin=This%MatingPlan(2, i))
-                    ! print*, "i", i, "Spec%nMat", Spec%nMat, "Pair(i)", Pair(i), This%MatingPlan(1:2, i)
                   end do
 
                   ! Count repeated matings
@@ -5090,22 +5169,22 @@ module AlphaMateModule
                   ! do i = 1, Spec%nMat
                   !   print*, This%MatingPlan(:, i), Pair(i, 2)
                   ! end do
-                  print*,"Stop 0",sum(Pair(:, 2)),Spec%nMat,sum(Pair(:, 2)) - Spec%nMat
+                  ! print*,"Stop 0",sum(Pair(:, 2)),Spec%nMat,sum(Pair(:, 2)) - Spec%nMat
 
-                  ! Fix repeats by swapping
+                  ! Fix repeats by swapping parent2
                   TmpI = 0
                   if ((sum(Pair(:, 2)) - Spec%nMat) .gt. 0) then
-print*,"Add sensible default"
-                    do j = 1, 10 ! @todo
+                    do j = 1, Spec%RepeatedMatingsNIterFix
                       do i = 1, (Spec%nMat - 1)
                         if (Pair(i, 2) .gt. 1) then
                           This%MatingPlan(2, [i, i + 1]) = This%MatingPlan(2, [i + 1, i])
                           Pair(i,     1) = GeneratePairing(xin=This%MatingPlan(1, i), &
-                                                          yin=This%MatingPlan(2, i))
+                                                           yin=This%MatingPlan(2, i))
                           Pair(i + 1, 1) = GeneratePairing(xin=This%MatingPlan(1, i + 1), &
-                                                          yin=This%MatingPlan(2, i + 1))
+                                                           yin=This%MatingPlan(2, i + 1))
                           SChrom%MateRank([i, i + 1]) = SChrom%MateRank([i + 1, i])
-                          Pair(:, 2) = MulCnt(Pair(:, 1)) ! recalculate (this might get expensive!)
+                          Pair(:, 2) = MulCnt(Pair(:, 1)) ! recalculate counts
+                          ! @todo the above repeated calculation might get expensive!
                         end if
                       end do
                       print*,"Start ", j
@@ -5113,16 +5192,16 @@ print*,"Add sensible default"
                       TmpI = 0
                       do i = 1, Spec%nMat
                         ! print*, This%MatingPlan(:, i), Pair(i, 2)
-                        if (Pair(i, 2) .gt. 1) then
+                        if (Pair(i, 2) .gt. 1) then ! we have a repeated mating
                           k = k + 1
-                          TmpI = TmpI + Pair(i, 2) - 1
+                          TmpI = TmpI + Pair(i, 2) - 1 ! count how many there are
                         end if
                       end do
                       print*,"Stop ", j,sum(Pair(:, 2)),Spec%nMat,sum(Pair(:, 2)) - Spec%nMat
                       if (k .gt. 0) then
                         TmpI = TmpI / k
                       end if
-                      if (TmpI .eq. 0 .or. Pair(Spec%nMat, 2) .gt. 1) then
+                      if ((TmpI .eq. 0) .or. (Pair(Spec%nMat, 2) .gt. 1)) then
                         exit
                       end if
                     end do
@@ -6388,7 +6467,7 @@ print*,"Add sensible default"
         end if
       end do
 
-      ! Rank them by number of contributions
+      ! Rank them by the number of contributions
       Rank(1:nCon) = RapKnr(float(This%nVec), nCon) ! @todo float(This%nVec) due to RapKnr bug with integers
       ! call This%Write
       ! print*, This%nVec
@@ -6514,8 +6593,7 @@ print*,"Add sensible default"
       character(len=*), intent(in), optional :: MatingFile !< File to write mating plan to (default STDOUT)
 
       ! Other
-      integer(int32) :: nMat, MatingUnit, k, &
-                        Pair(size(This%MatingPlan, dim=2))
+      integer(int32) :: nMat, MatingUnit, k, Rank(size(This%MatingPlan, dim=2)), Ids(2)
 
       nMat = size(This%MatingPlan, dim=2)
 
@@ -6528,19 +6606,23 @@ print*,"Add sensible default"
       end if
 
       !                                      12345678901234567890123456789012
-      write(MatingUnit, Spec%FmtMatingHead) "         Mating", &
+      write(MatingUnit, Spec%FmtMatingHead) "         Mating",                  &
                                             "                         Parent1", &
-                                            "                         Parent2"
+                                            "                         Parent2", &
+                                            " nMatingsParent1",                 &
+                                            " nMatingsParent2"
 
       ! Sort such that repeated matings would appear together, but otherwise in no particular order
-      Pair = MrgRnk(This%MatingPlan(1, :) * Data%nInd + This%MatingPlan(2, :))
+      Rank = MrgRnk(This%MatingPlan(1, :) * Data%nInd + This%MatingPlan(2, :))
 
       ! Write out
       k = nMat ! MrgRnk ranks small to large
       do while (k .gt. 0)
-        print*, "x", nMat - k + 1, This%MatingPlan(1:2, Pair(k))
-        write(MatingUnit, Spec%FmtMating) nMat - k + 1, &
-                                          Data%Coancestry%OriginalId(This%MatingPlan(1:2, Pair(k)))
+        ! print*, "x", nMat - k + 1, This%MatingPlan(1:2, Rank(k))
+        Ids = This%MatingPlan(1:2, Rank(k))
+        write(MatingUnit, Spec%FmtMating) nMat - k + 1,                    &
+                                          Data%Coancestry%OriginalId(Ids), &
+                                          This%nVec(Ids)
         k = k - 1 ! MrgRnk ranks small to large
       end do
 
