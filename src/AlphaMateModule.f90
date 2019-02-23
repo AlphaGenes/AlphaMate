@@ -2361,7 +2361,7 @@ module AlphaMateModule
                  This%ModeRan           .or. &
                  This%ModeOpt)) then
         write(STDERR, "(a)") " ERROR: One of the modes must be activated!"
-        write(STDERR, "(a)") " ERROR: ModeMinCoancestry, ModeMinInbreeding, ModeMaxCriterion, or ModeOpt"
+        write(STDERR, "(a)") "        ModeMinCoancestry, ModeMinInbreeding, ModeMaxCriterion, or ModeOpt"
         write(STDERR, "(a)") " "
         stop 1
       end if
@@ -2372,10 +2372,10 @@ module AlphaMateModule
                                     This%TargetInbreedingGiven   .or. This%TargetInbreedingRateGiven  .or. This%TargetMinInbreedingPctGiven .or. &
                                     This%EvaluateFrontier)) then
         write(STDERR, "(a)") " ERROR: One of targets must be provided when ModeOpt is activated!"
-        write(STDERR, "(a)") " ERROR: TargetDegree,"
-        write(STDERR, "(a)") " ERROR: TargetSelCriterion, TargetSelCriterionStd,    TargetMaxCriterionPct,"
-        write(STDERR, "(a)") " ERROR: TargetCoancestry,   TargetCoancestryRate,     TargetMinCoancestryPct"
-        write(STDERR, "(a)") " ERROR: TargetInbreeding,   TargetInbreedingRate,  or TargetMinInbreedingPct"
+        write(STDERR, "(a)") "        TargetDegree,"
+        write(STDERR, "(a)") "        TargetSelCriterion, TargetSelCriterionStd,    TargetMaxCriterionPct,"
+        write(STDERR, "(a)") "        TargetCoancestry,   TargetCoancestryRate,     TargetMinCoancestryPct"
+        write(STDERR, "(a)") "        TargetInbreeding,   TargetInbreedingRate,  or TargetMinInbreedingPct"
         write(STDERR, "(a)") " "
         stop 1
       end if
@@ -2402,13 +2402,7 @@ module AlphaMateModule
         This%SeedFileGiven = .false.
       end if
 
-      if (This%nMat .le. 0) then
-        write(STDERR, "(a)") " ERROR: Number of matings/crosses must be larger than zero!"
-        write(STDERR, "(a)") " "
-        stop 1
-      end if
-
-      ! The nPar tests are in ReadAlphaMateData where we count number of individuals and males and females
+      ! nPar tests are in ReadAlphaMateData where we count the number of individuals and males and females
 
       if (.not. This%GenderGiven .and. (This%LimitParMin .eq. This%LimitParMax)) then
         if (LogStdoutInternal) then
@@ -2510,7 +2504,8 @@ module AlphaMateModule
 
       if (This%GenderGiven .and. This%SelfingAllowed) then
         write(STDERR, "(a)") " ERROR: When gender matters, AlphaMate can not perform selfing!"
-        write(STDERR, "(a)") " NOTE: If you really want to do this, you could present individuals in the data once as males and once as females"
+        write(STDERR, "(a)") "        If you really want to do this, you could present individuals"
+        write(STDERR, "(a)") "          in the data once as males and once as females."
         write(STDERR, "(a)") " "
         stop 1
       end if
@@ -2602,7 +2597,7 @@ module AlphaMateModule
           if      (present(Degree)) then
             if (Degree .gt. 90 .or. Degree .lt. 0) then
               write(STDERR, "(a)") " ERROR: TargetDegree must be between 0 and 90!"
-              write(STDERR, "(a)") " ERROR: Target: "//trim(Real2Char(Degree, fmt=FMTREAL2CHAR))
+              write(STDERR, "(a)") "        Target: "//trim(Real2Char(Degree, fmt=FMTREAL2CHAR))
               write(STDERR, "(a)") " "
               stop 1
             end if
@@ -2611,8 +2606,8 @@ module AlphaMateModule
           else if (present(SelCriterion)) then
             if (SelCriterion .gt. ModeMaxCriterionSpec%SelCriterion) then
               write(STDERR, "(a)") " ERROR: TargetSelCriterion must be less than the the maximum achieved SelCriterion!"
-              write(STDERR, "(a)") " ERROR: Target:           "//trim(Real2Char(SelCriterion,                      fmt=FMTREAL2CHAR))
-              write(STDERR, "(a)") " ERROR: Maximum achieved: "//trim(Real2Char(ModeMaxCriterionSpec%SelCriterion, fmt=FMTREAL2CHAR))
+              write(STDERR, "(a)") "        Target:           "//trim(Real2Char(SelCriterion,                      fmt=FMTREAL2CHAR))
+              write(STDERR, "(a)") "        Maximum achieved: "//trim(Real2Char(ModeMaxCriterionSpec%SelCriterion, fmt=FMTREAL2CHAR))
               write(STDERR, "(a)") " "
               stop 1
             end if
@@ -2621,8 +2616,8 @@ module AlphaMateModule
           else if (present(SelCriterionStd)) then
             if (SelCriterionStd .gt. ModeMaxCriterionSpec%SelCriterionStd) then
               write(STDERR, "(a)") " ERROR: TargetSelCriterionStd must be less than the maximum achieved SelCriterionStd!"
-              write(STDERR, "(a)") " ERROR: Target:           "//trim(Real2Char(SelCriterionStd,                      fmt=FMTREAL2CHAR))
-              write(STDERR, "(a)") " ERROR: Maximum achieved: "//trim(Real2Char(ModeMaxCriterionSpec%SelCriterionStd, fmt=FMTREAL2CHAR))
+              write(STDERR, "(a)") "        Target:           "//trim(Real2Char(SelCriterionStd,                      fmt=FMTREAL2CHAR))
+              write(STDERR, "(a)") "        Maximum achieved: "//trim(Real2Char(ModeMaxCriterionSpec%SelCriterionStd, fmt=FMTREAL2CHAR))
               write(STDERR, "(a)") " "
               stop 1
             end if
@@ -2631,7 +2626,7 @@ module AlphaMateModule
           else if (present(MaxCriterionPct)) then
             if (MaxCriterionPct .gt. 100 .or. MaxCriterionPct .lt. 0) then
               write(STDERR, "(a)") " ERROR: TargetMaxCriterionPct must be between 0 and 100!"
-              write(STDERR, "(a)") " ERROR: Target: "//trim(Real2Char(MaxCriterionPct, fmt=FMTREAL2CHAR))
+              write(STDERR, "(a)") "        Target: "//trim(Real2Char(MaxCriterionPct, fmt=FMTREAL2CHAR))
               write(STDERR, "(a)") " "
               stop 1
             end if
@@ -2640,8 +2635,8 @@ module AlphaMateModule
           else if (present(Coancestry)) then
             if (Coancestry .lt. ModeMinCoancestrySpec%Coancestry) then
               write(STDERR, "(a)") " ERROR: TargetCoancestry must be more than the minimum achieved Coancestry!"
-              write(STDERR, "(a)") " ERROR: Target:           "//trim(Real2Char(Coancestry,                      fmt=FMTREAL2CHAR))
-              write(STDERR, "(a)") " ERROR: Minimum achieved: "//trim(Real2Char(ModeMinCoancestrySpec%Coancestry, fmt=FMTREAL2CHAR))
+              write(STDERR, "(a)") "        Target:           "//trim(Real2Char(Coancestry,                      fmt=FMTREAL2CHAR))
+              write(STDERR, "(a)") "        Minimum achieved: "//trim(Real2Char(ModeMinCoancestrySpec%Coancestry, fmt=FMTREAL2CHAR))
               write(STDERR, "(a)") " "
               stop 1
             end if
@@ -2650,8 +2645,8 @@ module AlphaMateModule
           else if (present(CoancestryRate)) then
             if (CoancestryRate .lt. ModeMinCoancestrySpec%CoancestryRate) then
               write(STDERR, "(a)") " ERROR: TargetCoancestryRate must be more than the minimum achieved CoancestryRate!"
-              write(STDERR, "(a)") " ERROR: Target:           "//trim(Real2Char(CoancestryRate,                      fmt=FMTREAL2CHAR))
-              write(STDERR, "(a)") " ERROR: Minimum achieved: "//trim(Real2Char(ModeMinCoancestrySpec%CoancestryRate, fmt=FMTREAL2CHAR))
+              write(STDERR, "(a)") "        Target:           "//trim(Real2Char(CoancestryRate,                      fmt=FMTREAL2CHAR))
+              write(STDERR, "(a)") "        Minimum achieved: "//trim(Real2Char(ModeMinCoancestrySpec%CoancestryRate, fmt=FMTREAL2CHAR))
               write(STDERR, "(a)") " "
               stop 1
             end if
@@ -2660,7 +2655,7 @@ module AlphaMateModule
           else if (present(MinCoancestryPct)) then
             if (MinCoancestryPct .gt. 100 .or. MaxCriterionPct .lt. 0) then
               write(STDERR, "(a)") " ERROR: TargetMinCoancestryPct must be between 0 and 100!"
-              write(STDERR, "(a)") " ERROR: Target: "//trim(Real2Char(MinCoancestryPct, fmt=FMTREAL2CHAR))
+              write(STDERR, "(a)") "        Target: "//trim(Real2Char(MinCoancestryPct, fmt=FMTREAL2CHAR))
               write(STDERR, "(a)") " "
               stop 1
             end if
@@ -2677,8 +2672,8 @@ module AlphaMateModule
           if      (This%TargetInbreedingGiven) then
             if (This%TargetInbreeding .lt. ModeMinInbreedingSpec%Inbreeding) then
               write(STDERR, "(a)") " ERROR: TargetInbreeding must be more than the minimum achieved Inbreeding!"
-              write(STDERR, "(a)") " ERROR: Target:           "//trim(Real2Char(This%TargetInbreeding,            fmt=FMTREAL2CHAR))
-              write(STDERR, "(a)") " ERROR: Minimum achieved: "//trim(Real2Char(ModeMinInbreedingSpec%Inbreeding, fmt=FMTREAL2CHAR))
+              write(STDERR, "(a)") "        Target:           "//trim(Real2Char(This%TargetInbreeding,            fmt=FMTREAL2CHAR))
+              write(STDERR, "(a)") "        Minimum achieved: "//trim(Real2Char(ModeMinInbreedingSpec%Inbreeding, fmt=FMTREAL2CHAR))
               write(STDERR, "(a)") " "
               stop 1
             end if
@@ -2688,8 +2683,8 @@ module AlphaMateModule
           else if (This%TargetInbreedingRateGiven) then
             if (This%TargetInbreedingRate .lt. ModeMinInbreedingSpec%InbreedingRate) then
               write(STDERR, "(a)") " ERROR: TargetInbreedingRate must be more than the minimum achieved InbreedingRate!"
-              write(STDERR, "(a)") " ERROR: Target:           "//trim(Real2Char(This%TargetInbreedingRate,            fmt=FMTREAL2CHAR))
-              write(STDERR, "(a)") " ERROR: Minimum achieved: "//trim(Real2Char(ModeMinInbreedingSpec%InbreedingRate, fmt=FMTREAL2CHAR))
+              write(STDERR, "(a)") "        Target:           "//trim(Real2Char(This%TargetInbreedingRate,            fmt=FMTREAL2CHAR))
+              write(STDERR, "(a)") "        Minimum achieved: "//trim(Real2Char(ModeMinInbreedingSpec%InbreedingRate, fmt=FMTREAL2CHAR))
               write(STDERR, "(a)") " "
               stop 1
             end if
@@ -2699,7 +2694,7 @@ module AlphaMateModule
           else if (This%TargetMinInbreedingPctGiven) then
             if (This%TargetMinInbreedingPct .gt. 100 .or. This%TargetMinInbreedingPct .lt. 0) then
               write(STDERR, "(a)") " ERROR: TargetMinInbreedingPct must be between 0 and 100!"
-              write(STDERR, "(a)") " ERROR: Target: "//trim(Real2Char(This%TargetMinInbreedingPct, fmt=FMTREAL2CHAR))
+              write(STDERR, "(a)") "        Target: "//trim(Real2Char(This%TargetMinInbreedingPct, fmt=FMTREAL2CHAR))
               write(STDERR, "(a)") " "
               stop 1
             end if
@@ -3223,9 +3218,10 @@ module AlphaMateModule
           write(STDOUT, "(a)") " Number of individuals in the selection criterion file: "//trim(Int2Char(nIndTmp))
         end if
         if (nIndTmp .ne. This%nInd) then
-          write(STDERR, "(a)") " ERROR: Number of individuals in the selection criterion file and the coancestry matrix file is not the same!"
-          write(STDERR, "(a)") " ERROR: Number of individuals in the coancestry matrix file:   "//trim(Int2Char(This%nInd))
-          write(STDERR, "(a)") " ERROR: Number of individuals in the selection criterion file: "//trim(Int2Char(nIndTmp))
+          write(STDERR, "(a)") " ERROR: The number of individuals in the selection criterion file and"
+          write(STDERR, "(a)") "          the coancestry matrix file is not the same!"
+          write(STDERR, "(a)") "        The number of individuals in the coancestry matrix file:   "//trim(Int2Char(This%nInd))
+          write(STDERR, "(a)") "        The number of individuals in the selection criterion file: "//trim(Int2Char(nIndTmp))
           write(STDERR, "(a)") " "
           stop 1
         end if
@@ -3238,7 +3234,8 @@ module AlphaMateModule
           end if
           IndLoc = This%Coancestry%OriginalIdDict%GetValue(key=IdCTmp);
           if (IndLoc .eq. DICT_NULL) then
-            write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp)//" from the selection criterion file not present in the coancestry matrix file!"
+            write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp)//" from the selection criterion file"
+            write(STDERR, "(a)") "          not present in the coancestry matrix file!"
             write(STDERR, "(a)") " "
             stop 1
           end if
@@ -3256,34 +3253,37 @@ module AlphaMateModule
       if (.not. Spec%GenderGiven) then
         This%Gender = 0
         if (Spec%nPar .eq. 0) then
-          write(STDOUT, "(a)") " NOTE: When number of parents is not provided all candidates could become parents (though other constraints apply)"
+          write(STDOUT, "(a)") " NOTE: When the number of parents is not provided all candidates could be parents (though other constraints apply)"
           Spec%nPar = This%nInd
         end if
         Spec%nPar1 = Spec%nPar
         if (Spec%EqualizePar) then
           if (Spec%nMat .lt. Spec%nPar) then
-            write(STDERR, "(a)") " ERROR: Number of parents must be smaller or equal to the number of matings/crosses when EqualizeContributions is active!"
-            write(STDERR, "(a)") " ERROR: The number of parents:         "//trim(Int2Char(Spec%nPar))
-            write(STDERR, "(a)") " ERROR: The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
+            write(STDERR, "(a)") " ERROR: The number of parents must be smaller or equal to"
+            write(STDERR, "(a)") "          the number of matings/crosses when EqualizeContributions is active!"
+            write(STDERR, "(a)") "        The number of parents:         "//trim(Int2Char(Spec%nPar))
+            write(STDERR, "(a)") "        The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
             write(STDERR, "(a)") " "
             stop 1
           end if
           if (mod(Spec%nMat, Spec%nPar) .gt. 0) then
-            write(STDERR, "(a)") " ERROR: The number of parents and the number of matings/crosses must divide without remainder when EqualizeContributions is active!"
-            write(STDERR, "(a)") " ERROR: The number of parents:         "//trim(Int2Char(Spec%nPar))
-            write(STDERR, "(a)") " ERROR: The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
-            write(STDERR, "(a)") " ERROR: The remainder:                 "//trim(Int2Char(mod(Spec%nMat, Spec%nPar)))
+            write(STDERR, "(a)") " ERROR: The number of parents and the number of matings/crosses"
+            write(STDERR, "(a)") "          must divide without remainder when EqualizeContributions is active!"
+            write(STDERR, "(a)") "        The number of parents:         "//trim(Int2Char(Spec%nPar))
+            write(STDERR, "(a)") "        The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
+            write(STDERR, "(a)") "        The remainder:                 "//trim(Int2Char(mod(Spec%nMat, Spec%nPar)))
             write(STDERR, "(a)") " "
             stop 1
           end if
         end if
         if (Spec%LimitPar) then
           if ((Spec%nPar * Spec%LimitParMax) .lt. Spec%nMat) then
-            write(STDERR, "(a)") " ERROR: The number of parents * LimitContributionsMax is to small to achieve specified number of matings/crosses!"
-            write(STDERR, "(a)") " ERROR: The number of parents:         "//trim(Int2Char(Spec%nPar))
-            write(STDERR, "(a)") " ERROR: LimitContributionsMax:         "//trim(Int2Char(nint(Spec%LimitParMax)))
-            write(STDERR, "(a)") " ERROR:         their product:         "//trim(Int2Char(Spec%nPar * nint(Spec%LimitParMax)))
-            write(STDERR, "(a)") " ERROR: The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
+            write(STDERR, "(a)") " ERROR: The number of parents * LimitContributionsMax is too small"
+            write(STDERR, "(a)") "          to achieve specified number of matings/crosses!"
+            write(STDERR, "(a)") "        The number of parents:         "//trim(Int2Char(Spec%nPar))
+            write(STDERR, "(a)") "        LimitContributionsMax:         "//trim(Int2Char(nint(Spec%LimitParMax)))
+            write(STDERR, "(a)") "                their product:         "//trim(Int2Char(Spec%nPar * nint(Spec%LimitParMax)))
+            write(STDERR, "(a)") "        The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
             write(STDERR, "(a)") " "
             stop 1
           end if
@@ -3294,9 +3294,10 @@ module AlphaMateModule
           write(STDOUT, "(a)") " Number of individuals in the gender file: "//trim(Int2Char(nIndTmp))
         end if
         if (nIndTmp .ne. This%nInd) then
-          write(STDERR, "(a)") " ERROR: Number of individuals in the gender file and the coancestry matrix file is not the same!"
-          write(STDERR, "(a)") " ERROR: Number of individuals in the coancestry matrix file: "//trim(Int2Char(This%nInd))
-          write(STDERR, "(a)") " ERROR: Number of individuals in the gender file:            "//trim(Int2Char(nIndTmp))
+          write(STDERR, "(a)") " ERROR: The number of individuals in the gender file and"
+          write(STDERR, "(a)") "          the coancestry matrix file is not the same!"
+          write(STDERR, "(a)") "        The number of individuals in the coancestry matrix file: "//trim(Int2Char(This%nInd))
+          write(STDERR, "(a)") "        The number of individuals in the gender file:            "//trim(Int2Char(nIndTmp))
           write(STDERR, "(a)") " "
           stop 1
         end if
@@ -3312,14 +3313,15 @@ module AlphaMateModule
           else if (GenderTmp .eq. 2) then
             This%nFem = This%nFem + 1
           else
-            write(STDERR, "(a)") " ERROR: Gender code must be either 1 for male individuals or 2 for female individuals!"
-            write(STDERR, "(a)") " ERROR: "//trim(Int2Char(Ind))//" "//trim(IdCTmp)//" "//trim(Int2Char(GenderTmp))
+            write(STDERR, "(a)") " ERROR: Gender code must be either 1 (for male individuals) or 2 (for female individuals)!"
+            write(STDERR, "(a)") "        "//trim(Int2Char(Ind))//" "//trim(IdCTmp)//" "//trim(Int2Char(GenderTmp))
             write(STDERR, "(a)") " "
             stop 1
           end if
           IndLoc = This%Coancestry%OriginalIdDict%GetValue(key=IdCTmp);
           if (IndLoc .eq. DICT_NULL) then
-            write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp)//" from the gender file not present in the coancestry matrix file!"
+            write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp)//" from the gender file"
+            write(STDERR, "(a)") "          not present in the coancestry matrix file!"
             write(STDERR, "(a)") " "
             stop 1
           end if
@@ -3331,66 +3333,74 @@ module AlphaMateModule
         write(STDOUT, "(a)") " Number of females: "//trim(Int2Char(This%nFem))
 
         if (Spec%nPar1 .eq. 0) then
-          write(STDOUT, "(a)") " NOTE: When number of male parents is not provided all male candidates could become parents (though other constraints apply)"
-          Spec%nPar1 = This%nMal
+          write(STDOUT, "(a)") " NOTE: When the number of male parents is not provided it is set to"
+          write(STDOUT, "(a)") "         the minimum of the number of males and the number of matings/crosses"
+          Spec%nPar1 = minval([This%nMal, Spec%nMat])
         end if
         if (Spec%EqualizePar1) then
           if (Spec%nMat .lt. Spec%nPar1) then
-            write(STDERR, "(a)") " ERROR: The number of male parents must be smaller or equal to the number of matings/crosses when EqualizeMaleContributions is active!"
-            write(STDERR, "(a)") " ERROR: The number of male parents:    "//trim(Int2Char(Spec%nPar1))
-            write(STDERR, "(a)") " ERROR: The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
+            write(STDERR, "(a)") " ERROR: The number of male parents must be smaller or equal to the"
+            write(STDERR, "(a)") "          number of matings/crosses when EqualizeMaleContributions is active!"
+            write(STDERR, "(a)") "        The number of male parents:    "//trim(Int2Char(Spec%nPar1))
+            write(STDERR, "(a)") "        The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
             write(STDERR, "(a)") " "
             stop 1
           end if
           if (mod(Spec%nMat, Spec%nPar1) .gt. 0) then
-            write(STDERR, "(a)") " ERROR: The number of male parents and the number of matings/crosses must divide without remainder when EqualizeMaleContributions is active!"
-            write(STDERR, "(a)") " ERROR: The number of male parents:    "//trim(Int2Char(Spec%nPar1))
-            write(STDERR, "(a)") " ERROR: The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
-            write(STDERR, "(a)") " ERROR: The remainder:                 "//trim(Int2Char(mod(Spec%nMat, Spec%nPar1)))
+            write(STDERR, "(a)") " ERROR: The number of male parents and the number of matings/crosses"
+            write(STDERR, "(a)") "          must divide without remainder when EqualizeMaleContributions is active!"
+            write(STDERR, "(a)") "        The number of male parents:    "//trim(Int2Char(Spec%nPar1))
+            write(STDERR, "(a)") "        The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
+            write(STDERR, "(a)") "        The remainder:                 "//trim(Int2Char(mod(Spec%nMat, Spec%nPar1)))
             write(STDERR, "(a)") " "
             stop 1
           end if
         end if
         if (Spec%LimitPar1) then
           if ((Spec%nPar1 * Spec%LimitPar1Max) .lt. Spec%nMat) then
-            write(STDERR, "(a)") " ERROR: The number of male parents * LimitMaleContributionsMax is to small to achieve specified number of matings/crosses!"
-            write(STDERR, "(a)") " ERROR: The number of male parents:    "//trim(Int2Char(Spec%nPar1))
-            write(STDERR, "(a)") " ERROR: LimitMaleContributionsMax:     "//trim(Int2Char(nint(Spec%LimitPar1Max)))
-            write(STDERR, "(a)") " ERROR:             their product:     "//trim(Int2Char(Spec%nPar1 * nint(Spec%LimitPar1Max)))
-            write(STDERR, "(a)") " ERROR: The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
+            write(STDERR, "(a)") " ERROR: The number of male parents * LimitMaleContributionsMax"
+            write(STDERR, "(a)") "          is too small to achieve specified number of matings/crosses!"
+            write(STDERR, "(a)") "        The number of male parents:    "//trim(Int2Char(Spec%nPar1))
+            write(STDERR, "(a)") "        LimitMaleContributionsMax:     "//trim(Int2Char(nint(Spec%LimitPar1Max)))
+            write(STDERR, "(a)") "                    their product:     "//trim(Int2Char(Spec%nPar1 * nint(Spec%LimitPar1Max)))
+            write(STDERR, "(a)") "        The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
             write(STDERR, "(a)") " "
             stop 1
           end if
         end if
 
         if (Spec%nPar2 .eq. 0) then
-          write(STDOUT, "(a)") " NOTE: When number of female parents is not provided all female candidates could become parents (though other constraints apply)"
-          Spec%nPar2 = This%nFem
+          write(STDOUT, "(a)") " NOTE: When the number of female parents is not provided it is set to"
+          write(STDOUT, "(a)") "         the minimum of the number of males and the number of matings/crosses"
+          Spec%nPar2 = minval([This%nFem, Spec%nMat])
         end if
         if (Spec%EqualizePar2) then
           if (Spec%nMat .lt. Spec%nPar2) then
-            write(STDERR, "(a)") " ERROR: Number of female parents must be smaller or equal to the number of matings/crosses when EqualizeFemaleContributions is active!"
-            write(STDERR, "(a)") " ERROR: The number of female parents:  "//trim(Int2Char(Spec%nPar2))
-            write(STDERR, "(a)") " ERROR: The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
+            write(STDERR, "(a)") " ERROR: The number of female parents must be smaller or equal to the"
+            write(STDERR, "(a)") "          number of matings/crosses when EqualizeFemaleContributions is active!"
+            write(STDERR, "(a)") "        The number of female parents:  "//trim(Int2Char(Spec%nPar2))
+            write(STDERR, "(a)") "        The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
             write(STDERR, "(a)") " "
             stop 1
           end if
           if (mod(Spec%nMat, Spec%nPar2) .gt. 0) then
-            write(STDERR, "(a)") " ERROR: The number of female parents and the number of matings/crosses must divide without remainder when EqualizeFemaleContributions is active!"
-            write(STDERR, "(a)") " ERROR: The number of female parents:  "//trim(Int2Char(Spec%nPar2))
-            write(STDERR, "(a)") " ERROR: The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
-            write(STDERR, "(a)") " ERROR: The remainder:                 "//trim(Int2Char(mod(Spec%nMat, Spec%nPar2)))
+            write(STDERR, "(a)") " ERROR: The number of female parents and the number of matings/crosses"
+            write(STDERR, "(a)") "          must divide without remainder when EqualizeFemaleContributions is active!"
+            write(STDERR, "(a)") "        The number of female parents:  "//trim(Int2Char(Spec%nPar2))
+            write(STDERR, "(a)") "        The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
+            write(STDERR, "(a)") "        The remainder:                 "//trim(Int2Char(mod(Spec%nMat, Spec%nPar2)))
             write(STDERR, "(a)") " "
             stop 1
           end if
         end if
         if (Spec%LimitPar2) then
           if ((Spec%nPar2 * Spec%LimitPar2Max) .lt. Spec%nMat) then
-            write(STDERR, "(a)") " ERROR: The number of female parents * LimitFemaleContributionsMax is to small to achieve specified number of matings/crosses!"
-            write(STDERR, "(a)") " ERROR: The number of female parents:  "//trim(Int2Char(Spec%nPar2))
-            write(STDERR, "(a)") " ERROR: LimitFemaleContributionsMax:   "//trim(Int2Char(nint(Spec%LimitPar2Max)))
-            write(STDERR, "(a)") " ERROR:               their product:   "//trim(Int2Char(Spec%nPar2 * nint(Spec%LimitPar2Max)))
-            write(STDERR, "(a)") " ERROR: The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
+            write(STDERR, "(a)") " ERROR: The number of female parents * LimitFemaleContributionsMax"
+            write(STDERR, "(a)") "          is too small to achieve specified number of matings/crosses!"
+            write(STDERR, "(a)") "        The number of female parents:  "//trim(Int2Char(Spec%nPar2))
+            write(STDERR, "(a)") "        LimitFemaleContributionsMax:   "//trim(Int2Char(nint(Spec%LimitPar2Max)))
+            write(STDERR, "(a)") "                      their product:   "//trim(Int2Char(Spec%nPar2 * nint(Spec%LimitPar2Max)))
+            write(STDERR, "(a)") "        The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
             write(STDERR, "(a)") " "
             stop 1
           end if
@@ -3399,39 +3409,39 @@ module AlphaMateModule
         Spec%nPar = Spec%nPar1 + Spec%nPar2
 
         if (Spec%nPar1 .gt. This%nMal) then
-          write(STDERR, "(a)") " ERROR: Number of male parents can not be larger than number of males"
-          write(STDERR, "(a)") " ERROR: Number of male parents: "//trim(Int2Char(Spec%nPar1))
-          write(STDERR, "(a)") " ERROR: Number of males:        "//trim(Int2Char(This%nMal))
+          write(STDERR, "(a)") " ERROR: The number of male parents can not be larger than number of males"
+          write(STDERR, "(a)") "        The number of male parents: "//trim(Int2Char(Spec%nPar1))
+          write(STDERR, "(a)") "        The number of males:        "//trim(Int2Char(This%nMal))
           write(STDERR, "(a)") " "
           stop 1
         end if
         if (Spec%nPar2 .gt. This%nFem) then
-          write(STDERR, "(a)") " ERROR: Number of female parents can not be larger than number of females"
-          write(STDERR, "(a)") " ERROR: Number of female parents: "//trim(Int2Char(Spec%nPar2))
-          write(STDERR, "(a)") " ERROR: Number of females:        "//trim(Int2Char(This%nFem))
+          write(STDERR, "(a)") " ERROR: The number of female parents can not be larger than number of females"
+          write(STDERR, "(a)") "        The number of female parents: "//trim(Int2Char(Spec%nPar2))
+          write(STDERR, "(a)") "        The number of females:        "//trim(Int2Char(This%nFem))
           write(STDERR, "(a)") " "
           stop 1
         end if
       end if
 
       if (Spec%nPar .lt. 1) then
-        write(STDERR, "(a)") " ERROR: Number of specified/derived parents must be larger than zero!"
+        write(STDERR, "(a)") " ERROR: The number of specified/derived parents must be larger than zero!"
         write(STDERR, "(a)") " "
         stop 1
       end if
 
       if (Spec%GenderGiven .and. ((Spec%nPar1 .lt. 1) .or. (Spec%nPar2 .lt. 1))) then
-        write(STDERR, "(a)") " ERROR: Number of specified/derived parents must be larger than zero!"
-        write(STDERR, "(a)") " ERROR: Number of   male parents: "//trim(Int2Char(Spec%nPar1))
-        write(STDERR, "(a)") " ERROR: Number of female parents: "//trim(Int2Char(Spec%nPar2))
+        write(STDERR, "(a)") " ERROR: The number of specified/derived parents must be larger than zero!"
+        write(STDERR, "(a)") "        The number of   male parents: "//trim(Int2Char(Spec%nPar1))
+        write(STDERR, "(a)") "        The number of female parents: "//trim(Int2Char(Spec%nPar2))
         write(STDERR, "(a)") " "
         stop 1
       end if
 
       if (This%nInd .lt. Spec%nPar) then
-        write(STDERR, "(a)") " ERROR: Number of individuals can not be smaller than number of parents!"
-        write(STDERR, "(a)") " ERROR: Number of individuals:               "//trim(Int2Char(This%nInd))
-        write(STDERR, "(a)") " ERROR: Number of specified/derived parents: "//trim(Int2Char(Spec%nPar))
+        write(STDERR, "(a)") " ERROR: The number of individuals can not be smaller than number of parents!"
+        write(STDERR, "(a)") "        The number of individuals:               "//trim(Int2Char(This%nInd))
+        write(STDERR, "(a)") "        The number of specified/derived parents: "//trim(Int2Char(Spec%nPar))
         write(STDERR, "(a)") " "
         stop 1
       end if
@@ -3441,20 +3451,20 @@ module AlphaMateModule
           Spec%PreselectPar1N = nint(Spec%PreselectPar1Pct / 100.0 * This%nMal)
           if (Spec%PreselectPar1N .lt. Spec%nPar1) then
             write(STDERR, "(a)") " ERROR: Can not preselect less males than there should be male parents!"
-            write(STDERR, "(a)") " ERROR: Number of males:        "//trim(Int2Char(This%nMal))
-            write(STDERR, "(a)") " ERROR: Number of male parents: "//trim(Int2Char(Spec%nPar1))
-            write(STDERR, "(a)") " ERROR: Preselect percentage:   "//trim(Int2Char(nint(Spec%PreselectPar1Pct)))
-            write(STDERR, "(a)") " ERROR: Preselect number:       "//trim(Int2Char(Spec%PreselectPar1N))
+            write(STDERR, "(a)") "        The number of males:        "//trim(Int2Char(This%nMal))
+            write(STDERR, "(a)") "        The number of male parents: "//trim(Int2Char(Spec%nPar1))
+            write(STDERR, "(a)") "        Preselect percentage:       "//trim(Int2Char(nint(Spec%PreselectPar1Pct)))
+            write(STDERR, "(a)") "        Preselect number:           "//trim(Int2Char(Spec%PreselectPar1N))
             write(STDERR, "(a)") " "
             stop 1
           end if
           Spec%PreselectPar2N = nint(Spec%PreselectPar2Pct / 100.0 * This%nFem)
           if (Spec%PreselectPar2N .lt. Spec%nPar2) then
             write(STDERR, "(a)") " ERROR: Can not preselect less females than there should be female parents!"
-            write(STDERR, "(a)") " ERROR: Number of females:        "//trim(Int2Char(This%nFem))
-            write(STDERR, "(a)") " ERROR: Number of female parents: "//trim(Int2Char(Spec%nPar2))
-            write(STDERR, "(a)") " ERROR: Preselect percentage:     "//trim(Int2Char(nint(Spec%PreselectPar2Pct)))
-            write(STDERR, "(a)") " ERROR: Preselect number:         "//trim(Int2Char(Spec%PreselectPar2N))
+            write(STDERR, "(a)") "        The number of females:        "//trim(Int2Char(This%nFem))
+            write(STDERR, "(a)") "        The number of female parents: "//trim(Int2Char(Spec%nPar2))
+            write(STDERR, "(a)") "        Preselect percentage:         "//trim(Int2Char(nint(Spec%PreselectPar2Pct)))
+            write(STDERR, "(a)") "        Preselect number:             "//trim(Int2Char(Spec%PreselectPar2N))
             write(STDERR, "(a)") " "
             stop 1
           end if
@@ -3463,10 +3473,10 @@ module AlphaMateModule
           Spec%PreselectPar1N = Spec%PreselectParN
           if (Spec%PreselectParN .lt. Spec%nPar) then
             write(STDERR, "(a)") " ERROR: Can not preselect less individuals than there should be parents!"
-            write(STDERR, "(a)") " ERROR: Number of individuals: "//trim(Int2Char(This%nInd))
-            write(STDERR, "(a)") " ERROR: Number of parents:     "//trim(Int2Char(Spec%nPar))
-            write(STDERR, "(a)") " ERROR: Preselect percentage:  "//trim(Int2Char(nint(Spec%PreselectParPct)))
-            write(STDERR, "(a)") " ERROR: Preselect number:      "//trim(Int2Char(Spec%PreselectParN))
+            write(STDERR, "(a)") "        The number of individuals: "//trim(Int2Char(This%nInd))
+            write(STDERR, "(a)") "        The number of parents:     "//trim(Int2Char(Spec%nPar))
+            write(STDERR, "(a)") "        Preselect percentage:      "//trim(Int2Char(nint(Spec%PreselectParPct)))
+            write(STDERR, "(a)") "        Preselect number:          "//trim(Int2Char(Spec%PreselectParN))
             write(STDERR, "(a)") " "
             stop 1
           end if
@@ -3477,23 +3487,23 @@ module AlphaMateModule
         if (Spec%GenderGiven) then
           if (Spec%PAGEPar1Max .gt. Spec%nPar1) then
             write(STDERR, "(a)") " ERROR: Can not PAGE more males than there are male parents!"
-            write(STDERR, "(a)") " ERROR: Number of male parents:      "//trim(Int2Char(Spec%nPar1))
-            write(STDERR, "(a)") " ERROR: Max number of male for PAGE: "//trim(Int2Char(Spec%PAGEPar1Max))
+            write(STDERR, "(a)") "        The number of male parents:  "//trim(Int2Char(Spec%nPar1))
+            write(STDERR, "(a)") "        Max number of male for PAGE: "//trim(Int2Char(Spec%PAGEPar1Max))
             write(STDERR, "(a)") " "
             stop 1
           end if
           if (Spec%PAGEPar2Max .gt. Spec%nPar2) then
             write(STDERR, "(a)") " ERROR: Can not PAGE more females than there are female parents!"
-            write(STDERR, "(a)") " ERROR: Number of female parents:      "//trim(Int2Char(Spec%nPar2))
-            write(STDERR, "(a)") " ERROR: Max number of female for PAGE: "//trim(Int2Char(Spec%PAGEPar2Max))
+            write(STDERR, "(a)") "        The number of female parents:  "//trim(Int2Char(Spec%nPar2))
+            write(STDERR, "(a)") "        Max number of female for PAGE: "//trim(Int2Char(Spec%PAGEPar2Max))
             write(STDERR, "(a)") " "
             stop 1
           end if
         else
           if (Spec%PAGEParMax .gt. Spec%nPar) then
             write(STDERR, "(a)") " ERROR: Can not PAGE more individuals than there are parents!"
-            write(STDERR, "(a)") " ERROR: Number of parents:                  "//trim(Int2Char(Spec%nPar))
-            write(STDERR, "(a)") " ERROR: Max number of individuals for PAGE: "//trim(Int2Char(Spec%PAGEParMax))
+            write(STDERR, "(a)") "        The number of parents:              "//trim(Int2Char(Spec%nPar))
+            write(STDERR, "(a)") "        Max number of individuals for PAGE: "//trim(Int2Char(Spec%PAGEParMax))
             write(STDERR, "(a)") " "
             stop 1
           end if
@@ -3551,21 +3561,22 @@ module AlphaMateModule
 
       if (Spec%nMat .gt. This%nPotMat) then
         ! @todo Might need to change this if we would do in-vitro fertilisation
-        write(STDERR, "(a)") " ERROR: Number of specified matings/crosses is larger than the number of all potential matings/crosses!"
-        write(STDERR, "(a)") " ERROR: Number of     specified matings/crosses: "//trim(Int2Char(Spec%nMat))
-        write(STDERR, "(a)") " ERROR: Number of all potential matings/crosses: "//trim(Int2Char(This%nPotMat))
+        write(STDERR, "(a)") " ERROR: The number of specified matings/crosses is"
+        write(STDERR, "(a)") "          larger than the number of all potential matings/crosses!"
+        write(STDERR, "(a)") "        The number of     specified matings/crosses: "//trim(Int2Char(Spec%nMat))
+        write(STDERR, "(a)") "        The number of all potential matings/crosses: "//trim(Int2Char(This%nPotMat))
         if (Spec%GenderGiven) then
-          write(STDERR, "(a)") " ERROR: = no. of males * no. of females"
-          write(STDERR, "(a)") " ERROR: = (no. of males = "//trim(Int2Char(This%nPotPar1))//", no. of females = "//trim(Int2Char(This%nPotPar2))
+          write(STDERR, "(a)") "        = no. of males * no. of females"
+          write(STDERR, "(a)") "        = (no. of males = "//trim(Int2Char(This%nPotPar1))//", no. of females = "//trim(Int2Char(This%nPotPar2))
         else
           if (Spec%SelfingAllowed) then
-            write(STDERR, "(a)") " ERROR: = half-diallel including selfing"
-            write(STDERR, "(a)") " ERROR: = no. of individuals * no. of individuals / 2 + individuals / 2"
+            write(STDERR, "(a)") "        = half-diallel including selfing"
+            write(STDERR, "(a)") "        = no. of individuals * no. of individuals / 2 + individuals / 2"
           else
-            write(STDERR, "(a)") " ERROR: = half-diallel excluding selfing"
-            write(STDERR, "(a)") " ERROR: = no. of individuals * no. of individuals / 2 - individuals / 2"
+            write(STDERR, "(a)") "        = half-diallel excluding selfing"
+            write(STDERR, "(a)") "        = no. of individuals * no. of individuals / 2 - individuals / 2"
           end if
-          write(STDERR, "(a)") " ERROR:   (no. of individuals = "//trim(Int2Char(This%nPotPar1))//")"
+          write(STDERR, "(a)") "          (no. of individuals = "//trim(Int2Char(This%nPotPar1))//")"
         end if
         write(STDERR, "(a)") " "
         stop 1
@@ -3581,9 +3592,10 @@ module AlphaMateModule
           write(STDOUT, "(a)") " Number of individuals in the generic individual criterion file: "//trim(Int2Char(nIndTmp))
         end if
         if (nIndTmp .ne. This%nInd) then
-          write(STDERR, "(a)") " ERROR: Number of individuals in the generic individual criterion file and the coancestry matrix file is not the same!"
-          write(STDERR, "(a)") " ERROR: Number of individuals in the generic individual criterion file: "//trim(Int2Char(nIndTmp))
-          write(STDERR, "(a)") " ERROR: Number of individuals in the coancestry matrix file:            "//trim(Int2Char(This%nInd))
+          write(STDERR, "(a)") " ERROR: The number of individuals in the generic individual criterion file"
+          write(STDERR, "(a)") "          and the coancestry matrix file is not the same!"
+          write(STDERR, "(a)") "        The number of individuals in the generic individual criterion file: "//trim(Int2Char(nIndTmp))
+          write(STDERR, "(a)") "        The number of individuals in the coancestry matrix file:            "//trim(Int2Char(This%nInd))
           write(STDERR, "(a)") " "
           stop 1
         end if
@@ -3595,7 +3607,8 @@ module AlphaMateModule
           read(GenericIndCritUnit, *) IdCTmp, GenericIndCritTmp
           IndLoc = This%Coancestry%OriginalIdDict%GetValue(key=IdCTmp)
           if (IndLoc .eq. DICT_NULL) then
-            write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp)//" from the generic individual criterion file not present in the coancestry matrix file!"
+            write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp)//" from the generic individual criterion file"
+            write(STDERR, "(a)") "          not present in the coancestry matrix file!"
             write(STDERR, "(a)") " "
             stop 1
           end if
@@ -3614,9 +3627,10 @@ module AlphaMateModule
           write(STDOUT, "(a)") " Number of matings/crosses in the generic mating/crossing criterion file: "//trim(Int2Char(nMatTmp))
         end if
         if (nMatTmp .ne. This%nPotMat) then
-          write(STDERR, "(a)") " ERROR: Number of matings/crosses in the generic mating/crossing criterion file and the number of all potential matings/crosses is not the same!"
-          write(STDERR, "(a)") " ERROR: Number of matings/crosses in the generic mating/crossing criterion file: "//trim(Int2Char(nMatTmp))
-          write(STDERR, "(a)") " ERROR: Number of all potential matings/crosses:                                 "//trim(Int2Char(This%nPotMat))
+          write(STDERR, "(a)") " ERROR: The number of matings/crosses in the generic mating/crossing criterion file"
+          write(STDERR, "(a)") "          and the number of all potential matings/crosses is not the same!"
+          write(STDERR, "(a)") "        The number of matings/crosses in the generic mating/crossing criterion file: "//trim(Int2Char(nMatTmp))
+          write(STDERR, "(a)") "        The number of all potential matings/crosses:                                 "//trim(Int2Char(This%nPotMat))
           write(STDERR, "(a)") " "
           stop 1
         end if
@@ -3628,34 +3642,38 @@ module AlphaMateModule
           read(GenericMatCritUnit, *) IdCTmp, IdCTmp2, GenericMatCritTmp
           IndLoc = This%Coancestry%OriginalIdDict%GetValue(key=IdCTmp)
           if (IndLoc .eq. DICT_NULL) then
-            write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp)//" from the generic mating/crossing criterion file not present in the coancestry matrix file!"
+            write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp)//" from the generic mating/crossing criterion file"
+            write(STDERR, "(a)") "          not present in the coancestry matrix file!"
             write(STDERR, "(a)") " "
             stop 1
           end if
           IndLoc2 = This%Coancestry%OriginalIdDict%GetValue(key=IdCTmp2)
           if (IndLoc2 .eq. DICT_NULL) then
-            write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp2)//" from the generic mating/crossing criterion file not present in the coancestry matrix file!"
+            write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp2)//" from the generic mating/crossing criterion file"
+            write(STDERR, "(a)") "          not present in the coancestry matrix file!"
             write(STDERR, "(a)") " "
             stop 1
           end if
           if (Spec%GenderGiven) then
             jMal = This%IdPotParSeq(IndLoc)
             if (This%Gender(IndLoc) .ne. 1) then
-              write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp)//" from the first column in the generic mating/crossing criterion file should be a male!"
-              write(STDERR, "(a)") " ERROR: Generic mating/crossing criterion file:"
-              write(STDERR, "(a)") " ERROR:   - line:                  "//trim(Int2Char(Mat))
-              write(STDERR, "(a)") " ERROR:   - individual 1   (male): "//trim(IdCTmp) //" gender "//trim(Int2Char(This%Gender(IndLoc)))
-              write(STDERR, "(a)") " ERROR:   - individual 2 (female): "//trim(IdCTmp2)//" gender "//trim(Int2Char(This%Gender(IndLoc2)))
+              write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp)//" from the first column"
+              write(STDERR, "(a)") "          of the generic mating/crossing criterion file should be a male!"
+              write(STDERR, "(a)") "        Generic mating/crossing criterion file:"
+              write(STDERR, "(a)") "          - line:                  "//trim(Int2Char(Mat))
+              write(STDERR, "(a)") "          - individual 1   (male): "//trim(IdCTmp) //" gender "//trim(Int2Char(This%Gender(IndLoc)))
+              write(STDERR, "(a)") "          - individual 2 (female): "//trim(IdCTmp2)//" gender "//trim(Int2Char(This%Gender(IndLoc2)))
               write(STDERR, "(a)") " "
               stop 1
             end if
             jFem = This%IdPotParSeq(IndLoc2)
             if (This%Gender(IndLoc2) .ne. 2) then
-              write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp2)//" from the second column in the generic mating/crossing criterion file should be a female!"
-              write(STDERR, "(a)") " ERROR: Generic mating/crossing criterion file:"
-              write(STDERR, "(a)") " ERROR:   - line:                  "//trim(Int2Char(Mat))
-              write(STDERR, "(a)") " ERROR:   - individual 1   (male): "//trim(IdCTmp) //" gender "//trim(Int2Char(This%Gender(IndLoc)))
-              write(STDERR, "(a)") " ERROR:   - individual 2 (female): "//trim(IdCTmp2)//" gender "//trim(Int2Char(This%Gender(IndLoc2)))
+              write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp2)//" from the second column"
+              write(STDERR, "(a)") "         of the generic mating/crossing criterion file should be a female!"
+              write(STDERR, "(a)") "        Generic mating/crossing criterion file:"
+              write(STDERR, "(a)") "          - line:                  "//trim(Int2Char(Mat))
+              write(STDERR, "(a)") "          - individual 1   (male): "//trim(IdCTmp) //" gender "//trim(Int2Char(This%Gender(IndLoc)))
+              write(STDERR, "(a)") "          - individual 2 (female): "//trim(IdCTmp2)//" gender "//trim(Int2Char(This%Gender(IndLoc2)))
               write(STDERR, "(a)") " "
               stop 1
             end if
