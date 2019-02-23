@@ -152,10 +152,10 @@ module AlphaMateModule
   CHARACTER(len=CHARLENGTH), PARAMETER :: FMTCONTRIBUTIONEDITB = ", 4x, i11, 3(4x, f11.5), 2(4x, i11), 4x, f11.5)"
 
   CHARACTER(len=CHARLENGTH), PARAMETER :: FMTMATINGHEADA = "(a15, 2a"
-  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTMATINGHEADB = ")"
+  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTMATINGHEADB = ", 2a16, a9)"
 
   CHARACTER(len=CHARLENGTH), PARAMETER :: FMTMATINGA = "(i15, 2(1x, a"
-  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTMATINGB = "))"
+  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTMATINGB = "), 2(1x, i15), 1x, i8)"
 
   ! --- Module types ---
 
@@ -6593,7 +6593,10 @@ module AlphaMateModule
       character(len=*), intent(in), optional :: MatingFile !< File to write mating plan to (default STDOUT)
 
       ! Other
-      integer(int32) :: nMat, MatingUnit, k, Rank(size(This%MatingPlan, dim=2)), Ids(2)
+      integer(int32) :: nMat, MatingUnit, k,                    &
+                        MatCount(size(This%MatingPlan, dim=2)), &
+                        Rank(size(This%MatingPlan, dim=2)),     &
+                        Ids(2)
 
       nMat = size(This%MatingPlan, dim=2)
 
@@ -6610,10 +6613,15 @@ module AlphaMateModule
                                             "                         Parent1", &
                                             "                         Parent2", &
                                             " nMatingsParent1",                 &
-                                            " nMatingsParent2"
+                                            " nMatingsParent2",                 &
+                                            " nRepeats"
 
+      ! Rankable one-col-array from a two-col-array
+      Rank = This%MatingPlan(1, :) * Data%nInd + This%MatingPlan(2, :)
+      ! Count repeats (to check for repeated matings)
+      MatCount = MulCnt(Rank) - 1
       ! Sort such that repeated matings would appear together, but otherwise in no particular order
-      Rank = MrgRnk(This%MatingPlan(1, :) * Data%nInd + This%MatingPlan(2, :))
+      Rank = MrgRnk(Rank)
 
       ! Write out
       k = nMat ! MrgRnk ranks small to large
@@ -6622,7 +6630,8 @@ module AlphaMateModule
         Ids = This%MatingPlan(1:2, Rank(k))
         write(MatingUnit, Spec%FmtMating) nMat - k + 1,                    &
                                           Data%Coancestry%OriginalId(Ids), &
-                                          This%nVec(Ids)
+                                          This%nVec(Ids),                  &
+                                          MatCount(Rank(k))
         k = k - 1 ! MrgRnk ranks small to large
       end do
 
