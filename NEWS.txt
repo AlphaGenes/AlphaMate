@@ -1,4 +1,31 @@
 
+v0.3.0 2019-??-??
+  IMPROVEMENTS
+  * Added functionality to avoid reciprocal matings when gender is not relevant.
+
+  * Added functionality to avoid repeated matings.
+
+  * Mating plan has now additional info (the number of matings per parent and
+    the number of repeated matings).
+
+  * Specifications are now more thoroughly tested.
+
+  * Some sensible defaults are invoked for the number of parents and matings/crosses
+    when these are not given. Such situations arise with non-conventional uses of
+    AlphaMate.
+
+  * We now allow input data without variation to cater for non-conventional use cases,
+    but write a NOTE (instead of an ERROR).
+
+  * Added an example that optimises a core diversity set.
+
+  * Added a note about flexibility to the manual.
+
+  BUGFIXES
+  * In some edge cases written mating plan was wrong.
+
+  * In some edge cases with limited specifications an error was thrown needlessly.
+
 v0.2.0 2018-11-02
   IMPROVEMENTS
   * Faster optimisation via parallelisation. The animal example is about 7x faster
