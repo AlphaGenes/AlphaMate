@@ -5157,13 +5157,11 @@ module AlphaMateModule
 
                 ! Avoid repeated matings between the same male and female
                 if (.not. Spec%RepeatedMatingsAllowed) then
-                  allocate(Pair(Spec%nMat, 2))
-                  do i = 1, Spec%nMat
-                    Pair(i, 1) = GeneratePairing(xin=This%MatingPlan(1, i), &
-                                                 yin=This%MatingPlan(2, i))
-                  end do
 
                   ! Count repeated matings
+                  allocate(Pair(Spec%nMat, 2))
+                  Pair(:, 1) = GeneratePairing(xin=This%MatingPlan(1, :), &
+                                               yin=This%MatingPlan(2, :))
                   Pair(:, 2) = MulCnt(Pair(:, 1))
                   ! print*,"Start 0"
                   ! do i = 1, Spec%nMat
@@ -5175,33 +5173,41 @@ module AlphaMateModule
                   TmpI = 0
                   if ((sum(Pair(:, 2)) - Spec%nMat) .gt. 0) then
                     do j = 1, Spec%RepeatedMatingsNIterFix
-                      do i = 1, (Spec%nMat - 1)
+                      ! Swaps
+                      do i = 1, Spec%nMat
                         if (Pair(i, 2) .gt. 1) then
-                          This%MatingPlan(2, [i, i + 1]) = This%MatingPlan(2, [i + 1, i])
-                          Pair(i,     1) = GeneratePairing(xin=This%MatingPlan(1, i), &
-                                                           yin=This%MatingPlan(2, i))
-                          Pair(i + 1, 1) = GeneratePairing(xin=This%MatingPlan(1, i + 1), &
-                                                           yin=This%MatingPlan(2, i + 1))
-                          SChrom%MateRank([i, i + 1]) = SChrom%MateRank([i + 1, i])
+                          if (i .lt. Spec%nMat) then
+                            l = i + 1
+                          else
+                            l = 1
+                          end if
+                          This%MatingPlan(2, [i, l]) = This%MatingPlan(2, [l, i])
+                          Pair([i, l], 1) = GeneratePairing(xin=This%MatingPlan(1, [i, l]), &
+                                                            yin=This%MatingPlan(2, [i, l]))
+                          SChrom%MateRank([i, l]) = SChrom%MateRank([l, i])
+                          print*,"CHECKME"
                           Pair(:, 2) = MulCnt(Pair(:, 1)) ! recalculate counts
                           ! @todo the above repeated calculation might get expensive!
+                          !       could we do a "fast lookup" and increment in case we
+                          !       get a new repeat?
                         end if
                       end do
-                      print*,"Start ", j
+                      ! print*, "Start ", j
+                      ! Counts
                       k = 0
                       TmpI = 0
                       do i = 1, Spec%nMat
                         ! print*, This%MatingPlan(:, i), Pair(i, 2)
                         if (Pair(i, 2) .gt. 1) then ! we have a repeated mating
                           k = k + 1
-                          TmpI = TmpI + Pair(i, 2) - 1 ! count how many there are
+                          TmpI = TmpI + Pair(i, 2) - 1 ! count how many repeats we have
                         end if
                       end do
-                      print*,"Stop ", j,sum(Pair(:, 2)),Spec%nMat,sum(Pair(:, 2)) - Spec%nMat
+                      ! print*, "Stop ", j, sum(Pair(:, 2)), Spec%nMat, sum(Pair(:, 2)) - Spec%nMat
                       if (k .gt. 0) then
                         TmpI = TmpI / k
                       end if
-                      if ((TmpI .eq. 0) .or. (Pair(Spec%nMat, 2) .gt. 1)) then
+                      if (TmpI .eq. 0) then
                         exit
                       end if
                     end do
@@ -6593,9 +6599,9 @@ module AlphaMateModule
       character(len=*), intent(in), optional :: MatingFile !< File to write mating plan to (default STDOUT)
 
       ! Other
-      integer(int32) :: nMat, MatingUnit, k,                    &
-                        MatCount(size(This%MatingPlan, dim=2)), &
+      integer(int32) :: nMat, MatingUnit, k, l,                 &
                         Rank(size(This%MatingPlan, dim=2)),     &
+                        MatCount(size(This%MatingPlan, dim=2)), &
                         Ids(2)
 
       nMat = size(This%MatingPlan, dim=2)
@@ -6616,9 +6622,10 @@ module AlphaMateModule
                                             " nMatingsParent2",                 &
                                             " nRepeats"
 
-      ! Rankable one-col-array from a two-col-array
-      Rank = This%MatingPlan(1, :) * Data%nInd + This%MatingPlan(2, :)
-      ! Count repeats (to check for repeated matings)
+      ! A rankable array
+      Rank = GeneratePairing(xin=This%MatingPlan(1, :),&
+                             yin=This%MatingPlan(2, :))
+      ! Count repeated matings
       MatCount = MulCnt(Rank) - 1
       ! Sort such that repeated matings would appear together, but otherwise in no particular order
       Rank = MrgRnk(Rank)
@@ -6626,12 +6633,13 @@ module AlphaMateModule
       ! Write out
       k = nMat ! MrgRnk ranks small to large
       do while (k .gt. 0)
-        ! print*, "x", nMat - k + 1, This%MatingPlan(1:2, Rank(k))
-        Ids = This%MatingPlan(1:2, Rank(k))
+        l = Rank(k)
+        ! print*, "x", nMat - k + 1, This%MatingPlan(1:2, l)
+        Ids = This%MatingPlan(1:2, l)
         write(MatingUnit, Spec%FmtMating) nMat - k + 1,                    &
                                           Data%Coancestry%OriginalId(Ids), &
                                           This%nVec(Ids),                  &
-                                          MatCount(Rank(k))
+                                          MatCount(l)
         k = k - 1 ! MrgRnk ranks small to large
       end do
 
