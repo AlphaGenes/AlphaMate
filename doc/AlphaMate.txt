@@ -3,7 +3,7 @@
 .. |EXPERIMENTAL| replace:: **This is an experimental specification in development and no yet tested! Do not use!**
 
 ********************
-|AM| (Version 0.2.0)
+|AM| (Version 0.3.0)
 ********************
 
 .. contents::
@@ -75,7 +75,7 @@ Optimisation is performed with an evolutionary algorithm based on differential e
 
 Optimisation works with mating/crossing plans, which |AM| encodes as proposed by Kinghorn and Shepherd (1999). |AM| ensures that mating/crossing plans are valid in two ways. First, |AM| fixes encoded representation, for example, it trims contributions to user defined limits and round them to integer values (Lampinen and Zelinka, 1999). Second, when fixing is not sufficient, |AM| penalizes invalid mating/crossing plan so that evolutionary algorithm advances (more) valid mating/crossing plans.
 
-A note on the flexibility. |AM| is controlled by many specifications, which gives you flexibility to optimise a range of problems. Some standard problems are shown in the `Examples`_ section, but these are just a few possible cases. Take time and write down what do you want to optimise. Then inspect which of the available specifications do you need, in particular the `Mating\Crossing constraints`_ and `Desired targets`_, and experiment! Sometimes you can also tweak input data to achieve your goal. Let us know of the novel uses of |AM|!
+A note on the flexibility. |AM| is controlled by many specifications, which gives you flexibility to optimise a range of problems. Some standard problems are shown in the `Examples`_ section, but these are just a few possible cases. Take time and write down what do you want to optimise. Then inspect which of the available specifications do you need, in particular the `Mating/Crossing constraints`_ and `Desired targets`_, and experiment! Sometimes you can also tweak input data to achieve your goal. Let us know of the novel uses of |AM|!
 
 A note on the reproducibility of results. |AM| uses an evolutionary algorithm, which can give different solutions in repeated runs. We find however, that the results do not vary a lot between runs, provided that convergence has been achieved (see `Optimisation controls`_). By default |AM| reports the used random number generator seed value - it is shown on terminal output and saved on disk (see `Used seed`_). To ensure reproducibility users can fix the seed via `SeedFile`_ or `Seed`_ specifications.
 
@@ -131,6 +131,10 @@ An example:
   Stop
 
 There are further examples provided in the `Examples`_.
+
+.. contents:: Complete list of specifications
+   :depth: 2
+   :local:
 
 Input Files
 -----------------------------------------------------------------------------------------
@@ -306,7 +310,7 @@ NumberOfParents
   NumberOfParents , [Value]
   NumberOfParents , 10
 
-NumberOfParents specifies the maximum number of parents. This specification is used when "gender" functionality is NOT used (see `GenderFile`_). To achieve exactly the given number, use this specification in combination with `EqualizeContributions_` or `LimitContributions_`.
+NumberOfParents specifies the maximum number of parents. This specification is used when "gender" functionality is NOT used (see `GenderFile`_). To achieve exactly the given number, use this specification in combination with `EqualizeContributions`_ or `LimitContributions`_.
 
 NumberOfMaleParents
 ^^^^^^^^^^^^^^^^^^^
@@ -316,7 +320,7 @@ NumberOfMaleParents
   NumberOfMaleParents , [Value]
   NumberOfMaleParents , 10
 
-NumberOfMaleParents specifies the maximum number of male parents. This specification is used when "gender" functionality is used (see `GenderFile`_). To achieve exactly the given number, use this specification with `EqualizeMaleContributions` or `LimitMaleContributions_`.
+NumberOfMaleParents specifies the maximum number of male parents. This specification is used when "gender" functionality is used (see `GenderFile`_). To achieve exactly the given number, use this specification with `EqualizeMaleContributions`_ or `LimitMaleContributions`_.
 
 NumberOfFemaleParents
 ^^^^^^^^^^^^^^^^^^^^^
@@ -326,7 +330,7 @@ NumberOfFemaleParents
   NumberOfFemaleParents , [Value]
   NumberOfFemaleParents , 10
 
-NumberOfFemaleParents specifies the maximum number of female parents. This specification is used when "gender" functionality is used (see `GenderFile`_). To achieve exactly the given number, use this specification with `EqualizeFemaleContributions` or `LimitFemaleContributions_`.
+NumberOfFemaleParents specifies the maximum number of female parents. This specification is used when "gender" functionality is used (see `GenderFile`_). To achieve exactly the given number, use this specification with `EqualizeFemaleContributions`_ or `LimitFemaleContributions`_.
 
 EqualizeContributions
 ^^^^^^^^^^^^^^^^^^^^^
@@ -456,7 +460,7 @@ AllowRepeatedMatings
   AllowRepeatedMatings , [Yes/No]
   AllowRepeatedMatings , Yes
 
-AllowRepeatedMatings specifies whether repeated matings/crosses between the same parents are allowed, that is, whether AxB and AxB mating is allowed. Default is ``No``. This specification is only relevant when mate/cross allocation is used (`MateAllocation`_). Note that limiting contributions can be used to the same effect (see `LimitContributions`_)!
+AllowRepeatedMatings specifies whether repeated matings/crosses between the same parents are allowed, that is, whether AxB and AxB matings are allowed. Default is ``No``. This specification is only relevant when mate/cross allocation is used (`MateAllocation`_). Note that limiting contributions can be used to the same effect (see `LimitContributions`_)! See also `RepeatedMatingsNIterFix`_ and `RepeatedMatingsWeight`_.
 
 AllowReciprocalMatings
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -466,7 +470,7 @@ AllowReciprocalMatings
   AllowReciprocalMatings , [Yes/No]
   AllowReciprocalMatings , Yes
 
-AllowReciprocalMatings specifies whether reciprocal matings between the same parents is allowed, that is, whether AxB and BxA mating is allowed. Default is ``No``. This specification is only relevant when "gender" functionality is NOT used (see `GenderFile`_) and when mate/cross allocation is used (`MateAllocation`_).
+AllowReciprocalMatings specifies whether reciprocal matings between the same parents is allowed, that is, whether AxB and BxA matings are allowed. Default is ``No``. This specification is only relevant when "gender" functionality is NOT used (see `GenderFile`_) and when mate/cross allocation is used (`MateAllocation`_).
 
 AllowSelfing
 ^^^^^^^^^^^^
@@ -476,7 +480,7 @@ AllowSelfing
   AllowSelfing , [Yes/No]
   AllowSelfing , Yes
 
-AllowSelfing specifies whether selfing is allowed. Default is ``No``. This specification is only relevant when "gender" functionality is NOT used (see `GenderFile`_) and when mate/cross allocation is used (`MateAllocation`_).
+AllowSelfing specifies whether selfing is allowed. Default is ``No``. This specification is only relevant when "gender" functionality is NOT used (see `GenderFile`_) and when mate/cross allocation is used (`MateAllocation`_). See also `SelfingWeight`_.
 
 Desired targets
 -----------------------------------------------------------------------------------------
@@ -877,7 +881,7 @@ RepeatedMatingsNIterFix
   RepeatedMatingsNIterFix , [Value]
   RepeatedMatingsNIterFix , 1
 
-RepeatedMatingsNIterFix specifies the number of iterations to fix solutions that involve repeated matings/crosses, when these are not allowed (see `AllowRepeatedMating`_). |AM| tries to avoid this by fixing solutions in an iterative way. Default is to do 1 iteration and penalise a solution if there are any remaining repeats (see `RepeatedMatingsWeight`_). If you find that the default behaviour is slowing the optimisation too much, you can increase the number of iterations to fix a solution.
+RepeatedMatingsNIterFix specifies the number of iterations to fix solutions that involve repeated matings/crosses, when these are not allowed (see `AllowRepeatedMatings`_). |AM| tries to avoid this by fixing solutions in an iterative way. Default is to do 1 iteration and penalise a solution if there are any remaining repeats (see `RepeatedMatingsWeight`_). If you find that the default behaviour is slowing the optimisation too much, you can increase the number of iterations to fix a solution.
 
 RepeatedMatingsWeight
 ^^^^^^^^^^^^^^^^^^^^^
@@ -887,7 +891,7 @@ RepeatedMatingsWeight
   RepeatedMatingsWeight , [Value]
   RepeatedMatingsWeight , -2.0
 
-RepeatedMatingsWeight specifies the weight to penalize solutions that involve repeated matings/crosses, when these are not allowed (see `AllowRepeatedMating`_). |AM| tries to avoid this by fixing solutions (see `RepeatedMatingsNIterFix`_), but sometimes fixing is not effective. The value of RepeatedMatingsWeight is added to objective function to penalize every repeated mating/cross. The default value is -1.0. Note that a positive value encourages repeats.
+RepeatedMatingsWeight specifies the weight to penalize solutions that involve repeated matings/crosses, when these are not allowed (see `AllowRepeatedMatings`_). |AM| tries to avoid this by fixing solutions (see `RepeatedMatingsNIterFix`_), but sometimes fixing is not effective. The value of RepeatedMatingsWeight is added to objective function to penalize every repeated mating/cross. The default value is -1.0. Note that a positive value encourages repeats.
 
 SelfingWeight
 ^^^^^^^^^^^^^
@@ -1165,14 +1169,14 @@ There is one contributors file for each optimisation. The files have basename *C
 Mating/Crossing plan
 --------------------
 
-There is one mating/crossing plan file for each optimisation. The files have basename *MatingPlanMode*, for example, *MatingPlanModeMinCoancestry.txt*, *MatingPlanModeOptTarget1.txt*, etc. The plan looks like this:
+There is one mating/crossing plan file for each optimisation. The files have basename *MatingPlanMode*, for example, *MatingPlanModeMinCoancestry.txt*, *MatingPlanModeOptTarget1.txt*, etc. The file reports pairing of parents (matings/crosses) and the number of matings each parent has and if there are any repeated matings/crosses. The last three columns are provided to help you inspecting the mating/crossing plan. The matings/crosses are ordered such that repeats, if any, appear together.
 
 ::
 
-  Mating Parent1 Parent2
-       1 id1     id5
-       2 id1     id7
-       3 id2     id20
+  Mating Parent1 Parent2 nMatingsParent1 nMatingsParent1 nRepeats
+       1 id1     id5                   2               1        0
+       2 id1     id7                   2               1        0
+       3 id2     id20                  1               1        0
   ...
 
 Optimisation log
@@ -1194,7 +1198,7 @@ The used seed to initiate the random number generator stream is saved in the fil
 Utilities
 =========================================================================================
 
-A utility R script *PlotFrontier.R* is provided to plot the `Optimisation log` outputs. Specifically it plots the Pareto frontier, the optimisation paths, and the "swarm" of all evaluated solutions during the optimisation. Figure 1 is an example output. More information about the script can be obtained by:
+A utility R script *PlotFrontier.R* is provided to plot the `Optimisation log`_ outputs. Specifically it plots the Pareto frontier, the optimisation paths, and the "swarm" of all evaluated solutions during the optimisation. Figure 1 is an example output. More information about the script can be obtained by:
 
 ::
 
