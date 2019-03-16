@@ -3222,21 +3222,21 @@ module AlphaMateModule
       if (.not. Spec%GenderGiven) then
         This%Gender = 0
         if (Spec%nPar .eq. 0 .and. Spec%nMat .gt. 0) then
-          write(STDOUT, "(a)") " NOTE: When the number of parents is not provided and the number of matings/crosses is"
+          write(STDOUT, "(a)") " NOTE: When the number of parents is not provided and the number of matings/crosses is,"
           write(STDOUT, "(a)") "         it is set to the minimum of the number of individuals and the number of matings/crosses"
           Spec%nPar = minval([This%nInd, Spec%nMat])
           write(STDOUT, "(a)") "       The number of parents: "//trim(Int2Char(Spec%nPar))
           write(STDOUT, "(a)") " "
         end if
         if (Spec%nPar .gt. 0 .and. Spec%nMat .eq. 0) then
-          write(STDOUT, "(a)") " NOTE: When the number of matings/crosses is not provided and the number of parents is"
+          write(STDOUT, "(a)") " NOTE: When the number of matings/crosses is not provided and the number of parents is,"
           write(STDOUT, "(a)") "          it is set to the half of the number of individuals"
           Spec%nMat = Spec%nPar / 2
           write(STDERR, "(a)") "       The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
           write(STDOUT, "(a)") " "
         end if
         if (Spec%nPar .eq. 0 .and. Spec%nMat .eq. 0) then
-          write(STDOUT, "(a)") " NOTE: When the number of parents and the number of matings/crosses are not provided"
+          write(STDOUT, "(a)") " NOTE: When the number of parents and the number of matings/crosses are not provided,"
           write(STDOUT, "(a)") "         the number of parents is set to the number of individuals and"
           write(STDOUT, "(a)") "         the number of matings/crosses is set to the half of the number of individuals"
           Spec%nPar = This%nInd
@@ -3332,14 +3332,14 @@ module AlphaMateModule
         write(STDOUT, "(a)") " Number of females: "//trim(Int2Char(This%nFem))
 
         if (Spec%nPar1 .eq. 0 .and. Spec%nMat .gt. 0) then
-          write(STDOUT, "(a)") " NOTE: When the number of male parents is not provided and the number of matings/crosses is"
+          write(STDOUT, "(a)") " NOTE: When the number of male parents is not provided and the number of matings/crosses is,"
           write(STDOUT, "(a)") "          it is set to the minimum of the number of males and the number of matings/crosses"
           Spec%nPar1 = minval([This%nMal, Spec%nMat])
           write(STDOUT, "(a)") "       The number of male parents: "//trim(Int2Char(Spec%nPar1))
           write(STDOUT, "(a)") " "
         end if
         if (Spec%nPar1 .eq. 0 .and. Spec%nMat .eq. 0) then
-          write(STDOUT, "(a)") " NOTE: When the number of male parents and the number of matings/crosses are not provided"
+          write(STDOUT, "(a)") " NOTE: When the number of male parents and the number of matings/crosses are not provided,"
           write(STDOUT, "(a)") "         the number of male parents is set to the number of males"
           Spec%nPar1 = This%nMal
           write(STDERR, "(a)") "       The number of male parents: "//trim(Int2Char(Spec%nPar1))
@@ -3347,14 +3347,14 @@ module AlphaMateModule
         end if
 
         if (Spec%nPar2 .eq. 0 .and. Spec%nMat .gt. 0) then
-          write(STDOUT, "(a)") " NOTE: When the number of female parents is not provided and the number of matings/crosses is"
+          write(STDOUT, "(a)") " NOTE: When the number of female parents is not provided and the number of matings/crosses is,"
           write(STDOUT, "(a)") "          it is set to the minimum of the number of female and the number of matings/crosses"
           Spec%nPar2 = minval([This%nFem, Spec%nMat])
           write(STDOUT, "(a)") "       The number of female parents: "//trim(Int2Char(Spec%nPar2))
           write(STDOUT, "(a)") " "
         end if
         if (Spec%nPar2 .eq. 0 .and. Spec%nMat .eq. 0) then
-          write(STDOUT, "(a)") " NOTE: When the number of female parents and the number of matings/crosses are not provided"
+          write(STDOUT, "(a)") " NOTE: When the number of female parents and the number of matings/crosses are not provided,"
           write(STDOUT, "(a)") "         the number of female parents is set to the number of female"
           Spec%nPar2 = This%nFem
           write(STDERR, "(a)") "        The number of female parents: "//trim(Int2Char(Spec%nPar))
@@ -3362,7 +3362,7 @@ module AlphaMateModule
         end if
 
         if (Spec%nMat .eq. 0) then
-          write(STDOUT, "(a)") " NOTE: When the number of matings/crosses is not provided"
+          write(STDOUT, "(a)") " NOTE: When the number of matings/crosses is not provided,"
           write(STDOUT, "(a)") "         it is set to the number of females"
           Spec%nMat = Spec%nPar2
           write(STDERR, "(a)") "       The number of matings/crosses: "//trim(Int2Char(Spec%nMat))
@@ -5602,7 +5602,7 @@ module AlphaMateModule
 
       type(AlphaMateSol) :: SolMinCoancestry, SolMinInbreeding, SolMaxCriterion, Sol !< For frontier modes and random mating (no optimisation) mode
 
-      integer(int32) :: nParam, Point, iSol, Target, Unit, nRanNum, RanNumLoc
+      integer(int32) :: nParam, Point, iSol, Target, TargetUnit, FrontierUnit, nRanNum, RanNumLoc
 
       real(FLOATTYPE) :: Tmp
       real(FLOATTYPE), allocatable :: RanNum(:), AvgCoancestryStd(:), SelCriterionStd(:)
@@ -5625,6 +5625,10 @@ module AlphaMateModule
       call Spec%SetupMode(Mode="MinCoancestry", Data=Data)
       call Spec%SetupMode(Mode="MinInbreeding", Data=Data)
       call Spec%SetupMode(Mode="MaxCriterion",  Data=Data)
+
+      ! Targets output
+      open(newunit=TargetUnit, file=trim(Spec%OutputBasename)//"Targets.txt", status="unknown")
+      call Spec%LogHead(LogUnit=TargetUnit, String="Target", StringNum=18)
 
       ! --- Number of parameters to optimise ---
 
@@ -5757,6 +5761,9 @@ module AlphaMateModule
           ! end if
         end if
 
+        ! Add the solution to target output
+        call SolMinCoancestry%Log(Spec=Spec, LogUnit=TargetUnit, Iteration=-1, AcceptPct=real(NANFLOATTYPE), String="ModeMinCoancestry", StringNum=18)
+
         ! Save
         ! @todo Do these lines still make sense when we go above two objectives?
         SolMinCoancestry%Degree           =  90.0
@@ -5835,6 +5842,9 @@ module AlphaMateModule
           !   stop 1
           ! end if
         end if
+
+        ! Add the solution to target output
+        call SolMinInbreeding%Log(Spec=Spec, LogUnit=TargetUnit, Iteration=-1, AcceptPct=real(NANFLOATTYPE), String="ModeMinInbreeding", StringNum=18)
 
         ! Save
         ! @todo Do these lines still make sense when we go above two objectives?
@@ -5925,6 +5935,9 @@ module AlphaMateModule
           ! end if
         end if
 
+        ! Add the solution to target output
+        call SolMaxCriterion%Log(Spec=Spec, LogUnit=TargetUnit, Iteration=-1, AcceptPct=real(NANFLOATTYPE), String="ModeMaxCriterion", StringNum=18)
+
         ! Save
         ! @todo Do these lines still make sense when we go above two objectives?
         SolMaxCriterion%Degree           =   0.0
@@ -5948,21 +5961,21 @@ module AlphaMateModule
           write(STDOUT, "(a)") " Evaluate frontier ..."
         end if
 
-        open(newunit=Unit, file=trim(Spec%OutputBasename)//"Frontier.txt", status="unknown")
+        open(newunit=FrontierUnit, file=trim(Spec%OutputBasename)//"Frontier.txt", status="unknown")
 
         ! Setup
-        call Spec%LogHead(LogUnit=Unit, String="ModeOrPoint", StringNum=18)
+        call Spec%LogHead(LogUnit=FrontierUnit, String="ModeOrPoint", StringNum=18)
 
         ! Add minimum coancestry solution to frontier output (90 degress with two objectives)
-        call SolMinCoancestry%Log(Spec=Spec, LogUnit=Unit, Iteration=-1, AcceptPct=real(NANFLOATTYPE), String="ModeMinCoancestry", StringNum=18)
+        call SolMinCoancestry%Log(Spec=Spec, LogUnit=FrontierUnit, Iteration=-1, AcceptPct=real(NANFLOATTYPE), String="ModeMinCoancestry", StringNum=18)
 
         ! Add minimum inbreeding solution to frontier output
         if (Spec%ModeMinInbreeding) then
-          call SolMinInbreeding%Log(Spec=Spec, LogUnit=Unit, Iteration=-1, AcceptPct=real(NANFLOATTYPE), String="ModeMinInbreeding", StringNum=18)
+          call SolMinInbreeding%Log(Spec=Spec, LogUnit=FrontierUnit, Iteration=-1, AcceptPct=real(NANFLOATTYPE), String="ModeMinInbreeding", StringNum=18)
         end if
 
         ! Add maximum criterion solution to frontier output (0 degress with two objectives)
-        call SolMaxCriterion%Log(Spec=Spec, LogUnit=Unit, Iteration=-1, AcceptPct=real(NANFLOATTYPE), String="ModeMaxCriterion", StringNum=18)
+        call SolMaxCriterion%Log(Spec=Spec, LogUnit=FrontierUnit, Iteration=-1, AcceptPct=real(NANFLOATTYPE), String="ModeMaxCriterion", StringNum=18)
 
         ! Frontier
         do Point = 1, size(TARGETDEGREEFRONTIER) ! 80, 70, ..., 10 degrees
@@ -6093,7 +6106,7 @@ module AlphaMateModule
           end if
 
           ! Save
-          call Sol%Log(Spec=Spec, LogUnit=Unit, Iteration=-1, AcceptPct=real(NANFLOATTYPE), String=trim("ModeFrontier"//trim(Int2Char(Point))), StringNum=18)
+          call Sol%Log(Spec=Spec, LogUnit=FrontierUnit, Iteration=-1, AcceptPct=real(NANFLOATTYPE), String=trim("ModeFrontier"//trim(Int2Char(Point))), StringNum=18)
           call Sol%WriteContributions(Data=Data, Spec=Spec, ContribFile=ContribFile)
           if (Spec%MateAllocation) then
             call Sol%WriteMatingPlan(Data=Data, Spec=Spec, MatingFile=MatingFile)
@@ -6101,7 +6114,7 @@ module AlphaMateModule
 
         end do
 
-        close(Unit)
+        close(FrontierUnit)
 
       end if
 
@@ -6138,22 +6151,6 @@ module AlphaMateModule
           write(STDOUT, "(a)") " "
           write(STDOUT, "(a)") " Optimise contributions for maximum future selection criterion with constraint on coancestry (and inbreeding) ..."
         end if
-
-        open(newunit=Unit, file=trim(Spec%OutputBasename)//"Targets.txt", status="unknown")
-
-        ! Setup
-        call Spec%LogHead(LogUnit=Unit, String="Target", StringNum=18)
-
-        ! Add minimum coancestry solution to target output (90 degress with two objectives)
-        call SolMinCoancestry%Log(Spec=Spec, LogUnit=Unit, Iteration=-1, AcceptPct=real(NANFLOATTYPE), String="ModeMinCoancestry", StringNum=18)
-
-        ! Add minimum inbreeding solution to target output
-        if (Spec%ModeMinInbreeding) then
-          call SolMinInbreeding%Log(Spec=Spec, LogUnit=Unit, Iteration=-1, AcceptPct=real(NANFLOATTYPE), String="ModeMinInbreeding", StringNum=18)
-        end if
-
-        ! Add maximum criterion solution to target output (0 degress with two objectives)
-        call SolMaxCriterion%Log(Spec=Spec, LogUnit=Unit, Iteration=-1, AcceptPct=real(NANFLOATTYPE), String="ModeMaxCriterion", StringNum=18)
 
         ! Targets
         do Target = 1, Spec%nTargets
@@ -6309,7 +6306,7 @@ module AlphaMateModule
           end if
 
           ! Save
-          call Sol%Log(Spec=Spec, LogUnit=Unit, Iteration=-1, AcceptPct=real(NANFLOATTYPE), String=trim("ModeOpt"//trim(Int2Char(Target))), StringNum=18)
+          call Sol%Log(Spec=Spec, LogUnit=TargetUnit, Iteration=-1, AcceptPct=real(NANFLOATTYPE), String=trim("ModeOpt"//trim(Int2Char(Target))), StringNum=18)
           call Sol%WriteContributions(Data=Data, Spec=Spec, ContribFile=ContribFile)
           if (Spec%MateAllocation) then
             call Sol%WriteMatingPlan(Data=Data, Spec=Spec, MatingFile=MatingFile)
@@ -6317,9 +6314,9 @@ module AlphaMateModule
 
         end do
 
-        close(Unit)
-
       end if
+
+      close(TargetUnit)
 
       deallocate(InitChrom)
       deallocate(AvgCoancestryStd)

@@ -13,14 +13,16 @@ v0.3.0 2019-??-??
   * Specifications Limit{Male,Female}Contributions have been removed - you now only
     have to specify Limit{Male,Female}Contributions{Min,Max} to activate limits.
 
-  * Some sensible defaults are invoked for the number of parents and matings/crosses
-    when these are not given. Such situations arise with non-conventional uses of
-    AlphaMate.
-
-  * We now allow input data without variation to cater for non-conventional use cases,
-    but write a NOTE (instead of an ERROR).
+  * Sensible defaults are invoked for the number of parents and matings/crosses
+    when these are not given. This is required for some specific uses, for example,
+    to optimise a core diversity set.
 
   * Added an example that optimises a core diversity set.
+
+  * We now allow input data without variation to cater for some specific use cases,
+    but write a NOTE (instead of an ERROR).
+
+  * Targets.txt file is now always produced - for any optimisation mode.
 
   * Added a note about flexibility to the manual.
 

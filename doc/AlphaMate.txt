@@ -1154,7 +1154,7 @@ Optimisation log
 
 There are several optimisation log files.
 
-The files *Targets.txt* and *Frontier.txt* report different criteria as achieved by the end of each optimisation. See `Definitions`_ for the meaning of the criteria. There is one row in the files for each optimisation target.
+The files *Targets.txt* and *Frontier.txt* report achieved criteria at the end of each optimisation. See `Definitions`_ for the meaning of the criteria. There is one row in the files for each optimisation target.
 
 The files with basename *OptimisationLogMode* report the optimisation path. There is one file for each optimisation target/mode, for example, *OptimisationLogModeMinCoancestry.txt*, *OptimisationLogModeOptTarget1.txt*, etc.
 
