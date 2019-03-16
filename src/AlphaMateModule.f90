@@ -5006,28 +5006,23 @@ module AlphaMateModule
 
               if (Spec%MateAllocation) then
                 if (Spec%GenderGiven) then
-                  ! Distribute parent2 (=female) contributions into matings
+                  ! Distribute "parent2 (=female)" contributions into matings
                   k = 0
                   do i = 1, Data%nPotPar2 ! need to loop all females as some do not contribute
-                    do j = 1, This%nVec(Data%IdPotPar2(i))
+                    l = Data%IdPotPar2(i)
+                    do j = 1, This%nVec(l)
                       k = k + 1
-                      MatPar2(k) = Data%IdPotPar2(i)
+                      MatPar2(k) = l
                     end do
                   end do
-                  ! Reorder parent2 contributions according to the rank of matings
-                  if (Spec%RandomMateAllocation) then
-                    Rank(1:Spec%nMat) = RandomOrderIntel(n=Spec%nMat, Stream=Stream)
-                  else
-                    Rank(1:Spec%nMat) = MrgRnk(SChrom%MateRank) ! MrgRnk ranks small to large
-                  end if
-                  MatPar2 = MatPar2(Rank(1:Spec%nMat))
                 else
-                  ! Distribute one half of contributions into matings
+                  ! Distribute "one half of" contributions into matings
                   k = 0
                   do while (k .lt. Spec%nMat)
                     do i = 1, Data%nPotPar1 ! need to loop all individuals as some do not contribute
-                      l = This%nVec(Data%IdPotPar1(i)) / 2
-                      if (mod(This%nVec(Data%IdPotPar1(i)), 2) .eq. 1) then
+                      Par1 = Data%IdPotPar1(i)
+                      l = This%nVec(Par1) / 2
+                      if (mod(This%nVec(Par1), 2) .eq. 1) then
                         RanNumLoc = RanNumLoc + 1
                         if (RanNum(RanNumLoc) .gt. 0.5) then
                           l = l + 1
@@ -5038,36 +5033,38 @@ module AlphaMateModule
                           exit
                         end if
                         k = k + 1
-                        MatPar2(k) = Data%IdPotPar1(i)
+                        MatPar2(k) = Par1
                         nVecPar1(i) = nVecPar1(i) - 1 ! we substract here to remove "female" contributions
                       end do
                     end do
                   end do
-                  ! Reorder one half of contributions according to the rank of matings
-                  if (Spec%RandomMateAllocation) then
-                    Rank(1:Spec%nMat) = RandomOrderIntel(n=Spec%nMat, Stream=Stream)
-                  else
-                    Rank(1:Spec%nMat) = MrgRnk(SChrom%MateRank) ! MrgRnk ranks small to large
-                  end if
-                  MatPar2 = MatPar2(Rank(1:Spec%nMat))
                 end if
+
+                ! Reorder "parent2 (=female)" / "one half of" contributions according to the rank of matings
+                if (Spec%RandomMateAllocation) then
+                  Rank(1:Spec%nMat) = RandomOrderIntel(n=Spec%nMat, Stream=Stream)
+                else
+                  Rank(1:Spec%nMat) = MrgRnk(SChrom%MateRank) ! MrgRnk ranks small to large
+                end if
+                MatPar2 = MatPar2(Rank(1:Spec%nMat))
 
                 ! print*, MatPar2
 
                 ! Pair the contributions (=Mating plan)
                 k = Spec%nMat ! MrgRnk ranks small to large
-                ! We use nVecPar1 below instead of This%nVec because when .not. GenderGiven we modify nVecPar1 above, while can not modify This%nVec
+                ! We use nVecPar1 below instead of This%nVec because when .not. GenderGiven
+                !   we modify nVecPar1 above, while we should not modify This%nVec
                 if (Spec%GenderGiven .or. Spec%SelfingAllowed) then
                   ! When gender matters selfing can not happen (we have two distinct sets of parents;
                   ! unless the user adds individuals of one sex in both sets) and when gender does not matter,
                   ! but selfing is allowed we do not need to care about it - faster code
                   do i = 1, Data%nPotPar1 ! need to loop all individuals as some do not contribute
                     ! print*, i, "/", Data%nPotPar1
+                    Par1 = Data%IdPotPar1(i)
                     do j = 1, nVecPar1(i)
                       if (k .gt. 0) then
                         ! if (k .lt. 10) write(*, '(i6,a1,i6,i6,a1,i6,i6,i6,a1,i6)') i, "/", Data%nPotPar1, j, "/", nVecPar1(i), sum(nVecPar1), k, "/", Spec%nMat
                         !                write(*, '(i6,a1,i6,i6,a1,i6,i6,i6,a1,i6)') i, "/", Data%nPotPar1, j, "/", nVecPar1(i), sum(nVecPar1), k, "/", Spec%nMat
-                        Par1 = Data%IdPotPar1(i)
                         Par2 = MatPar2(k)
                         if (Spec%SelfingAllowed) then ! .not. GenderGiven
                           if (.not. Spec%ReciprocalMatingsAllowed) then
@@ -5087,12 +5084,13 @@ module AlphaMateModule
                   ! and when selfing is not allowed we need to avoid it - slower code
                   do i = 1, Data%nPotPar1
                     ! print*, i, "/", Data%nPotPar1
+                    Par1 = Data%IdPotPar1(i)
                     do j = 1, nVecPar1(i)
                       if (k .gt. 0) then
-                        if (MatPar2(k) .eq. Data%IdPotPar1(i)) then
-                          ! Try to avoid selfing by swapping the MatPar2 and Rank elements
+                        if (MatPar2(k) .eq. Par1) then
+                          ! Try to avoid selfing by swapping
                           do l = k, 1, -1
-                            if (MatPar2(l) .ne. Data%IdPotPar1(i)) then
+                            if (MatPar2(l) .ne. Par1) then
                               MatPar2([k, l]) = MatPar2([l, k])
                               SChrom%MateRank(Rank([k, l])) = SChrom%MateRank(Rank([l, k]))
                               exit
@@ -5106,7 +5104,6 @@ module AlphaMateModule
                             end if
                           end if
                         end if
-                        Par1 = Data%IdPotPar1(i)
                         Par2 = MatPar2(k)
                         if (.not. Spec%ReciprocalMatingsAllowed) then
                           TmpMate = [Par1, Par2]
@@ -5151,8 +5148,7 @@ module AlphaMateModule
                           This%MatingPlan(2, [i, l]) = This%MatingPlan(2, [l, i])
                           Pair([i, l], 1) = GeneratePairing(xin=This%MatingPlan(1, [i, l]), &
                                                             yin=This%MatingPlan(2, [i, l]))
-                          SChrom%MateRank([i, l]) = SChrom%MateRank([l, i])
-                          print*,"CHECKME"
+                          SChrom%MateRank(Rank([i, l])) = SChrom%MateRank(Rank([l, i]))
                           Pair(:, 2) = MulCnt(Pair(:, 1)) ! recalculate counts
                           ! @todo the above repeated calculation might get expensive!
                           !       could we do a "fast lookup" and increment in case we
