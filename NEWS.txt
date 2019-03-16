@@ -10,6 +10,9 @@ v0.3.0 2019-??-??
 
   * Specifications are now more thoroughly tested.
 
+  * Specifications Limit{Male,Female}Contributions have been removed - you now only
+    have to specify Limit{Male,Female}Contributions{Min,Max} to activate limits.
+
   * Some sensible defaults are invoked for the number of parents and matings/crosses
     when these are not given. Such situations arise with non-conventional uses of
     AlphaMate.

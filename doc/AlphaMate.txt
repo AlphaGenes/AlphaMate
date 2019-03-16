@@ -320,7 +320,7 @@ NumberOfMaleParents
   NumberOfMaleParents , [Value]
   NumberOfMaleParents , 10
 
-NumberOfMaleParents specifies the maximum number of male parents. This specification is used when "gender" functionality is used (see `GenderFile`_). To achieve exactly the given number, use this specification with `EqualizeMaleContributions`_ or `LimitMaleContributions`_.
+NumberOfMaleParents specifies the maximum number of male parents. This specification is used when "gender" functionality is used (see `GenderFile`_). To achieve exactly the given number, use this specification with `EqualizeMaleContributions`_ or `LimitMaleContributionsMin`_ and `LimitMaleContributionsMax`_.
 
 NumberOfFemaleParents
 ^^^^^^^^^^^^^^^^^^^^^
@@ -330,7 +330,7 @@ NumberOfFemaleParents
   NumberOfFemaleParents , [Value]
   NumberOfFemaleParents , 10
 
-NumberOfFemaleParents specifies the maximum number of female parents. This specification is used when "gender" functionality is used (see `GenderFile`_). To achieve exactly the given number, use this specification with `EqualizeFemaleContributions`_ or `LimitFemaleContributions`_.
+NumberOfFemaleParents specifies the maximum number of female parents. This specification is used when "gender" functionality is used (see `GenderFile`_). To achieve exactly the given number, use this specification with `EqualizeFemaleContributions`_ or `LimitFemaleContributionsMin`_ and `LimitFemaleContributionsMax`_.
 
 EqualizeContributions
 ^^^^^^^^^^^^^^^^^^^^^
@@ -362,16 +362,6 @@ EqualizeFemaleContributions
 
 EqualizeFemaleContributions specifies whether female parent `Contributions`_ should be equal, that is, all chosen female parents contribute the same number of matings/crosses. Default is ``No``. This specification is used when "gender" functionality is used (see `GenderFile`_).
 
-LimitContributions
-^^^^^^^^^^^^^^^^^^
-
-::
-
-  LimitContributions , [Yes/No]
-  LimitContributions , Yes
-
-LimitContributions specifies whether `Contributions`_ should be limited with `LimitContributionsMin`_ and `LimitContributionsMax`_. Default is ``No``. This specification is used when "gender" functionality is NOT used (see `GenderFile`_).
-
 LimitContributionsMin
 ^^^^^^^^^^^^^^^^^^^^^
 
@@ -380,7 +370,7 @@ LimitContributionsMin
   LimitContributionsMin , [Value]
   LimitContributionsMin , 5
 
-LimitContributionsMin specifies minimum allowed `Contributions`_ per parent. This specification is used when `LimitContributions`_ is active and "gender" functionality is NOT used (see `GenderFile`_). When the limit cannot be accommodated, the objective function is penalized by `LimitContributionsMinWeight`_.
+LimitContributionsMin specifies minimum allowed `Contributions`_ per parent. This specification is used when "gender" functionality is NOT used (see `GenderFile`_). When the limit cannot be accommodated, the objective function is penalized by `LimitContributionsMinWeight`_.
 
 LimitContributionsMax
 ^^^^^^^^^^^^^^^^^^^^^
@@ -390,17 +380,7 @@ LimitContributionsMax
   LimitContributionsMax , [Value]
   LimitContributionsMax , 5
 
-LimitContributionsMax specifies maximum allowed `Contributions`_ per parent. This specification is used when `LimitContributions`_ is active and "gender" functionality is NOT used (see `GenderFile`_).
-
-LimitMaleContributions
-^^^^^^^^^^^^^^^^^^^^^^
-
-::
-
-  LimitMaleContributions , [Yes/No]
-  LimitMaleContributions , Yes
-
-LimitMaleContributions specifies whether male parent `Contributions`_ should be limited with `LimitMaleContributionsMin`_ and `LimitMaleContributionsMax`_. Default is ``No``. This specification is used when "gender" functionality is used (see `GenderFile`_).
+LimitContributionsMax specifies maximum allowed `Contributions`_ per parent. This specification is used when "gender" functionality is NOT used (see `GenderFile`_).
 
 LimitMaleContributionsMin
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -410,7 +390,7 @@ LimitMaleContributionsMin
   LimitMaleContributionsMin , [Value]
   LimitMaleContributionsMin , 5
 
-LimitMaleContributionsMin specifies minimum allowed `Contributions`_ per male parent. This specification is used when `LimitMaleContributions`_ is active and "gender" functionality is used (see `GenderFile`_). When the limit cannot be accommodated, the objective function is penalized by `LimitMaleContributionsMinWeight`_.
+LimitMaleContributionsMin specifies minimum allowed `Contributions`_ per male parent. This specification is used when "gender" functionality is used (see `GenderFile`_). When the limit cannot be accommodated, the objective function is penalized by `LimitMaleContributionsMinWeight`_.
 
 LimitMaleContributionsMax
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -420,17 +400,7 @@ LimitMaleContributionsMax
   LimitMaleContributionsMax , [Value]
   LimitMaleContributionsMax , 5
 
-LimitMaleContributionsMax specifies maximum allowed `Contributions`_ per male parent. This specification is used when `LimitMaleContributions`_ is active and "gender" functionality is used (see `GenderFile`_).
-
-LimitFemaleContributions
-^^^^^^^^^^^^^^^^^^^^^^^^
-
-::
-
-  LimitFemaleContributions , [Yes/No]
-  LimitFemaleContributions , Yes
-
-LimitFemaleContributions specifies whether female parent `Contributions`_ should be limited with `LimitFemaleContributionsMin`_ and `LimitFemaleContributionsMax`_. Default is ``No``. This specification is used when "gender" functionality is used (see `GenderFile`_).
+LimitMaleContributionsMax specifies maximum allowed `Contributions`_ per male parent. This specification is used when "gender" functionality is used (see `GenderFile`_).
 
 LimitFemaleContributionsMin
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -440,7 +410,7 @@ LimitFemaleContributionsMin
   LimitFemaleContributionsMin , [Value]
   LimitFemaleContributionsMin , 5
 
-LimitFemaleContributionsMin specifies minimum allowed `Contributions`_ per female parent. This specification is used when `LimitFemaleContributions`_ is active and "gender" functionality is used (see `GenderFile`_). When the limit cannot be accommodated, the objective function is penalized by `LimitFemaleContributionsMinWeight`_.
+LimitFemaleContributionsMin specifies minimum allowed `Contributions`_ per female parent. This specification is used when "gender" functionality is used (see `GenderFile`_). When the limit cannot be accommodated, the objective function is penalized by `LimitFemaleContributionsMinWeight`_.
 
 LimitFemaleContributionsMax
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^

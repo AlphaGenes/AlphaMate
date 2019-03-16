@@ -1721,22 +1721,9 @@ module AlphaMateModule
                 stop 1
               end if
 
-            case ("limitcontributions")
-              if (allocated(Second)) then
-                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
-                  This%LimitPar = .true.
-                  if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Limit contributions"
-                  end if
-                end if
-              else
-                write(STDERR, "(a)") " ERROR: Must specify Yes or No for LimitContributions, for example, LimitContributions, Yes"
-                write(STDERR, "(a)") " "
-                stop 1
-              end if
-
             case ("limitcontributionsmin")
               if (allocated(Second)) then
+                This%LimitPar = .true.
                 This%LimitParMin = Char2Real(trim(adjustl(Second(1)))) ! real because of continous solution representation
                 if (LogStdoutInternal) then
                   write(STDOUT, "(a)") " Limit contributions - minimum: "//trim(Int2Char(nint(This%LimitParMin))) ! nint because of continous solution representation
@@ -1754,6 +1741,7 @@ module AlphaMateModule
 
             case ("limitcontributionsmax")
               if (allocated(Second)) then
+                This%LimitPar = .true.
                 This%LimitParMax = Char2Real(trim(adjustl(Second(1)))) ! Real because of continous solution representation
                 if (LogStdoutInternal) then
                   write(STDOUT, "(a)") " Limit contributions - maximum: "//trim(Int2Char(nint(This%LimitParMax))) ! nint because of continous solution representation
@@ -1779,23 +1767,10 @@ module AlphaMateModule
                 stop 1
               end if
 
-            case ("limitmalecontributions")
-              if (allocated(Second)) then
-                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
-                  This%LimitPar  = .true.
-                  This%LimitPar1 = .true.
-                  if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Limit contributions of males"
-                  end if
-                end if
-              else
-                write(STDERR, "(a)") " ERROR: Must specify Yes or No for LimitMaleContributions, for example, LimitMaleContributions, Yes"
-                write(STDERR, "(a)") " "
-                stop 1
-              end if
-
             case ("limitmalecontributionsmin")
               if (allocated(Second)) then
+                This%LimitPar  = .true.
+                This%LimitPar1 = .true.
                 This%LimitPar1Min = Char2Real(trim(adjustl(Second(1)))) ! Real because of continous solution representation
                 if (LogStdoutInternal) then
                   write(STDOUT, "(a)") " Limit contributions of males - minimum: "//trim(Int2Char(nint(This%LimitPar1Min))) ! nint because of continous solution representation
@@ -1813,6 +1788,8 @@ module AlphaMateModule
 
             case ("limitmalecontributionsmax")
               if (allocated(Second)) then
+                This%LimitPar  = .true.
+                This%LimitPar1 = .true.
                 This%LimitPar1Max = Char2Real(trim(adjustl(Second(1)))) ! Real because of continous solution representation
                 if (LogStdoutInternal) then
                   write(STDOUT, "(a)") " Limit contributions of males - maximum: "//trim(Int2Char(nint(This%LimitPar1Max))) ! nint because of continous solution representation
@@ -1838,22 +1815,10 @@ module AlphaMateModule
                 stop 1
               end if
 
-            case ("limitfemalecontributions")
-              if (allocated(Second)) then
-                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
-                  This%LimitPar2 = .true.
-                  if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Limit contributions of females"
-                  end if
-                end if
-              else
-                write(STDERR, "(a)") " ERROR: Must specify Yes or No for LimitFemaleContributions, for example, LimitFemaleContributions, Yes"
-                write(STDERR, "(a)") " "
-                stop 1
-              end if
-
             case ("limitfemalecontributionsmin")
               if (allocated(Second)) then
+                This%LimitPar  = .true.
+                This%LimitPar2 = .true.
                 This%LimitPar2Min = Char2Real(trim(adjustl(Second(1)))) ! Real because of continous solution representation
                 if (LogStdoutInternal) then
                   write(STDOUT, "(a)") " Limit contributions of females - minimum: "//trim(Int2Char(nint(This%LimitPar2Min))) ! nint because of continous solution representation
@@ -1871,6 +1836,8 @@ module AlphaMateModule
 
             case ("limitfemalecontributionsmax")
               if (allocated(Second)) then
+                This%LimitPar  = .true.
+                This%LimitPar2 = .true.
                 This%LimitPar2Max = Char2Real(trim(adjustl(Second(1)))) ! Real because of continous solution representation
                 if (LogStdoutInternal) then
                   write(STDOUT, "(a)") " Limit contributions of females - maximum: "//trim(Int2Char(nint(This%LimitPar2Max))) ! nint because of continous solution representation
@@ -3160,7 +3127,7 @@ module AlphaMateModule
 
       integer(int32) :: Ind, IndLoc, IndLoc2, nIndTmp, Mat, nMatTmp, GenderTmp, jMal, jFem, IndPair(2), Crit
       integer(int32) :: SelCriterionUnit, GenderUnit, GenericIndCritUnit, GenericMatCritUnit
-      integer(int32) :: CoancestrySummaryUnit, InbreedingSummaryUnit, CriterionSummaryUnit
+      integer(int32) :: CoancestrySummaryUnit, InbreedingSummaryUnit, SelCriterionSummaryUnit
       integer(int32) :: GenericIndCritSummaryUnit, GenericMatCritSummaryUnit
 
       real(FLOATTYPE) :: SelCriterionTmp, SelCriterionTmp2
@@ -3901,10 +3868,10 @@ module AlphaMateModule
                                               //trim(Real2Char(This%SelCriterionStdStat%Max,  fmt=FMTREAL2CHAR))
         end if
 
-        open(newunit=CriterionSummaryUnit, file=trim(Spec%OutputBasename)//"SelCriterionSummary.txt", status="unknown")
-        write(CriterionSummaryUnit, "(a, f)") "Mean, ", This%SelCriterionStat%Mean
-        write(CriterionSummaryUnit, "(a, f)") "Sd, ", This%SelCriterionStat%Sd
-        close(CriterionSummaryUnit)
+        open(newunit=SelCriterionSummaryUnit, file=trim(Spec%OutputBasename)//"SelCriterionSummary.txt", status="unknown")
+        write(SelCriterionSummaryUnit, "(a, f)") "Mean, ", This%SelCriterionStat%Mean
+        write(SelCriterionSummaryUnit, "(a, f)") "Sd, ", This%SelCriterionStat%Sd
+        close(SelCriterionSummaryUnit)
 
         if (Spec%PAGEPar) then
           ! must have the same scale as selection criterion!!!!
@@ -3930,10 +3897,10 @@ module AlphaMateModule
             write(STDOUT, "(a)") " "
           end if
 
-          open(newunit=CriterionSummaryUnit, file=trim(Spec%OutputBasename)//"PAGESummary.txt", status="unknown")
-          write(CriterionSummaryUnit, "(a, f)") "Mean, ", This%SelCriterionPAGEStat%Mean
-          write(CriterionSummaryUnit, "(a, f)") "Sd, ", This%SelCriterionPAGEStat%Sd
-          close(CriterionSummaryUnit)
+          open(newunit=SelCriterionSummaryUnit, file=trim(Spec%OutputBasename)//"PAGESummary.txt", status="unknown")
+          write(SelCriterionSummaryUnit, "(a, f)") "Mean, ", This%SelCriterionPAGEStat%Mean
+          write(SelCriterionSummaryUnit, "(a, f)") "Sd, ", This%SelCriterionPAGEStat%Sd
+          close(SelCriterionSummaryUnit)
         end if
 
       end if
@@ -5568,7 +5535,8 @@ module AlphaMateModule
                     end do
                   else
                     do j = 1, Spec%nMat
-                      ! Speedup lookup
+                      ! Lower triangle to speedup lookup
+                      ! @todo might not be what we want if directionality of crosses maters (imprinting!)
                       TmpMax = maxval(This%MatingPlan(:, j))
                       TmpMin = minval(This%MatingPlan(:, j))
                       TmpR = TmpR + Data%GenericMatCrit(TmpMax, TmpMin, k)
