@@ -105,13 +105,13 @@ Specifications file
    :depth: 1
    :local:
 
-The specifications are of the form:
+Specifications are of the form:
 
 ::
 
   Specification , Value
 
-The specifications can appear in any order. In the case of conflicting specifications (for example, one turns a feature off, but another turns it on), the latest one is used.
+Specifications can appear in any order. In the case of conflicting specifications (for example, one turns a feature off, but another turns it on), the latest one is used.
 
 Specifications are not case sensitive.
 
@@ -196,7 +196,7 @@ SelCriterionFile specifies a file that contains `Selection criterion`_. The file
   id3 16.11
   ...
 
-In case genome editing functionality is used, the file should be expanded with an additional column, that gives selection criterion after genome editing. An example is:
+In case genome editing functionality is active, the file should be expanded with an additional column, that gives selection criterion after genome editing. An example is:
 
 ::
 
@@ -223,7 +223,7 @@ GenderFile specifies a file that contains gender information. The file should ha
   id3 1
   ...
 
-Tip: Note that the "gender" functionality can also be used in cases where biological gender is not relevant. For example in some plant populations we might have two pools of individuals and want to make crosses between the two pools. In such cases "gender" can be used to denote the pools.
+Tip: Note that the "gender" functionality can also be used in cases where biological gender is not relevant. For example in some plant populations we might have two pools of individuals and want to make crosses between the two pools. In such cases "gender" can be used to denote pools.
 
 GenericIndividualCriterionFile
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -310,7 +310,7 @@ NumberOfParents
   NumberOfParents , [Value]
   NumberOfParents , 10
 
-NumberOfParents specifies the maximum number of parents. This specification is used when "gender" functionality is NOT used (see `GenderFile`_). To achieve exactly the given number, use this specification in combination with `EqualizeContributions`_ or `LimitContributions`_.
+NumberOfParents specifies the maximum number of parents. This specification is relevant when "gender" functionality is NOT active (see `GenderFile`_). To achieve exactly the given number, use this specification in combination with `EqualizeContributions`_ or `LimitContributionsMin`_ and `LimitContributionsMax`_.
 
 NumberOfMaleParents
 ^^^^^^^^^^^^^^^^^^^
@@ -320,7 +320,7 @@ NumberOfMaleParents
   NumberOfMaleParents , [Value]
   NumberOfMaleParents , 10
 
-NumberOfMaleParents specifies the maximum number of male parents. This specification is used when "gender" functionality is used (see `GenderFile`_). To achieve exactly the given number, use this specification with `EqualizeMaleContributions`_ or `LimitMaleContributionsMin`_ and `LimitMaleContributionsMax`_.
+NumberOfMaleParents specifies the maximum number of male parents. This specification is relevant when "gender" functionality is active (see `GenderFile`_). To achieve exactly the given number, use this specification with `EqualizeMaleContributions`_ or `LimitMaleContributionsMin`_ and `LimitMaleContributionsMax`_.
 
 NumberOfFemaleParents
 ^^^^^^^^^^^^^^^^^^^^^
@@ -330,7 +330,7 @@ NumberOfFemaleParents
   NumberOfFemaleParents , [Value]
   NumberOfFemaleParents , 10
 
-NumberOfFemaleParents specifies the maximum number of female parents. This specification is used when "gender" functionality is used (see `GenderFile`_). To achieve exactly the given number, use this specification with `EqualizeFemaleContributions`_ or `LimitFemaleContributionsMin`_ and `LimitFemaleContributionsMax`_.
+NumberOfFemaleParents specifies the maximum number of female parents. This specification is relevant when "gender" functionality is active (see `GenderFile`_). To achieve exactly the given number, use this specification with `EqualizeFemaleContributions`_ or `LimitFemaleContributionsMin`_ and `LimitFemaleContributionsMax`_.
 
 EqualizeContributions
 ^^^^^^^^^^^^^^^^^^^^^
@@ -340,7 +340,7 @@ EqualizeContributions
   EqualizeContributions , [Yes/No]
   EqualizeContributions , Yes
 
-EqualizeContributions specifies whether parent `Contributions`_ should be equal, that is, all chosen parents contribute the same number of matings/crosses. Default is ``No``. This specification is used when "gender" functionality is NOT used (see `GenderFile`_).
+EqualizeContributions specifies whether parent `Contributions`_ should be equal, that is, all chosen parents contribute the same number of matings/crosses. Default is ``No``. This specification is relevant when "gender" functionality is NOT active (see `GenderFile`_).
 
 EqualizeMaleContributions
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -350,7 +350,7 @@ EqualizeMaleContributions
   EqualizeMaleContributions , [Yes/No]
   EqualizeMaleContributions , Yes
 
-EqualizeMaleContributions specifies whether male parent `Contributions`_ should be equal, that is, all chosen male parents contribute the same number of matings/crosses. Default is ``No``. This specification is used when "gender" functionality is used (see `GenderFile`_).
+EqualizeMaleContributions specifies whether male parent `Contributions`_ should be equal, that is, all chosen male parents contribute the same number of matings/crosses. Default is ``No``. This specification is relevant when "gender" functionality is active (see `GenderFile`_).
 
 EqualizeFemaleContributions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -360,7 +360,7 @@ EqualizeFemaleContributions
   EqualizeFemaleContributions , [Yes/No]
   EqualizeFemaleContributions , Yes
 
-EqualizeFemaleContributions specifies whether female parent `Contributions`_ should be equal, that is, all chosen female parents contribute the same number of matings/crosses. Default is ``No``. This specification is used when "gender" functionality is used (see `GenderFile`_).
+EqualizeFemaleContributions specifies whether female parent `Contributions`_ should be equal, that is, all chosen female parents contribute the same number of matings/crosses. Default is ``No``. This specification is relevant when "gender" functionality is active (see `GenderFile`_).
 
 LimitContributionsMin
 ^^^^^^^^^^^^^^^^^^^^^
@@ -370,7 +370,7 @@ LimitContributionsMin
   LimitContributionsMin , [Value]
   LimitContributionsMin , 5
 
-LimitContributionsMin specifies minimum allowed `Contributions`_ per parent. This specification is used when "gender" functionality is NOT used (see `GenderFile`_). When the limit cannot be accommodated, the objective function is penalized by `LimitContributionsMinWeight`_.
+LimitContributionsMin specifies minimum allowed `Contributions`_ per parent. This specification is relevant when "gender" functionality is NOT active (see `GenderFile`_). When the limit cannot be accommodated, the objective function is penalized by `LimitContributionsMinWeight`_.
 
 LimitContributionsMax
 ^^^^^^^^^^^^^^^^^^^^^
@@ -380,7 +380,7 @@ LimitContributionsMax
   LimitContributionsMax , [Value]
   LimitContributionsMax , 5
 
-LimitContributionsMax specifies maximum allowed `Contributions`_ per parent. This specification is used when "gender" functionality is NOT used (see `GenderFile`_).
+LimitContributionsMax specifies maximum allowed `Contributions`_ per parent. This specification is relevant when "gender" functionality is NOT active (see `GenderFile`_).
 
 LimitMaleContributionsMin
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -390,7 +390,7 @@ LimitMaleContributionsMin
   LimitMaleContributionsMin , [Value]
   LimitMaleContributionsMin , 5
 
-LimitMaleContributionsMin specifies minimum allowed `Contributions`_ per male parent. This specification is used when "gender" functionality is used (see `GenderFile`_). When the limit cannot be accommodated, the objective function is penalized by `LimitMaleContributionsMinWeight`_.
+LimitMaleContributionsMin specifies minimum allowed `Contributions`_ per male parent. This specification is relevant when "gender" functionality is active (see `GenderFile`_). When the limit cannot be accommodated, the objective function is penalized by `LimitMaleContributionsMinWeight`_.
 
 LimitMaleContributionsMax
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -400,7 +400,7 @@ LimitMaleContributionsMax
   LimitMaleContributionsMax , [Value]
   LimitMaleContributionsMax , 5
 
-LimitMaleContributionsMax specifies maximum allowed `Contributions`_ per male parent. This specification is used when "gender" functionality is used (see `GenderFile`_).
+LimitMaleContributionsMax specifies maximum allowed `Contributions`_ per male parent. This specification is relevant when "gender" functionality is active (see `GenderFile`_).
 
 LimitFemaleContributionsMin
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -410,7 +410,7 @@ LimitFemaleContributionsMin
   LimitFemaleContributionsMin , [Value]
   LimitFemaleContributionsMin , 5
 
-LimitFemaleContributionsMin specifies minimum allowed `Contributions`_ per female parent. This specification is used when "gender" functionality is used (see `GenderFile`_). When the limit cannot be accommodated, the objective function is penalized by `LimitFemaleContributionsMinWeight`_.
+LimitFemaleContributionsMin specifies minimum allowed `Contributions`_ per female parent. This specification is relevant when "gender" functionality is active (see `GenderFile`_). When the limit cannot be accommodated, the objective function is penalized by `LimitFemaleContributionsMinWeight`_.
 
 LimitFemaleContributionsMax
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -420,7 +420,7 @@ LimitFemaleContributionsMax
   LimitFemaleContributionsMax , [Value]
   LimitFemaleContributionsMax , 5
 
-LimitFemaleContributionsMax specifies maximum allowed `Contributions`_ per male parent. This specification is used when `LimitFemaleContributions`_ is active and "gender" functionality is used (see `GenderFile`_).
+LimitFemaleContributionsMax specifies maximum allowed `Contributions`_ per male parent. This specification is relevant when "gender" functionality is active (see `GenderFile`_).
 
 AllowRepeatedMatings
 ^^^^^^^^^^^^^^^^^^^^
@@ -430,7 +430,7 @@ AllowRepeatedMatings
   AllowRepeatedMatings , [Yes/No]
   AllowRepeatedMatings , Yes
 
-AllowRepeatedMatings specifies whether repeated matings/crosses between the same parents are allowed, that is, whether AxB and AxB matings are allowed. Default is ``No``. This specification is only relevant when mate/cross allocation is used (`MateAllocation`_). Note that limiting contributions can be used to the same effect (see `LimitContributions`_)! See also `RepeatedMatingsNIterFix`_ and `RepeatedMatingsWeight`_.
+AllowRepeatedMatings specifies whether repeated matings/crosses between the same parents are allowed, that is, whether AxB and AxB matings/crosses are allowed. Default is ``No``. This specification is only relevant when mate/cross allocation is activated (`MateAllocation`_). Note that limiting contributions can be used to a similar, but not exactly the same, effect (see for example `LimitContributionsMin`_)! See also `RepeatedMatingsNIterFix`_ and `RepeatedMatingsWeight`_.
 
 AllowReciprocalMatings
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -440,7 +440,7 @@ AllowReciprocalMatings
   AllowReciprocalMatings , [Yes/No]
   AllowReciprocalMatings , Yes
 
-AllowReciprocalMatings specifies whether reciprocal matings between the same parents is allowed, that is, whether AxB and BxA matings are allowed. Default is ``No``. This specification is only relevant when "gender" functionality is NOT used (see `GenderFile`_) and when mate/cross allocation is used (`MateAllocation`_).
+AllowReciprocalMatings specifies whether reciprocal matings/crosses between the same parents is allowed, that is, whether AxB and BxA matings/crosses are allowed. Default is ``No``. This specification is only relevant when "gender" functionality is NOT active (see `GenderFile`_) and when mate/cross allocation is active (`MateAllocation`_).
 
 AllowSelfing
 ^^^^^^^^^^^^
@@ -450,7 +450,7 @@ AllowSelfing
   AllowSelfing , [Yes/No]
   AllowSelfing , Yes
 
-AllowSelfing specifies whether selfing is allowed. Default is ``No``. This specification is only relevant when "gender" functionality is NOT used (see `GenderFile`_) and when mate/cross allocation is used (`MateAllocation`_). See also `SelfingWeight`_.
+AllowSelfing specifies whether selfing is allowed. Default is ``No``. This specification is only relevant when "gender" functionality is NOT active (see `GenderFile`_) and when mate/cross allocation is active (`MateAllocation`_). See also `SelfingWeight`_.
 
 Desired targets
 -----------------------------------------------------------------------------------------
@@ -562,7 +562,7 @@ EvaluateFrontier
   EvaluateFrontier , [Yes/No]
   EvaluateFrontier , Yes
 
-EvaluateFrontier specifies whether the whole Pareto frontier of genetic gain and group coancestry should be evaluated. Default is ``No``. When actived, |AM| runs optimisations with `Trigonometric degrees`_ of 10, 20, ..., 90.
+EvaluateFrontier specifies whether the whole Pareto frontier of genetic gain and group coancestry should be evaluated. Default is ``No``. When actived (set to ``Yes``), |AM| runs optimisations with `Trigonometric degrees`_ of 10, 20, ..., 90.
 
 TargetInbreeding
 ^^^^^^^^^^^^^^^^
@@ -597,7 +597,7 @@ TargetMinInbreedingPct specifies the value for `Minimum percentage coancestry`_ 
 Optimisation controls
 -----------------------------------------------------------------------------------------
 
-Optimisation controls specify optimisation objectives (modes), penalties used to penalize invalid mating/crossing plans, weights used to combine multiple targets into an objective function, and parameters of evolutionary algorithm such as the number of iterations, the number of evaluated mating/crossing plans per iteration, convergence criteria, etc.
+Optimisation controls specify optimisation objectives (modes), penalties for invalid mating/crossing plans, weights that combine multiple targets into an objective function, and parameters of evolutionary algorithm such as the number of iterations, the number of evaluated mating/crossing plans per iteration, convergence criteria, etc.
 
 Note that you do not need to specify the optimisation objectives (modes) directly. This is done automatically by defining desired targets (`Desired targets`_). However, should you wish to, you can switch different optimisations on directly.
 
@@ -681,7 +681,7 @@ PreselectPercentage
   PreselectPercentage , [0, 100]
   PreselectPercentage , 50
 
-PreselectPercentage specifies percentage of individuals preselected when running the `ModeMaxCriterion`_ and `ModeOpt`_. This specification is used when `Preselect`_ is active and "gender" functionality is NOT used (see `GenderFile`_).
+PreselectPercentage specifies percentage of individuals preselected when running the `ModeMaxCriterion`_ and `ModeOpt`_. This specification is relevant when `Preselect`_ is active (``Preselect , Yes``) and "gender" functionality is NOT active (see `GenderFile`_).
 
 PreselectMales
 ^^^^^^^^^^^^^^
@@ -701,7 +701,7 @@ PreselectMalesPercentage
   PreselectMalesPercentage , [0, 100]
   PreselectMalesPercentage , 50
 
-PreselectMalesPercentage specifies percentage of males preselected when running the `ModeMaxCriterion`_ and `ModeOpt`_. This specification is used when `PreselectMales`_ is active and "gender" functionality is used (see `GenderFile`_).
+PreselectMalesPercentage specifies percentage of males preselected when running the `ModeMaxCriterion`_ and `ModeOpt`_. This specification is relevant when `PreselectMales`_ is active (``PreselectMales , Yes``) and "gender" functionality is active (see `GenderFile`_).
 
 PreselectFemales
 ^^^^^^^^^^^^^^^^
@@ -721,7 +721,7 @@ PreselectFemalesPercentage
   PreselectFemalesPercentage , [0, 100]
   PreselectFemalesPercentage , 50
 
-PreselectFemalesPercentage specifies percentage of females preselected when running the `ModeMaxCriterion`_ and `ModeOpt`_. This specification is used when `PreselectMales`_ is active and "gender" functionality is used (see `GenderFile`_).
+PreselectFemalesPercentage specifies percentage of females preselected when running the `ModeMaxCriterion`_ and `ModeOpt`_. This specification is relevant when `PreselectMales`_ is active (``PreselectMales , Yes``) and "gender" functionality is active (see `GenderFile`_).
 
 PAGE
 ^^^^
@@ -741,7 +741,7 @@ PAGEMax
   PAGEMax , [Value]
   PAGEMax , 5
 
-PAGEMax specifies how many individuals can be genome edited. This specification is used when `PAGE`_ is active and "gender" functionality is NOT used (see `GenderFile`_).
+PAGEMax specifies how many individuals can be genome edited. This specification is relevant when `PAGE`_ is active (``PAGE , Yes``) and "gender" functionality is NOT active (see `GenderFile`_).
 
 PAGEMales
 ^^^^^^^^^
@@ -761,7 +761,7 @@ PAGEMalesMax
   PAGEMalesMax , [Value]
   PAGEMalesMax , 5
 
-PAGEMalesMax specifies how many males can be genome edited. This specification is used when `PAGEMales`_ is active and "gender" functionality is used (see `GenderFile`_).
+PAGEMalesMax specifies how many males can be genome edited. This specification is relevant when `PAGEMales`_ is active (``PAGEMales , Yes``) and "gender" functionality is active (see `GenderFile`_).
 
 PAGEFemales
 ^^^^^^^^^^^
@@ -781,7 +781,7 @@ PAGEFemalesMax
   PAGEFemalesMax , [Value]
   PAGEFemalesMax , 5
 
-PAGEFemalesMax specifies how many females can be genome edited. This specification is used when `PAGEFemales`_ is active and "gender" functionality is used (see `GenderFile`_).
+PAGEFemalesMax specifies how many females can be genome edited. This specification is relevant when `PAGEFemales`_ is active (``PAGEFemales , Yes``) and "gender" functionality is active (see `GenderFile`_).
 
 CoancestryWeight
 ^^^^^^^^^^^^^^^^
@@ -871,7 +871,7 @@ SelfingWeight
   SelfingWeight , [Value]
   SelfingWeight , -2.0
 
-SelfingWeight specifies the weight to penalize solutions that involve some degree of selfing, when selfing should not happen, that is, when `AllowSelfing`_ is ``No`` and "gender" functionality is NOT used. |AM| tries to avoid this by fixing solutions, but sometimes fixing is not effective. The value of SelfingWeight is added to objective function to penalize every selfing instance. The default value is -1.0. Note that a positive value encourages selfing.
+SelfingWeight specifies the weight to penalize solutions that involve some degree of selfing, when selfing should not happen, that is, when `AllowSelfing`_ is ``No`` and "gender" functionality is NOT active. |AM| tries to avoid this by fixing solutions, but sometimes fixing is not effective. The value of SelfingWeight is added to objective function to penalize every selfing instance. The default value is -1.0. Note that a positive value encourages selfing.
 
 GenericIndividualCriterionWeight
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1086,7 +1086,7 @@ NumberOfThreads
   NumberOfThreads , [Value]
   NumberOfThreads , 4
 
-NumberOfThreads specifies how many threads should be used for paralelisation. |AM| uses the OpenMP system to paralelise some calculations. Default is to use all available resources, that is, the number of threads equals the number of processors. Note that the environmental variable ``OMP_NUM_THREADS`` sets an upper limit on resources. You can set this variable in a system terminal by typing in a command shown below. The NumberOfThreads specifications overrules this variable.
+NumberOfThreads specifies how many threads should be used for parallelisation. |AM| uses the OpenMP system to parallelise some calculations. Default is to use all available resources, that is, the number of threads equals the number of processors. Note that the environmental variable ``OMP_NUM_THREADS`` sets an upper limit on resources. You can set this variable in a system terminal by typing in a command shown below. The NumberOfThreads specifications overrules this variable.
 
 ::
 
@@ -1130,23 +1130,23 @@ There is one contributors file for each optimisation. The files have basename *C
 
 ::
 
-    Id Gender SelCriterion AvgCoancestry Contribution nMating
-  id1       1        17.13        0.7802         0.05      50
-  id2       1        16.75        0.7790         0.02      20
-  id3       1        16.75        0.7790         0.02      20
+    Id Gender SelCriterion AvgCoancestry Contribution nContribution
+  id1       1        17.13        0.7802         0.05            50
+  id2       1        16.75        0.7790         0.02            20
+  id3       1        16.75        0.7790         0.02            20
   ...
 
 Mating/Crossing plan
 --------------------
 
-There is one mating/crossing plan file for each optimisation. The files have basename *MatingPlanMode*, for example, *MatingPlanModeMinCoancestry.txt*, *MatingPlanModeOptTarget1.txt*, etc. The file reports pairing of parents (matings/crosses) and the number of matings each parent has and if there are any repeated matings/crosses. The last three columns are provided to help you inspecting the mating/crossing plan. The matings/crosses are ordered such that repeats, if any, appear together.
+There is one mating/crossing plan file for each optimisation (if `MateAllocation`_ is active). The files have basename *MatingPlanMode*, for example, *MatingPlanModeMinCoancestry.txt*, *MatingPlanModeOptTarget1.txt*, etc. The file reports pairing of parents (matings/crosses) and the number of contributions (=matings/crosses) each parent has and what is the number of repeated matings/crosses. The last three columns are provided to help you inspect the mating/crossing plan. The matings/crosses are ordered such that repeats, if any, appear together.
 
 ::
 
-  Mating Parent1 Parent2 nMatingsParent1 nMatingsParent1 nRepeats
-       1 id1     id5                   2               1        0
-       2 id1     id7                   2               1        0
-       3 id2     id20                  1               1        0
+  Mating Parent1 Parent2 nContributionParent1 nContributionParent1 MatingsCount
+       1 id1     id5                        2                    1            1
+       2 id1     id7                        2                    1            1
+       3 id2     id20                       1                    1            1
   ...
 
 Optimisation log
@@ -1181,7 +1181,7 @@ Examples
 
 There are several examples shipped with |AM| that demonstrate its use. Each example is provided in specific folder with specifications file and data input files. All the examples are simulated so that we can distribute the data, but they do represent real-like use cases. Below we quickly summarize the examples and results - no specification files are described here, you are supposed to look into the example folder and inspect the files yourself!
 
-Note that the examples show group coancestry and inbreeding using genomic identity by state scale since the mutation of used markers - consequently the values are high.
+Note that the examples show group coancestry and inbreeding using genomic identity by state scale (since the mutation arose in the far past) - consequently the values are high.
 
 Animal
 ------

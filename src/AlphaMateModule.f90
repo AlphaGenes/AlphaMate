@@ -152,10 +152,10 @@ module AlphaMateModule
   CHARACTER(len=CHARLENGTH), PARAMETER :: FMTCONTRIBUTIONEDITB = ", 4x, i11, 3(4x, f11.5), 2(4x, i11), 4x, f11.5)"
 
   CHARACTER(len=CHARLENGTH), PARAMETER :: FMTMATINGHEADA = "(a15, 2a"
-  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTMATINGHEADB = ", 2a16, a9)"
+  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTMATINGHEADB = ", 2a21, a13)"
 
   CHARACTER(len=CHARLENGTH), PARAMETER :: FMTMATINGA = "(i15, 2(1x, a"
-  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTMATINGB = "), 2(1x, i15), 1x, i8)"
+  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTMATINGB = "), 2(1x, i20), 1x, i12)"
 
   ! --- Module types ---
 
@@ -3664,33 +3664,43 @@ module AlphaMateModule
       if (Spec%GenderGiven) then
         This%nPotMat = This%nPotPar1 * This%nPotPar2
       else
-        This%nPotMat = FLOATFUN(This%nPotPar1 * This%nPotPar1) / 2.0
-        if (Spec%SelfingAllowed) then
-          This%nPotMat = nint(This%nPotMat + real(This%nPotPar1) / 2.0)
+        if (Spec%ReciprocalMatingsAllowed) then
+          This%nPotMat = This%nPotPar1 * This%nPotPar1
+          if (.not. Spec%SelfingAllowed) then
+            This%nPotMat = This%nPotMat - This%nPotPar1
+          end if
         else
-          This%nPotMat = nint(This%nPotMat - real(This%nPotPar1) / 2.0)
+          This%nPotMat = FLOATFUN(This%nPotPar1 * This%nPotPar1) / 2.0
+          if (Spec%SelfingAllowed) then
+            This%nPotMat = nint(This%nPotMat + real(This%nPotPar1) / 2.0)
+          else
+            This%nPotMat = nint(This%nPotMat - real(This%nPotPar1) / 2.0)
+          end if
         end if
       end if
 
-      if (Spec%nMat .gt. This%nPotMat) then
-        ! @todo Might need to change this if we would do in-vitro fertilisation
+      if ((Spec%nMat .gt. This%nPotMat) .and. .not. Spec%RepeatedMatingsAllowed) then
         write(STDERR, "(a)") " ERROR: The number of specified matings/crosses is"
         write(STDERR, "(a)") "          larger than the number of all potential matings/crosses!"
         write(STDERR, "(a)") "        The number of     specified matings/crosses: "//trim(Int2Char(Spec%nMat))
         write(STDERR, "(a)") "        The number of all potential matings/crosses: "//trim(Int2Char(This%nPotMat))
         if (Spec%GenderGiven) then
           write(STDERR, "(a)") "        = no. of males * no. of females"
-          write(STDERR, "(a)") "        = (no. of males = "//trim(Int2Char(This%nPotPar1))//", no. of females = "//trim(Int2Char(This%nPotPar2))
+          write(STDERR, "(a)") "          (no. of males = "//trim(Int2Char(This%nPotPar1))//", no. of females = "//trim(Int2Char(This%nPotPar2))
         else
           if (Spec%SelfingAllowed) then
             write(STDERR, "(a)") "        = half-diallel including selfing"
-            write(STDERR, "(a)") "        = no. of individuals * no. of individuals / 2 + individuals / 2"
+            write(STDERR, "(a)") "        = no. of individuals * no. of individuals / 2 + no. of. individuals / 2"
+            write(STDERR, "(a)") "          (no. of individuals = "//trim(Int2Char(This%nPotPar1))//")"
           else
             write(STDERR, "(a)") "        = half-diallel excluding selfing"
-            write(STDERR, "(a)") "        = no. of individuals * no. of individuals / 2 - individuals / 2"
+            write(STDERR, "(a)") "        = no. of individuals * no. of individuals / 2 - no. of. individuals / 2"
+            write(STDERR, "(a)") "          (no. of individuals = "//trim(Int2Char(This%nPotPar1))//")"
+            write(STDERR, "(a)") "        Do you need to specify AllowSelfing?"
           end if
-          write(STDERR, "(a)") "          (no. of individuals = "//trim(Int2Char(This%nPotPar1))//")"
+          write(STDERR, "(a)") "        Do you need to specify AllowReciprocalMatings?"
         end if
+        write(STDERR, "(a)") "        Do you need to specify AllowRepeatedMatings?"
         write(STDERR, "(a)") " "
         stop 1
       end if
@@ -6534,7 +6544,7 @@ module AlphaMateModule
                                                      "   SelCriterion", &
                                                      "  AvgCoancestry", &
                                                      "   Contribution", &
-                                                     "        nMating"
+                                                     "  nContribution"
         if (.not. Spec%GenderGiven) then
           do i = 1, nCon
             Ind = Rank(i)
@@ -6576,7 +6586,7 @@ module AlphaMateModule
                                                          "   SelCriterion", &
                                                          "  AvgCoancestry", &
                                                          "   Contribution", &
-                                                         "        nMating", &
+                                                         "  nContribution", &
                                                          "     GenomeEdit", &
                                                          "  EditedSelCrit"
         if (.not. Spec%GenderGiven) then
@@ -6663,15 +6673,15 @@ module AlphaMateModule
       write(MatingUnit, Spec%FmtMatingHead) "         Mating",                  &
                                             "                         Parent1", &
                                             "                         Parent2", &
-                                            " nMatingsParent1",                 &
-                                            " nMatingsParent2",                 &
-                                            " nRepeats"
+                                            " nContributionParent1",            &
+                                            " nContributionParent2",            &
+                                            " MatingsCount"
 
       ! A rankable array
       Rank = GeneratePairing(xin=This%MatingPlan(1, :),&
                              yin=This%MatingPlan(2, :))
-      ! Count repeated matings
-      MatCount = MulCnt(Rank) - 1
+      ! Count repeats
+      MatCount = MulCnt(Rank)
       ! Sort such that repeated matings would appear together, but otherwise in no particular order
       Rank = MrgRnk(Rank)
 
