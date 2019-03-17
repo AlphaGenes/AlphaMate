@@ -1101,7 +1101,11 @@ module AlphaMateModule
                 if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
                   This%ModeMinCoancestry = .true.
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " ModeMinCoancestry"
+                    write(STDOUT, "(a)") " ModeMinCoancestry YES"
+                  end if
+                else
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " ModeMinCoancestry NO"
                   end if
                 end if
               else
@@ -1115,7 +1119,11 @@ module AlphaMateModule
                 if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
                   This%ModeMinInbreeding = .true.
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " ModeMinInbreeding"
+                    write(STDOUT, "(a)") " ModeMinInbreeding YES"
+                  end if
+                else
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " ModeMinInbreeding NO"
                   end if
                 end if
               else
@@ -1129,7 +1137,11 @@ module AlphaMateModule
                 if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
                   This%ModeMaxCriterion = .true.
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " ModeMaxCriterion"
+                    write(STDOUT, "(a)") " ModeMaxCriterion YES"
+                  end if
+                else
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " ModeMaxCriterion NO"
                   end if
                 end if
               else
@@ -1143,7 +1155,11 @@ module AlphaMateModule
             !     if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
             !       This%ModeRan = .true.
             !       if (LogStdoutInternal) then
-            !         write(STDOUT, "(a)") " ModeRan"
+            !         write(STDOUT, "(a)") " ModeRan YES"
+            !       end if
+            !     else
+            !       if (LogStdoutInternal) then
+            !         write(STDOUT, "(a)") " ModeRan NO"
             !       end if
             !     end if
             !   else
@@ -1157,7 +1173,11 @@ module AlphaMateModule
                 if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
                   This%ModeOpt = .true.
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " ModeOpt"
+                    write(STDOUT, "(a)") " ModeOpt YES"
+                  end if
+                else
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " ModeOpt NO"
                   end if
                 end if
               else
@@ -1174,7 +1194,11 @@ module AlphaMateModule
                 if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
                   This%EvaluateFrontier = .true.
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " EvaluateFrontier"
+                    write(STDOUT, "(a)") " EvaluateFrontier YES"
+                  end if
+                else
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " EvaluateFrontier NO"
                   end if
                 end if
               else
@@ -1404,7 +1428,11 @@ module AlphaMateModule
                 if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
                   This%CoancestryWeightBelow = .true.
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Targeted coancestry - weight also values below the target"
+                    write(STDOUT, "(a)") " Targeted coancestry - weight values below the target YES"
+                  end if
+                else
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Targeted coancestry - weight values below the target NO"
                   end if
                 end if
               else
@@ -1504,7 +1532,11 @@ module AlphaMateModule
                 if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
                   This%InbreedingWeightBelow = .true.
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Targeted inbreeding - weight also values below the target"
+                    write(STDOUT, "(a)") " Targeted inbreeding - weight values below the target YES"
+                  end if
+                else
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Targeted inbreeding - weight values below the target NO"
                   end if
                 end if
               else
@@ -1587,7 +1619,11 @@ module AlphaMateModule
                 if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
                   This%PreselectPar = .true.
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Preselect"
+                    write(STDOUT, "(a)") " Preselect YES"
+                  end if
+                else
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Preselect NO"
                   end if
                 end if
               else
@@ -1619,7 +1655,11 @@ module AlphaMateModule
                   This%PreselectPar  = .true.
                   This%PreselectPar1 = .true.
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Preselect males"
+                    write(STDOUT, "(a)") " Preselect males YES"
+                  end if
+                else
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Preselect males NO"
                   end if
                 end if
               else
@@ -1651,7 +1691,11 @@ module AlphaMateModule
                   This%PreselectPar  = .true.
                   This%PreselectPar2 = .true.
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Preselect females"
+                    write(STDOUT, "(a)") " Preselect females YES"
+                  end if
+                else
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Preselect females NO"
                   end if
                 end if
               else
@@ -1682,7 +1726,11 @@ module AlphaMateModule
                 if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
                   This%EqualizePar = .true.
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Equalize contributions"
+                    write(STDOUT, "(a)") " Equalize contributions YES"
+                  end if
+                else
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Equalize contributions NO"
                   end if
                 end if
               else
@@ -1697,7 +1745,11 @@ module AlphaMateModule
                   This%EqualizePar  = .true.
                   This%EqualizePar1 = .true.
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Equalize contributions of males"
+                    write(STDOUT, "(a)") " Equalize contributions of males YES"
+                  end if
+                else
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Equalize contributions of males NO"
                   end if
                 end if
               else
@@ -1712,7 +1764,11 @@ module AlphaMateModule
                   This%EqualizePar  = .true.
                   This%EqualizePar2 = .true.
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Equalize contributions of females"
+                    write(STDOUT, "(a)") " Equalize contributions of females YES"
+                  end if
+                else
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Equalize contributions of females NO"
                   end if
                 end if
               else
@@ -1868,7 +1924,11 @@ module AlphaMateModule
                 if (ToLower(trim(adjustl(Second(1)))) .ne. "yes") then
                   This%MateAllocation = .false.
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Do not allocate matings/crosses"
+                    write(STDOUT, "(a)") " Mate/cross allocation YES"
+                  end if
+                else
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Mate/cross allocation NO"
                   end if
                 end if
               else
@@ -1882,7 +1942,11 @@ module AlphaMateModule
                 if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
                   This%RandomMateAllocation = .true.
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Randomly allocate matings/crosses"
+                    write(STDOUT, "(a)") " Random mate/cross allocation YES"
+                  end if
+                else
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Random mate/cross allocation NO"
                   end if
                 end if
               else
@@ -1896,7 +1960,11 @@ module AlphaMateModule
                 if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
                   This%ReciprocalMatingsAllowed = .true.
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Reciprocal matings/crosses allowed"
+                    write(STDOUT, "(a)") " Allow reciprocal matings/crosses YES"
+                  end if
+                else
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Allow reciprocal matings/crosses NO"
                   end if
                 end if
               else
@@ -1910,7 +1978,11 @@ module AlphaMateModule
                 if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
                   This%RepeatedMatingsAllowed = .true.
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Repeated matings/crosses allowed"
+                    write(STDOUT, "(a)") " Allow repeated matings/crosses YES"
+                  end if
+                else
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Allow repeated matings/crosses NO"
                   end if
                 end if
               else
@@ -1951,7 +2023,11 @@ module AlphaMateModule
                 if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
                   This%SelfingAllowed = .true.
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Selfing allowed"
+                    write(STDOUT, "(a)") " Allow selfing YES"
+                  end if
+                else
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Allow selfing NO"
                   end if
                 end if
               else
@@ -1980,7 +2056,11 @@ module AlphaMateModule
                 if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
                   This%PAGEPar = .true.
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Promotion of Alleles by Genome Editing (PAGE)"
+                    write(STDOUT, "(a)") " Promotion of Alleles by Genome Editing (PAGE) YES"
+                  end if
+                else
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Promotion of Alleles by Genome Editing (PAGE) NO"
                   end if
                 end if
               else
@@ -2007,7 +2087,11 @@ module AlphaMateModule
                   This%PAGEPar  = .true.
                   This%PAGEPar1 = .true.
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Promotion of Alleles by Genome Editing (PAGE) in males"
+                    write(STDOUT, "(a)") " Promotion of Alleles by Genome Editing (PAGE) in males YES"
+                  end if
+                else
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Promotion of Alleles by Genome Editing (PAGE) in males NO"
                   end if
                 end if
               else
@@ -2034,7 +2118,11 @@ module AlphaMateModule
                   This%PAGEPar  = .true.
                   This%PAGEPar2 = .true.
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Promotion of Alleles by Genome Editing (PAGE) in females"
+                    write(STDOUT, "(a)") " Promotion of Alleles by Genome Editing (PAGE) in females YES"
+                  end if
+                else
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Promotion of Alleles by Genome Editing (PAGE) in females NO"
                   end if
                 end if
               else
@@ -2153,7 +2241,11 @@ module AlphaMateModule
                 if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
                   This%EvolAlgLogPop = .true.
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Evolutionary algorithm - log all evaluated solutions"
+                    write(STDOUT, "(a)") " Evolutionary algorithm - log all evaluated solutions YES"
+                  end if
+                else
+                  if (LogStdoutInternal) then
+                    write(STDOUT, "(a)") " Evolutionary algorithm - log all evaluated solutions NO"
                   end if
                 end if
               else
@@ -2486,7 +2578,7 @@ module AlphaMateModule
         This%TargetInbreedingRateGiven   = .false.
         This%TargetMinInbreedingPctGiven = .false.
         if (LogStdoutInternal) then
-          write(STDOUT, "(a)") " NOTE: Inbreeding target is not active when mate allocation is inactive or random."
+          write(STDOUT, "(a)") " NOTE: Inbreeding target is not active when mate allocation is not active or random."
           write(STDOUT, "(a)") " "
         end if
       end if
@@ -4711,7 +4803,7 @@ module AlphaMateModule
       ! Other
       integer(int32) :: i, j, k, l, GenderMode, Start, End, nCumMat, TmpMin, TmpMax, &
                         TmpI, nRanNum, RanNumLoc, Par1, Par2, TmpMate(2)
-      integer(int32), allocatable :: Rank(:), MatPar2(:), nVecPar1(:), Pair(:, :)
+      integer(int32), allocatable :: Rank(:), MatPair(:), nVecPar1(:), Pair(:, :)
 
       real(FLOATTYPE) :: TmpR, Diff, MaxDiff
       real(FLOATTYPE), allocatable :: TmpVec(:), RanNum(:) !, TmpVec2(:,:)
@@ -4803,7 +4895,7 @@ module AlphaMateModule
               ! Working vectors
               allocate(Rank(maxval([Data%nInd, Spec%nMat]))) ! for ranking many things
               allocate(nVecPar1(Data%nPotPar1))              ! for nVec
-              allocate(MatPar2(Spec%nMat))                   ! for MatingPlan
+              allocate(MatPair(Spec%nMat))                   ! for MatingPlan
               allocate(TmpVec(Data%nInd))                    ! for many things
               allocate(RanNum(nRanNum))                      ! for stochastic decisions
               RanNumLoc = 0
@@ -5094,7 +5186,7 @@ module AlphaMateModule
                     l = Data%IdPotPar2(i)
                     do j = 1, This%nVec(l)
                       k = k + 1
-                      MatPar2(k) = l
+                      MatPair(k) = l
                     end do
                   end do
                 else
@@ -5115,7 +5207,7 @@ module AlphaMateModule
                           exit
                         end if
                         k = k + 1
-                        MatPar2(k) = Par1
+                        MatPair(k) = Par1
                         nVecPar1(i) = nVecPar1(i) - 1 ! we substract here to remove "female" contributions
                       end do
                     end do
@@ -5128,9 +5220,9 @@ module AlphaMateModule
                 else
                   Rank(1:Spec%nMat) = MrgRnk(SChrom%MateRank) ! MrgRnk ranks small to large
                 end if
-                MatPar2 = MatPar2(Rank(1:Spec%nMat))
+                MatPair = MatPair(Rank(1:Spec%nMat))
 
-                ! print*, MatPar2
+                ! print*, MatPair
 
                 ! Pair the contributions (=Mating plan)
                 k = Spec%nMat ! MrgRnk ranks small to large
@@ -5147,7 +5239,7 @@ module AlphaMateModule
                       if (k .gt. 0) then
                         ! if (k .lt. 10) write(*, '(i6,a1,i6,i6,a1,i6,i6,i6,a1,i6)') i, "/", Data%nPotPar1, j, "/", nVecPar1(i), sum(nVecPar1), k, "/", Spec%nMat
                         !                write(*, '(i6,a1,i6,i6,a1,i6,i6,i6,a1,i6)') i, "/", Data%nPotPar1, j, "/", nVecPar1(i), sum(nVecPar1), k, "/", Spec%nMat
-                        Par2 = MatPar2(k)
+                        Par2 = MatPair(k)
                         if (Spec%SelfingAllowed) then ! .not. GenderGiven
                           if (.not. Spec%ReciprocalMatingsAllowed) then
                             TmpMate = [Par1, Par2]
@@ -5169,11 +5261,11 @@ module AlphaMateModule
                     Par1 = Data%IdPotPar1(i)
                     do j = 1, nVecPar1(i)
                       if (k .gt. 0) then
-                        if (MatPar2(k) .eq. Par1) then
+                        if (MatPair(k) .eq. Par1) then
                           ! Try to avoid selfing by swapping
                           do l = k, 1, -1
-                            if (MatPar2(l) .ne. Par1) then
-                              MatPar2([k, l]) = MatPar2([l, k])
+                            if (MatPair(l) .ne. Par1) then
+                              MatPair([k, l]) = MatPair([l, k])
                               SChrom%MateRank(Rank([k, l])) = SChrom%MateRank(Rank([l, k]))
                               exit
                             end if
@@ -5186,7 +5278,7 @@ module AlphaMateModule
                             end if
                           end if
                         end if
-                        Par2 = MatPar2(k)
+                        Par2 = MatPair(k)
                         if (.not. Spec%ReciprocalMatingsAllowed) then
                           TmpMate = [Par1, Par2]
                           Par1 = maxval(TmpMate)
@@ -5223,9 +5315,9 @@ module AlphaMateModule
                       do i = 1, Spec%nMat
                         if (Pair(i, 2) .gt. 1) then
                           if (i .lt. Spec%nMat) then
-                            l = i + 1
+                            l = i + 1 ! take the next mating
                           else
-                            l = 1
+                            l = 1     ! take the first mating
                           end if
                           This%MatingPlan(2, [i, l]) = This%MatingPlan(2, [l, i])
                           Pair([i, l], 1) = GeneratePairing(xin=This%MatingPlan(1, [i, l]), &
