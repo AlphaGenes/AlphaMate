@@ -27,6 +27,8 @@ v0.3.0 2019-??-??
 
   * Added a note about flexibility to the manual.
 
+  * Improved stability with some edge cases.
+
   BUGFIXES
   * In some edge cases written mating plan was wrong.
 
