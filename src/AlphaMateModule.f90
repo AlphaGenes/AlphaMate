@@ -993,7 +993,7 @@ module AlphaMateModule
                 This%nThreadsGiven = .true.
                 This%nThreads = Char2Int(trim(adjustl(Second(1))))
                 if (LogStdoutInternal) then
-                  write(STDOUT, "(a)") " NumberOfThreads: "//trim(Int2Char(This%nThreads))
+                  write(STDOUT, "(a)") " Number of threads: "//trim(Int2Char(This%nThreads))
                 end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify a number for NumberOfThreads, for example, NumberOfThreads, 8"
@@ -2527,6 +2527,11 @@ module AlphaMateModule
       logical, intent(in), optional                 :: InbreedingWeightBelow !< Weight deviations below the targeted inbreeding
       type(AlphaMateModeSpec), intent(in), optional :: ModeMinInbreedingSpec !< Minimum inbreeding solution specs
 
+      real(FLOATTYPE) :: DegreeInt,                                                &
+                         SelCriterionInt, SelCriterionStdInt, MaxCriterionPctInt,  &
+                         CoancestryInt,   CoancestryRateInt,  MinCoancestryPctInt, &
+                         InbreedingInt,   InbreedingRateInt,  MinInbreedingPctInt
+
       select case (trim(Mode))
         case ("MinCoancestry") ! Only coancestry!!!
           call This%ModeMinCoancestrySpec%Initialise(Name="MinCoancestry")
@@ -2564,71 +2569,114 @@ module AlphaMateModule
           This%ModeOptSpec%ObjectiveCoancestry = .true.
 
           if      (present(Degree)) then
-            if (Degree .gt. 90 .or. Degree .lt. 0) then
-              write(STDERR, "(a)") " ERROR: TargetDegree must be between 0 and 90!"
-              write(STDERR, "(a)") "        Target: "//trim(Real2Char(Degree, fmt=FMTREAL2CHAR))
-              write(STDERR, "(a)") " "
-              stop 1
+            if (Degree .lt. 0 .or. Degree .gt. 90) then
+              write(STDOUT, "(a)") " NOTE: TargetDegree must be between 0 and 90!"
+              write(STDOUT, "(a)") "       Resetting ..."
+              write(STDOUT, "(a)") "       Target - old: "//trim(Real2Char(Degree, fmt=FMTREAL2CHAR))
+              if (Degree .lt.  0) then
+                DegreeInt =  0
+              end if
+              if (Degree .gt. 90) then
+                DegreeInt = 90
+              end if
+              write(STDOUT, "(a)") "       Target - new: "//trim(Real2Char(Degree, fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") " "
+            else
+              DegreeInt = Degree
             end if
-            call This%ModeOptSpec%SetTargets(Degree=Degree, &
+            call This%ModeOptSpec%SetTargets(Degree=DegreeInt, &
                                              Data=Data, ModeMinCoancestrySpec=ModeMinCoancestrySpec, ModeMaxCriterionSpec=ModeMaxCriterionSpec)
           else if (present(SelCriterion)) then
             if (SelCriterion .gt. ModeMaxCriterionSpec%SelCriterion) then
-              write(STDERR, "(a)") " ERROR: TargetSelCriterion must be less than the the maximum achieved SelCriterion!"
-              write(STDERR, "(a)") "        Target:           "//trim(Real2Char(SelCriterion,                      fmt=FMTREAL2CHAR))
-              write(STDERR, "(a)") "        Maximum achieved: "//trim(Real2Char(ModeMaxCriterionSpec%SelCriterion, fmt=FMTREAL2CHAR))
-              write(STDERR, "(a)") " "
-              stop 1
+              write(STDOUT, "(a)") " NOTE: TargetSelCriterion must be less than the the maximum achieved SelCriterion!"
+              write(STDOUT, "(a)") "       Resetting ..."
+              write(STDOUT, "(a)") "       Target - old:     "//trim(Real2Char(SelCriterion,                      fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") "       Maximum achieved: "//trim(Real2Char(ModeMaxCriterionSpec%SelCriterion, fmt=FMTREAL2CHAR))
+              SelCriterionInt = ModeMaxCriterionSpec%SelCriterion
+              write(STDOUT, "(a)") "       Target - new:     "//trim(Real2Char(SelCriterion,                      fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") " "
+            else
+              SelCriterionInt = SelCriterion
             end if
-            call This%ModeOptSpec%SetTargets(SelCriterion=SelCriterion, &
+            call This%ModeOptSpec%SetTargets(SelCriterion=SelCriterionInt, &
                                              Data=Data, ModeMinCoancestrySpec=ModeMinCoancestrySpec, ModeMaxCriterionSpec=ModeMaxCriterionSpec)
           else if (present(SelCriterionStd)) then
             if (SelCriterionStd .gt. ModeMaxCriterionSpec%SelCriterionStd) then
-              write(STDERR, "(a)") " ERROR: TargetSelCriterionStd must be less than the maximum achieved SelCriterionStd!"
-              write(STDERR, "(a)") "        Target:           "//trim(Real2Char(SelCriterionStd,                      fmt=FMTREAL2CHAR))
-              write(STDERR, "(a)") "        Maximum achieved: "//trim(Real2Char(ModeMaxCriterionSpec%SelCriterionStd, fmt=FMTREAL2CHAR))
-              write(STDERR, "(a)") " "
-              stop 1
+              write(STDOUT, "(a)") " NOTE: TargetSelCriterionStd must be less than the maximum achieved SelCriterionStd!"
+              write(STDOUT, "(a)") "       Resetting ..."
+              write(STDOUT, "(a)") "       Target - old:     "//trim(Real2Char(SelCriterionStd,                      fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") "       Maximum achieved: "//trim(Real2Char(ModeMaxCriterionSpec%SelCriterionStd, fmt=FMTREAL2CHAR))
+              SelCriterionStdInt = ModeMaxCriterionSpec%SelCriterionStd
+              write(STDOUT, "(a)") "       Target - new:     "//trim(Real2Char(SelCriterionStd,                      fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") " "
+            else
+              SelCriterionStdInt = SelCriterionStd
             end if
-            call This%ModeOptSpec%SetTargets(SelCriterionStd=SelCriterionStd, &
+            call This%ModeOptSpec%SetTargets(SelCriterionStd=SelCriterionStdInt, &
                                              Data=Data, ModeMinCoancestrySpec=ModeMinCoancestrySpec, ModeMaxCriterionSpec=ModeMaxCriterionSpec)
           else if (present(MaxCriterionPct)) then
-            if (MaxCriterionPct .gt. 100 .or. MaxCriterionPct .lt. 0) then
-              write(STDERR, "(a)") " ERROR: TargetMaxCriterionPct must be between 0 and 100!"
-              write(STDERR, "(a)") "        Target: "//trim(Real2Char(MaxCriterionPct, fmt=FMTREAL2CHAR))
-              write(STDERR, "(a)") " "
-              stop 1
+            if (MaxCriterionPct .lt. 0 .or. MaxCriterionPct .gt. 100) then
+              write(STDOUT, "(a)") " NOTE: TargetMaxCriterionPct must be between 0 and 100!"
+              write(STDOUT, "(a)") "       Resetting ..."
+              write(STDOUT, "(a)") "       Target - old: "//trim(Real2Char(MaxCriterionPct, fmt=FMTREAL2CHAR))
+              if (MaxCriterionPct .lt.   0) then
+                MaxCriterionPctInt =   0
+              end if
+              if (MaxCriterionPct .gt. 100) then
+                MaxCriterionPctInt = 100
+              end if
+              write(STDOUT, "(a)") "       Target - new: "//trim(Real2Char(MaxCriterionPct, fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") " "
+            else
+              MaxCriterionPctInt = MaxCriterionPct
             end if
-            call This%ModeOptSpec%SetTargets(MaxCriterionPct=MaxCriterionPct, &
+            call This%ModeOptSpec%SetTargets(MaxCriterionPct=MaxCriterionPctInt, &
                                              Data=Data, ModeMinCoancestrySpec=ModeMinCoancestrySpec, ModeMaxCriterionSpec=ModeMaxCriterionSpec)
           else if (present(Coancestry)) then
             if (Coancestry .lt. ModeMinCoancestrySpec%Coancestry) then
-              write(STDERR, "(a)") " ERROR: TargetCoancestry must be more than the minimum achieved Coancestry!"
-              write(STDERR, "(a)") "        Target:           "//trim(Real2Char(Coancestry,                      fmt=FMTREAL2CHAR))
-              write(STDERR, "(a)") "        Minimum achieved: "//trim(Real2Char(ModeMinCoancestrySpec%Coancestry, fmt=FMTREAL2CHAR))
-              write(STDERR, "(a)") " "
-              stop 1
+              write(STDOUT, "(a)") " NOTE: TargetCoancestry must be more than the minimum achieved Coancestry!"
+              write(STDOUT, "(a)") "       Resetting ..."
+              write(STDOUT, "(a)") "       Target - old:     "//trim(Real2Char(Coancestry,                      fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") "       Minimum achieved: "//trim(Real2Char(ModeMinCoancestrySpec%Coancestry, fmt=FMTREAL2CHAR))
+              CoancestryInt = ModeMinCoancestrySpec%Coancestry
+              write(STDOUT, "(a)") "       Target - new:     "//trim(Real2Char(Coancestry,                      fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") " "
+            else
+              CoancestryInt = Coancestry
             end if
-            call This%ModeOptSpec%SetTargets(Coancestry=Coancestry, &
+            call This%ModeOptSpec%SetTargets(Coancestry=CoancestryInt, &
                                              Data=Data, ModeMinCoancestrySpec=ModeMinCoancestrySpec, ModeMaxCriterionSpec=ModeMaxCriterionSpec)
           else if (present(CoancestryRate)) then
             if (CoancestryRate .lt. ModeMinCoancestrySpec%CoancestryRate) then
-              write(STDERR, "(a)") " ERROR: TargetCoancestryRate must be more than the minimum achieved CoancestryRate!"
-              write(STDERR, "(a)") "        Target:           "//trim(Real2Char(CoancestryRate,                      fmt=FMTREAL2CHAR))
-              write(STDERR, "(a)") "        Minimum achieved: "//trim(Real2Char(ModeMinCoancestrySpec%CoancestryRate, fmt=FMTREAL2CHAR))
-              write(STDERR, "(a)") " "
-              stop 1
+              write(STDOUT, "(a)") " NOTE: TargetCoancestryRate must be more than the minimum achieved CoancestryRate!"
+              write(STDOUT, "(a)") "       Resetting ..."
+              write(STDOUT, "(a)") "       Target - old:     "//trim(Real2Char(CoancestryRate,                      fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") "       Minimum achieved: "//trim(Real2Char(ModeMinCoancestrySpec%CoancestryRate, fmt=FMTREAL2CHAR))
+              CoancestryRateInt = ModeMinCoancestrySpec%CoancestryRate
+              write(STDOUT, "(a)") "       Target - old:     "//trim(Real2Char(CoancestryRate,                      fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") " "
+            else
+              CoancestryRateInt = CoancestryRate
             end if
-            call This%ModeOptSpec%SetTargets(CoancestryRate=CoancestryRate, &
+            call This%ModeOptSpec%SetTargets(CoancestryRate=CoancestryRateInt, &
                                              Data=Data, ModeMinCoancestrySpec=ModeMinCoancestrySpec, ModeMaxCriterionSpec=ModeMaxCriterionSpec)
           else if (present(MinCoancestryPct)) then
-            if (MinCoancestryPct .gt. 100 .or. MaxCriterionPct .lt. 0) then
-              write(STDERR, "(a)") " ERROR: TargetMinCoancestryPct must be between 0 and 100!"
-              write(STDERR, "(a)") "        Target: "//trim(Real2Char(MinCoancestryPct, fmt=FMTREAL2CHAR))
-              write(STDERR, "(a)") " "
-              stop 1
+            if (MinCoancestryPct .lt. 0 .or. MaxCriterionPct .gt. 100) then
+              write(STDOUT, "(a)") " NOTE: TargetMinCoancestryPct must be between 0 and 100!"
+              write(STDOUT, "(a)") "       Resetting ..."
+              write(STDOUT, "(a)") "       Target - old: "//trim(Real2Char(MinCoancestryPct, fmt=FMTREAL2CHAR))
+              if (MinCoancestryPct .lt.   0) then
+                MinCoancestryPctInt =   0
+              end if
+              if (MinCoancestryPct .gt. 100) then
+                MinCoancestryPctInt = 100
+              end if
+              write(STDOUT, "(a)") "       Target - new: "//trim(Real2Char(MinCoancestryPct, fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") " "
+            else
+              MinCoancestryPctInt = MinCoancestryPct
             end if
-            call This%ModeOptSpec%SetTargets(MinCoancestryPct=MinCoancestryPct, &
+            call This%ModeOptSpec%SetTargets(MinCoancestryPct=MinCoancestryPctInt, &
                                              Data=Data, ModeMinCoancestrySpec=ModeMinCoancestrySpec, ModeMaxCriterionSpec=ModeMaxCriterionSpec)
           end if
 
@@ -2638,37 +2686,55 @@ module AlphaMateModule
             This%ModeOptSpec%CoancestryWeightBelow = This%CoancestryWeightBelow
           end if
 
+          ! @todo: Why is this code different, that is, why it's using This%TargetInbreeding and the above is not?
           if      (This%TargetInbreedingGiven) then
             if (This%TargetInbreeding .lt. ModeMinInbreedingSpec%Inbreeding) then
-              write(STDERR, "(a)") " ERROR: TargetInbreeding must be more than the minimum achieved Inbreeding!"
-              write(STDERR, "(a)") "        Target:           "//trim(Real2Char(This%TargetInbreeding,            fmt=FMTREAL2CHAR))
-              write(STDERR, "(a)") "        Minimum achieved: "//trim(Real2Char(ModeMinInbreedingSpec%Inbreeding, fmt=FMTREAL2CHAR))
-              write(STDERR, "(a)") " "
-              stop 1
+              write(STDOUT, "(a)") " NOTE: TargetInbreeding must be more than the minimum achieved Inbreeding!"
+              write(STDOUT, "(a)") "       Resetting ..."
+              write(STDOUT, "(a)") "       Target - old:     "//trim(Real2Char(This%TargetInbreeding,            fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") "       Minimum achieved: "//trim(Real2Char(ModeMinInbreedingSpec%Inbreeding, fmt=FMTREAL2CHAR))
+              InbreedingInt = ModeMinInbreedingSpec%Inbreeding
+              write(STDOUT, "(a)") "       Target - old:     "//trim(Real2Char(This%TargetInbreeding,            fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") " "
+            else
+              InbreedingInt = This%TargetInbreeding
             end if
             This%ModeOptSpec%ObjectiveInbreeding = .true.
-            call This%ModeOptSpec%SetTargets(Inbreeding=This%TargetInbreeding, &
+            call This%ModeOptSpec%SetTargets(Inbreeding=InbreedingInt, &
                                              Data=Data, ModeMinInbreedingSpec=ModeMinInbreedingSpec)
           else if (This%TargetInbreedingRateGiven) then
             if (This%TargetInbreedingRate .lt. ModeMinInbreedingSpec%InbreedingRate) then
-              write(STDERR, "(a)") " ERROR: TargetInbreedingRate must be more than the minimum achieved InbreedingRate!"
-              write(STDERR, "(a)") "        Target:           "//trim(Real2Char(This%TargetInbreedingRate,            fmt=FMTREAL2CHAR))
-              write(STDERR, "(a)") "        Minimum achieved: "//trim(Real2Char(ModeMinInbreedingSpec%InbreedingRate, fmt=FMTREAL2CHAR))
-              write(STDERR, "(a)") " "
-              stop 1
+              write(STDOUT, "(a)") " NOTE: TargetInbreedingRate must be more than the minimum achieved InbreedingRate!"
+              write(STDOUT, "(a)") "       Resetting ..."
+              write(STDOUT, "(a)") "       Target - old:     "//trim(Real2Char(This%TargetInbreedingRate,            fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") "       Minimum achieved: "//trim(Real2Char(ModeMinInbreedingSpec%InbreedingRate, fmt=FMTREAL2CHAR))
+              InbreedingRateInt = ModeMinInbreedingSpec%InbreedingRate
+              write(STDOUT, "(a)") "       Target - new:     "//trim(Real2Char(This%TargetInbreedingRate,            fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") " "
+            else
+              InbreedingRateInt = This%TargetInbreedingRate
             end if
             This%ModeOptSpec%ObjectiveInbreeding = .true.
-            call This%ModeOptSpec%SetTargets(InbreedingRate=This%TargetInbreedingRate, &
+            call This%ModeOptSpec%SetTargets(InbreedingRate=InbreedingRateInt, &
                                              Data=Data, ModeMinInbreedingSpec=ModeMinInbreedingSpec)
           else if (This%TargetMinInbreedingPctGiven) then
             if (This%TargetMinInbreedingPct .gt. 100 .or. This%TargetMinInbreedingPct .lt. 0) then
-              write(STDERR, "(a)") " ERROR: TargetMinInbreedingPct must be between 0 and 100!"
-              write(STDERR, "(a)") "        Target: "//trim(Real2Char(This%TargetMinInbreedingPct, fmt=FMTREAL2CHAR))
-              write(STDERR, "(a)") " "
-              stop 1
+              write(STDOUT, "(a)") " NOTE: TargetMinInbreedingPct must be between 0 and 100!"
+              write(STDOUT, "(a)") "       Resetting ..."
+              write(STDOUT, "(a)") "       Target - old: "//trim(Real2Char(This%TargetMinInbreedingPct, fmt=FMTREAL2CHAR))
+              if (This%TargetMinInbreedingPct .lt.   0) then
+                MinInbreedingPctInt =   0
+              end if
+              if (This%TargetMinInbreedingPct .gt. 100) then
+                MinInbreedingPctInt = 100
+              end if
+              write(STDOUT, "(a)") "       Target - new: "//trim(Real2Char(This%TargetMinInbreedingPct, fmt=FMTREAL2CHAR))
+              write(STDOUT, "(a)") " "
+            else
+              MinInbreedingPctInt = This%TargetMinInbreedingPct
             end if
             This%ModeOptSpec%ObjectiveInbreeding = .true.
-            call This%ModeOptSpec%SetTargets(MinInbreedingPct=This%TargetMinInbreedingPct, &
+            call This%ModeOptSpec%SetTargets(MinInbreedingPct=MinInbreedingPctInt, &
                                              Data=Data, ModeMinInbreedingSpec=ModeMinInbreedingSpec, ModeMaxCriterionSpec=ModeMaxCriterionSpec)
           end if
 
