@@ -19,8 +19,9 @@ v0.3.0 2019-??-??
 
   * Added an example that optimises a core diversity set.
 
-  * We now allow input data without variation to cater for some specific use cases,
-    but write a NOTE (instead of an ERROR).
+  * Input data without variation is now allowed - a NOTE is given (instead of an ERROR).
+
+  * Targets beyond limits are now reset to limits - a NOTE is given (instead of an ERROR).
 
   * Targets.txt file is now always produced - for any optimisation mode.
 
@@ -30,6 +31,10 @@ v0.3.0 2019-??-??
   * In some edge cases written mating plan was wrong.
 
   * In some edge cases with limited specifications an error was thrown needlessly.
+
+  * AlphaMate crashed when only selection criterion targets or coancestry targets
+    were given. Now it properly maximises gain for given coancestry targets and
+    minimises coancestry for given selection criterion targets.
 
 v0.2.0 2018-11-02
   IMPROVEMENTS

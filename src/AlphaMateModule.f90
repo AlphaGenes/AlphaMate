@@ -5763,7 +5763,7 @@ module AlphaMateModule
 
       ! --- Minimum coancestry ---
 
-      if (Spec%ModeMinCoancestry) then
+      if (Spec%ModeMinCoancestry .or. Spec%ModeOpt) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " "
           write(STDOUT, "(a)") " Optimise contributions for minimum future coancestry (ModeMinCoancestry) ..."
@@ -5782,26 +5782,23 @@ module AlphaMateModule
         ! @todo initialise with an approximate programming/exact solution?
         ! ... approximate minimum coancestry solution with equal contributions
         iSol = 1
-          InitChrom(1:Data%nPotPar, iSol) = 0.0
-          InitChrom(                 RapKnr(AvgCoancestryStd(1:Data%nPotPar1),                  Spec%nPar1),  iSol) = FLOATFUN(Spec%nMat) / Spec%nPar1
+        InitChrom(1:Data%nPotPar, iSol) = 0.0
+        InitChrom(                   RapKnr(AvgCoancestryStd(1:Data%nPotPar1),                  Spec%nPar1),  iSol) = FLOATFUN(Spec%nMat) / Spec%nPar1
         if (Spec%GenderGiven) then
           InitChrom((Data%nPotPar1 + RapKnr(AvgCoancestryStd((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), iSol) = FLOATFUN(Spec%nMat) / Spec%nPar2
         end if
-        ! ... another one
         iSol = iSol + 1
-          InitChrom(1:Data%nPotPar, iSol) = 0.0
-          InitChrom(                 RapKnr(AvgCoancestryStd(1:Data%nPotPar1),                  Spec%nPar1),  iSol) = FLOATFUN(Spec%nMat) / Spec%nPar1
-        if (Spec%GenderGiven) then
-          InitChrom((Data%nPotPar1 + RapKnr(AvgCoancestryStd((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), iSol) = FLOATFUN(Spec%nMat) / Spec%nPar2
-        end if
+        ! ... another one
+        InitChrom(1:Data%nPotPar, iSol) = InitChrom(1:Data%nPotPar, iSol - 1)
+        iSol = iSol + 1
         ! ... approximate minimum coancestry solution - in a different way
-        iSol = iSol + 1
         InitChrom(1:Data%nPotPar, iSol) = AvgCoancestryStd
+        iSol = iSol + 1
         ! ... another one
+        InitChrom(1:Data%nPotPar, iSol) = InitChrom(1:Data%nPotPar, iSol - 1)
         iSol = iSol + 1
-        InitChrom(1:Data%nPotPar, iSol) = AvgCoancestryStd
         ! ... noiser solutions
-        do iSol = iSol + 1, Spec%EvolAlgNSol
+        do iSol = iSol, Spec%EvolAlgNSol
           RanNumLoc = RanNumLoc + 1
           if (RanNumLoc .gt. nRanNum) then
             RanNumLoc = 1
@@ -5864,26 +5861,23 @@ module AlphaMateModule
         ! @todo initialise with an approximate programming/exact solutions?
         ! ... approximate minimum coancestry solution with equal contributions
         iSol = 1
-          InitChrom(1:Data%nPotPar, iSol) = 0.0
-          InitChrom(                 RapKnr(AvgCoancestryStd(1:Data%nPotPar1),                  Spec%nPar1),  iSol) = FLOATFUN(Spec%nMat) / Spec%nPar1
+        InitChrom(1:Data%nPotPar, iSol) = 0.0
+        InitChrom(                   RapKnr(AvgCoancestryStd(1:Data%nPotPar1),                  Spec%nPar1),  iSol) = FLOATFUN(Spec%nMat) / Spec%nPar1
         if (Spec%GenderGiven) then
           InitChrom((Data%nPotPar1 + RapKnr(AvgCoancestryStd((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), iSol) = FLOATFUN(Spec%nMat) / Spec%nPar2
         end if
-        ! ... another one
         iSol = iSol + 1
-          InitChrom(1:Data%nPotPar, iSol) = 0.0
-          InitChrom(                 RapKnr(AvgCoancestryStd(1:Data%nPotPar1),                  Spec%nPar1),  iSol) = FLOATFUN(Spec%nMat) / Spec%nPar1
-        if (Spec%GenderGiven) then
-          InitChrom((Data%nPotPar1 + RapKnr(AvgCoancestryStd((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), iSol) = FLOATFUN(Spec%nMat) / Spec%nPar2
-        end if
+        ! ... another one
+        InitChrom(1:Data%nPotPar, iSol) = InitChrom(1:Data%nPotPar, iSol - 1)
+        iSol = iSol + 1
         ! ... approximate minimum coancestry solution - in a different way
-        iSol = iSol + 1
         InitChrom(1:Data%nPotPar, iSol) = AvgCoancestryStd
+        iSol = iSol + 1
         ! ... another one
+        InitChrom(1:Data%nPotPar, iSol) = InitChrom(1:Data%nPotPar, iSol - 1)
         iSol = iSol + 1
-        InitChrom(1:Data%nPotPar, iSol) = AvgCoancestryStd
         ! ... noiser solutions
-        do iSol = iSol + 1, Spec%EvolAlgNSol
+        do iSol = iSol, Spec%EvolAlgNSol
           RanNumLoc = RanNumLoc + 1
           if (RanNumLoc .gt. nRanNum) then
             RanNumLoc = 1
@@ -5938,7 +5932,7 @@ module AlphaMateModule
 
       ! --- Maximum selection criterion ---
 
-      if (Spec%ModeMaxCriterion) then
+      if (Spec%ModeMaxCriterion .or. Spec%ModeOpt) then
         if (LogStdoutInternal) then
           write(STDOUT, "(a)") " "
           write(STDOUT, "(a)") " Optimise contributions for maximum future selection criterion (ModeMaxCriterion) ..."
@@ -5956,26 +5950,23 @@ module AlphaMateModule
         ! Initialise
         ! ... exact truncation selection solution with equal contributions
         iSol = 1
-          InitChrom(1:Data%nPotPar, iSol) = 0.0
-          InitChrom(                 RapKnr(SelCriterionStd(1:Data%nPotPar1),                  Spec%nPar1),  iSol) = FLOATFUN(Spec%nMat) / Spec%nPar1
+        InitChrom(1:Data%nPotPar, iSol) = 0.0
+        InitChrom(                   RapKnr(SelCriterionStd(1:Data%nPotPar1),                  Spec%nPar1),  iSol) = FLOATFUN(Spec%nMat) / Spec%nPar1
         if (Spec%GenderGiven) then
           InitChrom((Data%nPotPar1 + RapKnr(SelCriterionStd((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), iSol) = FLOATFUN(Spec%nMat) / Spec%nPar2
         end if
-        ! ... another one
         iSol = iSol + 1
-          InitChrom(1:Data%nPotPar, iSol) = 0.0
-          InitChrom(                 RapKnr(SelCriterionStd(1:Data%nPotPar1),                  Spec%nPar1),  iSol) = FLOATFUN(Spec%nMat) / Spec%nPar1
-        if (Spec%GenderGiven) then
-          InitChrom((Data%nPotPar1 + RapKnr(SelCriterionStd((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), iSol) = FLOATFUN(Spec%nMat) / Spec%nPar2
-        end if
+        ! ... another one
+        InitChrom(1:Data%nPotPar, iSol) = InitChrom(1:Data%nPotPar, iSol - 1)
+        iSol = iSol + 1
         ! ... approximate truncation selection solution
-        iSol = iSol + 1
         InitChrom(1:Data%nPotPar, iSol) = SelCriterionStd
+        iSol = iSol + 1
         ! ... another one
+        InitChrom(1:Data%nPotPar, iSol) = InitChrom(1:Data%nPotPar, iSol - 1)
         iSol = iSol + 1
-        InitChrom(1:Data%nPotPar, iSol) = SelCriterionStd
         ! ... noiser solutions
-        do iSol = iSol + 1, Spec%EvolAlgNSol
+        do iSol = iSol, Spec%EvolAlgNSol
           RanNumLoc = RanNumLoc + 1
           if (RanNumLoc .gt. nRanNum) then
             RanNumLoc = 1
@@ -6070,37 +6061,39 @@ module AlphaMateModule
           ! ... The MaxCriterion solution
           iSol = 1
           InitChrom(:, iSol) = SolMaxCriterion%Chrom
-          ! ... exact truncation selection solution with equal contributions
           iSol = iSol + 1
-            InitChrom(1:Data%nPotPar, iSol) = 0.0
-            InitChrom(                 RapKnr(SelCriterionStd(1:Data%nPotPar1),                  Spec%nPar1),  iSol) = FLOATFUN(Spec%nMat) / Spec%nPar1
+          ! ... exact truncation selection solution with equal contributions
+          InitChrom(1:Data%nPotPar, iSol) = 0.0
+          iSol = iSol + 1
+          InitChrom(                   RapKnr(SelCriterionStd(1:Data%nPotPar1),                  Spec%nPar1),  iSol) = FLOATFUN(Spec%nMat) / Spec%nPar1
           if (Spec%GenderGiven) then
             InitChrom((Data%nPotPar1 + RapKnr(SelCriterionStd((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), iSol) = FLOATFUN(Spec%nMat) / Spec%nPar2
           end if
           ! ... approximate truncation selection solution
-          iSol = iSol + 1
           InitChrom(1:Data%nPotPar, iSol) = SelCriterionStd
+          iSol = iSol + 1
           ! ... The previous target solution
           if (Point .gt. 1) then
-            iSol = iSol + 1
             InitChrom(:, iSol) = Sol%Chrom
+            iSol = iSol + 1
           end if
           ! ... approximate minimum coancestry solution with equal contributions
+          InitChrom(1:Data%nPotPar, iSol) = 0.0
           iSol = iSol + 1
-            InitChrom(1:Data%nPotPar, iSol) = 0.0
-            InitChrom(                 RapKnr(AvgCoancestryStd(1:Data%nPotPar1),                  Spec%nPar1),  iSol) = FLOATFUN(Spec%nMat) / Spec%nPar1
+          InitChrom(                   RapKnr(AvgCoancestryStd(1:Data%nPotPar1),                  Spec%nPar1),  iSol) = FLOATFUN(Spec%nMat) / Spec%nPar1
           if (Spec%GenderGiven) then
             InitChrom((Data%nPotPar1 + RapKnr(AvgCoancestryStd((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), iSol) = FLOATFUN(Spec%nMat) / Spec%nPar2
           end if
+          iSol = iSol + 1
           ! ... approximate minimum coancestry solution
-          iSol = iSol + 1
           InitChrom(1:Data%nPotPar, iSol) = AvgCoancestryStd
-          ! ... The MinCoancestry solution
           iSol = iSol + 1
+          ! ... The MinCoancestry solution
           InitChrom(:, iSol) = SolMinCoancestry%Chrom
+          iSol = iSol + 1
           ! ... noiser solutions
           Tmp = (100.0 - 100.0 / 90.0 * TARGETDEGREEFRONTIER(Point)) / 100.0
-          do iSol = iSol + 1, Spec%EvolAlgNSol
+          do iSol = iSol, Spec%EvolAlgNSol
             RanNumLoc = RanNumLoc + 1
             if (RanNumLoc .gt. nRanNum) then
               RanNumLoc = 1
@@ -6286,39 +6279,44 @@ module AlphaMateModule
 
           ! Initialise
           ! @todo initialise with an approximate programming/exact solution?
-          ! ... The MaxCriterion solution
           iSol = 1
-          InitChrom(:, iSol) = SolMaxCriterion%Chrom
+          ! ... The MaxCriterion solution
+          if (Spec%ModeMaxCriterion) then
+            InitChrom(:, iSol) = SolMaxCriterion%Chrom
+            iSol = iSol + 1
+          end if
           ! ... exact truncation selection solution with equal contributions
+          InitChrom(1:Data%nPotPar, iSol) = 0.0
           iSol = iSol + 1
-            InitChrom(1:Data%nPotPar, iSol) = 0.0
-            InitChrom(                 RapKnr(SelCriterionStd(1:Data%nPotPar1),                  Spec%nPar1),  iSol) = FLOATFUN(Spec%nMat) / Spec%nPar1
+          InitChrom(                   RapKnr(SelCriterionStd(1:Data%nPotPar1),                  Spec%nPar1),  iSol) = FLOATFUN(Spec%nMat) / Spec%nPar1
           if (Spec%GenderGiven) then
             InitChrom((Data%nPotPar1 + RapKnr(SelCriterionStd((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), iSol) = FLOATFUN(Spec%nMat) / Spec%nPar2
           end if
           ! ... approximate truncation selection solution
-          iSol = iSol + 1
           InitChrom(1:Data%nPotPar, iSol) = SelCriterionStd
-          ! ... approximate minimum coancestry solution with equal contributions
           iSol = iSol + 1
-            InitChrom(1:Data%nPotPar, iSol) = 0.0
-            InitChrom(                 RapKnr(AvgCoancestryStd(1:Data%nPotPar1),                  Spec%nPar1),  iSol) = FLOATFUN(Spec%nMat) / Spec%nPar1
+          ! ... approximate minimum coancestry solution with equal contributions
+          InitChrom(1:Data%nPotPar, iSol) = 0.0
+          iSol = iSol + 1
+          InitChrom(                   RapKnr(AvgCoancestryStd(1:Data%nPotPar1),                  Spec%nPar1),  iSol) = FLOATFUN(Spec%nMat) / Spec%nPar1
           if (Spec%GenderGiven) then
             InitChrom((Data%nPotPar1 + RapKnr(AvgCoancestryStd((Data%nPotPar1 + 1):Data%nPotPar), Spec%nPar2)), iSol) = FLOATFUN(Spec%nMat) / Spec%nPar2
           end if
           ! ... approximate minimum coancestry solution
-          iSol = iSol + 1
           InitChrom(1:Data%nPotPar, iSol) = AvgCoancestryStd
-          ! ... The MinCoancestry solution
           iSol = iSol + 1
-          InitChrom(:, iSol) = SolMinCoancestry%Chrom
+          ! ... The MinCoancestry solution
+          if (Spec%ModeMinCoancestry) then
+            InitChrom(:, iSol) = SolMinCoancestry%Chrom
+            iSol = iSol + 1
+          end if
           ! ... noiser solutions
           if (Spec%ModeSpec%ObjectiveCriterion .and. Spec%ModeSpec%ObjectiveCoancestry) then
             Tmp = (100.0 - 100.0 / 90.0 * Spec%ModeSpec%TargetDegree)
           else
             Tmp = 0.5
           end if
-          do iSol = iSol + 1, Spec%EvolAlgNSol
+          do iSol = iSol, Spec%EvolAlgNSol
             RanNumLoc = RanNumLoc + 1
             if (RanNumLoc .gt. nRanNum) then
               RanNumLoc = 1
@@ -6337,7 +6335,7 @@ module AlphaMateModule
                   ! Multiply by standardized selection criterion to boost better individuals
                   InitChrom(1:Data%nPotPar, iSol) =   InitChrom(1:Data%nPotPar, iSol) * SelCriterionStd
                 else
-                  ! Multiply by product to boost better that are less individuals (note the - in front!)
+                  ! Multiply by product to boost better that? are? less? individuals (note the - in front!)
                   InitChrom(1:Data%nPotPar, iSol) = - InitChrom(1:Data%nPotPar, iSol) * SelCriterionStd * AvgCoancestryStd
                 end if
               else
@@ -6346,7 +6344,7 @@ module AlphaMateModule
                   RanNumLoc = 1
                 end if
                 if (RanNum(RanNumLoc) .lt. 0.5) then
-                  ! Multiply by product to boost better that are less individuals (note the - in front!)
+                  ! Multiply by product to boost better that? are? less? individuals (note the - in front!)
                   InitChrom(1:Data%nPotPar, iSol) = - InitChrom(1:Data%nPotPar, iSol) * SelCriterionStd * AvgCoancestryStd
                 else
                   ! Multiply by standardized average coancestry to boost less related individuals
