@@ -152,10 +152,10 @@ module AlphaMateModule
   CHARACTER(len=CHARLENGTH), PARAMETER :: FMTCONTRIBUTIONEDITB = ", 4x, i11, 3(4x, f11.5), 2(4x, i11), 4x, f11.5)"
 
   CHARACTER(len=CHARLENGTH), PARAMETER :: FMTMATINGHEADA = "(a15, 2a"
-  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTMATINGHEADB = ", 2a21, a13)"
+  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTMATINGHEADB = ", 2a21, a13, a8)"
 
   CHARACTER(len=CHARLENGTH), PARAMETER :: FMTMATINGA = "(i15, 2(1x, a"
-  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTMATINGB = "), 2(1x, i20), 1x, i12)"
+  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTMATINGB = "), 2(1x, i20), 1x, i12, 1x, i7)"
 
   ! --- Module types ---
 
@@ -6749,7 +6749,7 @@ module AlphaMateModule
       integer(int32) :: nMat, MatingUnit, k, l,                 &
                         Rank(size(This%MatingPlan, dim=2)),     &
                         MatCount(size(This%MatingPlan, dim=2)), &
-                        Ids(2)
+                        Ids(2), Selfing
 
       nMat = size(This%MatingPlan, dim=2)
 
@@ -6767,7 +6767,8 @@ module AlphaMateModule
                                             "                         Parent2", &
                                             " nContributionParent1",            &
                                             " nContributionParent2",            &
-                                            " MatingsCount"
+                                            " MatingsCount",                    &
+                                            " Selfing"
 
       ! A rankable array
       Rank = GeneratePairing(xin=This%MatingPlan(1, :),&
@@ -6783,10 +6784,17 @@ module AlphaMateModule
         l = Rank(k)
         ! print*, "x", nMat - k + 1, This%MatingPlan(1:2, l)
         Ids = This%MatingPlan(1:2, l)
+        ! print*,l,This%MatingPlan(1:2, l),Ids
+        if (Ids(1) .eq. Ids(2)) then
+          Selfing = 1
+        else
+          Selfing = 0
+        end if
         write(MatingUnit, Spec%FmtMating) nMat - k + 1,                    &
                                           Data%Coancestry%OriginalId(Ids), &
                                           This%nVec(Ids),                  &
-                                          MatCount(l)
+                                          MatCount(l),                     &
+                                          Selfing
         k = k - 1 ! MrgRnk ranks small to large
       end do
 

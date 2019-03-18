@@ -1143,10 +1143,10 @@ There is one mating/crossing plan file for each optimisation (if `MateAllocation
 
 ::
 
-  Mating Parent1 Parent2 nContributionParent1 nContributionParent1 MatingsCount
-       1 id1     id5                        2                    1            1
-       2 id1     id7                        2                    1            1
-       3 id2     id20                       1                    1            1
+  Mating Parent1 Parent2 nContributionParent1 nContributionParent1 MatingsCount Selfing
+       1 id1     id5                        2                    1            1       0
+       2 id1     id7                        2                    1            1       0
+       3 id2     id20                       1                    1            1       0
   ...
 
 Optimisation log
