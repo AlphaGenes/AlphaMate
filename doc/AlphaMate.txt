@@ -52,7 +52,7 @@ A **valid mating/crossing plan** is defined by a combination of constraints (see
 i) the number of matings/crosses,
 ii) the maximal number of parents,
 iii) the minimal, equal, or maximal number of contributions per parent,
-iv) allowance of reciprocal and repeated matings/crosses or selfing.
+iv) allowance of repeated matings/crosses and selfing.
 
 The **desired targets** (see `Desired targets`_) formulate optimisation objectives, such as:
 
@@ -431,16 +431,6 @@ AllowRepeatedMatings
   AllowRepeatedMatings , Yes
 
 AllowRepeatedMatings specifies whether repeated matings/crosses between the same parents are allowed, that is, whether AxB and AxB matings/crosses are allowed. Default is ``No``. This specification is only relevant when mate/cross allocation is activated (`MateAllocation`_). Note that limiting contributions can be used to a similar, but not exactly the same, effect (see for example `LimitContributionsMin`_)! See also `RepeatedMatingsNIterFix`_ and `RepeatedMatingsWeight`_.
-
-AllowReciprocalMatings
-^^^^^^^^^^^^^^^^^^^^^^
-
-::
-
-  AllowReciprocalMatings , [Yes/No]
-  AllowReciprocalMatings , Yes
-
-AllowReciprocalMatings specifies whether reciprocal matings/crosses between the same parents is allowed, that is, whether AxB and BxA matings/crosses are allowed. Default is ``No``. This specification is only relevant when "gender" functionality is NOT active (see `GenderFile`_) and when mate/cross allocation is active (`MateAllocation`_).
 
 AllowSelfing
 ^^^^^^^^^^^^
@@ -851,7 +841,7 @@ RepeatedMatingsNIterFix
   RepeatedMatingsNIterFix , [Value]
   RepeatedMatingsNIterFix , 1
 
-RepeatedMatingsNIterFix specifies the number of iterations to fix solutions that involve repeated matings/crosses, when these are not allowed (see `AllowRepeatedMatings`_). |AM| tries to avoid this by fixing solutions in an iterative way. Default is to do 1 iteration and penalise a solution if there are any remaining repeats (see `RepeatedMatingsWeight`_). If you find that the default behaviour is slowing the optimisation too much, you can increase the number of iterations to fix a solution.
+RepeatedMatingsNIterFix specifies the number of iterations to fix solutions that involve repeated matings/crosses, when these are not allowed (see `AllowRepeatedMatings`_). |AM| tries to avoid this by fixing solutions in an iterative way. Default is to do 1 iteration and penalise a solution if there are any remaining repeats (see `RepeatedMatingsWeight`_). If you find that the default behaviour is slowing convergence too much, you can increase the number of iterations to fix a solution.
 
 RepeatedMatingsWeight
 ^^^^^^^^^^^^^^^^^^^^^
@@ -1139,7 +1129,7 @@ There is one contributors file for each optimisation. The files have basename *C
 Mating/Crossing plan
 --------------------
 
-There is one mating/crossing plan file for each optimisation (if `MateAllocation`_ is active). The files have basename *MatingPlanMode*, for example, *MatingPlanModeMinCoancestry.txt*, *MatingPlanModeOptTarget1.txt*, etc. The file reports pairing of parents (matings/crosses) and the number of contributions (=matings/crosses) each parent has and what is the number of repeated matings/crosses. The last three columns are provided to help you inspect the mating/crossing plan. The matings/crosses are ordered such that repeats, if any, appear together.
+There is one mating/crossing plan file for each optimisation (if `MateAllocation`_ is active). The files have basename *MatingPlanMode*, for example, *MatingPlanModeMinCoancestry.txt*, *MatingPlanModeOptTarget1.txt*, etc. The file reports pairing of parents (matings/crosses), the number of contributions (=matings/crosses) each parent has, what is the number of repeated matings/crosses and if the mating/cross is selfing. The last three columns are provided to help you inspect the mating/crossing plan. The matings/crosses are ordered such that repeats, if any, appear together.
 
 ::
 
