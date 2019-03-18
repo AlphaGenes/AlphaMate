@@ -4802,7 +4802,7 @@ module AlphaMateModule
 
       ! Other
       integer(int32) :: i, j, k, l, GenderMode, Start, End, nCumMat, TmpMin, TmpMax, &
-                        TmpI, nRanNum, RanNumLoc, Par1, Par2, TmpMate(2)
+                        TmpI, nRanNum, RanNumLoc, Par1, Par2, TmpMate(2), nSelfing, nSelfingNew
       integer(int32), allocatable :: Rank(:), MatPair(:), nVecPar1(:), Pair(:, :)
 
       real(FLOATTYPE) :: TmpR, Diff, MaxDiff
@@ -5256,6 +5256,7 @@ module AlphaMateModule
                 else
                   ! When gender does not matter, selfing can happen (we have one set of parents)
                   ! and when selfing is not allowed we need to avoid it - slower code
+                  nSelfing = 0
                   do i = 1, Data%nPotPar1
                     ! print*, i, "/", Data%nPotPar1
                     Par1 = Data%IdPotPar1(i)
@@ -5271,6 +5272,7 @@ module AlphaMateModule
                             end if
                           end do
                           if (l .lt. 1) then ! Above loop ran out without finding a swap
+                            nSelfing = nSelfing + 1
                             This%Objective = This%Objective + Spec%SelfingWeight
                             if (Spec%SelfingWeight .lt. 0.0) then
                               This%PenaltySelfing = This%PenaltySelfing + Spec%SelfingWeight
@@ -5293,7 +5295,7 @@ module AlphaMateModule
                   end do
                 end if
 
-                ! Avoid repeated matings between the same male and female
+                ! Avoid repeated matings between the same parents
                 if (.not. Spec%RepeatedMatingsAllowed) then
 
                   ! Count repeated matings
@@ -5357,6 +5359,24 @@ module AlphaMateModule
                     if (Spec%RepeatedMatingsWeight .lt. 0.0) then
                       This%PenaltyRepeatedMatings = This%PenaltyRepeatedMatings + TmpR
                       This%Penalty                = This%Penalty                + TmpR
+                    end if
+                  end if
+
+                  ! Check if we generated any additional selfing
+                  if (.not. Spec%SelfingAllowed) then
+                    nSelfingNew = 0
+                    do i = 1, Spec%nMat
+                      if (This%MatingPlan(1, i) .eq. This%MatingPlan(2, i)) then
+                        nSelfingNew = nSelfingNew + 1
+                      end if
+                    end do
+                    TmpI = nSelfingNew - nSelfing
+                    if (TmpI .gt. 0) then
+                      This%Objective = This%Objective + TmpI * Spec%SelfingWeight
+                      if (Spec%SelfingWeight .lt. 0.0) then
+                        This%PenaltySelfing = This%PenaltySelfing + TmpI * Spec%SelfingWeight
+                        This%Penalty        = This%Penalty        + TmpI * Spec%SelfingWeight
+                      end if
                     end if
                   end if
                 end if

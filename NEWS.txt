@@ -1,14 +1,14 @@
 
 v0.3.0 2019-??-??
   IMPROVEMENTS
-  * Added functionality to avoid reciprocal matings when gender is not relevant.
+  * Added functionality to allow or avoid repeated matings
+    (AllowRepeatedMatings, [Yes/No]).
 
-  * Added functionality to avoid repeated matings.
+  * Mating plan has now additional info (the number of contributions per parent,
+    the number of repeated matings/crosses and selfing status).
 
-  * Mating plan has now additional info (the number of matings per parent and
-    the number of repeated matings).
-
-  * Specifications are now more thoroughly tested.
+  * Specifications are now more thoroughly tested. Also, when a specification is
+    set to No (inactivated) this is printed on screen.
 
   * Specifications Limit{Male,Female}Contributions have been removed - you now only
     have to specify Limit{Male,Female}Contributions{Min,Max} to activate limits.
@@ -36,7 +36,8 @@ v0.3.0 2019-??-??
 
   * AlphaMate crashed when only selection criterion targets or coancestry targets
     were given. Now it properly maximises gain for given coancestry targets and
-    minimises coancestry for given selection criterion targets.
+    minimises coancestry for given selection criterion targets - all via target
+    degrees.
 
 v0.2.0 2018-11-02
   IMPROVEMENTS
