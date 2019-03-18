@@ -25,9 +25,12 @@ v0.3.0 2019-03-??
 
   * Targets.txt file is now always produced - for any optimisation mode.
 
-  * Added a note about flexibility to the manual.
-
   * Improved stability with some edge cases.
+
+  * Added average coancestry of a contributor with the contributors in the
+    contributors file (in addition to coancestry with all candidates).
+
+  * Added a note about AlphaMate flexibility to the manual.
 
   BUGFIXES
   * In some edge cases written mating plan was wrong.

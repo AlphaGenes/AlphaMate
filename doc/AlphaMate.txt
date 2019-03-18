@@ -1116,14 +1116,14 @@ These file report summaries of the input data: *CoancestrySummary.txt*,
 List of contributors with associated data
 -----------------------------------------
 
-There is one contributors file for each optimisation. The files have basename *ContributorsPlanMode*, for example, *ContributorsPlanModeMinCoancestry.txt*, *ContributorsModeOptTarget1.txt*, etc. The file reports which individuals should have non-zero contributions to the next generation, their associated data (gender, selection criterion, and average coancestry with all of the candidates), and finally how many `Contributions`_ should they have (in proportional and absolute form).
+There is one contributors file for each optimisation. The files have basename *ContributorsPlanMode*, for example, *ContributorsPlanModeMinCoancestry.txt*, *ContributorsModeOptTarget1.txt*, etc. The file reports which individuals should have non-zero contributions to the next generation, their associated data (gender, selection criterion, average coancestry with (A)ll of the candidates and just with the (C)ontributors), and finally how many `Contributions`_ should they have (in proportional and absolute form).
 
 ::
 
-    Id Gender SelCriterion AvgCoancestry Contribution nContribution
-  id1       1        17.13        0.7802         0.05            50
-  id2       1        16.75        0.7790         0.02            20
-  id3       1        16.75        0.7790         0.02            20
+    Id Gender SelCriterion AvgCoancestryA AvgCoancestryC Contribution nContribution
+  id1       1        17.13         0.7802         0.7600         0.05            50
+  id2       1        16.75         0.7790         0.7659         0.02            20
+  id3       1        16.75         0.7790         0.7723         0.02            20
   ...
 
 Mating/Crossing plan
@@ -1213,24 +1213,24 @@ The aim is to create 32 crosses between the pools. Each parent can contribute up
 PlantSelf
 ---------
 
-This example demonstrates one plant population of self-pollinating outbred plants. The data description shows:
+This example demonstrates a population of self-pollinating outbred plants. The data description shows:
 
   * mean selection criterion of 13.31
   * group coancestry         of 0.812
 
-The aim is to create 32 crosses between the pools. Each parent can contribute up to ten crosses and selfing is allowed. The breeder set the target to :math:`30^{\circ}`. The results show that:
+The aim is to create 32 crosses between plants. Each parent can contribute up to ten crosses and selfing is allowed. The breeder set the target to :math:`30^{\circ}`. The results show that:
 
-* the maximum possible selection criterion is 14.19 (standardized 2.45)
-* the minimum possible group coancestry    is 0.801 (rate of coancestry -0.056)
+* the maximum possible selection criterion is 14.16 (standardized 2.37)
+* the minimum possible group coancestry    is 0.801 (rate of coancestry -0.059)
 * the balanced solution gives
 
-  * selection criterion of 14.07 (standardized 2.11, percentage max 90)
-  * group coancestry    of 0.815 (rate of coancestry of 0.014, percentage min 52)
+  * selection criterion of 14.05 (standardized 2.05, percentage max 90)
+  * group coancestry    of 0.814 (rate of coancestry of 0.010, percentage min 52)
 
 CoreDiversitySet
 ----------------
 
-This example demonstrates the optimisation of a set of individuals that maximise the amount of diversity, that is, optimisaton of a core diversty set. This kind of optimisation arises in many settings, for example, in defining which individuals should be stored in a gene-bank, or which individuals should be genotyped or sequenced, etc. This example uses the data from the `Animal`_ example.
+This example demonstrates the optimisation of a set of individuals that maximise the amount of diversity, that is, optimisation of a core diversity set. This kind of optimisation arises in many settings, for example, in defining which individuals should be stored in a gene-bank, or which individuals should be genotyped or sequenced, etc. This example uses the data from the `Animal`_ example.
 
 The data description shows:
 

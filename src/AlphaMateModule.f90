@@ -140,16 +140,16 @@ module AlphaMateModule
   CHARACTER(len=CHARLENGTH), PARAMETER :: FMTLOGPOPUNITA = "(2i17, "
 
   CHARACTER(len=CHARLENGTH), PARAMETER :: FMTCONTRIBUTIONHEADA = "(a"
-  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTCONTRIBUTIONHEADB = ", 5a15)"
+  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTCONTRIBUTIONHEADB = ", 6a15)"
 
   CHARACTER(len=CHARLENGTH), PARAMETER :: FMTCONTRIBUTIONHEADEDITA = "(a"
-  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTCONTRIBUTIONHEADEDITB = ", 7a15)"
+  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTCONTRIBUTIONHEADEDITB = ", 8a15)"
 
   CHARACTER(len=CHARLENGTH), PARAMETER :: FMTCONTRIBUTIONA = "(a"
-  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTCONTRIBUTIONB = ", 4x, i11, 3(4x, f11.5), 4x, i11)"
+  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTCONTRIBUTIONB = ", 4x, i11, 4(4x, f11.5), 4x, i11)"
 
   CHARACTER(len=CHARLENGTH), PARAMETER :: FMTCONTRIBUTIONEDITA = "(a"
-  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTCONTRIBUTIONEDITB = ", 4x, i11, 3(4x, f11.5), 2(4x, i11), 4x, f11.5)"
+  CHARACTER(len=CHARLENGTH), PARAMETER :: FMTCONTRIBUTIONEDITB = ", 4x, i11, 4(4x, f11.5), 2(4x, i11), 4x, f11.5)"
 
   CHARACTER(len=CHARLENGTH), PARAMETER :: FMTMATINGHEADA = "(a15, 2a"
   CHARACTER(len=CHARLENGTH), PARAMETER :: FMTMATINGHEADB = ", 2a21, a13, a8)"
@@ -5198,6 +5198,7 @@ module AlphaMateModule
                 k = Spec%nMat ! MrgRnk ranks small to large
                 ! We use nVecPar1 below instead of This%nVec because when .not. GenderGiven
                 !   we modify nVecPar1 above, while we should not modify This%nVec
+                nSelfing = 0
                 if (Spec%GenderGiven .or. Spec%SelfingAllowed) then
                   ! When gender matters selfing can not happen (we have two distinct sets of parents;
                   ! unless the user adds individuals of one sex in both sets) and when gender does not matter,
@@ -5219,7 +5220,6 @@ module AlphaMateModule
                 else
                   ! When gender does not matter, selfing can happen (we have one set of parents)
                   ! and when selfing is not allowed we need to avoid it - slower code
-                  nSelfing = 0
                   do i = 1, Data%nPotPar1
                     ! print*, i, "/", Data%nPotPar1
                     Par1 = Data%IdPotPar1(i)
@@ -6580,6 +6580,7 @@ module AlphaMateModule
 
       ! Other
       integer(int32) :: ContribUnit, Rank(Data%nInd), nCon, i, Ind
+      real(FLOATTYPE), allocatable :: AvgCoancestryCont(:)
 
       if (.not. present(ContribFile)) then
         ContribUnit = STDOUT
@@ -6606,13 +6607,20 @@ module AlphaMateModule
       ! print*, Rank
       ! print*, This%nVec(Rank(1:nCon))
 
+      ! Average coancestry among contributors
+      allocate(AvgCoancestryCont(nCon))
+      do i = 1, nCon
+        AvgCoancestryCont(i) = Mean(Data%Coancestry%Value(Rank(1:nCon), Rank(i)))
+      end do
+
       ! Write them out
       if (.not. allocated(This%GenomeEdit)) then
         !                                             12345678901234567890123456789012
         write(ContribUnit, Spec%FmtContributionHead) "                              Id", &
                                                      "         Gender", &
                                                      "   SelCriterion", &
-                                                     "  AvgCoancestry", &
+                                                     " AvgCoancestryA", &
+                                                     " AvgCoancestryC", &
                                                      "   Contribution", &
                                                      "  nContribution"
         if (.not. Spec%GenderGiven) then
@@ -6622,6 +6630,7 @@ module AlphaMateModule
                                                      Data%Gender(Ind),                             &
                                                      Data%SelCriterion(Ind),                       &
                                                      Data%AvgCoancestry(Ind),                      &
+                                                     AvgCoancestryCont(i),                         &
                                                      FLOATFUN(This%nVec(Ind)) / (2.0 * Spec%nMat), &
                                                      This%nVec(Ind)
           end do
@@ -6633,6 +6642,7 @@ module AlphaMateModule
                                                        Data%Gender(Ind),                             &
                                                        Data%SelCriterion(Ind),                       &
                                                        Data%AvgCoancestry(Ind),                      &
+                                                       AvgCoancestryCont(i),                         &
                                                        FLOATFUN(This%nVec(Ind)) / (2.0 * Spec%nMat), &
                                                        This%nVec(Ind)
             end if
@@ -6644,6 +6654,7 @@ module AlphaMateModule
                                                        Data%Gender(Ind),                             &
                                                        Data%SelCriterion(Ind),                       &
                                                        Data%AvgCoancestry(Ind),                      &
+                                                       AvgCoancestryCont(i),                         &
                                                        FLOATFUN(This%nVec(Ind)) / (2.0 * Spec%nMat), &
                                                        This%nVec(Ind)
             end if
@@ -6654,7 +6665,8 @@ module AlphaMateModule
         write(ContribUnit, Spec%FmtContributionHeadEdit) "                              Id", &
                                                          "         Gender", &
                                                          "   SelCriterion", &
-                                                         "  AvgCoancestry", &
+                                                         " AvgCoancestryA", &
+                                                         " AvgCoancestryC", &
                                                          "   Contribution", &
                                                          "  nContribution", &
                                                          "     GenomeEdit", &
@@ -6666,6 +6678,7 @@ module AlphaMateModule
                                                          Data%Gender(Ind),                             &
                                                          Data%SelCriterion(Ind),                       &
                                                          Data%AvgCoancestry(Ind),                      &
+                                                         AvgCoancestryCont(i),                         &
                                                          FLOATFUN(This%nVec(Ind)) / (2.0 * Spec%nMat), &
                                                          This%nVec(Ind),                               &
                                                          nint(This%GenomeEdit(Ind)),                   &
@@ -6679,6 +6692,7 @@ module AlphaMateModule
                                                            Data%Gender(Ind),                             &
                                                            Data%SelCriterion(Ind),                       &
                                                            Data%AvgCoancestry(Ind),                      &
+                                                           AvgCoancestryCont(i),                         &
                                                            FLOATFUN(This%nVec(Ind)) / (2.0 * Spec%nMat), &
                                                            This%nVec(Ind),                               &
                                                            nint(This%GenomeEdit(Ind)),                   &
@@ -6692,6 +6706,7 @@ module AlphaMateModule
                                                            Data%Gender(Ind),                             &
                                                            Data%SelCriterion(Ind),                       &
                                                            Data%AvgCoancestry(Ind),                      &
+                                                           AvgCoancestryCont(i),                         &
                                                            FLOATFUN(This%nVec(Ind)) / (2.0 * Spec%nMat), &
                                                            This%nVec(Ind),                               &
                                                            nint(This%GenomeEdit(Ind)),                   &
@@ -6700,7 +6715,7 @@ module AlphaMateModule
           end do
         end if
       end if
-
+      deallocate(AvgCoancestryCont)
       if (present(ContribFile)) then
         close(ContribUnit)
       end if
