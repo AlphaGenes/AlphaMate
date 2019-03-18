@@ -233,7 +233,7 @@ module AlphaMateModule
                EqualizePar, EqualizePar1, EqualizePar2,    &
                LimitPar, LimitPar1, LimitPar2,             &
                MateAllocation, RandomMateAllocation,       &
-               ReciprocalMatingsAllowed, RepeatedMatingsAllowed, SelfingAllowed
+               RepeatedMatingsAllowed, SelfingAllowed
     real(FLOATTYPE) :: LimitParMin,       LimitPar1Min,       LimitPar2Min, &
                        LimitParMax,       LimitPar1Max,       LimitPar2Max, &
                        LimitParMinWeight, LimitPar1MinWeight, LimitPar2MinWeight, &
@@ -509,8 +509,6 @@ module AlphaMateModule
       This%MateAllocation = .true.
       This%RandomMateAllocation = .false.
 
-      This%ReciprocalMatingsAllowed = .false.
-
       This%RepeatedMatingsAllowed = .false.
       This%RepeatedMatingsWeight = -1.0
       This%RepeatedMatingsNIterFix = 1
@@ -736,8 +734,6 @@ module AlphaMateModule
 
       write(Unit, *) "MateAllocation:       ", This%MateAllocation
       write(Unit, *) "RandomMateAllocation: ", This%RandomMateAllocation
-
-      write(Unit, *) "ReciprocalMatingsAllowed: ", This%ReciprocalMatingsAllowed
 
       write(Unit, *) "RepeatedMatingsAllowed:   ", This%RepeatedMatingsAllowed
       write(Unit, *) "RepeatedMatingsWeight:    ", This%RepeatedMatingsWeight
@@ -1951,24 +1947,6 @@ module AlphaMateModule
                 end if
               else
                 write(STDERR, "(a)") " ERROR: Must specify Yes or No for RandomMateAllocation, for example, RandomMateAllocation, Yes"
-                write(STDERR, "(a)") " "
-                stop 1
-              end if
-
-            case ("allowreciprocalmatings")
-              if (allocated(Second)) then
-                if (ToLower(trim(adjustl(Second(1)))) .eq. "yes") then
-                  This%ReciprocalMatingsAllowed = .true.
-                  if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Allow reciprocal matings/crosses YES"
-                  end if
-                else
-                  if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Allow reciprocal matings/crosses NO"
-                  end if
-                end if
-              else
-                write(STDERR, "(a)") " ERROR: Must specify Yes or No for AllowReciprocalMatings, for example, AllowReciprocalMatings, Yes"
                 write(STDERR, "(a)") " "
                 stop 1
               end if
@@ -3756,18 +3734,11 @@ module AlphaMateModule
       if (Spec%GenderGiven) then
         This%nPotMat = This%nPotPar1 * This%nPotPar2
       else
-        if (Spec%ReciprocalMatingsAllowed) then
-          This%nPotMat = This%nPotPar1 * This%nPotPar1
-          if (.not. Spec%SelfingAllowed) then
-            This%nPotMat = This%nPotMat - This%nPotPar1
-          end if
+        This%nPotMat = FLOATFUN(This%nPotPar1 * This%nPotPar1) / 2.0
+        if (Spec%SelfingAllowed) then
+          This%nPotMat = nint(This%nPotMat + real(This%nPotPar1) / 2.0)
         else
-          This%nPotMat = FLOATFUN(This%nPotPar1 * This%nPotPar1) / 2.0
-          if (Spec%SelfingAllowed) then
-            This%nPotMat = nint(This%nPotMat + real(This%nPotPar1) / 2.0)
-          else
-            This%nPotMat = nint(This%nPotMat - real(This%nPotPar1) / 2.0)
-          end if
+          This%nPotMat = nint(This%nPotMat - real(This%nPotPar1) / 2.0)
         end if
       end if
 
@@ -3790,7 +3761,6 @@ module AlphaMateModule
             write(STDERR, "(a)") "          (no. of individuals = "//trim(Int2Char(This%nPotPar1))//")"
             write(STDERR, "(a)") "        Do you need to specify AllowSelfing?"
           end if
-          write(STDERR, "(a)") "        Do you need to specify AllowReciprocalMatings?"
         end if
         write(STDERR, "(a)") "        Do you need to specify AllowRepeatedMatings?"
         write(STDERR, "(a)") " "
@@ -4802,7 +4772,7 @@ module AlphaMateModule
 
       ! Other
       integer(int32) :: i, j, k, l, GenderMode, Start, End, nCumMat, TmpMin, TmpMax, &
-                        TmpI, nRanNum, RanNumLoc, Par1, Par2, TmpMate(2), nSelfing, nSelfingNew
+                        TmpI, nRanNum, RanNumLoc, Par1, Par2, nSelfing, nSelfingNew
       integer(int32), allocatable :: Rank(:), MatPair(:), nVecPar1(:), Pair(:, :)
 
       real(FLOATTYPE) :: TmpR, Diff, MaxDiff
@@ -5240,13 +5210,6 @@ module AlphaMateModule
                         ! if (k .lt. 10) write(*, '(i6,a1,i6,i6,a1,i6,i6,i6,a1,i6)') i, "/", Data%nPotPar1, j, "/", nVecPar1(i), sum(nVecPar1), k, "/", Spec%nMat
                         !                write(*, '(i6,a1,i6,i6,a1,i6,i6,i6,a1,i6)') i, "/", Data%nPotPar1, j, "/", nVecPar1(i), sum(nVecPar1), k, "/", Spec%nMat
                         Par2 = MatPair(k)
-                        if (Spec%SelfingAllowed) then ! .not. GenderGiven
-                          if (.not. Spec%ReciprocalMatingsAllowed) then
-                            TmpMate = [Par1, Par2]
-                            Par1 = maxval(TmpMate)
-                            Par2 = minval(TmpMate)
-                          end if
-                        end if
                         This%MatingPlan(1, k) = Par1
                         This%MatingPlan(2, k) = Par2
                         k = k - 1
@@ -5281,11 +5244,6 @@ module AlphaMateModule
                           end if
                         end if
                         Par2 = MatPair(k)
-                        if (.not. Spec%ReciprocalMatingsAllowed) then
-                          TmpMate = [Par1, Par2]
-                          Par1 = maxval(TmpMate)
-                          Par2 = minval(TmpMate)
-                        end if
                         This%MatingPlan(1, k) = Par1
                         This%MatingPlan(2, k) = Par2
                         ! print*, k, This%MatingPlan(:, k)
