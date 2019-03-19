@@ -1920,11 +1920,11 @@ module AlphaMateModule
                 if (ToLower(trim(adjustl(Second(1)))) .ne. "yes") then
                   This%MateAllocation = .false.
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Mate/cross allocation YES"
+                    write(STDOUT, "(a)") " Mate/cross allocation NO"
                   end if
                 else
                   if (LogStdoutInternal) then
-                    write(STDOUT, "(a)") " Mate/cross allocation NO"
+                    write(STDOUT, "(a)") " Mate/cross allocation YES"
                   end if
                 end if
               else

@@ -1171,7 +1171,7 @@ Examples
 
 There are several examples shipped with |AM| that demonstrate its use. Each example is provided in specific folder with specifications file and data input files. All the examples are simulated so that we can distribute the data, but they do represent real-like use cases. Below we quickly summarize the examples and results - no specification files are described here, you are supposed to look into the example folder and inspect the files yourself!
 
-Note that the examples show group coancestry and inbreeding using genomic identity by state scale (since the mutation arose in the far past) - consequently the values are high.
+Note that the examples show group coancestry and inbreeding using genomic identity by state scale (since the time mutations arose, which can be far in past) - consequently the values are high.
 
 Animal
 ------
