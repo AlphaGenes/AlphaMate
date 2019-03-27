@@ -2461,7 +2461,7 @@ module AlphaMateModule
 
       if (.not. This%GenderGiven .and. (This%LimitParMin .eq. This%LimitParMax)) then
         if (LogStdoutInternal) then
-          write(STDOUT, "(a)") " NOTE: Since LimitContributionsMin equals LimitContributionsMax, option EqualizeContributions is activated."
+          write(STDOUT, "(a)") " NOTE: Because LimitContributionsMin equals LimitContributionsMax, option EqualizeContributions is activated."
           write(STDOUT, "(a)") " "
         end if
         This%EqualizePar = .true.
@@ -2469,7 +2469,7 @@ module AlphaMateModule
 
       if (This%GenderGiven .and. (This%LimitPar1Min .eq. This%LimitPar1Max)) then
         if (LogStdoutInternal) then
-          write(STDOUT, "(a)") " NOTE: Since LimitMaleContributionsMin equals LimitMaleContributionsMax, option EqualizeMaleContributions is activated."
+          write(STDOUT, "(a)") " NOTE: Because LimitMaleContributionsMin equals LimitMaleContributionsMax, option EqualizeMaleContributions is activated."
           write(STDOUT, "(a)") " "
         end if
         This%EqualizePar1 = .true.
@@ -2477,7 +2477,7 @@ module AlphaMateModule
 
       if (This%GenderGiven .and. (This%LimitPar2Min .eq. This%LimitPar2Max)) then
         if (LogStdoutInternal) then
-          write(STDOUT, "(a)") " NOTE: Since LimitFemaleContributionsMin equals LimitFemaleContributionsMax, option EqualizeFemaleContributions is activated."
+          write(STDOUT, "(a)") " NOTE: Because LimitFemaleContributionsMin equals LimitFemaleContributionsMax, option EqualizeFemaleContributions is activated."
           write(STDOUT, "(a)") " "
         end if
         This%EqualizePar2 = .true.
@@ -3370,7 +3370,7 @@ module AlphaMateModule
           write(STDOUT, "(a)") "       The number of parents: "//trim(Int2Char(Spec%nPar))
           write(STDOUT, "(a)") " "
         end if
-        if (Spec%nPar .gt. 0 .and. Spec%nMat .eq. 0) then
+        if (Spec%MateAllocation .and. (Spec%nPar .gt. 0 .and. Spec%nMat .eq. 0)) then
           write(STDOUT, "(a)") " NOTE: When the number of matings/crosses is not provided and the number of parents is,"
           write(STDOUT, "(a)") "          it is set to the half of the number of individuals"
           Spec%nMat = Spec%nPar / 2
