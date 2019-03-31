@@ -1406,7 +1406,30 @@ We can calculate `Maximum percentage gain`_ from trigonometric degrees as :math:
 
 We can calculate `Minimum percentage coancestry`_ from trigonometric degrees as :math:`sin(Degree \times \pi / 180) \times 100`.
 
-With the above four formulas we can convert degrees to genetic gain and group coancestry and vice versa. |AM| uses this as a general way to convert between the various forms of specifying targeted genetic gain, targeted group coancestry, and trigonometric degrees.
+With the above four formulas we can convert degrees to genetic gain and group coancestry and vice versa. |AM| uses this as a general way to convert between the various forms of specifying targeted genetic gain, targeted group coancestry, and trigonometric degrees. The following table shows the relationship between the trigonometric degrees and `Maximum percentage gain`_ and `Minimum percentage coancestry`_.
+
+::
+  
+  Degree MaxPctGain MinPctCoancestry
+       0      100.0              0.0
+       5       99.6              8.7
+      10       98.5             17.4
+      15       96.6             25.9
+      20       94.0             34.2
+      25       90.6             42.3
+      30       86.6             50.0
+      35       81.9             57.4
+      40       76.6             64.3
+      45       70.7             70.7
+      50       64.3             76.6
+      55       57.4             81.9
+      60       50.0             86.6
+      65       42.3             90.6
+      70       34.2             94.0
+      75       25.9             96.6
+      80       17.4             98.5
+      85        8.7             99.6
+      90        0.0            100.0
 
 Note that the trigonometric degrees only describe balance of a particular solution or set targeted balance. Evolutionary algorithm works along these targets, but can go beyond the assumed circular shape of frontier.
 
