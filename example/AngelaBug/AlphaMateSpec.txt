@@ -1,0 +1,14 @@
+Seed                        , 123
+NrmMatrixFile               , CoancestryMatrix.txt
+SelCriterionFile            , SelectionCriterionFile.txt
+NumberOfParents             , 10
+ModeMaxCriterion            , No
+ModeMinCoancestry           , No
+ModeMinInbreeding           , No
+NumberOfThreads             , 7
+NumberOfMatings             , 2628
+TargetSelCriterionStd       , 1.2
+EqualizeContributions       , No
+AllowSelfing                , No
+OutputBasename              , Try3_
+Stop
