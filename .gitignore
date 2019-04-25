@@ -16,17 +16,37 @@ DoxygenDoc
 *.mod
 *.i90
 .Rhistory
+.Rproj.user
 *.pdf
 pftest_alltests
 
 # AlphaMate outputs
-CoancestrySummary.txt
-ContributionsMode*
-Frontier.txt
-InbreedingSummary.txt
-MatingPlanMode*
-OptimisationLogMode*
-SeedUsed.txt
-SelCriterionSummary.txt
-Targets.txt
-.Rproj.user
+*CoancestrySummary.txt
+*InbreedingSummary.txt
+*SelCriterionSummary.txt
+*GenericIndCritSummary.txt
+*GenericMatCritSummary.txt
+*PAGESummary.txt
+*SeedUsed.txt
+*OptimisationLogMode*.txt
+*ContributorsMode*.txt
+*MatingPlanMode*.txt
+*Targets.txt
+*Frontier.txt
+
+# Manual outputs
+doc/*.tex
+doc/*.html
+doc/*.aux
+doc/*.ilg
+doc/*.ind
+doc/*.log
+doc/*.toc
+doc/*.maf
+doc/*.mtc*
+doc/*.stc*
+
+# Large example
+example/AnimalLarge/Nrm.txt
+example/AnimalLarge/Gender.txt
+example/AnimalLarge/Criterion.txt
