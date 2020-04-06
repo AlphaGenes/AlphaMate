@@ -87,9 +87,9 @@ ArgumentsList = list(
 
   make_option(opt_str = c("-o", "--out"), type = "character", default = "Frontier.png",
               help = "output file name [default is %default]"),
-  make_option(opt_str = c("-bs", "--base_size"), type = "numeric", default = 11,
+  make_option(opt_str = c("-b", "--base_size"), type = "numeric", default = 11,
               help = "base font size [default is %default]"),
-  make_option(opt_str = c("-us", "--out_size"), type = "numeric", default = 10,
+  make_option(opt_str = c("-u", "--out_size"), type = "numeric", default = 10,
               help = "output size [default is %default]")
 );
 
