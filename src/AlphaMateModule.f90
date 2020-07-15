@@ -64,7 +64,7 @@
 ! DESCRIPTION:
 !> @brief    Mate selection / Optimum contribution selection
 !
-!> @details  Optimise selection, maintenance of diversity, and mate allocation
+!> @details  Optimise selection, management of diversity, and mate allocation
 !!           in breeding programs
 !
 !> @author   Gregor Gorjanc, gregor.gorjanc@roslin.ed.ac.uk
@@ -380,7 +380,7 @@ module AlphaMateModule
       write(STDOUT, "(a)") "                            *                     *                           "
       write(STDOUT, "(a)") "                            ***********************                           "
       write(STDOUT, "(a)") "                                                                              "
-      write(STDOUT, "(a)") "       Software for optimising selection, maintenance of diversity, and       "
+      write(STDOUT, "(a)") "       Software for optimising selection, management of diversity, and        "
       write(STDOUT, "(a)") "                     mate allocation in breeding programs                     "
       write(STDOUT, "(a)") "                       http://AlphaGenes.Roslin.ed.ac.uk                      "
       write(STDOUT, "(a)") "                                 No liability                                 "

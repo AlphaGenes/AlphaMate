@@ -12,7 +12,7 @@
 Introduction
 =========================================================================================
 
-|AM| is a program for optimising selection, maintenance of diversity, and mate/cross allocation in breeding programs. This optimisation finds which individuals should contribute to the next generation and potentially how should these individuals be mated/crossed to deliver desired targets. |AM| can be used for a range of breeding programs (animal, fish, self- and cross-pollinating crops, trees, ...).
+|AM| is a program for optimising selection, management of diversity, and mate/cross allocation in breeding programs. This optimisation finds which individuals should contribute to the next generation and potentially how should these individuals be mated/crossed to deliver desired targets. |AM| can be used for a range of breeding programs (animal, fish, self- and cross-pollinating crops, trees, ...).
 
 Please report bugs or suggestions on how the program / user interface / manual could be improved or made more user friendly to Gregor Gorjanc (`Gregor.Gorjanc@roslin.ed.ac.uk <Gregor.Gorjanc@roslin.ed.ac.uk>`_) or John Hickey (`John.Hickey@roslin.ed.ac.uk <John.Hickey@roslin.ed.ac.uk>`_).
 
@@ -45,7 +45,7 @@ The AlphaSuite is available from `AlphaGenes website (http://www.AlphaGenes.rosl
 General overview
 =========================================================================================
 
-|AM| optimises selection, maintenance of diversity, and mate/cross allocation in breeding programs. It achieves this by jointly optimising contributions and mate/cross allocations. Mate/cross allocation is optional, but turned on by default. The goal of this optimisation is to find a **valid mating/crossing plan** (that is, which individuals contribute and how they are mated/crossed) that delivers **desired targets**. This is achieved with an evolutionary optimisation of defined objectives simultaneously.
+|AM| optimises selection, management of diversity, and mate/cross allocation in breeding programs. It achieves this by jointly optimising contributions and mate/cross allocations. Mate/cross allocation is optional, but turned on by default. The goal of this optimisation is to find a **valid mating/crossing plan** (that is, which individuals contribute and how they are mated/crossed) that delivers **desired targets**. This is achieved with an evolutionary optimisation of defined objectives simultaneously.
 
 A **valid mating/crossing plan** is defined by a combination of constraints (see `Mating/Crossing constraints`_), which cover reproductive systems in various species:
 
@@ -454,7 +454,7 @@ d) `Trigonometric degrees`_ between genetic gain and group coancestry (see Figur
 
 Similar flexibility of defining targets is available for selection and inbreeding.
 
-Some targets are conflicting (selection and maintenance of diversity), while others are less so (loss of diversity and inbreeding). To this end, a user can specify several targets for selection and maintenance of diversity to explore the space of possibilities within one |AM| run, while only one specification for inbreeding is allowed within one |AM| run.
+Some targets are conflicting (selection and management of diversity), while others are less so (loss of diversity and inbreeding). To this end, a user can specify several targets for selection and management of diversity to explore the space of possibilities within one |AM| run, while only one specification for inbreeding is allowed within one |AM| run.
 
 The most "practical" target specifications that work in many different settings are: `TargetMaxCriterionPct`_, `TargetMinCoancestryPct`_, `TargetCoancestryRate`_, `TargetMinInbreedingPct`_, `TargetInbreedingRate`_, and `TargetDegree`_.
 

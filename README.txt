@@ -1,6 +1,6 @@
 AlphaMate
 
-Software for optimising selection, maintenance of diversity, and mate allocation in breeding programs
+Software for optimising selection, management of diversity, and mate allocation in breeding programs
 
 See
 * NEWS.txt for updates

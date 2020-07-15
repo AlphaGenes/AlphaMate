@@ -33,6 +33,7 @@ pftest_alltests
 *MatingPlanMode*.txt
 *Targets.txt
 *Frontier.txt
+*Frontier.png
 
 # Manual outputs
 doc/*.tex
