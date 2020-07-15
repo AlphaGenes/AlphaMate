@@ -936,15 +936,15 @@ EvolAlgStopToleranceCoancestry
 
 EvolAlgStopToleranceCoancestry specifies the stopping tolerance for the objective of `ModeMinCoancestry`_ and `ModeMinInbreeding`_, that is, when objective does not change by the tolerance value in the last `EvolAlgNumberOfIterationsStop`_ iterations, the optimisation is stopped. Default is *0.001*.
 
-EvolAlgStopTol
-^^^^^^^^^^^^^^
+EvolAlgStopTolerance
+^^^^^^^^^^^^^^^^^^^^
 
 ::
 
-  EvolAlgStopTol , [Value]
-  EvolAlgStopTol , 0.01
+  EvolAlgStopTolerance , [Value]
+  EvolAlgStopTolerance , 0.01
 
-EvolAlgStopTol specifies the stopping tolerance for the objective of `ModeMaxCriterion`_ and `ModeOpt`_, that is, when objective does not change b y the tolerance value in the last `EvolAlgNumberOfIterationsStop`_ iterations, the optimisation is stopped. Default is *0.001*.
+EvolAlgStopTolerance specifies the stopping tolerance for the objective of `ModeMaxCriterion`_ and `ModeOpt`_, that is, when objective does not change b y the tolerance value in the last `EvolAlgNumberOfIterationsStop`_ iterations, the optimisation is stopped. Default is *0.001*.
 
 EvolAlgLogAllSolutions
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -1409,7 +1409,7 @@ We can calculate `Minimum percentage coancestry`_ from trigonometric degrees as 
 With the above four formulas we can convert degrees to genetic gain and group coancestry and vice versa. |AM| uses this as a general way to convert between the various forms of specifying targeted genetic gain, targeted group coancestry, and trigonometric degrees. The following table shows the relationship between the trigonometric degrees and `Maximum percentage gain`_ and `Minimum percentage coancestry`_.
 
 ::
-  
+
   Degree MaxPctGain MinPctCoancestry
        0      100.0              0.0
        5       99.6              8.7
