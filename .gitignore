@@ -1,0 +1,53 @@
+
+# Build stuff
+CMakeFiles
+CMakeCache.txt
+CMakeCache.txt.tmp
+*.cmake
+Makefile
+.vscode
+build
+Testing
+compile_commands.json
+bin
+objs
+DoxygenDoc
+*.o
+*.mod
+*.i90
+.Rhistory
+.Rproj.user
+*.pdf
+pftest_alltests
+
+# AlphaMate outputs
+*CoancestrySummary.txt
+*InbreedingSummary.txt
+*SelCriterionSummary.txt
+*GenericIndCritSummary.txt
+*GenericMatCritSummary.txt
+*PAGESummary.txt
+*SeedUsed.txt
+*OptimisationLogMode*.txt
+*ContributorsMode*.txt
+*MatingPlanMode*.txt
+*Targets.txt
+*Frontier.txt
+*Frontier.png
+
+# Manual outputs
+doc/*.tex
+doc/*.html
+doc/*.aux
+doc/*.ilg
+doc/*.ind
+doc/*.log
+doc/*.toc
+doc/*.maf
+doc/*.mtc*
+doc/*.stc*
+
+# Large example
+example/AnimalLarge/Nrm.txt
+example/AnimalLarge/Gender.txt
+example/AnimalLarge/Criterion.txt

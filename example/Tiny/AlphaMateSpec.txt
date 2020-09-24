@@ -1,0 +1,11 @@
+Seed                        , 15
+NrmMatrixFile               , Nrm.txt
+SelCriterionFile            , Criterion.txt
+NumberOfMatings             , 4
+NumberOfParents             , 3
+TargetDegree      , 45
+AllowRepeatedMatings, no
+AllowReciprocalMatings, yes
+AllowSelfing, no
+SelfingWeight, -20
+Stop

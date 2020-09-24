@@ -1,0 +1,161 @@
+
+* Check behaviour with positive/negative values of coancestry/inbreeding
+* What should be done, when we have coancestry estimates that are above 1 or bellow 1?
+
+* Is ModeRan any good?
+
+--- BIOLOGICAL CONSIDERATIONS ---
+
+* Check the mate-allocation driver (all the sorting etc. is confusing)
+
+* Random mating vs mating plan, i.e., mate allocation
+  https://en.wikipedia.org/wiki/Iterative_proportional_fitting to compute expected? coancestry
+* Future RelMat and realized CoaRate etc.
+* Write a program called Contributions2Matings or GenerateMatingPlan, which would take in
+  contributions and a random mating option or avoidance of selfing etc. Put this funcionality
+  in the module so can be used in AlphaMate too.
+
+* coancestry summary on whole rel matrix or just triangle of it?
+
+* Allow for previous usage
+* Continous generations with already generated progeny that are not yet selection
+  candidates (see Mark's and Per's solution, Brian presented smth in AAABG 2017).
+* Rates of coancestry and inbreeding could be computed via Perez-Enciso regression,
+  which would allow for slight temporary deviations in each incremental step, but
+  keep long-term rates as specified
+
+* Handle MOET/JIVET with variable/derived number of contributions per female -
+  now combination of nFemaleParents, nMatings, and EqualizeFemaleContributions
+  allow you to do MOET, but it has to be equal number of progeny for all females.
+  The crux of the problem is in providing nMatings instead of nProgeny. Currently
+  we provide nMatings.
+  Standard/simple example:
+    * we want 100 new progeny
+    * nProgenyPerFemale is 5
+    * so we need 20 females and therefore 20 matings
+    * to handle this case in AlphaMate we specify
+      * nFemaleParents = 20
+      * nMatings = 20
+      * EqualizeFemaleContributions or LimitFemaleContributions to 1
+      --> then each mating will give 5 full-sibs (5 progeny per dam)
+
+  Working MOET example:
+    * we want 100 new progeny
+    * nProgenyPerFemale is 20 (instead of 5)
+    * so we need 5 females and therefore 5 matings with single-sire mating/insemination
+     or 5 females and 100 matings with multipl-sire mating/insemination
+    * to handle the single-sire mating case in AlphaMate we specify
+      * nFemaleParents = 5
+      * nMatings = 5
+      * EqualizeFemaleContributions or LimitFemaleContributions to 1
+      --> then each mating will give 20 full-sibs (20 progeny per dam)
+    * to handle the multiple-sire mating case in AlphaMate we specify
+      * nFemaleParents = 5
+      * nMatings = 100
+      * EqualizeFemaleContributions or LimitFemaleContributions to 20
+      --> then each mating will give 1 progeny and progeny of one dam will be
+          a mix of full-sibs and half-sibs (20 progeny per dam)
+
+  There is no way currently to allow for variable progeny per female. Say:
+    * we want 100 new progeny
+    * nProgenyPerFemale can range from 0 to 20
+    * say contributions for females are [0, 5, 10, 20, 20, 20, 15, 10, 0], which
+      sums to 100 new progeny; so here 1 contribution = 1 progeny (before 1 contribution
+      was 1 mating in the standard example and MOET single-sire mating example, while in
+      MOET multiple-sire example 1 contribution was 1 progeny)
+    * 7 females have non-zero contributions, so these will become females that
+      will be subject to MOET/JIVET
+    * these females will be mated, which means we will have 7 matings under MOET
+      or 100 fertilisations under JIVET
+    --> currently AlphaMate does not enable handling apriori unknown number of
+      matings, albeit this might be changed on the fly, i.e., see how many contributions
+      are nonzero and making sure it sums up to nProgeny (will need to put a cap on progeny then);
+      in addition handling of single-sire vs multipl-sire mating would have to be
+      sorted out (it is easy to do multiple-sire matings - just pair each contribution/progeny with
+      available contributions as suggested by rankings, while single-sire matings
+      would have to be implemented such that number of pairs is reduced from nProgeny
+      to nNon-zeroFemales (hmm, this varies from solution to solution?!), ... TODO)
+
+* Enable several inbreeding targets to simplify exploring the Pareto frontier?
+
+* Make use of a list of matings that should be avoid/excluded (due to selfing-incompatibility,
+  hybrid necrosis, ...).
+
+* Synthetic varieties in grass breeding, i.e., which parents to mix together (group matings)?
+
+* Backup matings? Find a sire that is most similar to the proposed mating sire or actualy carry this
+  "burden" in optimisation?
+
+* Generic way of adding costs (similar as with the generic individual/mating values)
+  - individual level
+  - mating level
+          Criterion%Cost      = sum(Criterion%GenomeEdit(:)) * PAGEPar1Cost
+    --> multiobjective optimisation (is cost objective or constraint?)
+
+* Input pedigree and/or genotype data to simplify creation of:
+  - relationships
+  - dominance in progeny
+  - variance among progeny
+
+* Report expected parent averages and inbreeding for each mating --> can plot histograms of this then
+
+--- ALGORITHMIC CONSIDERATIONS ---
+
+Pareto front calculations
+[1] Pareto, V., Manuale di Economia Politica, Societa Editrice Libraria, Milano, Italy, Translated into English by Schwier, A. S. 1971: Manual of Political Economy, Macmillan, New York, 1906.
+
+  - Evolutionary algorithm that works with Pareto-optimal solutions and optimises the whole Frontier (e.g., Deb)
+
+  - Normal Boundary Intersection (NBI) method (Das and Dennis, 1998)
+    Das I. and Dennis J, “Normal-Boundary Intersection: A New Method for Generating Pareto Optimal Points in Multicriteria Optimization Problems”, SIAM Journal on Optimization, Vol. 8, No.3, 1998, pp. 631-657
+    (generate solutions that are well-distributed)
+    1. Perform single objective optimisations (J_i^star = J_i(x^star), i = 1, 2, ..., k)
+    2. Define utopia point J^u = [J_1^star, J_2^star, ..., J_k^star]
+    3. Normal line between the anchor points
+    4. Perform a series of optimisations along the line in even increments
+    5. Evaluate which points are Pareto optimal
+
+  - Adaptive weighted sum (AWS) method (Kim and Weck, 2005)
+    Kim I.Y. and de Weck O.L., “Adaptive weighted-sum method for bi-objective optimization: Pareto front generation”, Structural and Multidisciplinary Optimization, 29 (2), 149-158, February 2005
+    - Focuses on regions that are not well covered
+    - Handles non-convex regions (in minimisation)
+    - Less/no non-pareto solutions
+
+--- COMPUTATIONAL CONSIDERATIONS ---
+
+* Stop optimisation and restart?
+  - checkpointing trick (catch kill command, save current state, and stop, enable
+    restart from the saved state)
+  - is it worth it?
+
+ * Take inputs from previous optimisation or some other optimisation
+ * In line with the above use SDP-like quadratic programming to seed initial values to speed up AlphaMate for large cases, i.e., hybrid optimisation
+   (might be worthwhile to relax biological constraints for this step to give enough space for evolutionary algorithm later, i.e., double the number of parents)
+
+* Other optimisation algorithms?
+  - Evolution strategies of OpenAI stochastically estimate gradients, but this is
+    continuous optimisation (which I also do in AlphaMate through a hacked solution representation!)
+    https://blog.openai.com/evolution-strategies/
+
+  - Particle swarm optimisation (PSO)
+    https://en.wikipedia.org/wiki/Particle_swarm_optimization
+    This algorithm can be made binary, discrete, or combinatorial (the same holds for DE!):
+      - Roy, R., Dehuri, S., & Cho, S. B. (2012). A Novel Particle Swarm Optimization Algorithm for Multi-Objective Combinatorial Optimization Problem. 'International Journal of Applied Metaheuristic Computing (IJAMC)', 2(4), 41-57
+      - Kennedy, J. & Eberhart, R. C. (1997). A discrete binary version of the particle swarm algorithm, Conference on Systems, Man, and Cybernetics, Piscataway, NJ: IEEE Service Center, pp. 4104-4109
+      - Clerc, M. (2004). Discrete Particle Swarm Optimization, illustrated by the Traveling Salesman Problem, New Optimization Techniques in Engineering, Springer, pp. 219-239
+      - Clerc, M. (2005). Binary Particle Swarm Optimisers: toolbox, derivations, and mathematical insights, Open Archive HAL
+      - Jarboui, B., Damak, N., Siarry, P., and Rebai, A.R. (2008). A combinatorial particle swarm optimization for solving multi-mode resource-constrained project scheduling problems. In Proceedings of Applied Mathematics and Computation, pp. 299-308.
+      - Chen, Wei-neng; Zhang, Jun (2010). "A novel set-based particle swarm optimization method for discrete optimization problem". IEEE Transactions on Evolutionary Computation. 14 (2): 278–300. doi:10.1109/tevc.2009.2030331.
+
+  - Hybrid particle swarm with differential evolution operator (DEPSO)
+    http://www.wiomax.com/team/xie/paper/SMCC03.pdf
+
+  - Self-Organising Migratory ALgorithm (SOMA) by Zelinka
+    In one of his examples SOMA maintained more diversity of solutions and found
+    much better global solution!!!
+
+  - Artifical bee colony
+    https://en.wikipedia.org/wiki/Artificial_bee_colony_algorithm
+
+  - Multi-objective optimisation notes (Pareto frontier etc.)
+    https://en.wikipedia.org/wiki/Multi-objective_optimization

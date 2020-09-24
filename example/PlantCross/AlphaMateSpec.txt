@@ -1,0 +1,9 @@
+Seed                        , 15
+GenderFile                  , Pools.txt
+NrmMatrixFile               , Nrm.txt
+SelCriterionFile            , Criterion.txt
+NumberOfMatings             , 32
+LimitMaleContributionsMax   ,  4
+LimitFemaleContributionsMax ,  4
+TargetDegree                , 30
+Stop

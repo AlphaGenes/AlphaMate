@@ -1,0 +1,8 @@
+Seed                  , 15
+NrmMatrixFile         , Nrm.txt
+SelCriterionFile      , Criterion.txt
+NumberOfMatings       , 32
+LimitContributionsMax , 10
+AllowSelfing          , Yes
+TargetDegree          , 30
+Stop

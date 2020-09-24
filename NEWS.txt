@@ -1,0 +1,75 @@
+* Selfing bug?
+* GenderBisex?
+
+
+v0.3.0 2019-03-??
+  IMPROVEMENTS
+  * Added functionality to allow or avoid repeated matings
+    (AllowRepeatedMatings, [Yes/No]).
+
+  * Mating plan has now additional info (the number of contributions per parent,
+    the number of repeated matings/crosses and selfing status).
+
+  * Specifications are now more thoroughly tested. Also, when a specification is
+    set to No (inactivated) this is printed on screen.
+
+  * Specifications Limit{Male,Female}Contributions have been removed - you now only
+    have to specify Limit{Male,Female}Contributions{Min,Max} to activate limits.
+
+  * Sensible defaults are invoked for the number of parents and matings/crosses
+    when these are not given. This is required for some specific uses, for example,
+    to optimise a core diversity set.
+
+  * Added an example that optimises a core diversity set.
+
+  * Input data without variation is now allowed - a NOTE is given (instead of an ERROR).
+
+  * Targets beyond limits are now reset to limits - a NOTE is given (instead of an ERROR).
+
+  * Targets.txt file is now always produced - for any optimisation mode.
+
+  * Improved stability with some edge cases.
+
+  * Added average coancestry of a contributor with the contributors in the
+    contributors file (in addition to coancestry with all candidates).
+
+  * Added a note about AlphaMate flexibility to the manual.
+
+  BUGFIXES
+  * In some edge cases written mating plan was wrong.
+
+  * In some edge cases with limited specifications an error was thrown needlessly.
+
+  * AlphaMate crashed when only selection criterion targets or coancestry targets
+    were given. Now it properly maximises gain for given coancestry targets and
+    minimises coancestry for given selection criterion targets - all via target
+    degrees.
+
+v0.2.0 2018-11-02
+  IMPROVEMENTS
+  * Faster optimisation via parallelisation. The animal example is about 7x faster
+    with 8 cores.
+
+  * Faster data input/preparation. The animal example is ~3x faster. Larger cases
+    will see more gain.
+
+  * Infrastructure for single or double precision mode to further speed-up large cases.
+
+  BUGFIXES
+  * Now we properly set random number generator seed value for all run cases.
+
+v0.1.1 2018-07-03
+  IMPROVEMENTS
+  * Improved handling of specifications LimitContributions and EqualizeContributions
+    when gender is given, i.e., when limits are used for one gender and equalizing
+    for the other gender.
+
+  * Consolidated which optimisation modes are turned on with provided targets
+    (criterion, coancestry, and/or inbreeding).
+
+  BUGFIXES
+  * Handle cases when the number of matings/crosses is larger than the number of
+    individuals.
+
+v0.1.0 2018-01-21
+  * First public version

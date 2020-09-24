@@ -1,0 +1,1471 @@
+.. |AM| replace:: **AlphaMate**
+
+.. |EXPERIMENTAL| replace:: **This is an experimental specification in development and no yet tested! Do not use!**
+
+********************
+|AM| (Version 0.3.0)
+********************
+
+.. contents::
+   :depth: 2
+
+Introduction
+=========================================================================================
+
+|AM| is a program for optimising selection, management of diversity, and mate/cross allocation in breeding programs. This optimisation finds which individuals should contribute to the next generation and potentially how should these individuals be mated/crossed to deliver desired targets. |AM| can be used for a range of breeding programs (animal, fish, self- and cross-pollinating crops, trees, ...).
+
+Please report bugs or suggestions on how the program / user interface / manual could be improved or made more user friendly to Gregor Gorjanc (`Gregor.Gorjanc@roslin.ed.ac.uk <Gregor.Gorjanc@roslin.ed.ac.uk>`_) or John Hickey (`John.Hickey@roslin.ed.ac.uk <John.Hickey@roslin.ed.ac.uk>`_).
+
+Availability
+------------
+
+|AM| is available from `AlphaGenes website (http://www.AlphaGenes.roslin.ed.ac.uk/AlphaMate) <http://www.AlphaGenes.roslin.ed.ac.uk/AlphaMate>`_. Material available comprises the compiled programs for Windows, Linux, and Mac OSX platforms, this document, and examples.
+
+Conditions of use
+-----------------
+
+|AM| is available to the scientific community free of charge. Users are required, however, to credit its use in any publications. Commercial users should contact Gregor Gorjanc (`Gregor.Gorjanc@roslin.ed.ac.uk <Gregor.Gorjanc@roslin.ed.ac.uk>`_) or John Hickey (`John.Hickey@roslin.ed.ac.uk <John.Hickey@roslin.ed.ac.uk>`_).
+
+Suggested Citation:
+
+Gorjanc, G, Hickey, JM (2018). *AlphaMate: a program for optimising selection, maintenance of diversity, and mate allocation in breeding programs*. Bioinformatics bty375; doi: `https://doi.org/10.1093/bioinformatics/bty375 <https://doi.org/10.1093/bioinformatics/bty375>`_.
+
+Disclaimer
+----------
+
+While every effort has been made to ensure that |AM| does what it claims to do, there is absolutely no guarantee that the results provided are correct. Use of |AM| is entirely at your own risk!
+
+Advertisement
+-------------
+
+|AM| is part of the AlphaSuite collection of programs that we have developed. The collection can perform many of the common tasks in animal breeding, plant breeding, and human genetics including phasing, imputation, estimation of genetic values, genome-wide association, optimal contributions, simulation, and various data recoding and handling tools.
+
+The AlphaSuite is available from `AlphaGenes website (http://www.AlphaGenes.roslin.ed.ac.uk) <http://www.AlphaGenes.roslin.ed.ac.uk>`_.
+
+General overview
+=========================================================================================
+
+|AM| optimises selection, management of diversity, and mate/cross allocation in breeding programs. It achieves this by jointly optimising contributions and mate/cross allocations. Mate/cross allocation is optional, but turned on by default. The goal of this optimisation is to find a **valid mating/crossing plan** (that is, which individuals contribute and how they are mated/crossed) that delivers **desired targets**. This is achieved with an evolutionary optimisation of defined objectives simultaneously.
+
+A **valid mating/crossing plan** is defined by a combination of constraints (see `Mating/Crossing constraints`_), which cover reproductive systems in various species:
+
+i) the number of matings/crosses,
+ii) the maximal number of parents,
+iii) the minimal, equal, or maximal number of contributions per parent,
+iv) allowance of repeated matings/crosses and selfing.
+
+The **desired targets** (see `Desired targets`_) formulate optimisation objectives, such as:
+
+a) maximize `Genetic gain`_,
+b) minimize the `Loss of genetic diversity`_,
+c) minimize `Inbreeding depression`_,
+d) maximize `Genetic gain`_ with the constrained `Loss of genetic diversity`_ or `Inbreeding depression`_, or
+e) as a) or d) but with the ability to genome edit a fixed set of contributors.
+
+Optimisation is performed with an evolutionary algorithm based on differential evolution (Storn and Price, 1997) with modifications to avoid premature convergence (Gondro and Kinghorn, 2009). For a single target (a-c optimisation objectives), |AM| optimises a single objective function accounting for mating/crossing constraints. For multiple targets, |AM| performs multiple objective optimisation in two steps; see for example Deb (2014) for review. First, |AM| optimises single objective (accounting for mating/crossing constraints) for each target separately to find bounds of the objective space and to normalize objectives. Second, |AM| uses the :math:`\epsilon`-constraint method to either: i) find a Pareto-optimal solution with targeted balance between objectives or ii) evaluate the whole frontier of Pareto-optimal solutions (the Pareto frontier). A Pareto-optimal solution is the best solution with a specific balance between objectives. The Pareto frontier is a set of Pareto-optimal solutions and is useful when a breeder does not have clearly defined targets and can explore optimal solutions with different balance between targets to reach a decision. Figure 1 below demonstrates the Pareto frontier of genetic gain and coancestry and the optimisation path for a targeted solution. Further details about implemented objective functions are provided in description of the specifications file (see `Optimisation controls`_).
+
+.. figure:: GainVsCoancestry.png
+    :width: 300px
+    :height: 300px
+    :alt: Trade-off between genetic gain and group coancestry
+    :align: center
+    :figclass: align-center
+
+    Trade-off between genetic gain and coancestry and optimisation path of evolutionary algorithm (target set to :math:`30^{\circ}`, dots show evaluated solutions, line shows evolution of the best solution)
+
+Optimisation works with mating/crossing plans, which |AM| encodes as proposed by Kinghorn and Shepherd (1999). |AM| ensures that mating/crossing plans are valid in two ways. First, |AM| fixes encoded representation, for example, it trims contributions to user defined limits and round them to integer values (Lampinen and Zelinka, 1999). Second, when fixing is not sufficient, |AM| penalizes invalid mating/crossing plan so that evolutionary algorithm advances (more) valid mating/crossing plans.
+
+A note on the flexibility. |AM| is controlled by many specifications, which gives you flexibility to optimise a range of problems. Some standard problems are shown in the `Examples`_ section, but these are just a few possible cases. Take time and write down what do you want to optimise. Then inspect which of the available specifications do you need, in particular the `Mating/Crossing constraints`_ and `Desired targets`_, and experiment! Sometimes you can also tweak input data to achieve your goal. Let us know of the novel uses of |AM|!
+
+A note on the reproducibility of results. |AM| uses an evolutionary algorithm, which can give different solutions in repeated runs. We find however, that the results do not vary a lot between runs, provided that convergence has been achieved (see `Optimisation controls`_). By default |AM| reports the used random number generator seed value - it is shown on terminal output and saved on disk (see `Used seed`_). To ensure reproducibility users can fix the seed via `SeedFile`_ or `Seed`_ specifications.
+
+A note about the speed and scaling of |AM| with large populations. |AM| finds good solutions quickly for applications with up to a couple of thousands of individuals. When the number of individuals is larger than this, |AM| has to evaluate a very large number of combinations and optimisation can take a long time. There are several options to speed-up this optimisation. One option is to use multiple processors to paralelise optimisation (see `NumberOfThreads`_). Another option is to pre-select individuals (see `Preselect`_), which you can do yourself and accordingly modify input files or use an |AM| specification that accounts for this pre-selection in further optimisation, albeit at a higher computational cost. Yet another option is to tweak optimisation controls (see `Optimisation controls`_). Work on substantially faster algorithms is in progress.
+
+Run command
+=========================================================================================
+
+|AM| is run from a terminal. By default it uses a `Specifications file`_ named *AlphaMateSpec.txt*, but users can provide other specifications file.
+
+On MS Windows use one of the following options:
+
+* ``AlphaMate.exe``
+* ``AlphaMate.exe AnotherSpecFile.txt``
+
+On Linux or Mac OSX use one of the following options:
+
+* ``./AlphaMate``
+* ``./AlphaMate AnotherSpecFile.txt``
+
+Specifications file
+=========================================================================================
+
+|AM| is controlled by a single specification file, which should be a simple text file. In this file, a user specifies:
+
+.. contents::
+   :depth: 1
+   :local:
+
+Specifications are of the form:
+
+::
+
+  Specification , Value
+
+Specifications can appear in any order. In the case of conflicting specifications (for example, one turns a feature off, but another turns it on), the latest one is used.
+
+Specifications are not case sensitive.
+
+Unrecognised specifications are ignored, so beware of typos! User is notified which specifications are accepted and which are ignored.
+
+An example:
+
+::
+
+  GenderFile            , Gender.txt
+  CoancestryMatrixFile  , Coancestry.txt
+  SelCriterionFile      , Criterion.txt
+  NumberOfMatings       , 500
+  NumberOfMaleParents   ,  25
+  NumberOfFemaleParents , 500
+  ModeMinCoancestry     , Yes
+  Stop
+
+There are further examples provided in the `Examples`_.
+
+.. contents:: Complete list of specifications
+   :depth: 2
+   :local:
+
+Input Files
+-----------------------------------------------------------------------------------------
+
+The basic input files are coancestry or numerator relationship matrix, selection criteria, and gender information (if relevant) for candidates. Coancestry matrix and selection criteria can be based on pedigree or genomic data, whichever the user provides. Additionally, further individual or mating/cross specific information can be given to enrich optimisation objectives.
+
+CoancestryMatrixFile
+^^^^^^^^^^^^^^^^^^^^
+
+::
+
+  CoancestryMatrixFile , [String]
+  CoancestryMatrixFile , Coancestry.txt
+
+CoancestryMatrixFile specifies a file that contains `Coancestry`_ values between individuals. The file should have *n + 1* columns and *n* rows for *n* individuals. The first column contains individual identifications. An example for a family with two parents and two offspring is:
+
+::
+
+  id1 0.50 0.00 0.25 0.25
+  id2 0.00 0.50 0.25 0.25
+  id3 0.25 0.25 0.50 0.25
+  id4 0.25 0.25 0.25 0.50
+
+This specification can be used instead of `NrmMatrixFile`_.
+
+NrmMatrixFile
+^^^^^^^^^^^^^
+
+::
+
+  NrmMatrixFile , [String]
+  NrmMatrixFile , Nrm.txt
+
+NrmMatrixFile specifies a file that contains `Numerator relationship`_ values between individuals. The file should have *n + 1* columns and *n* rows for *n* individuals. The first column contains individual identifications. An example for a family with two parents and two offspring is:
+
+::
+
+  id1 1.0 0.0 0.5 0.5
+  id2 0.0 1.0 0.5 0.5
+  id3 0.5 0.5 1.0 0.5
+  id4 0.5 0.5 0.5 1.0
+
+This specification can be used instead of `CoancestryMatrixFile`_.
+
+SelCriterionFile
+^^^^^^^^^^^^^^^^
+
+::
+
+  SelCriterionFile , [String]
+  SelCriterionFile , Criterion.txt
+
+SelCriterionFile specifies a file that contains `Selection criterion`_. The file should have *2* columns and *n* rows for *n* individuals. The first column contains individual identifications. An example is:
+
+::
+
+  id1 15.87
+  id2 16.84
+  id3 16.11
+  ...
+
+In case genome editing functionality is active, the file should be expanded with an additional column, that gives selection criterion after genome editing. An example is:
+
+::
+
+  id1 15.87 16.00
+  id2 16.84 16.95
+  id3 16.11 16.22
+  ...
+
+
+GenderFile
+^^^^^^^^^^
+
+::
+
+  GenderFile , [String]
+  GenderFile , Gender.txt
+
+GenderFile specifies a file that contains gender information. The file should have *2* columns and *n* rows for *n* individuals. The first column contains individual identifications. The second column contains gender codes. The codes must be either 1 for males or 2 for females. An example is:
+
+::
+
+  id1 1
+  id2 2
+  id3 1
+  ...
+
+Tip: Note that the "gender" functionality can also be used in cases where biological gender is not relevant. For example in some plant populations we might have two pools of individuals and want to make crosses between the two pools. In such cases "gender" can be used to denote pools.
+
+GenericIndividualCriterionFile
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+|EXPERIMENTAL|
+
+::
+
+  GenericIndividualCriterionFile , [String]
+  GenericIndividualCriterionFile , AddCriteriaPerIndividual.txt
+
+GenericIndividualCriterionFile specifies a file that contains additional individual specific criteria to enrich optimisation. These criteria are included in the objective function by `GenericMatingCriterionWeight`_. The file should have *k + 1* columns and *n* rows for *n* individuals. The first column contains individual identifications. An example is:
+
+::
+
+  id1  1.0 22.0
+  id2  0.5 12.0
+  id3 -0.1  5.0
+  ...
+
+GenericIndividualCriterionColumns
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+|EXPERIMENTAL|
+
+::
+
+  GenericIndividualCriterionColumns , [Value]
+  GenericIndividualCriterionColumns , 2
+
+GenericIndividualCriterionColumns specifies how many columns from the `GenericIndividualCriterionFile`_ should be used.
+
+GenericMatingCriterionFile
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+|EXPERIMENTAL|
+
+::
+
+  GenericMatingCriterionFile , [String]
+  GenericMatingCriterionFile , AddCriteriaPerMating.txt
+
+GenericMatingCriterionFile specifies a file that contains additional mating/cross specific criteria to enrich optimisation. These criteria are included in the objective function by `GenericMatingCriterionWeight`_. The file should have *k + 2* columns and *n \* n* rows for *n* individuals. The first and second column contains individual identifications of the first and second individual of a mating/cross. An example is:
+
+::
+
+  id1 id1  0.0  0.01
+  id1 id2 -0.1  0.10
+  id1 id3  0.5 -0.02
+  ...
+
+GenericMatingCriterionColumns
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+|EXPERIMENTAL|
+
+::
+
+  GenericMatingCriterionColumns , [Value]
+  GenericMatingCriterionColumns , 2
+
+GenericMatingCriterionColumns specifies how many columns from the `GenericMatingCriterionFile`_ should be used.
+
+Mating/Crossing constraints
+-----------------------------------------------------------------------------------------
+
+Mating/crossing constraints can be gender specific or generic to accommodate different reproductive systems in various species (see `GenderFile`_). A user can specify all the constraints or a subset of them depending on the objective of optimisation and biologic or logistic reasons. Creative use of the constrainst enables optimisation of a wide variety of problems. Try running |AM| with different combinations and study the outputs!
+
+NumberOfMatings
+^^^^^^^^^^^^^^^
+
+::
+
+  NumberOfMatings , [Value]
+  NumberOfMatings , 100
+
+NumberOfMatings specifies the number of matings/crosses that should be performed.
+
+NumberOfParents
+^^^^^^^^^^^^^^^
+
+::
+
+  NumberOfParents , [Value]
+  NumberOfParents , 10
+
+NumberOfParents specifies the maximum number of parents. This specification is relevant when "gender" functionality is NOT active (see `GenderFile`_). To achieve exactly the given number, use this specification in combination with `EqualizeContributions`_ or `LimitContributionsMin`_ and `LimitContributionsMax`_.
+
+NumberOfMaleParents
+^^^^^^^^^^^^^^^^^^^
+
+::
+
+  NumberOfMaleParents , [Value]
+  NumberOfMaleParents , 10
+
+NumberOfMaleParents specifies the maximum number of male parents. This specification is relevant when "gender" functionality is active (see `GenderFile`_). To achieve exactly the given number, use this specification with `EqualizeMaleContributions`_ or `LimitMaleContributionsMin`_ and `LimitMaleContributionsMax`_.
+
+NumberOfFemaleParents
+^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+  NumberOfFemaleParents , [Value]
+  NumberOfFemaleParents , 10
+
+NumberOfFemaleParents specifies the maximum number of female parents. This specification is relevant when "gender" functionality is active (see `GenderFile`_). To achieve exactly the given number, use this specification with `EqualizeFemaleContributions`_ or `LimitFemaleContributionsMin`_ and `LimitFemaleContributionsMax`_.
+
+EqualizeContributions
+^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+  EqualizeContributions , [Yes/No]
+  EqualizeContributions , Yes
+
+EqualizeContributions specifies whether parent `Contributions`_ should be equal, that is, all chosen parents contribute the same number of matings/crosses. Default is ``No``. This specification is relevant when "gender" functionality is NOT active (see `GenderFile`_).
+
+EqualizeMaleContributions
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+  EqualizeMaleContributions , [Yes/No]
+  EqualizeMaleContributions , Yes
+
+EqualizeMaleContributions specifies whether male parent `Contributions`_ should be equal, that is, all chosen male parents contribute the same number of matings/crosses. Default is ``No``. This specification is relevant when "gender" functionality is active (see `GenderFile`_).
+
+EqualizeFemaleContributions
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+  EqualizeFemaleContributions , [Yes/No]
+  EqualizeFemaleContributions , Yes
+
+EqualizeFemaleContributions specifies whether female parent `Contributions`_ should be equal, that is, all chosen female parents contribute the same number of matings/crosses. Default is ``No``. This specification is relevant when "gender" functionality is active (see `GenderFile`_).
+
+LimitContributionsMin
+^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+  LimitContributionsMin , [Value]
+  LimitContributionsMin , 5
+
+LimitContributionsMin specifies minimum allowed `Contributions`_ per parent. This specification is relevant when "gender" functionality is NOT active (see `GenderFile`_). When the limit cannot be accommodated, the objective function is penalized by `LimitContributionsMinWeight`_.
+
+LimitContributionsMax
+^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+  LimitContributionsMax , [Value]
+  LimitContributionsMax , 5
+
+LimitContributionsMax specifies maximum allowed `Contributions`_ per parent. This specification is relevant when "gender" functionality is NOT active (see `GenderFile`_).
+
+LimitMaleContributionsMin
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+  LimitMaleContributionsMin , [Value]
+  LimitMaleContributionsMin , 5
+
+LimitMaleContributionsMin specifies minimum allowed `Contributions`_ per male parent. This specification is relevant when "gender" functionality is active (see `GenderFile`_). When the limit cannot be accommodated, the objective function is penalized by `LimitMaleContributionsMinWeight`_.
+
+LimitMaleContributionsMax
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+  LimitMaleContributionsMax , [Value]
+  LimitMaleContributionsMax , 5
+
+LimitMaleContributionsMax specifies maximum allowed `Contributions`_ per male parent. This specification is relevant when "gender" functionality is active (see `GenderFile`_).
+
+LimitFemaleContributionsMin
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+  LimitFemaleContributionsMin , [Value]
+  LimitFemaleContributionsMin , 5
+
+LimitFemaleContributionsMin specifies minimum allowed `Contributions`_ per female parent. This specification is relevant when "gender" functionality is active (see `GenderFile`_). When the limit cannot be accommodated, the objective function is penalized by `LimitFemaleContributionsMinWeight`_.
+
+LimitFemaleContributionsMax
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+  LimitFemaleContributionsMax , [Value]
+  LimitFemaleContributionsMax , 5
+
+LimitFemaleContributionsMax specifies maximum allowed `Contributions`_ per male parent. This specification is relevant when "gender" functionality is active (see `GenderFile`_).
+
+AllowRepeatedMatings
+^^^^^^^^^^^^^^^^^^^^
+
+::
+
+  AllowRepeatedMatings , [Yes/No]
+  AllowRepeatedMatings , Yes
+
+AllowRepeatedMatings specifies whether repeated matings/crosses between the same parents are allowed, that is, whether AxB and AxB matings/crosses are allowed. Default is ``No``. This specification is only relevant when mate/cross allocation is activated (`MateAllocation`_). Note that limiting contributions can be used to a similar, but not exactly the same, effect (see for example `LimitContributionsMin`_)! See also `RepeatedMatingsNIterFix`_ and `RepeatedMatingsWeight`_.
+
+AllowSelfing
+^^^^^^^^^^^^
+
+::
+
+  AllowSelfing , [Yes/No]
+  AllowSelfing , Yes
+
+AllowSelfing specifies whether selfing is allowed. Default is ``No``. This specification is only relevant when "gender" functionality is NOT active (see `GenderFile`_) and when mate/cross allocation is active (`MateAllocation`_). See also `SelfingWeight`_.
+
+Desired targets
+-----------------------------------------------------------------------------------------
+
+Desired targets quantify breeders' direction and define the optimisation objectives (see `Optimisation controls`_). For ease of use |AM| provides different ways to specify  targets, for example, constraint on the `Loss of genetic diversity`_ can be defined with the targeted value of:
+
+a) `Group coancestry`_,
+b) `Rate of coancestry`_,
+c) `Minimum percentage coancestry`_, or
+d) `Trigonometric degrees`_ between genetic gain and group coancestry (see Figure 1).
+
+Similar flexibility of defining targets is available for selection and inbreeding.
+
+Some targets are conflicting (selection and management of diversity), while others are less so (loss of diversity and inbreeding). To this end, a user can specify several targets for selection and management of diversity to explore the space of possibilities within one |AM| run, while only one specification for inbreeding is allowed within one |AM| run.
+
+The most "practical" target specifications that work in many different settings are: `TargetMaxCriterionPct`_, `TargetMinCoancestryPct`_, `TargetCoancestryRate`_, `TargetMinInbreedingPct`_, `TargetInbreedingRate`_, and `TargetDegree`_.
+
+A specification file part with targets might therefore look like this (if this was desired):
+
+::
+
+  TargetMaxCriterionPct  , 99
+  TargetMaxCriterionPct  , 95
+  TargetMaxCriterionPct  , 90
+  TargetMaxCriterionPct  , 85
+  ...
+  TargetMinCoancestryPct , 17
+  TargetMinCoancestryPct , 25
+  ...
+  TargetMinInbreedingPct , 50
+  ...
+
+
+TargetSelCriterion
+^^^^^^^^^^^^^^^^^^
+
+::
+
+  TargetSelCriterion , [Value]
+  TargetSelCriterion , 100
+
+TargetSelCriterion specifies the value for `Selection criterion`_ that |AM| should target. Note that this value depends on the scale of provided values! `TargetSelCriterionStd`_ is a scale free alternative, while `TargetMaxCriterionPct`_ is a scale free and normalized alternative.
+
+TargetSelCriterionStd
+^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+  TargetSelCriterionStd , [-5, 5]
+  TargetSelCriterionStd , 2
+
+TargetSelCriterionStd specifies the value for standardized `Selection criterion`_ that |AM| should target. `TargetMaxCriterionPct`_ is a normalized alternative.
+
+TargetMaxCriterionPct
+^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+  TargetMaxCriterionPct , [0, 100]
+  TargetMaxCriterionPct , 90
+
+TargetMaxCriterionPct specifies the value for `Maximum percentage gain`_ that |AM| should target.
+
+TargetCoancestry
+^^^^^^^^^^^^^^^^
+
+::
+
+  TargetCoancestry , [-1, +1]
+  TargetCoancestry , 0.35
+
+TargetCoancestry specifies the value for `Group coancestry`_ that |AM| should target. Note that this value depends on the scale of provided `Coancestry`_ values! `TargetCoancestryRate`_ is a scale free alternative, while `TargetMinCoancestryPct`_ is a normalized alternative.
+
+TargetCoancestryRate
+^^^^^^^^^^^^^^^^^^^^
+
+::
+
+  TargetCoancestryRate , [-1, +1]
+  TargetCoancestryRate , 0.05
+
+TargetCoancestryRate specifies the value for the `Rate of coancestry`_ that |AM| should target. `TargetMinCoancestryPct`_ is a normalized alternative.
+
+TargetMinCoancestryPct
+^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+  TargetMinCoancestryPct , [0, 100]
+  TargetMinCoancestryPct , 75
+
+TargetMinCoancestryPct specifies the value for `Minimum percentage coancestry`_ that |AM| should target.
+
+TargetDegree
+^^^^^^^^^^^^
+
+::
+
+  TargetDegree , [0, 90]
+  TargetDegree , 45
+
+TargetDegree specifies the value for `Trigonometric degrees`_ that |AM| should target.
+
+EvaluateFrontier
+^^^^^^^^^^^^^^^^
+
+::
+
+  EvaluateFrontier , [Yes/No]
+  EvaluateFrontier , Yes
+
+EvaluateFrontier specifies whether the whole Pareto frontier of genetic gain and group coancestry should be evaluated. Default is ``No``. When actived (set to ``Yes``), |AM| runs optimisations with `Trigonometric degrees`_ of 10, 20, ..., 90.
+
+TargetInbreeding
+^^^^^^^^^^^^^^^^
+
+::
+
+  TargetInbreeding , [-1, +1]
+  TargetInbreeding , 0.15
+
+TargetInbreeding specifies the value for `Inbreeding`_ that |AM| should target. Note that this value depends on the scale of provided `Coancestry`_ values! `TargetInbreedingRate`_ is a scale free alternative, while `TargetMinInbreedingPct`_ is a normalized alternative.
+
+TargetInbreedingRate
+^^^^^^^^^^^^^^^^^^^^
+
+::
+
+  TargetInbreedingRate , [-1, +1]
+  TargetInbreedingRate , 0.025
+
+TargetInbreedingRate specifies the value for the `Rate of inbreeding`_ that |AM| should target. `TargetMinInbreedingPct`_ is a normalized alternative.
+
+TargetMinInbreedingPct
+^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+  TargetMinInbreedingPct , [0, 100]
+  TargetMinInbreedingPct , 75
+
+TargetMinInbreedingPct specifies the value for `Minimum percentage coancestry`_ that |AM| should target.
+
+Optimisation controls
+-----------------------------------------------------------------------------------------
+
+Optimisation controls specify optimisation objectives (modes), penalties for invalid mating/crossing plans, weights that combine multiple targets into an objective function, and parameters of evolutionary algorithm such as the number of iterations, the number of evaluated mating/crossing plans per iteration, convergence criteria, etc.
+
+Note that you do not need to specify the optimisation objectives (modes) directly. This is done automatically by defining desired targets (`Desired targets`_). However, should you wish to, you can switch different optimisations on directly.
+
+ModeMinCoancestry
+^^^^^^^^^^^^^^^^^
+
+::
+
+  ModeMinCoancestry , [Yes/No]
+  ModeMinCoancestry , Yes
+
+ModeMinCoancestry minimizes the `Rate of coancestry`_. The objective function for this optimisation is :math:`f = - \triangle C`, where :math:`\triangle C` is the `Rate of coancestry`_ of an evaluated solution.
+
+ModeMinInbreeding
+^^^^^^^^^^^^^^^^^
+
+::
+
+  ModeMinInbreeding , [Yes/No]
+  ModeMinInbreeding , Yes
+
+ModeMinInbreeding minimizes the `Rate of inbreeding`_. The objective function for this optimisation is :math:`f = - \triangle F`, where :math:`\triangle F` is the `Rate of inbreeding`_ of an evaluated solution.
+
+ModeMaxCriterion
+^^^^^^^^^^^^^^^^
+
+::
+
+  ModeMaxCriterion , [Yes/No]
+  ModeMaxCriterion , Yes
+
+ModeMaxCriterion maximizes standardized `Genetic gain`_. The objective function for this optimisation is :math:`f = \triangle \overline{z}`, where :math:`\triangle \overline{z}` is the standardized `Genetic gain`_ of an evaluated solution.
+
+ModeOpt
+^^^^^^^
+
+::
+
+  ModeOpt , [Yes/No]
+  ModeOpt , Yes
+
+ModeOpt maximizes standardized `Genetic gain`_ with constraint on `Group coancestry`_ and potentially other targets (for example, `Inbreeding`_). The objective function for this optimisation is :math:`f = \triangle \overline{z}_n / \triangle \overline{z}_{n,t}`, where :math:`\triangle \overline{z}_n` is the `Maximum percentage gain`_ of an evaluated solution and :math:`\triangle \overline{z}_{n,t}` is the targeted `Maximum percentage gain`_. Constraint on `Group coancestry`_ is achieved by adding the following term to the objective function, but only when `Trigonometric degrees`_ are above the targeted value: :math:`w \times (1 - d / d_t)`, where :math:`w` is `CoancestryWeight`_, :math:`d` are `Trigonometric degrees`_ of an evaluated solution, and :math:`d_t` are targeted `Trigonometric degrees`_. Similar term is added for `Inbreeding`_ via `InbreedingWeight`_.
+
+MateAllocation
+^^^^^^^^^^^^^^
+
+::
+
+  MateAllocation , [Yes/No]
+  MateAllocation , Yes
+
+MateAllocation activates mate/cross allocation. Default is *Yes*.
+
+RandomMateAllocation
+^^^^^^^^^^^^^^^^^^^^
+
+|EXPERIMENTAL|
+
+::
+
+  RandomMateAllocation , [Yes/No]
+  RandomMateAllocation , Yes
+
+RandomMateAllocation activates random mate/cross allocation. Default is *No*.
+
+Preselect
+^^^^^^^^^
+
+::
+
+  Preselect , [Yes/No]
+  Preselect , Yes
+
+Preselect activates preselection of individuals prior to running the `ModeMaxCriterion`_ and `ModeOpt`_. Default is *No*.
+
+PreselectPercentage
+^^^^^^^^^^^^^^^^^^^
+
+::
+
+  PreselectPercentage , [0, 100]
+  PreselectPercentage , 50
+
+PreselectPercentage specifies percentage of individuals preselected when running the `ModeMaxCriterion`_ and `ModeOpt`_. This specification is relevant when `Preselect`_ is active (``Preselect , Yes``) and "gender" functionality is NOT active (see `GenderFile`_).
+
+PreselectMales
+^^^^^^^^^^^^^^
+
+::
+
+  PreselectMales , [Yes/No]
+  PreselectMales , Yes
+
+PreselectMales activates preselection of males prior to running the `ModeMaxCriterion`_ and `ModeOpt`_. Default is *No*.
+
+PreselectMalesPercentage
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+  PreselectMalesPercentage , [0, 100]
+  PreselectMalesPercentage , 50
+
+PreselectMalesPercentage specifies percentage of males preselected when running the `ModeMaxCriterion`_ and `ModeOpt`_. This specification is relevant when `PreselectMales`_ is active (``PreselectMales , Yes``) and "gender" functionality is active (see `GenderFile`_).
+
+PreselectFemales
+^^^^^^^^^^^^^^^^
+
+::
+
+  PreselectFemales , [Yes/No]
+  PreselectFemales , Yes
+
+PreselectFemales activates preselection of females prior to running the `ModeMaxCriterion`_ and `ModeOpt`_. Default is *No*.
+
+PreselectFemalesPercentage
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+  PreselectFemalesPercentage , [0, 100]
+  PreselectFemalesPercentage , 50
+
+PreselectFemalesPercentage specifies percentage of females preselected when running the `ModeMaxCriterion`_ and `ModeOpt`_. This specification is relevant when `PreselectMales`_ is active (``PreselectMales , Yes``) and "gender" functionality is active (see `GenderFile`_).
+
+PAGE
+^^^^
+
+::
+
+  PAGE , [Yes/No]
+  PAGE , Yes
+
+PAGE activates genome editing (promotion of alleles by genome editing). Default is *No*.
+
+PAGEMax
+^^^^^^^
+
+::
+
+  PAGEMax , [Value]
+  PAGEMax , 5
+
+PAGEMax specifies how many individuals can be genome edited. This specification is relevant when `PAGE`_ is active (``PAGE , Yes``) and "gender" functionality is NOT active (see `GenderFile`_).
+
+PAGEMales
+^^^^^^^^^
+
+::
+
+  PAGEMales , [Yes/No]
+  PAGEMales , Yes
+
+PAGEMales activates genome editing of males (promotion of alleles by genome editing). Default is *No*.
+
+PAGEMalesMax
+^^^^^^^^^^^^
+
+::
+
+  PAGEMalesMax , [Value]
+  PAGEMalesMax , 5
+
+PAGEMalesMax specifies how many males can be genome edited. This specification is relevant when `PAGEMales`_ is active (``PAGEMales , Yes``) and "gender" functionality is active (see `GenderFile`_).
+
+PAGEFemales
+^^^^^^^^^^^
+
+::
+
+  PAGEFemales , [Yes/No]
+  PAGEFemales , Yes
+
+PAGEFemales activates genome editing of females (promotion of alleles by genome editing). Default is *No*.
+
+PAGEFemalesMax
+^^^^^^^^^^^^^^
+
+::
+
+  PAGEFemalesMax , [Value]
+  PAGEFemalesMax , 5
+
+PAGEFemalesMax specifies how many females can be genome edited. This specification is relevant when `PAGEFemales`_ is active (``PAGEFemales , Yes``) and "gender" functionality is active (see `GenderFile`_).
+
+CoancestryWeight
+^^^^^^^^^^^^^^^^
+
+::
+
+  CoancestryWeight , [Value]
+  CoancestryWeight , -2.0
+
+CoancestryWeight specifies the weight that is placed on deviation from the targeted "level of coancestry". Default is *-1.0*. Note that a positive weight encourages higher coancestry.
+
+CoancestryWeightBellow
+^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+  CoancestryWeightBellow , [Yes/No]
+  CoancestryWeightBellow , Yes
+
+CoancestryWeightBellow specifies whether |AM| should penalize solutions that have lower than targeted/constrained "level of coancestry". Default is *No*.
+
+InbreedingWeight
+^^^^^^^^^^^^^^^^
+
+::
+
+  InbreedingWeight , [Value]
+  InbreedingWeight , -2.0
+
+InbreedingWeight specifies the weight that is placed on deviation from the targeted "level of inbreeding". Default is *-1.0*. Note that a positive weight encourages higher inbreeding.
+
+LimitContributionsMinWeight
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+  LimitContributionsMinWeight , [Value]
+  LimitContributionsMinWeight , -2.0
+
+LimitContributionsMinWeight specifies the weight to penalize solutions that could not limit the minimum number of `Contributions`_ for parents (`LimitContributionsMin`_). |AM| tries to avoid this by fixing solutions, but sometimes fixing is not effective. The value of LimitContributionsMinWeight * Diff is added to objective function to penalize every breaking instance, where Diff is the difference between the achieved and limited `Contributions`_. The default value is -1.0. Note that a positive value encourages breaking the limit.
+
+LimitMaleContributionsMinWeight
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+  LimitMaleContributionsMinWeight , [Value]
+  LimitMaleContributionsMinWeight , -2.0
+
+LimitMaleContributionsMinWeight specifies the weight to penalize solutions that could not limit the minimum number of `Contributions`_ for male parents (`LimitMaleContributionsMin`_). |AM| tries to avoid this by fixing solutions, but sometimes fixing is not effective. The value of LimitMaleContributionsMinWeight * Diff is added to objective function to penalize every breaking instance, where Diff is the difference between the achieved and limited `Contributions`_. The default value is -1.0. Note that a positive value encourages breaking the limit.
+
+LimitFemaleContributionsMinWeight
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+  LimitFemaleContributionsMinWeight , [Value]
+  LimitFemaleContributionsMinWeight , -2.0
+
+LimitFemaleContributionsMinWeight specifies the weight to penalize solutions that could not limit the minimum number of `Contributions`_ for female parents (`LimitFemaleContributionsMin`_). |AM| tries to avoid this by fixing solutions, but sometimes fixing is not effective. The value of LimitFemaleContributionsMinWeight * Diff is added to objective function to penalize every breaking instance, where Diff is the difference between the achieved and limited `Contributions`_. The default value is -1.0. Note that a positive value encourages breaking the limit.
+
+RepeatedMatingsNIterFix
+^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+  RepeatedMatingsNIterFix , [Value]
+  RepeatedMatingsNIterFix , 1
+
+RepeatedMatingsNIterFix specifies the number of iterations to fix solutions that involve repeated matings/crosses, when these are not allowed (see `AllowRepeatedMatings`_). |AM| tries to avoid this by fixing solutions in an iterative way. Default is to do 1 iteration and penalise a solution if there are any remaining repeats (see `RepeatedMatingsWeight`_). If you find that the default behaviour is slowing convergence too much, you can increase the number of iterations to fix a solution.
+
+RepeatedMatingsWeight
+^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+  RepeatedMatingsWeight , [Value]
+  RepeatedMatingsWeight , -2.0
+
+RepeatedMatingsWeight specifies the weight to penalize solutions that involve repeated matings/crosses, when these are not allowed (see `AllowRepeatedMatings`_). |AM| tries to avoid this by fixing solutions (see `RepeatedMatingsNIterFix`_), but sometimes fixing is not effective. The value of RepeatedMatingsWeight is added to objective function to penalize every repeated mating/cross. The default value is -1.0. Note that a positive value encourages repeats.
+
+SelfingWeight
+^^^^^^^^^^^^^
+
+::
+
+  SelfingWeight , [Value]
+  SelfingWeight , -2.0
+
+SelfingWeight specifies the weight to penalize solutions that involve some degree of selfing, when selfing should not happen, that is, when `AllowSelfing`_ is ``No`` and "gender" functionality is NOT active. |AM| tries to avoid this by fixing solutions, but sometimes fixing is not effective. The value of SelfingWeight is added to objective function to penalize every selfing instance. The default value is -1.0. Note that a positive value encourages selfing.
+
+GenericIndividualCriterionWeight
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+|EXPERIMENTAL|
+
+::
+
+  GenericIndividualCriterionWeight , [Value]
+  GenericIndividualCriterionWeight , 0.5
+
+GenericIndividualCriterionWeight specifies the weight to incorporate additional individual specific criteria (`GenericIndividualCriterionFile`_) into optimisation. Specifically, this is added to the objective function: :math:`\sum_{i}^{k}w_i \times \mathbf{x}^T\mathbf{g}_i`, where :math:`w_i` is a user defined weight (`GenericIndividualCriterionWeight`_), :math:`\mathbf{x}` are proportional `Contributions`_, and :math:`\mathbf{g}_i` are values for the :math:`i`-th generic criterion out of :math:`k` (`GenericIndividualCriterionColumns`_).
+
+GenericMatingCriterionWeight
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+|EXPERIMENTAL|
+
+::
+
+  GenericMatingCriterionWeight , [Value]
+  GenericMatingCriterionWeight , 0.5
+
+GenericMatingCriterionWeight specifies the weight to incorporate additional mating/cross specific criteria (`GenericMatingCriterionFile`_) into optimisation. Specifically, this is added to the objective function: :math:`\sum_{i}^{k}w_i \times \mathbf{s}^T\mathbf{g}_i`, where :math:`w_i` is a user defined weight, :math:`\mathbf{s}` is a vector of zeroes and :math:`1/n_m`'s (:math:`n_m` is number of matings/crosses), and :math:`\mathbf{g}_i` are values for the :math:`i`-th generic criterion out of :math:`k` (`GenericMatingCriterionColumns`_).
+
+EvolAlgNumberOfSolutions
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+  EvolAlgNumberOfSolutions , [Value]
+  EvolAlgNumberOfSolutions , 100
+
+EvolAlgNumberOfSolutions specifies the number of solutions to evaluate in every iteration of the evolutionary algorithm. Default is *100* for optimisations with less than 100 parameters, :math:`max(100, 0.5 * p)` for optimisations with more than 100 parameters and less than 1000 parameters, and *500* for optimisations with more than 1000 parameters. These defaults try to balance the amount of calculation and convergence following Chen et al. (2015).
+
+EvolAlgNumberOfIterations
+^^^^^^^^^^^^^^^^^^^^^^^^^
+::
+
+  EvolAlgNumberOfIterations , [Value]
+  EvolAlgNumberOfIterations , 10000
+
+EvolAlgNumberOfIterations specifies the maximum number of iterations for the evolutionary alghorithm. The default is *100 000*.
+
+EvolAlgNumberOfIterationsStop
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+  EvolAlgNumberOfIterationsStop , [Value]
+  EvolAlgNumberOfIterationsStop , 1000
+
+EvolAlgNumberOfIterationsStop specifies the number of iterations to stop the optimisation upon no improvement of objective. Default is *100*.
+
+EvolAlgNumberOfIterationsPrint
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+  EvolAlgNumberOfIterationsPrint , [Value]
+  EvolAlgNumberOfIterationsPrint , 10000
+
+EvolAlgNumberOfIterationsPrint specifies the number of iterations between printing successful optimisation steps. Default is *100*.
+
+EvolAlgStopToleranceCoancestry
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+  EvolAlgStopToleranceCoancestry , [Value]
+  EvolAlgStopToleranceCoancestry , 0.01
+
+EvolAlgStopToleranceCoancestry specifies the stopping tolerance for the objective of `ModeMinCoancestry`_ and `ModeMinInbreeding`_, that is, when objective does not change by the tolerance value in the last `EvolAlgNumberOfIterationsStop`_ iterations, the optimisation is stopped. Default is *0.001*.
+
+EvolAlgStopTolerance
+^^^^^^^^^^^^^^^^^^^^
+
+::
+
+  EvolAlgStopTolerance , [Value]
+  EvolAlgStopTolerance , 0.01
+
+EvolAlgStopTolerance specifies the stopping tolerance for the objective of `ModeMaxCriterion`_ and `ModeOpt`_, that is, when objective does not change b y the tolerance value in the last `EvolAlgNumberOfIterationsStop`_ iterations, the optimisation is stopped. Default is *0.001*.
+
+EvolAlgLogAllSolutions
+^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+  EvolAlgLogAllSolutions , [Yes/No]
+  EvolAlgLogAllSolutions , Yes
+
+EvolAlgLogAllSolutions specifies whether all evaluated solutions should be logged in the output. This is useful to observe the path of optimisation (see Figure 1). Default is *No*.
+
+EvolAlgNumberOfIterationsBurnin
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+  EvolAlgNumberOfIterationsBurnin , [Value]
+  EvolAlgNumberOfIterationsBurnin , 1000
+
+EvolAlgNumberOfIterationsBurnin specifies the number of iterations for "burn-in", where the evolutionary algorithm parameters can be specified to have different values. Default is *100*. See `DiffEvolParameterCrBurnin`_.
+
+Differential evolution parameters
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The following specifications are for the implementation of evolutionary algorithm based on differential evolution (Storn and Price, 1997) with modifications to avoid premature convergence (Gondro and Kinghorn, 2009). The differential evolution algorithm has two key parameters: the cross-over parameter and the F parameter.
+
+The cross-over parameter [0, 1] should be low (<=0.1) for separable problems and large (0.9) for non-separable (epistatic) problems. Note that a large value encourages exploration (large moves away from the target vector), while a low value encourages exploitation (small moves away from the target vector, more closer to the base vector (Montgomery and Chen, 2010).
+
+The F parameter [0, 1+] should be 0, 2/n, or 1.2. Note that large values mean more exploration away from the base vector. The F parameters should be large for large cross-over parameter (Storn and Price, 1997; Montgomery and Chen, 2010).
+
+DiffEvolParameterCrBurnin
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+  DiffEvolParameterCrBurnin , [Value]
+  DiffEvolParameterCrBurnin , 0.9
+
+DiffEvolParameterCrBurnin specifies the cross-over parameter of evolutionary algorithm - for the "burn-in" phase. Default is *0.9*.
+
+DiffEvolParameterCr1
+^^^^^^^^^^^^^^^^^^^^
+
+::
+
+  DiffEvolParameterCr1 , [Value]
+  DiffEvolParameterCr1 , 0.9
+
+DiffEvolParameterCr1 specifies the cross-over parameter of evolutionary algorithm - used every non 5th iteration. Default is *0.9*.
+
+DiffEvolParameterCr2
+^^^^^^^^^^^^^^^^^^^^
+
+::
+
+  DiffEvolParameterCr2 , [Value]
+  DiffEvolParameterCr2 , 0.9
+
+DiffEvolParameterCr2 specifies the cross-over parameter of evolutionary algorithm - used every 5th iteration. Default is *0.9*.
+
+DiffEvolParameterFBase
+^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+  DiffEvolParameterFBase , [Value]
+  DiffEvolParameterFBase , 0.1
+
+DiffEvolParameterFBase specifies the F parameter of evolutionary algorithm. Default is *0.2*.
+
+DiffEvolParameterFHigh1
+^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+  DiffEvolParameterFHigh1 , [Value]
+  DiffEvolParameterFHigh1 , 1.0
+
+DiffEvolParameterFHigh1 specifies the F parameter of evolutionary algorithm - used every 4th iteration. Default is *0.2*.
+
+DiffEvolParameterFHigh2
+^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+  DiffEvolParameterFHigh2 , [Value]
+  DiffEvolParameterFHigh2 , 4.0
+
+DiffEvolParameterFHigh2 specifies the F parameter of evolutionary algorithm - used every 7th iteration. Default is *0.9*.
+
+Other
+--------------------------------------------------------------------------------------
+
+OutputBasename
+^^^^^^^^^^^^^^
+
+::
+
+  OutputBasename , [String]
+  OutputBasename , AnalysisX_
+
+OutputBasename specifies basename prefix of all file outputs.
+
+SeedFile
+^^^^^^^^
+
+::
+
+  SeedFile , [String]
+  SeedFile , Seed.txt
+
+SeedFile specifies a file that contains a single value used as a seed for random number generator.
+
+Seed
+^^^^
+
+::
+
+  Seed , [Value]
+  Seed , 0.5
+
+Seed specifies a single value used as a seed for random number generator.
+
+NumberOfThreads
+^^^^^^^^^^^^^^^
+
+::
+
+  NumberOfThreads , [Value]
+  NumberOfThreads , 4
+
+NumberOfThreads specifies how many threads should be used for parallelisation. |AM| uses the OpenMP system to parallelise some calculations. Default is to use all available resources, that is, the number of threads equals the number of processors. Note that the environmental variable ``OMP_NUM_THREADS`` sets an upper limit on resources. You can set this variable in a system terminal by typing in a command shown below. The NumberOfThreads specifications overrules this variable.
+
+::
+
+  # On Linux/UNIX/Mac OS
+  export OMP_NUM_THREADS=2 # Bash shell
+  setenv OMP_NUM_THREADS=2 #    C shell
+
+  # On MS Windows
+  set OMP_NUM_THREADS=2
+
+Stop
+^^^^
+
+::
+
+  Stop
+
+Stop ends the specification file. Any specifications following Stop are ignored.
+
+Output files
+=========================================================================================
+
+The |AM| output consists of:
+
+.. contents::
+   :depth: 1
+   :local:
+
+These outputs are stored in files, but are also printed to standard output during the program run so that users can monitor the progress of optimisation.
+
+Summary of input data
+---------------------
+
+These file report summaries of the input data: *CoancestrySummary.txt*,
+*InbreedingSummary.txt*, *SelCriterionSummary.txt*, *PAGESummary.txt*, *GenericIndCritSummary.txt*, *GenericMatCritSummary.txt*. Some of these files might be available only when specific input data is provided.
+
+List of contributors with associated data
+-----------------------------------------
+
+There is one contributors file for each optimisation. The files have basename *ContributorsPlanMode*, for example, *ContributorsPlanModeMinCoancestry.txt*, *ContributorsModeOptTarget1.txt*, etc. The file reports which individuals should have non-zero contributions to the next generation, their associated data (gender, selection criterion, average coancestry with (A)ll of the candidates and just with the (C)ontributors), and finally how many `Contributions`_ should they have (in proportional and absolute form).
+
+::
+
+    Id Gender SelCriterion AvgCoancestryA AvgCoancestryC Contribution nContribution
+  id1       1        17.13         0.7802         0.7600         0.05            50
+  id2       1        16.75         0.7790         0.7659         0.02            20
+  id3       1        16.75         0.7790         0.7723         0.02            20
+  ...
+
+Mating/Crossing plan
+--------------------
+
+There is one mating/crossing plan file for each optimisation (if `MateAllocation`_ is active). The files have basename *MatingPlanMode*, for example, *MatingPlanModeMinCoancestry.txt*, *MatingPlanModeOptTarget1.txt*, etc. The file reports pairing of parents (matings/crosses), the number of contributions (=matings/crosses) each parent has, what is the number of repeated matings/crosses and if the mating/cross is selfing. The last three columns are provided to help you inspect the mating/crossing plan. The matings/crosses are ordered such that repeats, if any, appear together.
+
+::
+
+  Mating Parent1 Parent2 nContributionParent1 nContributionParent1 MatingsCount Selfing
+       1 id1     id5                        2                    1            1       0
+       2 id1     id7                        2                    1            1       0
+       3 id2     id20                       1                    1            1       0
+  ...
+
+Optimisation log
+----------------
+
+There are several optimisation log files.
+
+The files *Targets.txt* and *Frontier.txt* report achieved criteria at the end of each optimisation. See `Definitions`_ for the meaning of the criteria. There is one row in the files for each optimisation target.
+
+The files with basename *OptimisationLogMode* report the optimisation path. There is one file for each optimisation target/mode, for example, *OptimisationLogModeMinCoancestry.txt*, *OptimisationLogModeOptTarget1.txt*, etc.
+
+The files with basename *OptimisationLogPopMode* report all the evaluated solutions during optimisation. There is one file for each optimisation target/mode, for example, *OptimisationLogPopModeMinCoancestry.txt*, *OptimisationLogPopModeOptTarget1.txt*, etc.
+
+Used seed
+---------
+
+The used seed to initiate the random number generator stream is saved in the file *SeedUsed.txt*. This file can be used as input for specification `SeedFile`_ to repeat the same optimisation. Alternatively the saved seed value can be used as input for specification `Seed`_.
+
+Utilities
+=========================================================================================
+
+A utility R script *PlotFrontier.R* is provided to plot the `Optimisation log`_ outputs. Specifically it plots the Pareto frontier, the optimisation paths, and the "swarm" of all evaluated solutions during the optimisation. Figure 1 is an example output. More information about the script can be obtained by:
+
+::
+
+  ./PlotFrontier.R --help
+
+Further R utilities will be provided in the next versions.
+
+Examples
+=========================================================================================
+
+There are several examples shipped with |AM| that demonstrate its use. Each example is provided in specific folder with specifications file and data input files. All the examples are simulated so that we can distribute the data, but they do represent real-like use cases. Below we quickly summarize the examples and results - no specification files are described here, you are supposed to look into the example folder and inspect the files yourself!
+
+Note that the examples show group coancestry and inbreeding using genomic identity by state scale (since the time mutations arose, which can be far in past) - consequently the values are high.
+
+Animal
+------
+
+This example demonstrates an animal population with 1000 candidates - half males and half females. The data description shows:
+
+  * mean selection criterion of 16.28
+  * group coancestry         of 0.784
+  * inbreeding               of 0.782
+
+The aim is to select 25 males and mate them with the females. All selected males should be used equally. The breeder set the target to :math:`30^{\circ}` and wanted to achieve 75% of minimum possible inbreeding. The results show that:
+
+* the maximum possible selection criterion is 16.98 (standardized 1.04)
+* the minimum possible group coancestry    is 0.777 (rate of coancestry -0.033)
+* the minimum possible inbreeding          is 0.772 (rate of inbreeding -0.045)
+* the balanced solution gives
+
+  * selection criterion of 16.67 (standardized 0.58, percentage max 68)
+  * group coancestry    of 0.782 (rate of coancestry of -0.008, percentage min 53)
+  * inbreeding          of 0.776 (rate of inbreeding of -0.027, percentage min 75)
+
+PlantCross
+----------
+
+This example demonstrates two populations (pools) of cross-pollinating plants. The data description of both pools jointly shows:
+
+  * mean selection criterion of 17.40
+  * group coancestry         of 0.865
+
+The aim is to create 32 crosses between the pools. Each parent can contribute up to four crosses. The breeder set the target to :math:`30^{\circ}`. The results show that:
+
+* the maximum possible selection criterion is 18.20 (standardized 2.12)
+* the minimum possible group coancestry    is 0.851 (rate of coancestry -0.104)
+* the balanced solution gives
+
+  * selection criterion of 18.07 (standardized 1.76, percentage max 88)
+  * group coancestry    of 0.867 (rate of coancestry of 0.011, percentage min 51)
+
+PlantSelf
+---------
+
+This example demonstrates a population of self-pollinating outbred plants. The data description shows:
+
+  * mean selection criterion of 13.31
+  * group coancestry         of 0.812
+
+The aim is to create 32 crosses between plants. Each parent can contribute up to ten crosses and selfing is allowed. The breeder set the target to :math:`30^{\circ}`. The results show that:
+
+* the maximum possible selection criterion is 14.16 (standardized 2.37)
+* the minimum possible group coancestry    is 0.801 (rate of coancestry -0.059)
+* the balanced solution gives
+
+  * selection criterion of 14.05 (standardized 2.05, percentage max 90)
+  * group coancestry    of 0.814 (rate of coancestry of 0.010, percentage min 52)
+
+CoreDiversitySet
+----------------
+
+This example demonstrates the optimisation of a set of individuals that maximise the amount of diversity, that is, optimisation of a core diversity set. This kind of optimisation arises in many settings, for example, in defining which individuals should be stored in a gene-bank, or which individuals should be genotyped or sequenced, etc. This example uses the data from the `Animal`_ example.
+
+The data description shows:
+
+  * group coancestry of 0.784
+  * inbreeding       of 0.782
+
+The aim is to select 50 individuals (males or females) that will represent maximum diversity. The results show that we can select 50 individuals which give:
+
+* group coancestry of 0.771 (rate of coancestry -0.060)
+
+GenomeEditing
+-------------
+
+This example is the same as the `Animal`_ example, but attempts to optimize also which five males should be genome edited, provided that we can predict in advance their selection criterion after genome editing. The data description shows:
+
+  * mean selection criterion of 16.28
+  * group coancestry         of 0.784
+
+The example explores the whole Pareto frontier of genetic gain and group coancestry. Looking only at the :math:`30^{\circ}` and comparing optimisation with the baseline selection criteria and selection criteria with 1, 5 or 20 genome edits we get:
+
+* baseline
+
+  * selection criterion of 16.76 (standardized 0.72)
+  * group coancestry    of 0.783 (rate of coancestry of -0.004)
+
+* 1 genome edit
+
+  * selection criterion of 16.77 (standardized 0.73)
+  * group coancestry    of 0.783 (rate of coancestry of -0.004)
+
+* 5 genome edits
+
+  * selection criterion of 16.85 (standardized 0.85)
+  * group coancestry    of 0.783 (rate of coancestry of -0.005)
+
+* 20 genome edits
+
+  * selection criterion of 16.99 (standardized 1.05)
+  * group coancestry    of 0.783 (rate of coancestry of -0.006)
+
+Definitions, References, and Known issues/bugs
+=========================================================================================
+
+Definitions
+-----------
+
+Selection criterion
+^^^^^^^^^^^^^^^^^^^
+
+Selection criterion :math:`(y)` is any numerical representation that a breeder can rank and select individuals on, for example, phenotypes, estimated genetic / breeding values, etc.
+
+See also `Genetic gain`_ and `Maximum percentage gain`_.
+
+See specifications `TargetSelCriterion`_ and `TargetSelCriterionStd`_.
+
+Genetic gain
+^^^^^^^^^^^^
+
+Genetic gain is the expected change in selection criterion between the current and the next generation. |AM| calculates it as :math:`\mathbf{x}^T\mathbf{y}`, where :math:`\mathbf{x}` is a vector of proportional `Contributions`_ and :math:`\mathbf{y}` is a vector of `Selection criterion`_. Note that this calculation represents expected genetic gain only when the `Selection criterion`_ are breeding values.
+
+See also `Selection criterion`_ and `Maximum percentage gain`_.
+
+See specifications `TargetSelCriterion`_ and `TargetSelCriterionStd`_.
+
+Maximum percentage gain
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Maximum percentage gain is a normalized measure of genetic gain. It ranges from 0 to 100. The value of 0 is chosen to be the mean criterion achieved at minimum possible group coancestry. The value of 100 is chosen to be the mean criterion achieved with truncation selection (ignoring coancestry between individuals or inbreeding of matings/crosses). See Figure 1 for a visual representation.
+
+See also `Selection criterion`_ and `Genetic gain`_.
+
+See specification `TargetMaxCriterionPct`_.
+
+Loss of genetic diversity
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Loss of genetic diversity can be measured in many ways. |AM| uses `Group coancestry`_ and increase in this metric as a proxy for the loss of genetic diversity.
+
+Coancestry
+^^^^^^^^^^
+
+Coancestry measures genetic identity between individuals. Specifically, it is the probability that genomes of two individuals are identical. With two genomes per individual, we have four combinations. For each combination we can evaluate the identity between the genomes, that is, :math:`c_{i_1,j_1}` is identity between the genome 1 of individual *i* and genome 1 of individual *j*. The coefficient of coancestry is then expected identity over the four combinations: :math:`c_{i,j}=\frac{1}{4}\left(c_{i_1,j_1} + c_{i_1,j_2} + c_{i_2,j_1} + c_{i_2,j_2}\right)`.
+
+When we apply the above formulation to one individual *i*, we obtain :math:`f_i = c_{i,i}=\frac{1}{4}\left(c_{i_1,i_1} + c_{i_1,i_2} + c_{i_2,i_1} + c_{i_2,i_2}\right)=\frac{1}{4}\left(1 + c_{i_1,i_2} + c_{i_2,i_1} + 1\right)=\frac{1}{2} + \frac{1}{2}f_i = \frac{1}{2}\left(1 + f_i\right)`, where :math:`f_i` is the coefficient of `Inbreeding`_.
+
+See also `Numerator relationship`_, `Group coancestry`_, `Rate of coancestry`_, `Minimum percentage coancestry`_, and `Inbreeding`_.
+
+Numerator relationship
+^^^^^^^^^^^^^^^^^^^^^^
+
+Numerator relationship coefficient is simply twice the coefficient of coancestry. It measures additive genetic covariance between individuals.
+
+See also `Coancestry`_, `Group coancestry`_, `Rate of coancestry`_, and `Minimum percentage coancestry`_.
+
+Group coancestry
+^^^^^^^^^^^^^^^^
+
+Group coancestry measures identity between genomes of all contributors (males vs females, males vs males, and females vs females). We can calculate this measure as :math:`c_g=\mathbf{x}^T\mathbf{C}\mathbf{x}`, where :math:`\mathbf{x}` is a vector of proportional `Contributions`_ and :math:`\mathbf{C}` is a matrix of `Coancestry`_ coefficients. If we set all `Contributions`_ to :math:`\mathbf{x}=1/(2m)`, then group coancestry measures coancestry between all candidates, that is, the current group coancestry. When we use the optimised `Contributions`_, the group coancestry measures coancestry between contributors (weighted by their proportional contributions). This in turn measures group coancestry of the next generation, because genomes of the next generation will be sampled from genomes of contributors. Note that group coancestry assumes that mating/crossing of the contributors is random, including mating/crossing among males and among females, and including selfing.
+
+See also `Coancestry`_, `Numerator relationship`_, `Rate of coancestry`_, and `Minimum percentage coancestry`_.
+
+See specification `TargetCoancestry`_.
+
+Inbreeding
+^^^^^^^^^^
+
+Inbreeding is a result of mating/crossing related individuals. A measure of inbreeding is inbreeding coefficient, which measures identity between genomes of an individual. If parents of an individual were related, then the individual has a non-zero probability that its genomes are (partly) identical. Following the same notation as for the coefficient of `Coancestry`_, the coefficient of inbreeding is :math:`f_i=c_{i_1,i_2}`.
+
+Note that the coefficient of inbreeding of an individual is equal to the coefficient of `Coancestry`_ between its parents. To see this note that individuals' genomes are sampled from its parents, hence the probability that individuals' genomes are identical is the same as expected identity between genomes of its parents (=the coefficient of coancestry). |AM| uses this relationship to calculate the expected inbreeding of a mating/cross from the coancestries between contributors.
+
+See also `Rate of inbreeding`_, `Inbreeding depression`_, and `Coancestry`_ .
+
+See specification `TargetInbreeding`_.
+
+Inbreeding depression
+^^^^^^^^^^^^^^^^^^^^^
+
+Inbreeding depression is undesired reduction/increase in some traits of individuals, due to genetic "effects" that are common with inbreeding. One such "effect" is that inbreeding increases homozygosity and if an individual is homozygous for alleles that have undesired effect, then this leads to the so called depression. The latter is particularly the case when such alleles are recessive.
+
+See also `Inbreeding`_.
+
+Rate of coancestry
+^^^^^^^^^^^^^^^^^^
+
+Rate of coancestry measures proportional increase in coancestry between generations: :math:`\triangle C = (\overline{c}_{t+1} - \overline{c}_t) / (1 - \overline{c}_t)`. While the scale of `Coancestry`_ values depend on the type of input data and estimators, the rate of coancestry is scale free. Rate is also useful to set targets as we can use average/group coancestry in the current population :math:`\overline{c}_t` and the rate of coancestry :math:`\triangle C` to evaluate targeted coancestry in the next generation as: :math:`\overline{c}_{t+1} = \triangle C + (1 - \triangle C) * \overline{c}_t = \triangle C * (1 - \overline{c}_t) + \overline{c}_t`.
+
+See also `Coancestry`_, `Numerator relationship`_, `Group coancestry`_, and `Minimum percentage coancestry`_.
+
+See specification `TargetCoancestryRate`_.
+
+Rate of inbreeding
+^^^^^^^^^^^^^^^^^^
+
+Rate of inbreeding measures proportional increase in inbreeding between generations: :math:`\triangle F = (\overline{f}_{t+1} - \overline{f}_t) / (1 - \overline{f}_t)`. While the scale of `Inbreeding`_ values depend on the type of input data and estimators, the rate of inbreeding is scale free. Rate is also useful to set targets as we can use average inbreeding in the current population :math:`\overline{f}_t` and the rate of inbreeding :math:`\triangle F` to evaluate targeted inbreeding in the next generation as: :math:`\overline{f}_{t+1} = \triangle F + (1 - \triangle F) * \overline{f}_t = \triangle F * (1 - \overline{f}_t) + \overline{f}_t`.
+
+See also `Inbreeding`_ and `Rate of coancestry`_.
+
+See specification `TargetInbreedingRate`_.
+
+Minimum percentage coancestry
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Minimum percentage coancestry is a normalized measure of a range of achievable `Group coancestry`_. It ranges from 0 to 100. The value of 0 is chosen to be the group coancestry achieved with truncation selection (ignoring coancestry between individuals or inbreeding of matings/crosses). The value of 100 is chosen to be the group coancestry achieved with minimum possible group coancestry. See Figure 1 for a visual representation.
+
+See also `Coancestry`_, `Numerator relationship`_, `Group coancestry`_, and `Rate of coancestry`_.
+
+See specification `TargetMinCoancestryPct`_.
+
+Minimum percentage inbreeding
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Minimum percentage inbreeding is a normalized measure of a range of achievable `Inbreeding`_. It ranges from 0 to 100. The value of 0 is chosen to be the mean inbreeding of matings/crosses with truncation selection (ignoring coancestry between individuals or inbreeding of matings/crosses). The value of 100 is chosen to be the mean inbreeding of matings/crosses achieved with minimum possible group coancestry.
+
+See also `Inbreeding`_ and `Rate of inbreeding`_.
+
+See specification `TargetMinInbreedingPct`_.
+
+Trigonometric degrees
+^^^^^^^^^^^^^^^^^^^^^
+
+Trigonometric degrees describe the balance between the genetic gain and loss of genetic diversity in the context of Figure 1. Specifically, they measure the angle between the truncation selection solution (the y axis) and a balanced solution, all the way to the minimum group coancestry solution (the x axis) (Kinghorn, 2011: Appendix). This formulation assumes a unit circular shape of the Pareto frontier between genetic gain and group coancestry, which seems to hold approximately (Figure 1). Trigonometric degrees are therefore a handy measure of balance between the two most important and conflicting targets in breeding programs. They also allow for simple conversion from say targeted degrees to a targeted genetic gain and group coancestry and vice versa.
+
+* A solution with :math:`0^{\circ}` is the truncation selection solution that gives `Maximum percentage gain`_ of 100 and `Minimum percentage coancestry`_ of 0.
+* A solution with :math:`45^{\circ}` is the solution that gives `Maximum percentage gain`_ of 70.7 and `Minimum percentage coancestry`_ of 70.7.
+* A solution with :math:`90^{\circ}` is the minimum group coancestry solution that gives `Maximum percentage gain`_ of 0 and `Minimum percentage coancestry`_ of 100.
+
+We can calculate trigonometric degrees from:
+
+* `Maximum percentage gain`_       as :math:`acos(MaxCriterionPct  / 100) \times 180 / \pi` or
+* `Minimum percentage coancestry`_ as :math:`asin(MinCoancestryPct / 100) \times 180 / \pi`.
+
+We can calculate `Maximum percentage gain`_ from trigonometric degrees as :math:`cos(Degree \times \pi / 180) \times 100`.
+
+We can calculate `Minimum percentage coancestry`_ from trigonometric degrees as :math:`sin(Degree \times \pi / 180) \times 100`.
+
+With the above four formulas we can convert degrees to genetic gain and group coancestry and vice versa. |AM| uses this as a general way to convert between the various forms of specifying targeted genetic gain, targeted group coancestry, and trigonometric degrees. The following table shows the relationship between the trigonometric degrees and `Maximum percentage gain`_ and `Minimum percentage coancestry`_.
+
+::
+
+  Degree MaxPctGain MinPctCoancestry
+       0      100.0              0.0
+       5       99.6              8.7
+      10       98.5             17.4
+      15       96.6             25.9
+      20       94.0             34.2
+      25       90.6             42.3
+      30       86.6             50.0
+      35       81.9             57.4
+      40       76.6             64.3
+      45       70.7             70.7
+      50       64.3             76.6
+      55       57.4             81.9
+      60       50.0             86.6
+      65       42.3             90.6
+      70       34.2             94.0
+      75       25.9             96.6
+      80       17.4             98.5
+      85        8.7             99.6
+      90        0.0            100.0
+
+Note that the trigonometric degrees only describe balance of a particular solution or set targeted balance. Evolutionary algorithm works along these targets, but can go beyond the assumed circular shape of frontier.
+
+See specification `TargetDegree`_.
+
+Contributions
+^^^^^^^^^^^^^
+
+A contribution measures how many times a particular individual (contributor) will mate/cross. In |AM| we optimize absolute contributions :math:`n=0,1,2,...`. Contributions are sometimes also presented as proportional values: :math:`x=n/(2m)`, where :math:`m` is the total number of matings/crosses.
+
+References
+----------
+
+* Chen, S., Montgomery, J., Bolufe-Roehler, A. (2015) Measuring the curse of dimensionality and its effects on particle swarm optimization and differential evolution. Appl. Intell., 42, 514. `http://doi.org/10.1007/s10489-014-0613-2 <http://doi.org/10.1007/s10489-014-0613-2>`_
+
+* Deb, K. (2014) Multi-objective optimization. In: Search Methodologies, Springer, 403-449, `http://doi.org/10.1007/978-1-4614-6940-7_15 <http://doi.org/10.1007/978-1-4614-6940-7_15>`_.
+
+* Gondro, C., Kinghorn, B.P. (2009) Application of evolutionary algorithms to solve complex problems in quantitative genetics and bioinformatics. University of Guelph, 96p, `http://bkinghor.une.edu.au/Evolutionary_Algorithms_CGIL2008.pdf <http://bkinghor.une.edu.au/Evolutionary_Algorithms_CGIL2008.pdf>`_.
+
+* Kinghorn, B.P. (2011) An algorithm for efficient constrained mate selection. Genet. Sel. Evol., 43, `http://doi.org/10.1186/1297-9686-43-4 <http://doi.org/10.1186/1297-9686-43-4>`_.
+
+* Kinghorn, B.P., Shepherd, R.K. (1999) Mate selection for the tactical implementation of breeding programs. Assoc. Advmt. Anim. Breed. Genet. 13, 130-133, `http://www.aaabg.org/livestocklibrary/1999/AB99025.pdf <http://www.aaabg.org/livestocklibrary/1999/AB99025.pdf>`_.
+
+* Lampinen, J., Zelinka, I. (1999) Mixed variable non-linear optimization by differential evolution. Proceedings of Nostradamus, 99, 7-8, `http://pdfs.semanticscholar.org/26e0/8a8d1371c51d7b1e4634e5b3f6a501e29d73.pdf <http://pdfs.semanticscholar.org/26e0/8a8d1371c51d7b1e4634e5b3f6a501e29d73.pdf>`_.
+
+* Montgomery, J. Chen, S. (2010) An analysis of the operation of differential evolution at high and low crossover rates. In: IEEE Congress on Evolutionary Computation, `http://doi.org/10.1109/CEC.2010.5586128 <http://doi.org/10.1109/CEC.2010.5586128>`_.
+
+* Storn, R. Price, K., (1997) Differential evolution - a simple and efficient heuristic for global optimization over continuous spaces. J. Global Optim., 11, 341-359, `http://doi.org/10.1023/A:1008202821328 <http://doi.org/10.1023/A:1008202821328>`_.
+
+Known issues/bugs
+-----------------
+
+There are currently no known issues and hopefully no bugs. Please report errors to the authors.
+
+..
+  Below is a list of known issues or bugs, that we have not (yet) found a way to solve. They might get solved eventually.
+
+  IssueX
+  ^^^^^^

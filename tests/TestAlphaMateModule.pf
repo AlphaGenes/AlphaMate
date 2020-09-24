@@ -1,0 +1,390 @@
+
+!###############################################################################
+
+module TestAlphaMateModule
+  use ISO_Fortran_env, STDOUT => output_unit
+  use pFUnit_mod
+  use AlphaMateModule
+
+  implicit none
+
+  CHARACTER(len=100), PARAMETER :: TESTNRMFILE     = "TestNrm.txt"
+  CHARACTER(len=100), PARAMETER :: TESTSELCRITFILE = "TestSelCrit.txt"
+  CHARACTER(len=100), PARAMETER :: TESTGENDERFILE  = "TestGender.txt"
+  CHARACTER(len=100), PARAMETER :: TESTSPECFILE    = "TestSpec.txt"
+
+  real(real64) :: TolR64=0.0000000000001
+
+  contains
+
+    !###########################################################################
+
+    @before
+    subroutine Setup
+      implicit none
+    end subroutine
+
+    !###########################################################################
+
+    @after
+    subroutine Finish
+      implicit none
+    end subroutine
+
+    !###########################################################################
+
+    ! Files
+
+      !#########################################################################
+
+      subroutine CreateNrmFile
+        implicit none
+        integer(int32) :: Unit
+        open(newunit=Unit, file=TESTNRMFILE, action="write", status="unknown")
+        write(Unit, "(a)") "A 1.00 0.00 0.00 0.25 0.50" ! 120
+        write(Unit, "(a)") "B 0.00 1.25 0.50 0.25 0.00" ! 130
+        write(Unit, "(a)") "C 0.00 0.50 1.00 0.05 0.05" !  90
+        write(Unit, "(a)") "D 0.25 0.25 0.05 1.00 0.10" ! 100
+        write(Unit, "(a)") "E 0.50 0.00 0.05 0.10 1.10" ! 115
+        close(Unit)
+      end subroutine
+
+      !#########################################################################
+
+      subroutine DeleteNrmFile
+        implicit none
+        integer(int32) :: Unit
+        open(newunit=Unit, file=TESTNRMFILE, status="old")
+        close(Unit, status="delete")
+      end subroutine
+
+      !#########################################################################
+
+      subroutine CreateSelCritFile
+        implicit none
+        integer(int32) :: Unit
+        open(newunit=Unit, file=TESTSELCRITFILE, action="write", status="unknown")
+        write(Unit, "(a)") "A 120"
+        write(Unit, "(a)") "B 130"
+        write(Unit, "(a)") "C  90"
+        write(Unit, "(a)") "D 100"
+        write(Unit, "(a)") "E 115"
+        close(Unit)
+      end subroutine
+
+      !#########################################################################
+
+      subroutine DeleteSelCritFile
+        implicit none
+        integer(int32) :: Unit
+        open(newunit=Unit, file=TESTSELCRITFILE, status="old")
+        close(Unit, status="delete")
+      end subroutine
+
+      !#########################################################################
+
+      subroutine CreateGenderFile
+        implicit none
+        integer(int32) :: Unit
+        open(newunit=Unit, file=TESTGENDERFILE, action="write", status="unknown")
+        write(Unit, "(a)") "A 1"
+        write(Unit, "(a)") "B 1"
+        write(Unit, "(a)") "C 2"
+        write(Unit, "(a)") "D 2"
+        write(Unit, "(a)") "E 2"
+        close(Unit)
+      end subroutine
+
+      !#########################################################################
+
+      subroutine DeleteGenderFile
+        implicit none
+        integer(int32) :: Unit
+        open(newunit=Unit, file=TESTGENDERFILE, status="old")
+        close(Unit, status="delete")
+      end subroutine
+
+      !#########################################################################
+
+      subroutine DeleteSpecFile
+        implicit none
+        integer(int32) :: Unit
+        open(newunit=Unit, file=TESTSPECFILE, status="old")
+        close(Unit, status="delete")
+      end subroutine
+
+      !#########################################################################
+
+      subroutine DeleteAlphaMateFiles
+        implicit none
+        integer(int32) :: Unit, File
+        character(len=100), dimension(12) :: FILES
+        FILES( 1) = "CoancestrySummary.txt"
+        FILES( 2) = "ContributionsModeMinCoancestry.txt"
+        FILES( 3) = "ContributionsModeOpt.txt"
+        FILES( 4) = "InbreedingSummary.txt"
+        FILES( 5) = "MatingPlanModeMinCoancestry.txt"
+        FILES( 6) = "MatingPlanModeOpt.txt"
+        FILES( 7) = "OptimisationLogModeMinCoancestry.txt"
+        FILES( 8) = "OptimisationLogModeOpt.txt"
+        FILES( 9) = "OptimisationLogPopModeMinCoancestry.txt"
+        FILES(10) = "OptimisationLogPopModeOpt.txt"
+        FILES(11) = "SeedUsed.txt"
+        FILES(12) = "SelCriterionSummary.txt"
+        do File = 1, size(FILES)
+          open(newunit=Unit, file=FILES(File), status="old")
+          close(Unit, status="delete")
+        end do
+      end subroutine
+
+      !#########################################################################
+
+    !###########################################################################
+
+    ! AlphaMate tests
+
+      !#########################################################################
+
+      @test
+      subroutine TestAlphaMate
+        implicit none
+        integer(int32) :: Unit
+        logical :: LogStdout
+        type(AlphaMateSpec) :: Spec
+        type(AlphaMateData) :: Data
+
+        call CreateNrmFile
+        call CreateSelCritFile
+        call CreateGenderFile
+
+        open(newunit=Unit, file=TESTSPECFILE, action="write", status="unknown")
+        write(Unit, "(a)") "ModeOpt, Yes"
+        write(Unit, "(a)") "ModeMinCoancestry, Yes"
+        write(Unit, "(2a)") "NrmMatrixFile,", TESTNRMFILE
+        write(Unit, "(2a)") "SelCriterionFile,", TESTSELCRITFILE
+        write(Unit, "(2a)") "GenderFile,", TESTGENDERFILE
+        write(Unit, "(a)") "NumberOfMatings, 2"
+        write(Unit, "(a)") "NumberOfMaleParents, 2"
+        write(Unit, "(a)") "NumberOfFemaleParents, 2"
+        write(Unit, "(a)") "TargetDegree, 10"
+        write(Unit, "(a)") "EvaluateFrontier, Yes"
+        ! write(Unit, "(a)") "TargetCoancestryRate, 0.01"
+        write(Unit, "(a)") "TargetCoancestryRateWeight, -100.0"
+        write(Unit, "(a)") "TargetInbreedingRate, 0.1"
+        ! write(Unit, "(a)") "TargetInbreedingRateWeight, -100.0"
+        write(Unit, "(a)") "EvolAlgNumberOfSolutions, 10"
+        write(Unit, "(a)") "EvolAlgNumberOfIterations, 10"
+        write(Unit, "(a)") "EvolAlgNumberOfIterationsPrint, 1"
+        write(Unit, "(a)") "EvolAlgLogAllSolutions, Yes"
+        write(Unit, "(a)") "Seed, 19791123"
+        write(Unit, "(a)") "Stop"
+        close(Unit)
+
+        LogStdout = .false.
+        LogStdout = .true.
+
+        call Spec%Read(SpecFile=TESTSPECFILE, LogStdout=LogStdout)
+        ! call Spec%Write
+
+        call Data%Read(Spec=Spec, LogStdout=LogStdout)
+        ! call Data%Write
+
+        call AlphaMateSearch(Spec=Spec, Data=Data, LogStdout=LogStdout)
+
+! Best with target_dC > 0.035 & weight = 100
+! 2x5 & 1x4, x'a = 116.25, x'Ax = 0.2047, dC = 0.036, F = 0.062, dF = -0.081
+
+! 2x4 & 1x5, x'a = 116.25, x'Ax = 0.2047, dC = 0.036, F = 0.188, dF =  0.126
+
+! Best with target_dC = 0.03 & weight = 100
+! 2x3 & 1x5, x'a = 113.75, x'Ax = 0.2016, dC = 0.032, F = 0.250, dF =  0.193
+
+! Best with target_dC = 0.025 & weight = 100
+! Best with target_dC = 0.020 & weight = 100
+! 2x3 & 1x4, x'a = 110.00, x'Ax = 0.1984, dC = 0.028, F = 0.188, dF =  0.126
+
+! Best with target_dC > 0.035 & weight = 100 & target_dF=0.1 & weight = 100
+! 1x3 & 2x4, x'a = 110.00, x'Ax = 0.1984, dC = 0.028, F = 0.062, dF = -0.008
+
+        call DeleteNrmFile
+        call DeleteSelCritFile
+        call DeleteGenderFile
+        call DeleteSpecFile
+        ! call DeleteAlphaMateFiles
+      end subroutine
+
+      !#########################################################################
+
+      @test
+      subroutine TestSelCriterion2SelCriterionStd
+        implicit none
+        @AssertEqual( 0.00d0, SelCriterion2SelCriterionStd( 1.0d0,  1.0d0, 1.0d0), TolR64, "SelCriterion2SelCriterionStd( 1.0d0,  1.0d0, 1.0d0) failed")
+        @AssertEqual( 1.00d0, SelCriterion2SelCriterionStd(13.0d0, 10.0d0, 3.0d0), TolR64, "SelCriterion2SelCriterionStd(13.0d0, 1.00d0, 3.0d0) failed")
+        @AssertEqual(-1.00d0, SelCriterion2SelCriterionStd( 7.0d0, 10.0d0, 3.0d0), TolR64, "SelCriterion2SelCriterionStd( 7.0d0, 1.00d0, 3.0d0) failed")
+        @AssertEqual([ -1.0d0, 0.0d0, 1.0d0], SelCriterion2SelCriterionStd([7.00d0, 10.0d0, 13.0d0], 10.0d0, 3.0d0), TolR64, "SelCriterion2SelCriterionStd([7.00d0, 10.0d0, 13.0d0], 10.0d0, 3.0d0) failed")
+      end subroutine
+
+      !#########################################################################
+
+      @test
+      subroutine TestSelCriterionStd2SelCriterion
+        implicit none
+        @AssertEqual( 1.00d0, SelCriterionStd2SelCriterion( 0.0d0,  1.0d0, 1.0d0), TolR64, "SelCriterionStd2SelCriterion( 0.0d0,  1.0d0, 1.0d0) failed")
+        @AssertEqual(13.00d0, SelCriterionStd2SelCriterion( 1.0d0, 10.0d0, 3.0d0), TolR64, "SelCriterionStd2SelCriterion( 1.0d0, 1.00d0, 3.0d0) failed")
+        @AssertEqual( 7.00d0, SelCriterionStd2SelCriterion(-1.0d0, 10.0d0, 3.0d0), TolR64, "SelCriterionStd2SelCriterion(-1.0d0, 1.00d0, 3.0d0) failed")
+        @AssertEqual([7.00d0, 10.0d0, 13.0d0], SelCriterionStd2SelCriterion([ -1.0d0, 0.0d0, 1.0d0], 10.0d0, 3.0d0), TolR64, "SelCriterionStd2SelCriterion([ -1.0d0, 0.0d0, 1.0d0], 10.0d0, 3.0d0) failed")
+      end subroutine
+
+      !#########################################################################
+
+      @test
+      subroutine TestCoancestry2CoancestryRate
+        implicit none
+        @AssertEqual( 0.1d0, Coancestry2CoancestryRate( 0.0d0,  0.10d0), TolR64, "Coancestry2CoancestryRate( 0.0d0,  0.10d0) failed")
+        @AssertEqual( 0.1d0, Coancestry2CoancestryRate( 0.1d0,  0.19d0), TolR64, "Coancestry2CoancestryRate( 0.1d0,  0.19d0) failed")
+        @AssertEqual( 0.1d0, Coancestry2CoancestryRate(-0.1d0,  0.01d0), TolR64, "Coancestry2CoancestryRate(-0.1d0,  0.01d0) failed")
+        @AssertEqual(-0.1d0, Coancestry2CoancestryRate( 0.1d0,  0.01d0), TolR64, "Coancestry2CoancestryRate( 0.1d0,  0.01d0) failed")
+        @AssertEqual(-0.1d0, Coancestry2CoancestryRate(-0.1d0, -0.21d0), TolR64, "Coancestry2CoancestryRate(-0.1d0, -0.21d0) failed")
+      end subroutine
+
+      !#########################################################################
+
+      @test
+      subroutine TestCoancestryRate2Coancestry
+        implicit none
+        @AssertEqual( 0.10d0, CoancestryRate2Coancestry( 0.1d0,  0.0d0), TolR64, "CoancestryRate2Coancestry( 0.1d0,  0.0d0) failed")
+        @AssertEqual( 0.19d0, CoancestryRate2Coancestry( 0.1d0,  0.1d0), TolR64, "CoancestryRate2Coancestry( 0.1d0,  0.1d0) failed")
+        @AssertEqual( 0.01d0, CoancestryRate2Coancestry( 0.1d0, -0.1d0), TolR64, "CoancestryRate2Coancestry( 0.1d0, -0.1d0) failed")
+        @AssertEqual( 0.01d0, CoancestryRate2Coancestry(-0.1d0,  0.1d0), TolR64, "CoancestryRate2Coancestry(-0.1d0,  0.1d0) failed")
+        @AssertEqual(-0.21d0, CoancestryRate2Coancestry(-0.1d0, -0.1d0), TolR64, "CoancestryRate2Coancestry(-0.1d0,  0.1d0) failed")
+      end subroutine
+
+      !#########################################################################
+
+      @test
+      subroutine TestMinCoancestryPct2Degree
+        implicit none
+        @AssertEqual(90.0d0, MinCoancestryPct2Degree(100.0d0), TolR64, "MinCoancestryPct2Degree(100) failed")
+        @AssertEqual(30.0d0, MinCoancestryPct2Degree( 50.0d0), TolR64, "MinCoancestryPct2Degree( 50) failed")
+        @AssertEqual( 0.0d0, MinCoancestryPct2Degree(  0.0d0), TolR64, "MinCoancestryPct2Degree(  0) failed")
+      end subroutine
+
+      !#########################################################################
+
+      @test
+      subroutine TestDegree2MinCoancestryPct
+        implicit none
+        @AssertEqual(  0.0d0, Degree2MinCoancestryPct( 0.0d0), TolR64, "Degree2MinCoancestryPct( 0) failed")
+        @AssertEqual( 50.0d0, Degree2MinCoancestryPct(30.0d0), TolR64, "Degree2MinCoancestryPct(30) failed")
+        @AssertEqual(100.0d0, Degree2MinCoancestryPct(90.0d0), TolR64, "Degree2MinCoancestryPct(90) failed")
+      end subroutine
+
+      !#########################################################################
+
+      @test
+      subroutine TestMaxCriterionPct2Degree
+        implicit none
+        @AssertEqual( 0.0d0, MaxCriterionPct2Degree(100.0d0), TolR64, "MaxCriterionPct2Degree(100) failed")
+        @AssertEqual(60.0d0, MaxCriterionPct2Degree( 50.0d0), TolR64, "MaxCriterionPct2Degree( 50) failed")
+        @AssertEqual(90.0d0, MaxCriterionPct2Degree(  0.0d0), TolR64, "MaxCriterionPct2Degree(  0) failed")
+      end subroutine
+
+      !#########################################################################
+
+      @test
+      subroutine TestDegree2MaxCriterionPct
+        implicit none
+        @AssertEqual(100.0d0, Degree2MaxCriterionPct( 0.0d0), TolR64, "Degree2MaxCriterionPct( 0) failed")
+        @AssertEqual( 50.0d0, Degree2MaxCriterionPct(60.0d0), TolR64, "Degree2MaxCriterionPct(60) failed")
+        @AssertEqual(  0.0d0, Degree2MaxCriterionPct(90.0d0), TolR64, "Degree2MaxCriterionPct(90) failed")
+      end subroutine
+
+      !#########################################################################
+
+      @test
+      subroutine TestMinCoancestryPct2CoancestryRate
+        implicit none
+        @AssertEqual(1.0d0, MinCoancestryPct2CoancestryRate( 0.0d0,  0.0d0, 1.0d0), TolR64, "MinCoancestryPct2CoancestryRate( 0.0d0,  0.0d0, 1.0d0) failed")
+        @AssertEqual(0.5d0, MinCoancestryPct2CoancestryRate(50.0d0,  0.0d0, 1.0d0), TolR64, "MinCoancestryPct2CoancestryRate(50.0d0,  0.0d0, 1.0d0) failed")
+        @AssertEqual(0.0d0, MinCoancestryPct2CoancestryRate(50.0d0, -1.0d0, 1.0d0), TolR64, "MinCoancestryPct2CoancestryRate(50.0d0, -1.0d0, 1.0d0) failed")
+      end subroutine
+
+      !#########################################################################
+
+      @test
+      subroutine TestCoancestryRate2MinCoancestryPct
+        implicit none
+        @AssertEqual( 0.0d0, CoancestryRate2MinCoancestryPct(1.0d0,  0.0d0, 1.0d0), TolR64, "CoancestryRate2MinCoancestryPct(1.0d0,  0.0d0, 1.0d0) failed")
+        @AssertEqual(50.0d0, CoancestryRate2MinCoancestryPct(0.5d0,  0.0d0, 1.0d0), TolR64, "CoancestryRate2MinCoancestryPct(0.5d0,  0.0d0, 1.0d0) failed")
+        @AssertEqual(50.0d0, CoancestryRate2MinCoancestryPct(0.0d0, -1.0d0, 1.0d0), TolR64, "CoancestryRate2MinCoancestryPct(0.0d0, -1.0d0, 1.0d0) failed")
+      end subroutine
+
+      !#########################################################################
+
+      @test
+      subroutine TestMaxCriterionPct2SelCriterionStd
+        implicit none
+        @AssertEqual(0.0d0, MaxCriterionPct2SelCriterionStd(  0.0d0,  0.0d0, 1.0d0), TolR64, "MaxCriterionPct2SelCriterionStd(  0.0d0,  0.0d0, 1.0d0) failed")
+        @AssertEqual(0.5d0, MaxCriterionPct2SelCriterionStd( 50.0d0,  0.0d0, 1.0d0), TolR64, "MaxCriterionPct2SelCriterionStd( 50.0d0,  0.0d0, 1.0d0) failed")
+        @AssertEqual(1.0d0, MaxCriterionPct2SelCriterionStd(100.0d0,  0.0d0, 1.0d0), TolR64, "MaxCriterionPct2SelCriterionStd(100.0d0,  0.0d0, 1.0d0) failed")
+        @AssertEqual(0.0d0, MaxCriterionPct2SelCriterionStd( 50.0d0, -1.0d0, 1.0d0), TolR64, "MaxCriterionPct2SelCriterionStd( 50.0d0, -1.0d0, 1.0d0) failed")
+      end subroutine
+
+      !#########################################################################
+
+      @test
+      subroutine TestSelCriterionStd2MaxCriterionPct
+        implicit none
+        @AssertEqual(  0.0d0, SelCriterionStd2MaxCriterionPct( 0.0d0,  0.0d0, 1.0d0), TolR64, "SelCriterionStd2MaxCriterionPct(0.0d0,  0.0d0, 1.0d0) failed")
+        @AssertEqual( 50.0d0, SelCriterionStd2MaxCriterionPct( 0.5d0,  0.0d0, 1.0d0), TolR64, "SelCriterionStd2MaxCriterionPct(0.5d0,  0.0d0, 1.0d0) failed")
+        @AssertEqual(100.0d0, SelCriterionStd2MaxCriterionPct( 1.0d0,  0.0d0, 1.0d0), TolR64, "SelCriterionStd2MaxCriterionPct(1.0d0,  0.0d0, 1.0d0) failed")
+        @AssertEqual( 50.0d0, SelCriterionStd2MaxCriterionPct( 0.0d0, -1.0d0, 1.0d0), TolR64, "SelCriterionStd2MaxCriterionPct(0.0d0, -1.0d0, 1.0d0) failed")
+      end subroutine
+
+      !#########################################################################
+
+      @test
+      subroutine TestDegree2SelCriterionStd
+        implicit none
+        @AssertEqual(1.0d0, Degree2SelCriterionStd( 0.0d0,  0.0d0, 1.0d0), TolR64, "Degree2SelCriterionStd( 0.0d0,  0.0d0, 1.0d0) failed")
+        @AssertEqual(0.5d0, Degree2SelCriterionStd(60.0d0,  0.0d0, 1.0d0), TolR64, "Degree2SelCriterionStd(60.0d0,  0.0d0, 1.0d0) failed")
+        @AssertEqual(0.0d0, Degree2SelCriterionStd(90.0d0,  0.0d0, 1.0d0), TolR64, "Degree2SelCriterionStd(90.0d0,  0.0d0, 1.0d0) failed")
+      end subroutine
+
+      !#########################################################################
+
+      @test
+      subroutine TestSelCriterionStd2Degree
+        implicit none
+        @AssertEqual( 0.0d0, SelCriterionStd2Degree(1.0d0,  0.0d0, 1.0d0), TolR64, "SelCriterionStd2Degree(1.0d0,  0.0d0, 1.0d0) failed")
+        @AssertEqual(60.0d0, SelCriterionStd2Degree(0.5d0,  0.0d0, 1.0d0), TolR64, "SelCriterionStd2Degree(0.5d0,  0.0d0, 1.0d0) failed")
+        @AssertEqual(90.0d0, SelCriterionStd2Degree(0.0d0,  0.0d0, 1.0d0), TolR64, "SelCriterionStd2Degree(0.0d0,  0.0d0, 1.0d0) failed")
+      end subroutine
+
+      !#########################################################################
+
+      @test
+      subroutine TestDegree2CoancestryRate
+        implicit none
+        @AssertEqual(1.0d0, Degree2CoancestryRate( 0.0d0,  0.0d0, 1.0d0), TolR64, "Degree2CoancestryRate( 0.0d0,  0.0d0, 1.0d0) failed")
+        @AssertEqual(0.5d0, Degree2CoancestryRate(30.0d0,  0.0d0, 1.0d0), TolR64, "Degree2CoancestryRate(30.0d0,  0.0d0, 1.0d0) failed")
+        @AssertEqual(0.0d0, Degree2CoancestryRate(90.0d0,  0.0d0, 1.0d0), TolR64, "Degree2CoancestryRate(90.0d0,  0.0d0, 1.0d0) failed")
+      end subroutine
+
+      !#########################################################################
+
+      @test
+      subroutine TestCoancestryRate2Degree
+        implicit none
+        @AssertEqual( 0.0d0, CoancestryRate2Degree(1.0d0,  0.0d0, 1.0d0), TolR64, "CoancestryRate2Degree(1.0d0,  0.0d0, 1.0d0) failed")
+        @AssertEqual(30.0d0, CoancestryRate2Degree(0.5d0,  0.0d0, 1.0d0), TolR64, "CoancestryRate2Degree(0.5d0,  0.0d0, 1.0d0) failed")
+        @AssertEqual(90.0d0, CoancestryRate2Degree(0.0d0,  0.0d0, 1.0d0), TolR64, "CoancestryRate2Degree(0.0d0,  0.0d0, 1.0d0) failed")
+      end subroutine
+
+      !#########################################################################
+
+    !###########################################################################
+
+end module
+
+!###############################################################################
