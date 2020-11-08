@@ -3479,6 +3479,7 @@ module AlphaMateModule
         if (Spec%nPar1 .eq. 0 .and. Spec%nMat .gt. 0) then
           write(STDOUT, "(a)") " NOTE: When the number of male parents is not provided and the number of matings/crosses is,"
           write(STDOUT, "(a)") "          it is set to the minimum of the number of males and the number of matings/crosses"
+          write(STDOUT, "(a)") "          (the actually used number of male parents will depend on other specifications)"
           Spec%nPar1 = minval([This%nMal, Spec%nMat])
           write(STDOUT, "(a)") "       The number of male parents: "//trim(Int2Char(Spec%nPar1))
           write(STDOUT, "(a)") " "
@@ -3494,6 +3495,7 @@ module AlphaMateModule
         if (Spec%nPar2 .eq. 0 .and. Spec%nMat .gt. 0) then
           write(STDOUT, "(a)") " NOTE: When the number of female parents is not provided and the number of matings/crosses is,"
           write(STDOUT, "(a)") "          it is set to the minimum of the number of female and the number of matings/crosses"
+          write(STDOUT, "(a)") "          (the actually used number of female parents will depend on other specifications)"
           Spec%nPar2 = minval([This%nFem, Spec%nMat])
           write(STDOUT, "(a)") "       The number of female parents: "//trim(Int2Char(Spec%nPar2))
           write(STDOUT, "(a)") " "
