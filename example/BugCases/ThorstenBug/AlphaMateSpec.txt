@@ -1,9 +1,0 @@
-Seed , 1
-NrmMatrixFile , Nrm.txt
-SelCriterionFile , Criterion.txt
-NumberOfMatings , 15
-NumberOfParents , 30
-TargetDegree , 50
-LimitContributions , Yes
-LimitContributionsMax , 1
-Stop
