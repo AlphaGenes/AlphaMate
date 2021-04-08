@@ -5,7 +5,7 @@ FOUNDERPOP = runMacs(nInd = 10000,
                      segSites = 2000,
                      inbred = FALSE)
 SP = SimParam$new(founderPop = FOUNDERPOP)
-SP$setGender(gender = "yes_sys")
+SP$setSexes(gender = "yes_sys")
 SP$addSnpChip(nSnpPerChr = 1000)
 SP$addTraitA(nQtlPerChr = 1000, mean = 0, var = 1)
 
