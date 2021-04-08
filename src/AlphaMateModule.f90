@@ -3360,8 +3360,7 @@ module AlphaMateModule
 
       ! --- Gender (and number of parents when not provided as a limit/constraint) ---
 
-! TODO
-
+! TODO - What?
 
       allocate(This%Gender(This%nInd))
       if (.not. Spec%GenderGiven) then
@@ -3452,6 +3451,7 @@ module AlphaMateModule
         open(newunit=GenderUnit, file=Spec%GenderFile, status="old")
         do Ind = 1, This%nInd
           read(GenderUnit, *) IdCTmp, GenderTmp
+          !print*, IdCTmp, GenderTmp
           if      (GenderTmp .eq. 1) then
             This%nMal = This%nMal + 1
           else if (GenderTmp .eq. 2) then
@@ -3462,7 +3462,7 @@ module AlphaMateModule
             write(STDERR, "(a)") " "
             stop 1
           end if
-          IndLoc = This%Coancestry%OriginalIdDict%GetValue(key=IdCTmp);
+          IndLoc = This%Coancestry%OriginalIdDict%GetValue(key=IdCTmp)
           if (IndLoc .eq. DICT_NULL) then
             write(STDERR, "(a)") " ERROR: Individual "//trim(IdCTmp)//" from the gender file"
             write(STDERR, "(a)") "          not present in the coancestry matrix file!"
@@ -3895,6 +3895,7 @@ module AlphaMateModule
       end if
 
       if (Spec%GenderGiven) then
+!        print*, This%IdPotPar1
         This%CoancestryStatGender1    = DescStatMatrix(FLOATFUN(This%Coancestry%Value(This%IdPotPar1, This%IdPotPar1)))
         This%CoancestryStatGender2    = DescStatMatrix(FLOATFUN(This%Coancestry%Value(This%IdPotPar2, This%IdPotPar2)))
         This%CoancestryStatGenderDiff = DescStatMatrix(FLOATFUN(This%Coancestry%Value(This%IdPotPar1, This%IdPotPar2)))
@@ -4898,13 +4899,13 @@ module AlphaMateModule
                 ! if (Spec%ModeSpec%ObjectiveCoancestry) then
                 !   Rank(1:Spec%PreselectPar1N) = RapKnr(-Data%AvgCoancestry(Data%IdPotPar1), Spec%PreselectPar1N) ! preselect contributors
                 !   TmpVec(1:Spec%PreselectPar1N) = SChrom%ContPar1(Rank(1:Spec%PreselectPar1N))                   ! save contributors
-                !   SChrom%ContPar1 = 0.0                                                                        ! set everyones contributions to zero
+                !   SChrom%ContPar1 = 0.0                                                                          ! set everyones contributions to zero
                 !   SChrom%ContPar1(Rank(1:Spec%PreselectPar1N)) = TmpVec(1:Spec%PreselectPar1N)                   ! put contributors back
                 ! end if
                 if (Spec%ModeSpec%ObjectiveCriterion) then
                   Rank(1:Spec%PreselectPar1N) = RapKnr(Data%SelCriterionStd(Data%IdPotPar1),  Spec%PreselectPar1N) ! preselect contributors
                   TmpVec(1:Spec%PreselectPar1N) = SChrom%ContPar1(Rank(1:Spec%PreselectPar1N))                     ! save contributors
-                  SChrom%ContPar1 = 0.0                                                                          ! set everyones contributions to zero
+                  SChrom%ContPar1 = 0.0                                                                            ! set everyones contributions to zero
                   SChrom%ContPar1(Rank(1:Spec%PreselectPar1N)) = TmpVec(1:Spec%PreselectPar1N)                     ! put contributors back
                 end if
               end if
@@ -4921,7 +4922,7 @@ module AlphaMateModule
                 end if
               else                        ! ... unequal contributions
                 TmpVec(1:Spec%nPar1) = SChrom%ContPar1(Rank(1:Spec%nPar1)) ! save top contributions
-                SChrom%ContPar1 = 0.0                                    ! set everyones contributions to zero
+                SChrom%ContPar1 = 0.0                                      ! set everyones contributions to zero
                 SChrom%ContPar1(Rank(1:Spec%nPar1)) = TmpVec(1:Spec%nPar1) ! put top contributions back
                 nCumMat = 0
                 do i = 1, Spec%nPar1
@@ -5016,13 +5017,13 @@ module AlphaMateModule
                   ! if (Spec%ModeSpec%ObjectiveCoancestry) then
                   !   Rank(1:Spec%PreselectPar2N) = RapKnr(-Data%AvgCoancestry(Data%IdPotPar2), Spec%PreselectPar2N) ! preselect contributors
                   !   TmpVec(1:Spec%PreselectPar2N) = SChrom%ContPar2(Rank(1:Spec%PreselectPar2N))                   ! save contributors
-                  !   SChrom%ContPar2 = 0.0                                                                        ! set everyones contributions to zero
+                  !   SChrom%ContPar2 = 0.0                                                                          ! set everyones contributions to zero
                   !   SChrom%ContPar2(Rank(1:Spec%PreselectPar2N)) = TmpVec(1:Spec%PreselectPar2N)                   ! put contributors back
                   ! end if
                   if (Spec%ModeSpec%ObjectiveCriterion) then
                     Rank(1:Spec%PreselectPar2N) = RapKnr(Data%SelCriterionStd(Data%IdPotPar2),  Spec%PreselectPar2N) ! preselect contributors
                     TmpVec(1:Spec%PreselectPar2N) = SChrom%ContPar2(Rank(1:Spec%PreselectPar2N))                     ! save contributors
-                    SChrom%ContPar2 = 0.0                                                                          ! set everyones contributions to zero
+                    SChrom%ContPar2 = 0.0                                                                            ! set everyones contributions to zero
                     SChrom%ContPar2(Rank(1:Spec%PreselectPar2N)) = TmpVec(1:Spec%PreselectPar2N)                     ! put contributors back
                   end if
                 end if
@@ -5039,7 +5040,7 @@ module AlphaMateModule
                   end if
                 else                        ! ... unequal contributions
                   TmpVec(1:Spec%nPar2) = SChrom%ContPar2(Rank(1:Spec%nPar2)) ! save top contributions
-                  SChrom%ContPar2 = 0.0                                    ! set everyones contributions to zero
+                  SChrom%ContPar2 = 0.0                                      ! set everyones contributions to zero
                   SChrom%ContPar2(Rank(1:Spec%nPar2)) = TmpVec(1:Spec%nPar2) ! put top contributions back
                   nCumMat = 0
                   do i = 1, Spec%nPar2
@@ -5088,9 +5089,11 @@ module AlphaMateModule
                   do while (nCumMat .lt. Spec%nMat)
                     ! ... add more contributions to randomly chosen individuals
                     RanNumLoc = RanNumLoc + 1
+print*, "Here1start-before-the-loop!", RanNumLoc, RanNum(RanNumLoc), RanNum(RanNumLoc) * Spec%nPar2, i, j
                     i = int(RanNum(RanNumLoc) * Spec%nPar2) + 1
                     j = Rank(i)
                     if (nint(SChrom%ContPar2(j) + 1) .le. Spec%LimitPar2Max) then ! make sure we do not go above max
+print*, "Here1end-within-the-loop!"
                       SChrom%ContPar2(j) = SChrom%ContPar2(j) + 1.0
                       ! ... accumulate
                       nCumMat = nCumMat + 1
@@ -5108,6 +5111,7 @@ module AlphaMateModule
                         exit
                       end if
                     end if
+print*, "Here1end-after-the-loop!"
                   end do
                 end if
               end if
@@ -5597,7 +5601,9 @@ module AlphaMateModule
                   ! Lower triangle to speedup lookup
                   TmpMax = maxval(This%MatingPlan(:, j))
                   TmpMin = minval(This%MatingPlan(:, j))
+!print*,TmpMax,TmpMin,TmpR,"before"
                   TmpR = TmpR + Data%Coancestry%Value(TmpMax, TmpMin)
+!print*,TmpMax,TmpMin,TmpR,"after"
                 end do
                 ! @todo different number of progeny per mating? Might be relevant for in-vitro fertilisation
                 This%Inbreeding = TmpR / Spec%nMat
